@@ -52,7 +52,7 @@ struct CrewMemberResponse: Codable, Identifiable {
     let totalSessions7d: Int?
     let totalMinutes7d: Int?
     let activityScore: Int?
-    let createdAt: Date?
+    let createdAt: String?
 
     var displayName: String {
         if let pseudo = pseudo, !pseudo.isEmpty {
@@ -136,19 +136,21 @@ struct SearchUserResult: Codable, Identifiable {
 
 /// Leaderboard entry
 struct LeaderboardEntry: Codable, Identifiable {
-    let rank: Int
+    let rank: Int?
     let id: String
     let pseudo: String?
     let firstName: String?
     let lastName: String?
     let avatarUrl: String?
     let dayVisibility: String?
-    let totalSessions7d: Int
-    let totalMinutes7d: Int
-    let completedRoutines7d: Int
-    let activityScore: Int
-    let lastActive: Date?
-    let isCrewMember: Bool
+    let totalSessions7d: Int?
+    let totalMinutes7d: Int?
+    let completedRoutines7d: Int?
+    let activityScore: Int?
+    let lastActive: String?
+    let isCrewMember: Bool?
+    let hasPendingRequest: Bool?
+    let requestDirection: String?  // "outgoing" or "incoming"
 
     var displayName: String {
         if let pseudo = pseudo, !pseudo.isEmpty {
@@ -164,13 +166,19 @@ struct LeaderboardEntry: Codable, Identifiable {
     }
 
     var formattedFocusTime: String {
-        let hours = totalMinutes7d / 60
-        let minutes = totalMinutes7d % 60
+        let minutes = totalMinutes7d ?? 0
+        let hours = minutes / 60
+        let mins = minutes % 60
         if hours > 0 {
-            return "\(hours)h \(minutes)m"
+            return "\(hours)h \(mins)m"
         }
-        return "\(minutes)m"
+        return "\(mins)m"
     }
+
+    var safeRank: Int { rank ?? 0 }
+    var safeActivityScore: Int { activityScore ?? 0 }
+    var safeIsCrewMember: Bool { isCrewMember ?? false }
+    var safeHasPendingRequest: Bool { hasPendingRequest ?? false }
 }
 
 /// Crew member's day data
@@ -179,6 +187,45 @@ struct CrewMemberDayResponse: Codable {
     let intentions: [CrewIntention]?
     let focusSessions: [CrewFocusSession]?
     let completedRoutines: [CrewCompletedRoutine]?
+    let routines: [CrewRoutine]?
+    let stats: CrewMemberStats?
+}
+
+/// Stats for a crew member
+struct CrewMemberStats: Codable {
+    let weeklyFocusMinutes: [DailyStat]?
+    let weeklyRoutinesDone: [DailyStat]?
+    let weeklyTotalFocus: Int?
+    let weeklyTotalRoutines: Int?
+    let weeklyAvgFocus: Int?
+    let weeklyRoutineRate: Int?
+
+    let monthlyFocusMinutes: [DailyStat]?
+    let monthlyRoutinesDone: [DailyStat]?
+    let monthlyTotalFocus: Int?
+    let monthlyTotalRoutines: Int?
+}
+
+struct DailyStat: Codable, Identifiable {
+    let date: String
+    let value: Int
+
+    var id: String { date }
+}
+
+/// Personal stats response (includes total routines count)
+struct MyStatsResponse: Codable {
+    let weeklyFocusMinutes: [DailyStat]?
+    let weeklyRoutinesDone: [DailyStat]?
+    let weeklyTotalFocus: Int?
+    let weeklyTotalRoutines: Int?
+    let weeklyAvgFocus: Int?
+    let weeklyRoutineRate: Int?
+    let monthlyFocusMinutes: [DailyStat]?
+    let monthlyRoutinesDone: [DailyStat]?
+    let monthlyTotalFocus: Int?
+    let monthlyTotalRoutines: Int?
+    let totalRoutines: Int?
 }
 
 struct CrewIntention: Codable, Identifiable {
@@ -210,6 +257,14 @@ struct CrewCompletedRoutine: Codable, Identifiable {
     let title: String
     let icon: String?
     let completedAt: Date
+}
+
+struct CrewRoutine: Codable, Identifiable {
+    let id: String
+    let title: String
+    let icon: String?
+    let completed: Bool
+    let completedAt: Date?
 }
 
 // MARK: - Crew Service
@@ -340,6 +395,16 @@ class CrewService {
             endpoint: .updateDayVisibility,
             method: .patch,
             body: body
+        )
+    }
+
+    // MARK: - My Stats
+
+    /// Fetch my own stats (weekly and monthly)
+    func fetchMyStats() async throws -> MyStatsResponse {
+        return try await apiClient.request(
+            endpoint: .myStats,
+            method: .get
         )
     }
 }

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.jep.volta</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>focus</string>
+			</array>
+		</dict>
+	</array>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Satoshi-Regular.otf</string>
+		<string>Satoshi-Medium.otf</string>
+		<string>Satoshi-Bold.otf</string>
+		<string>Satoshi-Black.otf</string>
+		<string>Satoshi-Light.otf</string>
+		<string>Satoshi-Italic.otf</string>
+		<string>Satoshi-MediumItalic.otf</string>
+		<string>Satoshi-BoldItalic.otf</string>
+		<string>Satoshi-BlackItalic.otf</string>
+		<string>Satoshi-LightItalic.otf</string>
+	</array>
+</dict>
+</plist>

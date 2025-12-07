@@ -293,9 +293,17 @@ class CrewViewModel: ObservableObject {
 // MARK: - Tab Enum
 
 enum CrewTab: String, CaseIterable {
-    case leaderboard = "Leaderboard"
-    case myCrew = "My Crew"
-    case requests = "Requests"
+    case leaderboard
+    case myCrew
+    case requests
+
+    var displayName: String {
+        switch self {
+        case .leaderboard: return "crew.leaderboard".localized
+        case .myCrew: return "crew.my_crew".localized
+        case .requests: return "crew.requests".localized
+        }
+    }
 
     var icon: String {
         switch self {

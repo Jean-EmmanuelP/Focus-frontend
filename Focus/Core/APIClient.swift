@@ -272,6 +272,7 @@ enum APIConfiguration {
         case leaderboard(limit: Int?)
         case crewMemberDay(userId: String, date: String)
         case updateDayVisibility
+        case myStats
 
         var path: String {
             switch self {
@@ -409,6 +410,8 @@ enum APIConfiguration {
                 return "/crew/members/\(userId)/day?date=\(date)"
             case .updateDayVisibility:
                 return "/me/visibility"
+            case .myStats:
+                return "/me/stats"
             }
         }
 

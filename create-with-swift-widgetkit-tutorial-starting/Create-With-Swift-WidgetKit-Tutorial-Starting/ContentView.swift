@@ -1,8 +1,8 @@
 //
 //  ContentView.swift
-//  Focus
+//  Create-With-Swift-WidgetKit-Tutorial-Starting
 //
-//  Created by Jean-Emmanuel on 04/12/2025.
+//  Created by Matteo Altobello on 22/03/24.
 //
 
 import SwiftUI

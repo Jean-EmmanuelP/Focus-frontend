@@ -3,8 +3,12 @@ import SwiftUI
 struct CrewView: View {
     @EnvironmentObject var store: FocusAppStore
     @StateObject private var viewModel = CrewViewModel()
+    @ObservedObject private var localization = LocalizationManager.shared
     @State private var showingShareSheet = false
     @State private var showingSignOutAlert = false
+    @State private var showingMyStats = false
+    @State private var selectedVisibility: DayVisibility = .crewOnly
+    @State private var isUpdatingVisibility = false
 
     var body: some View {
         ZStack {
@@ -46,24 +50,35 @@ struct CrewView: View {
                 MemberDayDetailView(viewModel: viewModel)
             }
         }
-        .alert("Error", isPresented: $viewModel.showError) {
-            Button("OK", role: .cancel) {
+        .sheet(isPresented: $showingMyStats) {
+            MyStatsView()
+        }
+        .alert("common.error".localized, isPresented: $viewModel.showError) {
+            Button("common.ok".localized, role: .cancel) {
                 viewModel.dismissError()
             }
         } message: {
-            Text(viewModel.errorMessage ?? "An error occurred")
+            Text(viewModel.errorMessage ?? "error.generic".localized)
         }
-        .alert("Sign Out", isPresented: $showingSignOutAlert) {
-            Button("Cancel", role: .cancel) {}
-            Button("Sign Out", role: .destructive) {
+        .alert("profile.sign_out_title".localized, isPresented: $showingSignOutAlert) {
+            Button("common.cancel".localized, role: .cancel) {}
+            Button("profile.sign_out".localized, role: .destructive) {
                 store.signOut()
             }
         } message: {
-            Text("Are you sure you want to sign out?")
+            Text("profile.sign_out_confirm".localized)
         }
         .task {
             await viewModel.loadInitialData()
         }
+        .onAppear {
+            // Initialize visibility from user profile
+            if let visibility = store.user?.dayVisibility,
+               let dayVis = DayVisibility(rawValue: visibility) {
+                selectedVisibility = dayVis
+            }
+        }
+        .id(localization.currentLanguage) // Force refresh when language changes
     }
 
     // MARK: - Header Section
@@ -73,7 +88,7 @@ struct CrewView: View {
                 Text("👥")
                     .font(.system(size: 28))
 
-                Text("CREW")
+                Text("crew.title".localized)
                     .label()
                     .font(.system(size: 20, weight: .bold))
                     .foregroundColor(ColorTokens.textPrimary)
@@ -95,7 +110,7 @@ struct CrewView: View {
                 }
             }
 
-            Text("Build together. Grow together.")
+            Text("crew.subtitle".localized)
                 .caption()
                 .foregroundColor(ColorTokens.textSecondary)
         }
@@ -120,7 +135,7 @@ struct CrewView: View {
                 Image(systemName: tab.icon)
                     .font(.system(size: 14))
 
-                Text(tab.rawValue)
+                Text(tab.displayName)
                     .caption()
                     .fontWeight(.medium)
 
@@ -149,7 +164,7 @@ struct CrewView: View {
             HStack {
                 Text("🏆")
                     .font(.system(size: 20))
-                Text("Top Builders This Week")
+                Text("crew.top_builders".localized)
                     .subtitle()
                     .fontWeight(.semibold)
                     .foregroundColor(ColorTokens.textPrimary)
@@ -161,8 +176,8 @@ struct CrewView: View {
             } else if viewModel.leaderboard.isEmpty {
                 emptyStateCard(
                     icon: "chart.bar",
-                    title: "No activity yet",
-                    subtitle: "Start a focus session to appear on the leaderboard"
+                    title: "crew.no_activity".localized,
+                    subtitle: "crew.start_session_hint".localized
                 )
             } else {
                 VStack(spacing: SpacingTokens.sm) {
@@ -204,13 +219,13 @@ struct CrewView: View {
             HStack {
                 Text("🤝")
                     .font(.system(size: 20))
-                Text("Your Crew")
+                Text("crew.your_crew".localized)
                     .subtitle()
                     .fontWeight(.semibold)
                     .foregroundColor(ColorTokens.textPrimary)
                 Spacer()
 
-                Text("\(viewModel.crewMembers.count) members")
+                Text("\(viewModel.crewMembers.count) \("crew.members".localized)")
                     .caption()
                     .foregroundColor(ColorTokens.textMuted)
             }
@@ -220,8 +235,8 @@ struct CrewView: View {
             } else if viewModel.crewMembers.isEmpty {
                 emptyStateCard(
                     icon: "person.2",
-                    title: "No crew members yet",
-                    subtitle: "Search for users and send them a crew request"
+                    title: "crew.no_members".localized,
+                    subtitle: "crew.search_hint".localized
                 )
             } else {
                 VStack(spacing: SpacingTokens.sm) {
@@ -251,7 +266,7 @@ struct CrewView: View {
                 HStack {
                     Text("📥")
                         .font(.system(size: 20))
-                    Text("Received Requests")
+                    Text("crew.received_requests".localized)
                         .subtitle()
                         .fontWeight(.semibold)
                         .foregroundColor(ColorTokens.textPrimary)
@@ -263,8 +278,8 @@ struct CrewView: View {
                 } else if viewModel.receivedRequests.isEmpty {
                     emptyStateCard(
                         icon: "envelope",
-                        title: "No pending requests",
-                        subtitle: "When someone wants to join your crew, it will appear here"
+                        title: "crew.no_requests".localized,
+                        subtitle: "crew.requests_hint".localized
                     )
                 } else {
                     VStack(spacing: SpacingTokens.sm) {
@@ -293,7 +308,7 @@ struct CrewView: View {
                 HStack {
                     Text("📤")
                         .font(.system(size: 20))
-                    Text("Sent Requests")
+                    Text("crew.sent_requests".localized)
                         .subtitle()
                         .fontWeight(.semibold)
                         .foregroundColor(ColorTokens.textPrimary)
@@ -303,8 +318,8 @@ struct CrewView: View {
                 if viewModel.sentRequests.isEmpty {
                     emptyStateCard(
                         icon: "paperplane",
-                        title: "No sent requests",
-                        subtitle: "Search for users to send crew requests"
+                        title: "crew.no_sent_requests".localized,
+                        subtitle: "crew.search_to_send".localized
                     )
                 } else {
                     VStack(spacing: SpacingTokens.sm) {
@@ -343,7 +358,7 @@ struct CrewView: View {
                     Image(systemName: "magnifyingglass")
                         .foregroundColor(ColorTokens.textMuted)
 
-                    TextField("Search users...", text: $viewModel.searchQuery)
+                    TextField("crew.search_placeholder".localized, text: $viewModel.searchQuery)
                         .foregroundColor(ColorTokens.textPrimary)
                         .onChange(of: viewModel.searchQuery) { _, _ in
                             viewModel.searchUsers()
@@ -384,7 +399,7 @@ struct CrewView: View {
                     }
                     .frame(maxHeight: 400)
                 } else if !viewModel.searchQuery.isEmpty {
-                    Text("No users found")
+                    Text("crew.no_users_found".localized)
                         .bodyText()
                         .foregroundColor(ColorTokens.textMuted)
                         .padding()
@@ -397,7 +412,7 @@ struct CrewView: View {
                         viewModel.clearSearch()
                     }
                 } label: {
-                    Text("Close")
+                    Text("common.close".localized)
                         .bodyText()
                         .foregroundColor(ColorTokens.textPrimary)
                         .padding(.vertical, SpacingTokens.sm)
@@ -428,7 +443,7 @@ struct CrewView: View {
                                 .fontWeight(.semibold)
                                 .foregroundColor(ColorTokens.textPrimary)
 
-                            Text(user.email.isEmpty ? "Guest Account" : user.email)
+                            Text(user.email.isEmpty ? "profile.guest_account".localized : user.email)
                                 .caption()
                                 .foregroundColor(ColorTokens.textMuted)
                         }
@@ -436,12 +451,12 @@ struct CrewView: View {
                         Spacer()
 
                         VStack(alignment: .trailing, spacing: SpacingTokens.xs) {
-                            Text("Level \(user.level)")
+                            Text("profile.level".localized(with: user.level))
                                 .bodyText()
                                 .fontWeight(.medium)
                                 .foregroundColor(ColorTokens.primaryStart)
 
-                            Text("🔥 \(user.currentStreak) day streak")
+                            Text("🔥 \(user.currentStreak) \("dashboard.day_streak".localized)")
                                 .caption()
                                 .foregroundColor(ColorTokens.textSecondary)
                         }
@@ -449,30 +464,145 @@ struct CrewView: View {
                 }
             }
 
-            // Sign out button
+            // My Statistics Button
+            Button {
+                showingMyStats = true
+            } label: {
+                Card {
+                    HStack {
+                        Image(systemName: "chart.bar.fill")
+                            .font(.system(size: 18))
+                            .foregroundColor(ColorTokens.primaryStart)
+
+                        Text("profile.my_statistics".localized)
+                            .bodyText()
+                            .fontWeight(.medium)
+                            .foregroundColor(ColorTokens.textPrimary)
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14))
+                            .foregroundColor(ColorTokens.textMuted)
+                    }
+                }
+            }
+            .buttonStyle(PlainButtonStyle())
+
+            // Day Visibility Setting
+            Card {
+                VStack(alignment: .leading, spacing: SpacingTokens.md) {
+                    HStack {
+                        Image(systemName: "eye")
+                            .foregroundColor(ColorTokens.primaryStart)
+                        Text("profile.day_visibility".localized)
+                            .bodyText()
+                            .fontWeight(.medium)
+                            .foregroundColor(ColorTokens.textPrimary)
+                        Spacer()
+                        if isUpdatingVisibility {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                        }
+                    }
+
+                    Text("profile.visibility_description".localized)
+                        .caption()
+                        .foregroundColor(ColorTokens.textMuted)
+
+                    // Visibility options
+                    VStack(spacing: SpacingTokens.sm) {
+                        ForEach(DayVisibility.allCases, id: \.self) { visibility in
+                            Button {
+                                updateVisibility(visibility)
+                            } label: {
+                                HStack {
+                                    Image(systemName: visibility.icon)
+                                        .font(.system(size: 16))
+                                        .foregroundColor(selectedVisibility == visibility ? ColorTokens.primaryStart : ColorTokens.textMuted)
+                                        .frame(width: 24)
+
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(visibility.displayName)
+                                            .bodyText()
+                                            .foregroundColor(selectedVisibility == visibility ? ColorTokens.textPrimary : ColorTokens.textSecondary)
+
+                                        Text(visibility.description)
+                                            .font(.system(size: 11))
+                                            .foregroundColor(ColorTokens.textMuted)
+                                    }
+
+                                    Spacer()
+
+                                    if selectedVisibility == visibility {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundColor(ColorTokens.primaryStart)
+                                    } else {
+                                        Image(systemName: "circle")
+                                            .foregroundColor(ColorTokens.textMuted)
+                                    }
+                                }
+                                .padding(SpacingTokens.sm)
+                                .background(selectedVisibility == visibility ? ColorTokens.primarySoft : Color.clear)
+                                .cornerRadius(RadiusTokens.sm)
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            .disabled(isUpdatingVisibility)
+                        }
+                    }
+                }
+            }
+
+            // Sign Out (discreet)
             Button(action: {
                 showingSignOutAlert = true
             }) {
                 HStack {
                     Image(systemName: "rectangle.portrait.and.arrow.right")
-                        .foregroundColor(ColorTokens.error)
+                        .font(.system(size: 14))
+                        .foregroundColor(ColorTokens.textMuted)
 
-                    Text("Sign Out")
-                        .bodyText()
-                        .foregroundColor(ColorTokens.error)
+                    Text("profile.sign_out".localized)
+                        .caption()
+                        .foregroundColor(ColorTokens.textMuted)
 
                     Spacer()
                 }
-                .padding(SpacingTokens.md)
-                .background(ColorTokens.surface)
-                .cornerRadius(RadiusTokens.md)
             }
+            .padding(.top, SpacingTokens.md)
 
             // Version info
-            Text("Volta v1.0.0")
-                .caption()
-                .foregroundColor(ColorTokens.textMuted)
-                .padding(.top, SpacingTokens.sm)
+            Text("profile.version".localized)
+                .font(.system(size: 10))
+                .foregroundColor(ColorTokens.textMuted.opacity(0.6))
+                .padding(.top, SpacingTokens.xs)
+        }
+    }
+
+    // MARK: - Update Visibility
+    private func updateVisibility(_ visibility: DayVisibility) {
+        guard visibility != selectedVisibility else { return }
+
+        isUpdatingVisibility = true
+        let previousVisibility = selectedVisibility
+        selectedVisibility = visibility
+
+        Task {
+            do {
+                let crewService = CrewService()
+                try await crewService.updateDayVisibility(visibility)
+                // Update the store's user with the new visibility
+                if var user = store.user {
+                    user.dayVisibility = visibility.rawValue
+                    store.user = user
+                }
+            } catch {
+                // Revert on error
+                selectedVisibility = previousVisibility
+                viewModel.errorMessage = "error.update_visibility".localized
+                viewModel.showError = true
+            }
+            isUpdatingVisibility = false
         }
     }
 
@@ -521,7 +651,7 @@ struct LeaderboardEntryRow: View {
             Card {
                 HStack(spacing: SpacingTokens.md) {
                     // Rank
-                    Text("#\(entry.rank)")
+                    Text("#\(entry.safeRank)")
                         .font(.system(size: 16, weight: .bold))
                         .foregroundColor(rankColor)
                         .frame(width: 40)
@@ -541,7 +671,7 @@ struct LeaderboardEntryRow: View {
                                 .fontWeight(.medium)
                                 .foregroundColor(ColorTokens.textPrimary)
 
-                            if entry.isCrewMember {
+                            if entry.safeIsCrewMember {
                                 Image(systemName: "checkmark.seal.fill")
                                     .font(.system(size: 12))
                                     .foregroundColor(ColorTokens.success)
@@ -549,7 +679,7 @@ struct LeaderboardEntryRow: View {
                         }
 
                         HStack(spacing: SpacingTokens.sm) {
-                            Label("\(entry.totalSessions7d)", systemImage: "flame.fill")
+                            Label("\(entry.totalSessions7d ?? 0)", systemImage: "flame.fill")
                                 .font(.system(size: 11))
                                 .foregroundColor(ColorTokens.textMuted)
 
@@ -562,7 +692,22 @@ struct LeaderboardEntryRow: View {
                     Spacer()
 
                     // Action button
-                    if !entry.isCrewMember {
+                    if entry.safeIsCrewMember {
+                        // Already in crew - show checkmark
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(ColorTokens.success)
+                    } else if entry.safeHasPendingRequest {
+                        // Pending request
+                        Text(entry.requestDirection == "outgoing" ? "crew.pending".localized : "crew.respond".localized)
+                            .caption()
+                            .foregroundColor(entry.requestDirection == "outgoing" ? ColorTokens.warning : ColorTokens.primaryStart)
+                            .padding(.horizontal, SpacingTokens.sm)
+                            .padding(.vertical, SpacingTokens.xs)
+                            .background((entry.requestDirection == "outgoing" ? ColorTokens.warning : ColorTokens.primaryStart).opacity(0.15))
+                            .cornerRadius(RadiusTokens.sm)
+                    } else {
+                        // Can send request
                         Button {
                             onSendRequest()
                         } label: {
@@ -581,7 +726,7 @@ struct LeaderboardEntryRow: View {
     }
 
     private var rankColor: Color {
-        switch entry.rank {
+        switch entry.safeRank {
         case 1: return Color.yellow
         case 2: return Color.gray
         case 3: return Color.orange
@@ -616,7 +761,7 @@ struct CrewMemberRow: View {
 
                         if let sessions = member.totalSessions7d, let minutes = member.totalMinutes7d {
                             HStack(spacing: SpacingTokens.sm) {
-                                Label("\(sessions) sessions", systemImage: "flame.fill")
+                                Label("\(sessions) \("crew.sessions".localized)", systemImage: "flame.fill")
                                     .font(.system(size: 11))
                                     .foregroundColor(ColorTokens.textMuted)
 
@@ -652,13 +797,13 @@ struct CrewMemberRow: View {
             }
         }
         .buttonStyle(PlainButtonStyle())
-        .alert("Remove from Crew?", isPresented: $showingRemoveAlert) {
-            Button("Cancel", role: .cancel) {}
-            Button("Remove", role: .destructive) {
+        .alert("crew.remove".localized, isPresented: $showingRemoveAlert) {
+            Button("common.cancel".localized, role: .cancel) {}
+            Button("crew.remove".localized, role: .destructive) {
                 onRemove()
             }
         } message: {
-            Text("Are you sure you want to remove \(member.displayName) from your crew?")
+            Text("crew.remove_confirm".localized(with: member.displayName))
         }
     }
 
@@ -788,7 +933,7 @@ struct SearchResultRow: View {
                     }
 
                     if let sessions = result.totalSessions7d {
-                        Label("\(sessions) sessions this week", systemImage: "flame.fill")
+                        Label("\(sessions) \("crew.sessions".localized) \("crew.this_week".localized)", systemImage: "flame.fill")
                             .font(.system(size: 11))
                             .foregroundColor(ColorTokens.textMuted)
                     }
@@ -798,18 +943,18 @@ struct SearchResultRow: View {
 
                 // Action button
                 if result.isCrewMember {
-                    Text("In Crew")
+                    Text("crew.in_crew".localized)
                         .caption()
                         .foregroundColor(ColorTokens.success)
                 } else if result.hasPendingRequest {
-                    Text(result.requestDirection == "outgoing" ? "Pending" : "Respond")
+                    Text(result.requestDirection == "outgoing" ? "crew.pending".localized : "crew.respond".localized)
                         .caption()
                         .foregroundColor(ColorTokens.warning)
                 } else {
                     Button {
                         onSendRequest()
                     } label: {
-                        Text("Add")
+                        Text("common.add".localized)
                             .caption()
                             .fontWeight(.medium)
                             .foregroundColor(.white)
@@ -847,25 +992,31 @@ struct MemberDayDetailView: View {
                             // User header
                             userHeader(day.user)
 
+                            // Stats graphs section
+                            if let stats = day.stats {
+                                statsSection(stats)
+                            }
+
                             // Intentions
                             if let intentions = day.intentions, !intentions.isEmpty {
                                 intentionsSection(intentions)
                             }
 
-                            // Focus sessions
+                            // Focus sessions (limited to 3 with "See more")
                             if let sessions = day.focusSessions, !sessions.isEmpty {
                                 focusSessionsSection(sessions)
                             }
 
-                            // Completed routines
-                            if let routines = day.completedRoutines, !routines.isEmpty {
-                                routinesSection(routines)
+                            // All routines (completed and not completed)
+                            if let routines = day.routines, !routines.isEmpty {
+                                allRoutinesSection(routines)
                             }
 
                             // Empty state
                             if (day.intentions ?? []).isEmpty &&
                                (day.focusSessions ?? []).isEmpty &&
-                               (day.completedRoutines ?? []).isEmpty {
+                               (day.routines ?? []).isEmpty &&
+                               day.stats == nil {
                                 emptyDayState
                             }
                         }
@@ -878,12 +1029,12 @@ struct MemberDayDetailView: View {
                             .font(.system(size: 60))
                             .foregroundColor(ColorTokens.textMuted)
 
-                        Text("Day Not Visible")
+                        Text("crew.day_not_visible".localized)
                             .subtitle()
                             .fontWeight(.bold)
                             .foregroundColor(ColorTokens.textPrimary)
 
-                        Text("This user has their day set to private")
+                        Text("crew.day_private".localized)
                             .bodyText()
                             .foregroundColor(ColorTokens.textSecondary)
                             .multilineTextAlignment(.center)
@@ -891,11 +1042,11 @@ struct MemberDayDetailView: View {
                     .padding()
                 }
             }
-            .navigationTitle(viewModel.selectedMember?.displayName ?? "Member")
+            .navigationTitle(viewModel.selectedMember?.displayName ?? "crew.crew_member".localized)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
+                    Button("common.done".localized) {
                         dismiss()
                         viewModel.closeMemberDetail()
                     }
@@ -943,9 +1094,9 @@ struct MemberDayDetailView: View {
 
     private var formattedDate: String {
         if Calendar.current.isDateInToday(viewModel.selectedDate) {
-            return "Today"
+            return "time.today".localized
         } else if Calendar.current.isDateInYesterday(viewModel.selectedDate) {
-            return "Yesterday"
+            return "time.yesterday".localized
         } else {
             let formatter = DateFormatter()
             formatter.dateFormat = "EEEE, MMM d"
@@ -968,7 +1119,7 @@ struct MemberDayDetailView: View {
                         .fontWeight(.semibold)
                         .foregroundColor(ColorTokens.textPrimary)
 
-                    Text("Crew Member")
+                    Text("crew.crew_member".localized)
                         .caption()
                         .foregroundColor(ColorTokens.textMuted)
                 }
@@ -983,7 +1134,7 @@ struct MemberDayDetailView: View {
             HStack {
                 Text("🎯")
                     .font(.system(size: 18))
-                Text("Intentions")
+                Text("crew.intentions".localized)
                     .subtitle()
                     .fontWeight(.semibold)
                     .foregroundColor(ColorTokens.textPrimary)
@@ -1005,25 +1156,30 @@ struct MemberDayDetailView: View {
         }
     }
 
+    @State private var showAllSessions = false
+
     private func focusSessionsSection(_ sessions: [CrewFocusSession]) -> some View {
-        VStack(alignment: .leading, spacing: SpacingTokens.md) {
+        let displayedSessions = showAllSessions ? sessions : Array(sessions.prefix(3))
+        let hasMore = sessions.count > 3
+
+        return VStack(alignment: .leading, spacing: SpacingTokens.md) {
             HStack {
                 Text("🔥")
                     .font(.system(size: 18))
-                Text("Focus Sessions")
+                Text("crew.focus_sessions".localized)
                     .subtitle()
                     .fontWeight(.semibold)
                     .foregroundColor(ColorTokens.textPrimary)
 
                 Spacer()
 
-                Text("\(sessions.count) sessions")
+                Text("\(sessions.count) \("crew.sessions".localized)")
                     .caption()
                     .foregroundColor(ColorTokens.textMuted)
             }
 
             VStack(spacing: SpacingTokens.sm) {
-                ForEach(sessions) { session in
+                ForEach(displayedSessions) { session in
                     Card {
                         HStack {
                             VStack(alignment: .leading, spacing: SpacingTokens.xs) {
@@ -1044,8 +1200,110 @@ struct MemberDayDetailView: View {
                         }
                     }
                 }
+
+                // Show more / Show less button
+                if hasMore {
+                    Button {
+                        withAnimation {
+                            showAllSessions.toggle()
+                        }
+                    } label: {
+                        HStack {
+                            Text(showAllSessions ? "common.show_less".localized : "common.see_all".localized(with: sessions.count))
+                                .caption()
+                                .fontWeight(.medium)
+                            Image(systemName: showAllSessions ? "chevron.up" : "chevron.down")
+                                .font(.system(size: 10))
+                        }
+                        .foregroundColor(ColorTokens.primaryStart)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, SpacingTokens.sm)
+                    }
+                }
             }
         }
+    }
+
+    // MARK: - Stats Section (Compact)
+    @State private var showMemberStats = false
+
+    private func statsSection(_ stats: CrewMemberStats) -> some View {
+        Button {
+            showMemberStats = true
+        } label: {
+            Card {
+                HStack {
+                    // Quick stats
+                    HStack(spacing: SpacingTokens.lg) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(formatMinutes(stats.weeklyTotalFocus ?? 0))
+                                .bodyText()
+                                .fontWeight(.semibold)
+                                .foregroundColor(ColorTokens.textPrimary)
+                            Text("crew.focus_this_week".localized)
+                                .font(.system(size: 10))
+                                .foregroundColor(ColorTokens.textMuted)
+                        }
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("\(stats.weeklyRoutineRate ?? 0)%")
+                                .bodyText()
+                                .fontWeight(.semibold)
+                                .foregroundColor(ColorTokens.textPrimary)
+                            Text("crew.routines_done".localized)
+                                .font(.system(size: 10))
+                                .foregroundColor(ColorTokens.textMuted)
+                        }
+                    }
+
+                    Spacer()
+
+                    HStack(spacing: SpacingTokens.xs) {
+                        Text("stats.view_stats".localized)
+                            .caption()
+                            .foregroundColor(ColorTokens.primaryStart)
+                        Image(systemName: "chart.bar.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(ColorTokens.primaryStart)
+                    }
+                }
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
+        .sheet(isPresented: $showMemberStats) {
+            MemberStatsDetailView(stats: stats, memberName: viewModel.selectedMember?.displayName ?? "Member")
+        }
+    }
+
+    private func weeklyGraphSection(title: String, subtitle: String, data: [DailyStat], color: Color) -> some View {
+        Card {
+            VStack(alignment: .leading, spacing: SpacingTokens.md) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .bodyText()
+                        .fontWeight(.medium)
+                        .foregroundColor(ColorTokens.textPrimary)
+                    Text(subtitle)
+                        .caption()
+                        .foregroundColor(ColorTokens.textMuted)
+                }
+
+                // Bar chart
+                WeeklyBarChart(data: data, color: color)
+            }
+        }
+    }
+
+    private func formatMinutes(_ minutes: Int) -> String {
+        if minutes >= 60 {
+            let hours = minutes / 60
+            let mins = minutes % 60
+            if mins == 0 {
+                return "\(hours)h"
+            }
+            return "\(hours)h \(mins)m"
+        }
+        return "\(minutes)m"
     }
 
     private func routinesSection(_ routines: [CrewCompletedRoutine]) -> some View {
@@ -1053,14 +1311,14 @@ struct MemberDayDetailView: View {
             HStack {
                 Text("✅")
                     .font(.system(size: 18))
-                Text("Completed Routines")
+                Text("crew.completed_routines".localized)
                     .subtitle()
                     .fontWeight(.semibold)
                     .foregroundColor(ColorTokens.textPrimary)
 
                 Spacer()
 
-                Text("\(routines.count) done")
+                Text("\(routines.count) \("crew.done".localized)")
                     .caption()
                     .foregroundColor(ColorTokens.textMuted)
             }
@@ -1084,6 +1342,54 @@ struct MemberDayDetailView: View {
         }
     }
 
+    private func allRoutinesSection(_ routines: [CrewRoutine]) -> some View {
+        let completedCount = routines.filter { $0.completed }.count
+        let totalCount = routines.count
+
+        return VStack(alignment: .leading, spacing: SpacingTokens.md) {
+            HStack {
+                Text("📋")
+                    .font(.system(size: 18))
+                Text("stats.routines".localized)
+                    .subtitle()
+                    .fontWeight(.semibold)
+                    .foregroundColor(ColorTokens.textPrimary)
+
+                Spacer()
+
+                Text("\(completedCount)/\(totalCount) \("crew.done".localized)")
+                    .caption()
+                    .foregroundColor(completedCount == totalCount ? ColorTokens.success : ColorTokens.textMuted)
+            }
+
+            Card {
+                VStack(alignment: .leading, spacing: SpacingTokens.sm) {
+                    ForEach(routines) { routine in
+                        HStack(spacing: SpacingTokens.sm) {
+                            // Completion indicator
+                            Image(systemName: routine.completed ? "checkmark.circle.fill" : "circle")
+                                .font(.system(size: 18))
+                                .foregroundColor(routine.completed ? ColorTokens.success : ColorTokens.textMuted)
+
+                            // Icon
+                            Text(routine.icon ?? "✨")
+                                .font(.system(size: 16))
+
+                            // Title
+                            Text(routine.title)
+                                .bodyText()
+                                .foregroundColor(routine.completed ? ColorTokens.textPrimary : ColorTokens.textMuted)
+                                .strikethrough(!routine.completed ? false : false) // No strikethrough, just dim
+
+                            Spacer()
+                        }
+                        .opacity(routine.completed ? 1.0 : 0.6)
+                    }
+                }
+            }
+        }
+    }
+
     private var emptyDayState: some View {
         Card {
             VStack(spacing: SpacingTokens.md) {
@@ -1091,7 +1397,7 @@ struct MemberDayDetailView: View {
                     .font(.system(size: 40))
                     .foregroundColor(ColorTokens.textMuted)
 
-                Text("No activity this day")
+                Text("crew.no_activity".localized)
                     .bodyText()
                     .foregroundColor(ColorTokens.textMuted)
             }
@@ -1107,6 +1413,92 @@ struct MemberDayDetailView: View {
     }
 }
 
+// MARK: - Stat Summary Card
+struct StatSummaryCard: View {
+    let title: String
+    let value: String
+    let subtitle: String
+    let icon: String
+    let color: Color
+
+    var body: some View {
+        Card {
+            VStack(alignment: .leading, spacing: SpacingTokens.sm) {
+                HStack {
+                    Image(systemName: icon)
+                        .font(.system(size: 14))
+                        .foregroundColor(color)
+                    Spacer()
+                }
+
+                Text(value)
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(ColorTokens.textPrimary)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .caption()
+                        .fontWeight(.medium)
+                        .foregroundColor(ColorTokens.textPrimary)
+                    Text(subtitle)
+                        .font(.system(size: 10))
+                        .foregroundColor(ColorTokens.textMuted)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+// MARK: - Weekly Bar Chart
+struct WeeklyBarChart: View {
+    let data: [DailyStat]
+    let color: Color
+
+    private var maxValue: Int {
+        data.map { $0.value }.max() ?? 1
+    }
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: SpacingTokens.sm) {
+            ForEach(data) { stat in
+                VStack(spacing: SpacingTokens.xs) {
+                    // Bar
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(stat.value > 0 ? color : ColorTokens.surface)
+                        .frame(height: barHeight(for: stat.value))
+                        .frame(maxWidth: .infinity)
+
+                    // Day label
+                    Text(dayLabel(from: stat.date))
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(ColorTokens.textMuted)
+                }
+            }
+        }
+        .frame(height: 100)
+    }
+
+    private func barHeight(for value: Int) -> CGFloat {
+        let maxHeight: CGFloat = 70
+        let minHeight: CGFloat = 4
+        guard maxValue > 0 else { return minHeight }
+        let ratio = CGFloat(value) / CGFloat(maxValue)
+        return max(minHeight, ratio * maxHeight)
+    }
+
+    private func dayLabel(from dateString: String) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        guard let date = formatter.date(from: dateString) else {
+            return String(dateString.suffix(2))
+        }
+        let dayFormatter = DateFormatter()
+        dayFormatter.dateFormat = "E"
+        return String(dayFormatter.string(from: date).prefix(1))
+    }
+}
+
 // MARK: - Date Extension
 extension Date {
     func timeAgoDisplay() -> String {
@@ -1115,14 +1507,193 @@ extension Date {
         let components = calendar.dateComponents([.minute, .hour, .day], from: self, to: now)
 
         if let days = components.day, days > 0 {
-            return days == 1 ? "1 day ago" : "\(days) days ago"
+            return days == 1 ? "time.1_day_ago".localized : "time.days_ago".localized(with: days)
         } else if let hours = components.hour, hours > 0 {
-            return hours == 1 ? "1 hour ago" : "\(hours) hours ago"
+            return hours == 1 ? "time.1_hour_ago".localized : "time.hours_ago".localized(with: hours)
         } else if let minutes = components.minute, minutes > 0 {
-            return minutes == 1 ? "1 min ago" : "\(minutes) min ago"
+            return minutes == 1 ? "time.1_min_ago".localized : "time.mins_ago".localized(with: minutes)
         } else {
-            return "Just now"
+            return "time.just_now".localized
         }
+    }
+}
+
+// MARK: - Member Stats Detail View
+struct MemberStatsDetailView: View {
+    let stats: CrewMemberStats
+    let memberName: String
+    @Environment(\.dismiss) var dismiss
+    @State private var selectedPeriod: StatsPeriod = .week
+
+    enum StatsPeriod: CaseIterable {
+        case week
+        case month
+
+        var displayName: String {
+            switch self {
+            case .week: return "stats.week".localized
+            case .month: return "stats.month".localized
+            }
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                ColorTokens.background
+                    .ignoresSafeArea()
+
+                ScrollView {
+                    VStack(spacing: SpacingTokens.lg) {
+                        // Period selector
+                        periodSelector
+
+                        // Summary cards
+                        summaryCards
+
+                        // Focus graph
+                        focusGraphSection
+
+                        // Routines graph
+                        routinesGraphSection
+                    }
+                    .padding(SpacingTokens.lg)
+                }
+            }
+            .navigationTitle("stats.member_stats".localized(with: memberName))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("common.done".localized) {
+                        dismiss()
+                    }
+                    .foregroundColor(ColorTokens.primaryStart)
+                }
+            }
+        }
+    }
+
+    private var periodSelector: some View {
+        HStack(spacing: SpacingTokens.sm) {
+            ForEach(StatsPeriod.allCases, id: \.self) { period in
+                Button {
+                    withAnimation {
+                        selectedPeriod = period
+                    }
+                } label: {
+                    Text(period.displayName)
+                        .bodyText()
+                        .fontWeight(.medium)
+                        .foregroundColor(selectedPeriod == period ? .white : ColorTokens.textSecondary)
+                        .padding(.horizontal, SpacingTokens.lg)
+                        .padding(.vertical, SpacingTokens.sm)
+                        .background(selectedPeriod == period ? ColorTokens.primaryStart : ColorTokens.surface)
+                        .cornerRadius(RadiusTokens.md)
+                }
+            }
+        }
+    }
+
+    private var summaryCards: some View {
+        let focusMinutes = selectedPeriod == .week ? (stats.weeklyTotalFocus ?? 0) : (stats.monthlyTotalFocus ?? 0)
+        let routinesDone = selectedPeriod == .week ? (stats.weeklyTotalRoutines ?? 0) : (stats.monthlyTotalRoutines ?? 0)
+        let routineRate = stats.weeklyRoutineRate ?? 0
+
+        return HStack(spacing: SpacingTokens.md) {
+            StatSummaryCard(
+                title: "stats.focus_time".localized,
+                value: formatMinutes(focusMinutes),
+                subtitle: selectedPeriod == .week ? "stats.this_week".localized : "stats.this_month".localized,
+                icon: "flame.fill",
+                color: ColorTokens.primaryStart
+            )
+
+            StatSummaryCard(
+                title: "stats.routines".localized,
+                value: "\(routinesDone)",
+                subtitle: "stats.completed".localized,
+                icon: "checkmark.circle.fill",
+                color: ColorTokens.success
+            )
+        }
+    }
+
+    private var focusGraphSection: some View {
+        let data = selectedPeriod == .week
+            ? (stats.weeklyFocusMinutes ?? [])
+            : (stats.monthlyFocusMinutes ?? [])
+
+        return Card {
+            VStack(alignment: .leading, spacing: SpacingTokens.md) {
+                HStack {
+                    Image(systemName: "flame.fill")
+                        .foregroundColor(ColorTokens.primaryStart)
+                    Text("stats.focus_sessions".localized)
+                        .bodyText()
+                        .fontWeight(.semibold)
+                        .foregroundColor(ColorTokens.textPrimary)
+                    Spacer()
+                    Text(selectedPeriod == .week ? "stats.last_7_days".localized : "stats.last_30_days".localized)
+                        .caption()
+                        .foregroundColor(ColorTokens.textMuted)
+                }
+
+                if data.isEmpty {
+                    Text("stats.no_sessions".localized)
+                        .caption()
+                        .foregroundColor(ColorTokens.textMuted)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, SpacingTokens.lg)
+                } else {
+                    WeeklyBarChart(data: data, color: ColorTokens.primaryStart)
+                }
+            }
+        }
+    }
+
+    private var routinesGraphSection: some View {
+        let data = selectedPeriod == .week
+            ? (stats.weeklyRoutinesDone ?? [])
+            : (stats.monthlyRoutinesDone ?? [])
+
+        return Card {
+            VStack(alignment: .leading, spacing: SpacingTokens.md) {
+                HStack {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(ColorTokens.success)
+                    Text("stats.daily_routines".localized)
+                        .bodyText()
+                        .fontWeight(.semibold)
+                        .foregroundColor(ColorTokens.textPrimary)
+                    Spacer()
+                    Text(selectedPeriod == .week ? "stats.last_7_days".localized : "stats.last_30_days".localized)
+                        .caption()
+                        .foregroundColor(ColorTokens.textMuted)
+                }
+
+                if data.isEmpty {
+                    Text("stats.no_routines".localized)
+                        .caption()
+                        .foregroundColor(ColorTokens.textMuted)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, SpacingTokens.lg)
+                } else {
+                    WeeklyBarChart(data: data, color: ColorTokens.success)
+                }
+            }
+        }
+    }
+
+    private func formatMinutes(_ minutes: Int) -> String {
+        if minutes >= 60 {
+            let hours = minutes / 60
+            let mins = minutes % 60
+            if mins == 0 {
+                return "\(hours)h"
+            }
+            return "\(hours)h \(mins)m"
+        }
+        return "\(minutes)m"
     }
 }
 
