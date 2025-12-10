@@ -164,8 +164,8 @@ struct MainTabView: View {
             }
             .accentColor(ColorTokens.primaryStart)
 
-            // Start Focus button above tab bar (hide on calendar tab)
-            if router.selectedTab != .calendar {
+            // Start Focus button above tab bar (only show on dashboard)
+            if router.selectedTab == .dashboard {
                 VStack(spacing: 0) {
                     Spacer()
                     Button(action: {
