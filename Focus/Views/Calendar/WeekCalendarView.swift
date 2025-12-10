@@ -864,7 +864,11 @@ struct QuickCreateTaskSheet: View {
                 timeBlock: selectedTimeBlock,
                 priority: selectedPriority
             )
-            dismiss()
+            // Wait for data to reload before dismissing
+            await MainActor.run {
+                isCreating = false
+                dismiss()
+            }
         }
     }
 }
@@ -964,7 +968,11 @@ struct QuickCreateTaskSheetWithTime: View {
                 scheduledEnd: scheduledEnd,
                 timeBlock: timeBlock
             )
-            dismiss()
+            // Wait for data to reload before dismissing
+            await MainActor.run {
+                isCreating = false
+                dismiss()
+            }
         }
     }
 }
