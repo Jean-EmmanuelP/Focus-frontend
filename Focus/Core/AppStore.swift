@@ -115,17 +115,16 @@ final class FocusAppStore: ObservableObject {
     private func checkExistingSession() async {
         let hasSession = await AuthService.shared.checkSession()
         if hasSession {
-            handleAuthServiceUpdate()
+            await handleAuthServiceUpdate()
         }
     }
 
-    /// Handle authentication from AuthService
-    /// Note: This method is idempotent - it will not reload data if already loaded
-    func handleAuthServiceUpdate() {
+    /// Handle authentication from AuthService (async version - waits for onboarding check)
+    /// Call this after sign-in to check onboarding status before UI updates
+    func handleAuthServiceUpdate() async {
         let authService = AuthService.shared
 
-        guard authService.isSignedIn,
-              let userId = authService.userId else {
+        guard let userId = authService.userId else {
             return
         }
 
@@ -160,15 +159,12 @@ final class FocusAppStore: ObservableObject {
             longestStreak: 0
         )
 
-        // Check onboarding status, then load data
-        Task {
-            // Check onboarding status from cache/API
-            await checkOnboardingStatus()
+        // Check onboarding status from cache/API (await - blocks until done)
+        await checkOnboardingStatus()
 
-            // Only load initial data if onboarding is completed
-            if hasCompletedOnboarding && !hasLoadedInitialData {
-                await loadInitialData()
-            }
+        // Only load initial data if onboarding is completed
+        if hasCompletedOnboarding && !hasLoadedInitialData {
+            await loadInitialData()
         }
     }
 
@@ -254,6 +250,7 @@ final class FocusAppStore: ObservableObject {
         }
 
         // 2. Check backend
+        print("📋 Checking onboarding status for user: \(authUserId ?? "nil")")
         do {
             let status = try await onboardingService.getStatus()
             hasCompletedOnboarding = status.isCompleted
@@ -264,7 +261,7 @@ final class FocusAppStore: ObservableObject {
                 UserDefaults.standard.set(currentUserId, forKey: onboardingUserIdKey)
             }
 
-            print("📋 Onboarding status from API: completed=\(status.isCompleted), step=\(status.currentStep)")
+            print("📋 Onboarding status from API: completed=\(status.isCompleted), step=\(status.currentStep), completedAt=\(String(describing: status.completedAt))")
         } catch {
             // On error, check if we have local cache for this user
             if let currentUserId = authUserId,

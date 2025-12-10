@@ -165,17 +165,17 @@ class AuthService: NSObject, ObservableObject {
             }
 
             self.session = session
-            self.isSignedIn = true
             self.userId = session.user.id.uuidString
             self.userEmail = session.user.email
             self.userName = session.user.userMetadata["full_name"]?.stringValue
             print("🎉 Sign in successful! Token: \(session.accessToken.prefix(20))...")
-            
-            // Check onboarding status after successful sign in
-            Task {
-                await FocusAppStore.shared.checkOnboardingStatus()
-            }
-            
+
+            // CRITICAL: Check onboarding status BEFORE setting isSignedIn
+            // This prevents the race condition where OnboardingView advances before we know the status
+            await FocusAppStore.shared.handleAuthServiceUpdate()
+
+            // Only set isSignedIn AFTER onboarding status is checked
+            self.isSignedIn = true
             isAuthenticating = false
 
         } catch {

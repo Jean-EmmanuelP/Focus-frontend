@@ -57,7 +57,9 @@ struct AuthenticationView: View {
             }
             .onChange(of: authService.isSignedIn) { _, isSignedIn in
                 if isSignedIn {
-                    store.handleAuthServiceUpdate()
+                    Task {
+                        await store.handleAuthServiceUpdate()
+                    }
                 }
             }
         }
