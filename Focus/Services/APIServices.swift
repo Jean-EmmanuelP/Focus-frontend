@@ -190,20 +190,29 @@ class QuestService {
         )
     }
 
-    func createQuest(areaId: String, title: String, targetValue: Int) async throws -> QuestResponse {
+    func createQuest(areaId: String, title: String, targetValue: Int, targetDate: Date? = nil) async throws -> QuestResponse {
         struct CreateQuestRequest: Encodable {
             let areaId: String
             let title: String
             let targetValue: Int
+            let targetDate: String?
         }
 
-        let request = CreateQuestRequest(areaId: areaId, title: title, targetValue: targetValue)
+        // Convert date to ISO string if provided
+        var targetDateString: String? = nil
+        if let date = targetDate {
+            let formatter = ISO8601DateFormatter()
+            targetDateString = formatter.string(from: date)
+        }
+
+        let request = CreateQuestRequest(areaId: areaId, title: title, targetValue: targetValue, targetDate: targetDateString)
 
         // Debug: log what we're sending
         print("🎯 Creating quest:")
         print("   - area_id: \(areaId)")
         print("   - title: \(title)")
         print("   - target_value: \(targetValue)")
+        print("   - target_date: \(targetDateString ?? "none")")
 
         return try await apiClient.request(
             endpoint: .createQuest,
@@ -212,15 +221,23 @@ class QuestService {
         )
     }
 
-    func updateQuest(id: String, title: String?, status: String?, currentValue: Int?, targetValue: Int?) async throws -> QuestResponse {
+    func updateQuest(id: String, title: String?, status: String?, currentValue: Int?, targetValue: Int?, targetDate: Date? = nil) async throws -> QuestResponse {
         struct UpdateQuestRequest: Encodable {
             let title: String?
             let status: String?
             let currentValue: Int?
             let targetValue: Int?
+            let targetDate: String?
         }
 
-        let request = UpdateQuestRequest(title: title, status: status, currentValue: currentValue, targetValue: targetValue)
+        // Convert date to ISO string if provided
+        var targetDateString: String? = nil
+        if let date = targetDate {
+            let formatter = ISO8601DateFormatter()
+            targetDateString = formatter.string(from: date)
+        }
+
+        let request = UpdateQuestRequest(title: title, status: status, currentValue: currentValue, targetValue: targetValue, targetDate: targetDateString)
 
         return try await apiClient.request(
             endpoint: .updateQuest(id),
@@ -255,15 +272,16 @@ class RoutineService {
         )
     }
 
-    func createRoutine(areaId: String, title: String, frequency: String, icon: String) async throws -> RoutineResponse {
+    func createRoutine(areaId: String, title: String, frequency: String, icon: String, scheduledTime: String? = nil) async throws -> RoutineResponse {
         struct CreateRoutineRequest: Encodable {
             let areaId: String
             let title: String
             let frequency: String
             let icon: String
+            let scheduledTime: String?
         }
 
-        let request = CreateRoutineRequest(areaId: areaId, title: title, frequency: frequency, icon: icon)
+        let request = CreateRoutineRequest(areaId: areaId, title: title, frequency: frequency, icon: icon, scheduledTime: scheduledTime)
 
         return try await apiClient.request(
             endpoint: .createRoutine,
@@ -272,14 +290,15 @@ class RoutineService {
         )
     }
 
-    func updateRoutine(id: String, title: String?, frequency: String?, icon: String?) async throws -> RoutineResponse {
+    func updateRoutine(id: String, title: String?, frequency: String?, icon: String?, scheduledTime: String? = nil) async throws -> RoutineResponse {
         struct UpdateRoutineRequest: Encodable {
             let title: String?
             let frequency: String?
             let icon: String?
+            let scheduledTime: String?
         }
 
-        let request = UpdateRoutineRequest(title: title, frequency: frequency, icon: icon)
+        let request = UpdateRoutineRequest(title: title, frequency: frequency, icon: icon, scheduledTime: scheduledTime)
 
         return try await apiClient.request(
             endpoint: .updateRoutine(id),
@@ -745,6 +764,7 @@ struct QuestResponse: Codable, Identifiable {
     let status: String
     let currentValue: Int
     let targetValue: Int
+    let targetDate: String? // ISO date string
 
     var progress: Double {
         guard targetValue > 0 else { return 0 }
@@ -759,6 +779,7 @@ struct RoutineResponse: Codable, Identifiable {
     let frequency: String
     let icon: String?
     var completed: Bool?
+    let scheduledTime: String? // Time in "HH:mm" format (e.g., "07:30")
 }
 
 struct FocusSessionResponse: Codable, Identifiable {
@@ -855,4 +876,139 @@ struct FocusStatsResponse: Codable {
 
 struct RoutineStatsResponse: Codable {
     // Add fields based on actual API response
+}
+
+// MARK: - Streak Response
+struct StreakResponse: Codable {
+    let currentStreak: Int
+    let longestStreak: Int
+    let lastValidDate: String?
+    let streakStart: String?
+}
+
+struct DayValidationResponse: Codable {
+    let date: String
+    let hasIntention: Bool
+    let totalRoutines: Int
+    let completedRoutines: Int
+    let routineRate: Int
+    let isValid: Bool
+}
+
+// MARK: - Streak Service
+@MainActor
+class StreakService {
+    private let apiClient = APIClient.shared
+
+    func fetchStreak() async throws -> StreakResponse {
+        let dateString = getUserLocalDateString()
+        return try await apiClient.request(
+            endpoint: .streak(date: dateString),
+            method: .get
+        )
+    }
+
+    func fetchDayValidation(date: String? = nil) async throws -> DayValidationResponse {
+        let dateString = date ?? getUserLocalDateString()
+        return try await apiClient.request(
+            endpoint: .streakDay(date: dateString),
+            method: .get
+        )
+    }
+
+    func recalculateStreak() async throws -> StreakResponse {
+        let dateString = getUserLocalDateString()
+        return try await apiClient.request(
+            endpoint: .streakRecalculate(date: dateString),
+            method: .post
+        )
+    }
+
+    private func getUserLocalDateString() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: Date())
+    }
+}
+
+// MARK: - Onboarding Service
+@MainActor
+class OnboardingService {
+    private let apiClient = APIClient.shared
+
+    /// Get current onboarding status
+    func getStatus() async throws -> OnboardingStatusResponse {
+        return try await apiClient.request(
+            endpoint: .onboardingStatus,
+            method: .get
+        )
+    }
+
+    /// Save onboarding progress
+    func saveProgress(
+        projectStatus: String?,
+        timeAvailable: String?,
+        goals: [String],
+        currentStep: Int,
+        isComplete: Bool
+    ) async throws -> OnboardingStatusResponse {
+        struct SaveProgressRequest: Encodable {
+            let projectStatus: String?
+            let timeAvailable: String?
+            let goals: [String]
+            let currentStep: Int
+            let isComplete: Bool
+        }
+
+        let request = SaveProgressRequest(
+            projectStatus: projectStatus,
+            timeAvailable: timeAvailable,
+            goals: goals,
+            currentStep: currentStep,
+            isComplete: isComplete
+        )
+
+        return try await apiClient.request(
+            endpoint: .onboardingProgress,
+            method: .put,
+            body: request
+        )
+    }
+
+    /// Mark onboarding as complete
+    func completeOnboarding() async throws -> OnboardingStatusResponse {
+        return try await apiClient.request(
+            endpoint: .onboardingComplete,
+            method: .post
+        )
+    }
+
+    /// Reset onboarding (for testing)
+    func resetOnboarding() async throws {
+        try await apiClient.request(
+            endpoint: .onboardingReset,
+            method: .delete
+        )
+    }
+
+    /// Check if user has completed onboarding
+    func hasCompletedOnboarding() async -> Bool {
+        do {
+            let status = try await getStatus()
+            return status.isCompleted
+        } catch {
+            return false
+        }
+    }
+}
+
+// MARK: - Onboarding Response Models
+struct OnboardingStatusResponse: Codable {
+    let isCompleted: Bool
+    let currentStep: Int
+    let totalSteps: Int
+    let projectStatus: String?
+    let timeAvailable: String?
+    let goals: [String]?
+    let completedAt: Date?
 }

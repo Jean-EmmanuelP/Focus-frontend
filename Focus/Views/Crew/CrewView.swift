@@ -5,7 +5,6 @@ struct CrewView: View {
     @StateObject private var viewModel = CrewViewModel()
     @ObservedObject private var localization = LocalizationManager.shared
     @State private var showingShareSheet = false
-    @State private var showingSignOutAlert = false
     @State private var showingMyStats = false
     @State private var selectedVisibility: DayVisibility = .crewOnly
     @State private var isUpdatingVisibility = false
@@ -38,6 +37,9 @@ struct CrewView: View {
                 }
                 .padding(SpacingTokens.lg)
             }
+            .refreshable {
+                await viewModel.loadInitialData()
+            }
 
             // Search overlay
             if viewModel.showingSearch {
@@ -45,6 +47,13 @@ struct CrewView: View {
             }
         }
         .navigationBarHidden(true)
+        .onChange(of: viewModel.showingSearch) { _, isShowing in
+            if isShowing && viewModel.suggestedUsers.isEmpty {
+                Task {
+                    await viewModel.loadSuggestedUsers()
+                }
+            }
+        }
         .sheet(isPresented: $viewModel.showingMemberDetail) {
             if viewModel.selectedMember != nil {
                 MemberDayDetailView(viewModel: viewModel)
@@ -60,23 +69,16 @@ struct CrewView: View {
         } message: {
             Text(viewModel.errorMessage ?? "error.generic".localized)
         }
-        .alert("profile.sign_out_title".localized, isPresented: $showingSignOutAlert) {
-            Button("common.cancel".localized, role: .cancel) {}
-            Button("profile.sign_out".localized, role: .destructive) {
-                store.signOut()
-            }
-        } message: {
-            Text("profile.sign_out_confirm".localized)
-        }
         .task {
             await viewModel.loadInitialData()
         }
         .onAppear {
             // Initialize visibility from user profile
-            if let visibility = store.user?.dayVisibility,
-               let dayVis = DayVisibility(rawValue: visibility) {
-                selectedVisibility = dayVis
-            }
+            updateSelectedVisibilityFromStore()
+        }
+        .onChange(of: store.user?.dayVisibility) { _, newValue in
+            // Update when user data changes
+            updateSelectedVisibilityFromStore()
         }
         .id(localization.currentLanguage) // Force refresh when language changes
     }
@@ -116,46 +118,61 @@ struct CrewView: View {
         }
     }
 
-    // MARK: - Tab Selector
+    // MARK: - Tab Selector (Segmented Control)
     private var tabSelector: some View {
-        HStack(spacing: SpacingTokens.sm) {
-            ForEach(CrewTab.allCases, id: \.self) { tab in
-                tabButton(tab)
+        GeometryReader { geometry in
+            let tabWidth = (geometry.size.width - SpacingTokens.xs * 2) / CGFloat(CrewTab.allCases.count)
+            let selectedIndex = CGFloat(CrewTab.allCases.firstIndex(of: viewModel.activeTab) ?? 0)
+
+            ZStack(alignment: .leading) {
+                // Background
+                RoundedRectangle(cornerRadius: RadiusTokens.md)
+                    .fill(ColorTokens.surface)
+
+                // Selection indicator
+                RoundedRectangle(cornerRadius: RadiusTokens.sm)
+                    .fill(ColorTokens.primarySoft)
+                    .frame(width: tabWidth - SpacingTokens.xs)
+                    .padding(SpacingTokens.xs / 2)
+                    .offset(x: selectedIndex * tabWidth + SpacingTokens.xs / 2)
+
+                // Tab buttons
+                HStack(spacing: 0) {
+                    ForEach(CrewTab.allCases, id: \.self) { tab in
+                        segmentedTabButton(tab, width: tabWidth)
+                    }
+                }
             }
         }
+        .frame(height: 44)
     }
 
-    private func tabButton(_ tab: CrewTab) -> some View {
+    private func segmentedTabButton(_ tab: CrewTab, width: CGFloat) -> some View {
         Button {
-            withAnimation(.easeInOut(duration: 0.2)) {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                 viewModel.activeTab = tab
             }
         } label: {
             HStack(spacing: SpacingTokens.xs) {
-                Image(systemName: tab.icon)
-                    .font(.system(size: 14))
-
                 Text(tab.displayName)
-                    .caption()
-                    .fontWeight(.medium)
+                    .font(.system(size: 13, weight: viewModel.activeTab == tab ? .semibold : .medium))
 
                 // Badge for requests
                 if tab == .requests && viewModel.hasNewRequests {
                     Text("\(viewModel.pendingRequestsCount)")
                         .font(.system(size: 10, weight: .bold))
                         .foregroundColor(.white)
-                        .padding(.horizontal, 6)
+                        .padding(.horizontal, 5)
                         .padding(.vertical, 2)
                         .background(ColorTokens.primaryStart)
                         .clipShape(Capsule())
                 }
             }
-            .foregroundColor(viewModel.activeTab == tab ? ColorTokens.primaryStart : ColorTokens.textSecondary)
-            .padding(.horizontal, SpacingTokens.md)
-            .padding(.vertical, SpacingTokens.sm)
-            .background(viewModel.activeTab == tab ? ColorTokens.primarySoft : ColorTokens.surface)
-            .cornerRadius(RadiusTokens.md)
+            .foregroundColor(viewModel.activeTab == tab ? ColorTokens.primaryStart : ColorTokens.textMuted)
+            .frame(width: width, height: 44)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(PlainButtonStyle())
     }
 
     // MARK: - Leaderboard Section
@@ -197,7 +214,8 @@ struct CrewView: View {
                                     totalSessions7d: entry.totalSessions7d,
                                     totalMinutes7d: entry.totalMinutes7d,
                                     activityScore: entry.activityScore,
-                                    createdAt: nil
+                                    createdAt: nil,
+                                    email: entry.email
                                 )
                                 viewModel.selectMember(member)
                             },
@@ -377,12 +395,13 @@ struct CrewView: View {
                 .background(ColorTokens.surface)
                 .cornerRadius(RadiusTokens.md)
 
-                // Search results
-                if viewModel.isSearching {
+                // Search results or suggestions
+                if viewModel.isSearching || viewModel.isLoadingSuggestions {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: ColorTokens.primaryStart))
                         .padding()
                 } else if !viewModel.searchResults.isEmpty {
+                    // Show search results
                     ScrollView {
                         VStack(spacing: SpacingTokens.sm) {
                             ForEach(viewModel.searchResults) { result in
@@ -403,6 +422,35 @@ struct CrewView: View {
                         .bodyText()
                         .foregroundColor(ColorTokens.textMuted)
                         .padding()
+                } else if !viewModel.suggestedUsers.isEmpty {
+                    // Show suggestions when search is empty
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: SpacingTokens.md) {
+                            VStack(alignment: .leading, spacing: SpacingTokens.xs) {
+                                Text("crew.suggested".localized)
+                                    .bodyText()
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(ColorTokens.textPrimary)
+                                Text("crew.suggested_hint".localized)
+                                    .caption()
+                                    .foregroundColor(ColorTokens.textMuted)
+                            }
+
+                            VStack(spacing: SpacingTokens.sm) {
+                                ForEach(viewModel.suggestedUsers) { user in
+                                    SearchResultRow(
+                                        result: user,
+                                        onSendRequest: {
+                                            Task {
+                                                _ = await viewModel.sendRequest(to: user.id)
+                                            }
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    .frame(maxHeight: 400)
                 }
 
                 // Close button
@@ -431,39 +479,6 @@ struct CrewView: View {
     // MARK: - Account Section
     private var accountSection: some View {
         VStack(spacing: SpacingTokens.md) {
-            // User info
-            if let user = store.user {
-                Card {
-                    HStack(spacing: SpacingTokens.md) {
-                        AvatarView(name: user.name, avatarURL: user.avatarURL, size: 50)
-
-                        VStack(alignment: .leading, spacing: SpacingTokens.xs) {
-                            Text(user.name)
-                                .subtitle()
-                                .fontWeight(.semibold)
-                                .foregroundColor(ColorTokens.textPrimary)
-
-                            Text(user.email.isEmpty ? "profile.guest_account".localized : user.email)
-                                .caption()
-                                .foregroundColor(ColorTokens.textMuted)
-                        }
-
-                        Spacer()
-
-                        VStack(alignment: .trailing, spacing: SpacingTokens.xs) {
-                            Text("profile.level".localized(with: user.level))
-                                .bodyText()
-                                .fontWeight(.medium)
-                                .foregroundColor(ColorTokens.primaryStart)
-
-                            Text("🔥 \(user.currentStreak) \("dashboard.day_streak".localized)")
-                                .caption()
-                                .foregroundColor(ColorTokens.textSecondary)
-                        }
-                    }
-                }
-            }
-
             // My Statistics Button
             Button {
                 showingMyStats = true
@@ -553,24 +568,6 @@ struct CrewView: View {
                 }
             }
 
-            // Sign Out (discreet)
-            Button(action: {
-                showingSignOutAlert = true
-            }) {
-                HStack {
-                    Image(systemName: "rectangle.portrait.and.arrow.right")
-                        .font(.system(size: 14))
-                        .foregroundColor(ColorTokens.textMuted)
-
-                    Text("profile.sign_out".localized)
-                        .caption()
-                        .foregroundColor(ColorTokens.textMuted)
-
-                    Spacer()
-                }
-            }
-            .padding(.top, SpacingTokens.md)
-
             // Version info
             Text("profile.version".localized)
                 .font(.system(size: 10))
@@ -579,7 +576,17 @@ struct CrewView: View {
         }
     }
 
-    // MARK: - Update Visibility
+    // MARK: - Visibility Helpers
+
+    private func updateSelectedVisibilityFromStore() {
+        if let visibility = store.user?.dayVisibility,
+           let dayVis = DayVisibility(rawValue: visibility) {
+            if selectedVisibility != dayVis {
+                selectedVisibility = dayVis
+            }
+        }
+    }
+
     private func updateVisibility(_ visibility: DayVisibility) {
         guard visibility != selectedVisibility else { return }
 
@@ -589,20 +596,28 @@ struct CrewView: View {
 
         Task {
             do {
-                let crewService = CrewService()
-                try await crewService.updateDayVisibility(visibility)
+                print("🔄 Updating day visibility to: \(visibility.rawValue)")
+                try await viewModel.updateVisibility(visibility)
+                print("✅ Day visibility updated successfully")
                 // Update the store's user with the new visibility
-                if var user = store.user {
-                    user.dayVisibility = visibility.rawValue
-                    store.user = user
+                await MainActor.run {
+                    if var user = store.user {
+                        user.dayVisibility = visibility.rawValue
+                        store.user = user
+                    }
                 }
             } catch {
+                print("❌ Failed to update day visibility: \(error)")
                 // Revert on error
-                selectedVisibility = previousVisibility
-                viewModel.errorMessage = "error.update_visibility".localized
-                viewModel.showError = true
+                await MainActor.run {
+                    selectedVisibility = previousVisibility
+                    viewModel.errorMessage = "error.update_visibility".localized
+                    viewModel.showError = true
+                }
             }
-            isUpdatingVisibility = false
+            await MainActor.run {
+                isUpdatingVisibility = false
+            }
         }
     }
 
@@ -656,11 +671,12 @@ struct LeaderboardEntryRow: View {
                         .foregroundColor(rankColor)
                         .frame(width: 40)
 
-                    // Avatar
+                    // Avatar (tap to zoom)
                     AvatarView(
                         name: entry.displayName,
                         avatarURL: entry.avatarUrl,
-                        size: 44
+                        size: 44,
+                        allowZoom: true
                     )
 
                     // Info
@@ -679,7 +695,7 @@ struct LeaderboardEntryRow: View {
                         }
 
                         HStack(spacing: SpacingTokens.sm) {
-                            Label("\(entry.totalSessions7d ?? 0)", systemImage: "flame.fill")
+                            Label("\(entry.safeCurrentStreak)", systemImage: "flame.fill")
                                 .font(.system(size: 11))
                                 .foregroundColor(ColorTokens.textMuted)
 
@@ -1246,7 +1262,9 @@ struct MemberDayDetailView: View {
                         }
 
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("\(stats.weeklyRoutineRate ?? 0)%")
+                            // Fix: Show 0% if no routines exist or total is 0
+                            let routineRate = (stats.weeklyTotalRoutines ?? 0) > 0 ? (stats.weeklyRoutineRate ?? 0) : 0
+                            Text("\(routineRate)%")
                                 .bodyText()
                                 .fontWeight(.semibold)
                                 .foregroundColor(ColorTokens.textPrimary)
@@ -1335,6 +1353,19 @@ struct MemberDayDetailView: View {
                                 .foregroundColor(ColorTokens.textPrimary)
 
                             Spacer()
+
+                            // Like button and count
+                            RoutineLikeButton(
+                                isLiked: routine.isLikedByMe ?? false,
+                                likeCount: routine.likeCount ?? 0
+                            ) {
+                                Task {
+                                    await viewModel.toggleRoutineLike(
+                                        completionId: routine.id,
+                                        isCurrentlyLiked: routine.isLikedByMe ?? false
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -1382,6 +1413,21 @@ struct MemberDayDetailView: View {
                                 .strikethrough(!routine.completed ? false : false) // No strikethrough, just dim
 
                             Spacer()
+
+                            // Like button for completed routines only
+                            if routine.completed {
+                                RoutineLikeButton(
+                                    isLiked: routine.isLikedByMe ?? false,
+                                    likeCount: routine.likeCount ?? 0
+                                ) {
+                                    Task {
+                                        await viewModel.toggleRoutineLike(
+                                            completionId: routine.id,
+                                            isCurrentlyLiked: routine.isLikedByMe ?? false
+                                        )
+                                    }
+                                }
+                            }
                         }
                         .opacity(routine.completed ? 1.0 : 0.6)
                     }
@@ -1597,7 +1643,8 @@ struct MemberStatsDetailView: View {
     private var summaryCards: some View {
         let focusMinutes = selectedPeriod == .week ? (stats.weeklyTotalFocus ?? 0) : (stats.monthlyTotalFocus ?? 0)
         let routinesDone = selectedPeriod == .week ? (stats.weeklyTotalRoutines ?? 0) : (stats.monthlyTotalRoutines ?? 0)
-        let routineRate = stats.weeklyRoutineRate ?? 0
+        // Fix: Show 0% if no routines exist
+        let routineRate = routinesDone > 0 ? (stats.weeklyRoutineRate ?? 0) : 0
 
         return HStack(spacing: SpacingTokens.md) {
             StatSummaryCard(
@@ -1698,6 +1745,39 @@ struct MemberStatsDetailView: View {
 }
 
 // MARK: - Preview
+// MARK: - Routine Like Button
+struct RoutineLikeButton: View {
+    let isLiked: Bool
+    let likeCount: Int
+    let action: () -> Void
+
+    private let hapticGenerator = UIImpactFeedbackGenerator(style: .light)
+
+    var body: some View {
+        Button(action: {
+            hapticGenerator.impactOccurred()
+            action()
+        }) {
+            HStack(spacing: 4) {
+                Text(isLiked ? "❤️" : "🤍")
+                    .font(.system(size: 16))
+                    .scaleEffect(isLiked ? 1.1 : 1.0)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isLiked)
+
+                if likeCount > 0 {
+                    Text("\(likeCount)")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(isLiked ? ColorTokens.primaryStart : ColorTokens.textMuted)
+                }
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
+        .onAppear {
+            hapticGenerator.prepare()
+        }
+    }
+}
+
 #Preview {
     CrewView()
         .environmentObject(FocusAppStore.shared)

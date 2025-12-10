@@ -7,6 +7,7 @@ enum AppLanguage: String, CaseIterable, Identifiable {
     case system = "system"
     case english = "en"
     case french = "fr"
+    case spanish = "es"
 
     var id: String { rawValue }
 
@@ -15,6 +16,7 @@ enum AppLanguage: String, CaseIterable, Identifiable {
         case .system: return "System"
         case .english: return "English"
         case .french: return "Français"
+        case .spanish: return "Español"
         }
     }
 
@@ -23,6 +25,7 @@ enum AppLanguage: String, CaseIterable, Identifiable {
         case .system: return "🌐"
         case .english: return "🇬🇧"
         case .french: return "🇫🇷"
+        case .spanish: return "🇪🇸"
         }
     }
 
@@ -31,6 +34,7 @@ enum AppLanguage: String, CaseIterable, Identifiable {
         case .system: return nil
         case .english: return "en"
         case .french: return "fr"
+        case .spanish: return "es"
         }
     }
 }
@@ -45,7 +49,8 @@ class LocalizationManager: ObservableObject {
     // Static translations dictionary as fallback
     private static let translations: [String: [String: String]] = [
         "en": LocalizationManager.englishTranslations,
-        "fr": LocalizationManager.frenchTranslations
+        "fr": LocalizationManager.frenchTranslations,
+        "es": LocalizationManager.spanishTranslations
     ]
 
     @Published var currentLanguage: AppLanguage {
@@ -105,7 +110,7 @@ class LocalizationManager: ObservableObject {
         return key
     }
 
-    private var effectiveLanguageCode: String {
+    var effectiveLanguageCode: String {
         if let localeId = currentLanguage.localeIdentifier {
             return localeId
         }
@@ -113,6 +118,9 @@ class LocalizationManager: ObservableObject {
         let preferredLanguage = Locale.preferredLanguages.first ?? "en"
         if preferredLanguage.starts(with: "fr") {
             return "fr"
+        }
+        if preferredLanguage.starts(with: "es") {
+            return "es"
         }
         return "en"
     }
@@ -303,6 +311,25 @@ extension LocalizationManager {
         "common.manage": "Manage",
         "common.new": "New",
 
+        // Welcome / Splash
+        "welcome.title": "Welcome to Volta",
+        "welcome.subtitle": "Your path to success starts here",
+        "welcome.loading": "Preparing your experience...",
+
+        // Auth / Sign In
+        "auth.tagline": "Ship your side project",
+        "auth.feature.focus": "Deep focus sessions",
+        "auth.feature.quests": "Track quests and goals",
+        "auth.feature.habits": "Level up with habits",
+        "auth.feature.rituals": "Daily rituals",
+        "auth.terms.agree": "By continuing, you agree to our",
+        "auth.terms.tos": "Terms of Service",
+        "auth.terms.and": "and",
+        "auth.terms.privacy": "Privacy Policy",
+        "auth.sign_in_apple": "Sign in with Apple",
+        "auth.signing_in": "Signing in...",
+        "auth.error_title": "Sign In Error",
+
         // Tabs
         "tab.dashboard": "Dashboard",
         "tab.fire": "Fire",
@@ -356,6 +383,7 @@ extension LocalizationManager {
         "fire.description": "What will you work on?",
         "fire.description_placeholder": "Describe your focus area...",
         "fire.log_past_session": "Log Past Session",
+        "fire.custom": "Custom",
         "fire.when": "When?",
         "fire.session_time": "Session time",
         "fire.what_worked_on": "What did you work on?",
@@ -396,6 +424,11 @@ extension LocalizationManager {
         "quests.quest_details": "Quest Details",
         "quests.target_date": "Target Date",
         "quests.update_progress": "Update Progress",
+        "quests.swipe_to_update": "Swipe to update progress",
+        "quests.deadline": "Deadline",
+        "quests.deadline_hint": "Set a target date for completing this quest (optional)",
+        "quests.no_deadline": "No deadline",
+        "quests.due_by": "Due by %@",
 
         // Routines / Rituals
         "routines.title": "Daily Rituals",
@@ -428,6 +461,10 @@ extension LocalizationManager {
         "routines.save_changes": "Save Changes",
         "routines.loading_areas": "Loading areas...",
         "routines.no_scheduled": "No rituals scheduled for today",
+        "routines.scheduled_time": "Scheduled Time",
+        "routines.scheduled_time_hint": "Set a specific time for this ritual (optional)",
+        "routines.no_time": "No specific time",
+        "routines.at_time": "at %@",
 
         // Crew
         "crew.title": "CREW",
@@ -472,6 +509,12 @@ extension LocalizationManager {
         "crew.done": "done",
         "crew.focus_this_week": "focus this week",
         "crew.routines_done": "routines done",
+        "crew.like": "Like",
+        "crew.unlike": "Unlike",
+        "crew.likes": "%d likes",
+        "crew.1_like": "1 like",
+        "crew.suggested": "Suggested for you",
+        "crew.suggested_hint": "People you might want to add to your crew",
 
         // Profile / Account
         "profile.title": "Profile",
@@ -489,6 +532,9 @@ extension LocalizationManager {
         "profile.sign_out": "Sign Out",
         "profile.sign_out_title": "Sign Out",
         "profile.sign_out_confirm": "Are you sure you want to sign out?",
+        "profile.language_change_title": "Change Language",
+        "profile.language_change_message": "The app needs to restart to apply the language change.",
+        "profile.restart_app": "Restart",
         "profile.version": "Volta v1.0.0",
         "profile.guest_account": "Guest Account",
 
@@ -514,6 +560,14 @@ extension LocalizationManager {
         "stats.no_routines": "No routines completed yet",
         "stats.view_stats": "View Stats",
         "stats.failed_to_load": "Failed to load statistics",
+
+        // Visibility
+        "visibility.public": "Public",
+        "visibility.crew": "Crew Only",
+        "visibility.private": "Private",
+        "visibility.public_desc": "Anyone can see your day",
+        "visibility.crew_desc": "Only crew members can see",
+        "visibility.private_desc": "Nobody can see your day",
 
         // Start The Day
         "start_day.title": "Start Your Day",
@@ -630,6 +684,8 @@ extension LocalizationManager {
         "time.m": "m",
         "time.days": "days",
         "time.day": "day",
+        "time.days_short": "d",
+        "time.day_short": "d",
         "time.today": "Today",
         "time.yesterday": "Yesterday",
         "time.ago": "ago",
@@ -640,6 +696,31 @@ extension LocalizationManager {
         "time.hours_ago": "%d hours ago",
         "time.1_min_ago": "1 min ago",
         "time.mins_ago": "%d min ago",
+
+        // Streak
+        "streak.active": "Active Streak",
+        "streak.day_count": "Day %d",
+        "streak.free_for": "You've been on fire for:",
+        "streak.motivational": "A new day to make progress",
+        "streak.name": "Name",
+        "streak.since": "Streak since",
+        "streak.start_today": "Start a focus session to begin your streak!",
+        "streak.today_done": "Done",
+        "streak.today_pending": "Pending",
+
+        // CTA (Call to Action)
+        "cta.start_day.title": "Start your day right",
+        "cta.start_day.subtitle": "Complete your morning check-in",
+        "cta.start_day.button": "Start the Day",
+        "cta.fire_mode.title": "Start a FireMode session",
+        "cta.fire_mode.subtitle": "Launch your first focus session",
+        "cta.fire_mode.button": "Enter FireMode",
+        "cta.end_day.title": "Complete your End of Day review",
+        "cta.end_day.subtitle": "Reflect and close your day",
+        "cta.end_day.button": "End of Day Review",
+        "cta.completed.title": "You're all set for today",
+        "cta.completed.subtitle": "Great work. Rest and prepare for tomorrow.",
+        "cta.completed.button": "View Progress",
 
         // Errors
         "error.generic": "Something went wrong",
@@ -664,7 +745,11 @@ extension LocalizationManager {
         "area.career": "Career",
         "area.relationships": "Relations",
         "area.creativity": "Creativity",
-        "area.other": "Other"
+        "area.other": "Other",
+
+        // Legal
+        "legal.privacy.title": "Privacy Policy",
+        "legal.privacy.content": "Volta only collects the information necessary to create and secure your account (name, email, password via Apple Sign In). No data is shared with third parties. You can delete your account at any time. Questions? support@volta.app"
     ]
 
     static let frenchTranslations: [String: String] = [
@@ -691,6 +776,25 @@ extension LocalizationManager {
         "common.see_more": "Voir %d de plus",
         "common.manage": "Gérer",
         "common.new": "Nouveau",
+
+        // Welcome / Splash
+        "welcome.title": "Bienvenue sur Volta",
+        "welcome.subtitle": "Ton chemin vers le succès commence ici",
+        "welcome.loading": "Préparation de ton expérience...",
+
+        // Auth / Sign In
+        "auth.tagline": "Lance ton side project",
+        "auth.feature.focus": "Sessions de focus intense",
+        "auth.feature.quests": "Suis tes quêtes et objectifs",
+        "auth.feature.habits": "Progresse avec tes habitudes",
+        "auth.feature.rituals": "Rituels quotidiens",
+        "auth.terms.agree": "En continuant, tu acceptes nos",
+        "auth.terms.tos": "Conditions d'utilisation",
+        "auth.terms.and": "et",
+        "auth.terms.privacy": "Politique de confidentialité",
+        "auth.sign_in_apple": "Se connecter avec Apple",
+        "auth.signing_in": "Connexion en cours...",
+        "auth.error_title": "Erreur de connexion",
 
         // Tabs
         "tab.dashboard": "Tableau de bord",
@@ -785,6 +889,11 @@ extension LocalizationManager {
         "quests.quest_details": "Détails de la quête",
         "quests.target_date": "Date cible",
         "quests.update_progress": "Mettre à jour",
+        "quests.swipe_to_update": "Glisse pour mettre à jour",
+        "quests.deadline": "Échéance",
+        "quests.deadline_hint": "Définis une date cible pour accomplir cette quête (optionnel)",
+        "quests.no_deadline": "Pas d'échéance",
+        "quests.due_by": "Pour le %@",
 
         // Routines / Rituals
         "routines.title": "Rituels quotidiens",
@@ -817,6 +926,10 @@ extension LocalizationManager {
         "routines.save_changes": "Enregistrer",
         "routines.loading_areas": "Chargement des domaines...",
         "routines.no_scheduled": "Aucun rituel prévu aujourd'hui",
+        "routines.scheduled_time": "Heure prévue",
+        "routines.scheduled_time_hint": "Définis une heure spécifique pour ce rituel (optionnel)",
+        "routines.no_time": "Pas d'heure spécifique",
+        "routines.at_time": "à %@",
 
         // Crew
         "crew.title": "ÉQUIPE",
@@ -861,6 +974,12 @@ extension LocalizationManager {
         "crew.done": "faits",
         "crew.focus_this_week": "focus cette semaine",
         "crew.routines_done": "routines faites",
+        "crew.like": "J'aime",
+        "crew.unlike": "Je n'aime plus",
+        "crew.likes": "%d j'aime",
+        "crew.1_like": "1 j'aime",
+        "crew.suggested": "Suggestions pour toi",
+        "crew.suggested_hint": "Des personnes que tu pourrais ajouter à ton équipe",
 
         // Profile / Account
         "profile.title": "Profil",
@@ -878,6 +997,9 @@ extension LocalizationManager {
         "profile.sign_out": "Se déconnecter",
         "profile.sign_out_title": "Se déconnecter",
         "profile.sign_out_confirm": "Es-tu sûr de vouloir te déconnecter ?",
+        "profile.language_change_title": "Changer de langue",
+        "profile.language_change_message": "L'application doit redémarrer pour appliquer le changement de langue.",
+        "profile.restart_app": "Redémarrer",
         "profile.version": "Volta v1.0.0",
         "profile.guest_account": "Compte invité",
 
@@ -903,6 +1025,14 @@ extension LocalizationManager {
         "stats.no_routines": "Pas encore de routines complétées",
         "stats.view_stats": "Voir les stats",
         "stats.failed_to_load": "Échec du chargement des statistiques",
+
+        // Visibility
+        "visibility.public": "Public",
+        "visibility.crew": "Équipage seulement",
+        "visibility.private": "Privé",
+        "visibility.public_desc": "Tout le monde peut voir ta journée",
+        "visibility.crew_desc": "Seul ton équipage peut voir",
+        "visibility.private_desc": "Personne ne peut voir ta journée",
 
         // Start The Day
         "start_day.title": "Commence ta journée",
@@ -1019,6 +1149,8 @@ extension LocalizationManager {
         "time.m": "m",
         "time.days": "jours",
         "time.day": "jour",
+        "time.days_short": "j",
+        "time.day_short": "j",
         "time.today": "Aujourd'hui",
         "time.yesterday": "Hier",
         "time.ago": "il y a",
@@ -1029,6 +1161,31 @@ extension LocalizationManager {
         "time.hours_ago": "Il y a %d heures",
         "time.1_min_ago": "Il y a 1 min",
         "time.mins_ago": "Il y a %d min",
+
+        // Streak
+        "streak.active": "Série active",
+        "streak.day_count": "Jour %d",
+        "streak.free_for": "Tu es en feu depuis :",
+        "streak.motivational": "Un nouveau jour pour progresser",
+        "streak.name": "Nom",
+        "streak.since": "Depuis le",
+        "streak.start_today": "Lance une session focus pour démarrer ta série !",
+        "streak.today_done": "Fait",
+        "streak.today_pending": "En attente",
+
+        // CTA (Call to Action)
+        "cta.start_day.title": "Bien démarrer ta journée",
+        "cta.start_day.subtitle": "Complète ton check-in du matin",
+        "cta.start_day.button": "Démarrer la journée",
+        "cta.fire_mode.title": "Lance une session FireMode",
+        "cta.fire_mode.subtitle": "Démarre ta première session focus",
+        "cta.fire_mode.button": "Entrer en FireMode",
+        "cta.end_day.title": "Fais ta revue de fin de journée",
+        "cta.end_day.subtitle": "Réfléchis et clôture ta journée",
+        "cta.end_day.button": "Revue de fin de journée",
+        "cta.completed.title": "Tu as tout fait pour aujourd'hui",
+        "cta.completed.subtitle": "Bravo. Repose-toi et prépare-toi pour demain.",
+        "cta.completed.button": "Voir la progression",
 
         // Errors
         "error.generic": "Une erreur s'est produite",
@@ -1053,6 +1210,435 @@ extension LocalizationManager {
         "area.career": "Carrière",
         "area.relationships": "Relations",
         "area.creativity": "Créativité",
-        "area.other": "Autre"
+        "area.other": "Autre",
+
+        // Legal
+        "legal.privacy.title": "Confidentialité",
+        "legal.privacy.content": "Volta collecte uniquement les informations nécessaires pour créer et sécuriser votre compte (nom, email, mot de passe via Apple Sign In). Aucune donnée n'est partagée avec des tiers. Vous pouvez supprimer votre compte à tout moment. Questions ? support@volta.app"
+    ]
+
+    static let spanishTranslations: [String: String] = [
+        // Common
+        "common.done": "Hecho",
+        "common.cancel": "Cancelar",
+        "common.save": "Guardar",
+        "common.delete": "Eliminar",
+        "common.edit": "Editar",
+        "common.error": "Error",
+        "common.retry": "Reintentar",
+        "common.loading": "Cargando...",
+        "common.ok": "OK",
+        "common.yes": "Sí",
+        "common.no": "No",
+        "common.back": "Atrás",
+        "common.continue": "Continuar",
+        "common.close": "Cerrar",
+        "common.add": "Añadir",
+        "common.remove": "Eliminar",
+        "common.none": "Ninguno",
+        "common.show_less": "Ver menos",
+        "common.see_all": "Ver todos %d",
+        "common.see_more": "Ver %d más",
+        "common.manage": "Gestionar",
+        "common.new": "Nuevo",
+
+        // Welcome / Splash
+        "welcome.title": "Bienvenido a Volta",
+        "welcome.subtitle": "Tu camino hacia el éxito comienza aquí",
+        "welcome.loading": "Preparando tu experiencia...",
+
+        // Auth / Sign In
+        "auth.tagline": "Enfócate. Construye. Progresa.",
+        "auth.feature.focus": "Sesiones de enfoque profundo",
+        "auth.feature.quests": "Sigue tus metas y objetivos",
+        "auth.feature.habits": "Sube de nivel con hábitos",
+        "auth.feature.rituals": "Rituales diarios",
+        "auth.terms.agree": "Al continuar, aceptas nuestros",
+        "auth.terms.tos": "Términos de Servicio",
+        "auth.terms.and": "y",
+        "auth.terms.privacy": "Política de Privacidad",
+        "auth.sign_in_apple": "Iniciar sesión con Apple",
+        "auth.signing_in": "Iniciando sesión...",
+        "auth.error_title": "Error de inicio de sesión",
+
+        // Tabs
+        "tab.dashboard": "Inicio",
+        "tab.fire": "Enfoque",
+        "tab.quests": "Metas",
+        "tab.crew": "Equipo",
+
+        // Dashboard
+        "dashboard.title": "VOLTA",
+        "dashboard.subtitle": "Un nuevo día para avanzar en tu proyecto.",
+        "dashboard.good_morning": "Buenos días",
+        "dashboard.good_afternoon": "Buenas tardes",
+        "dashboard.good_evening": "Buenas noches",
+        "dashboard.start_day": "Comienza tu Día",
+        "dashboard.end_day": "Termina tu Día",
+        "dashboard.todays_routines": "Rutinas de Hoy",
+        "dashboard.todays_intentions": "Intenciones del Día",
+        "dashboard.daily_habits": "Hábitos Diarios",
+        "dashboard.evening_reflection": "Reflexión Nocturna",
+        "dashboard.focus_time": "Tiempo de Enfoque",
+        "dashboard.streak": "Racha",
+        "dashboard.day_streak": "días de racha",
+        "dashboard.weekly_progress": "Progreso Semanal",
+        "dashboard.sessions_this_week": "Sesiones de la Semana",
+        "dashboard.loading": "Cargando tu dashboard...",
+        "dashboard.focused_today": "Enfocado Hoy",
+        "dashboard.swipe_hint": "Desliza a la izquierda para editar o eliminar",
+        "dashboard.motivational": "Estás progresando. Incluso en los días difíciles.",
+
+        // Fire Mode
+        "fire.title": "FIREMODE",
+        "fire.subtitle": "Enfoque profundo. Cero distracciones.",
+        "fire.start_session": "Iniciar Sesión de Enfoque",
+        "fire.stop_session": "Detener Sesión",
+        "fire.pause": "Pausar",
+        "fire.resume": "Reanudar",
+        "fire.focus": "Enfoque",
+        "fire.paused": "Pausado",
+        "fire.complete": "¡Completado!",
+        "fire.great_work": "¡Buen trabajo! Sesión registrada.",
+        "fire.ready_to_focus": "¿Listo para enfocarte?",
+        "fire.ready_subtitle": "Inicia tu primera sesión y genera impulso",
+        "fire.duration": "Duración",
+        "fire.minutes": "minutos",
+        "fire.sessions_today": "Sesiones de Hoy",
+        "fire.sessions_this_week": "Sesiones esta semana",
+        "fire.focus_time": "Tiempo de enfoque",
+        "fire.link_quest": "Vincular a Meta (opcional)",
+        "fire.select_quest": "Selecciona una meta...",
+        "fire.no_active_quests": "Sin metas activas",
+        "fire.no_quest": "Sin meta seleccionada",
+        "fire.description": "¿En qué trabajarás?",
+        "fire.description_placeholder": "Describe tu área de enfoque...",
+        "fire.log_past_session": "Registrar Sesión Pasada",
+        "fire.when": "¿Cuándo?",
+        "fire.session_time": "Tiempo de sesión",
+        "fire.what_worked_on": "¿En qué trabajaste?",
+        "fire.log_session": "Registrar Sesión",
+        "fire.focus_session": "Sesión de enfoque",
+        "fire.manual": "Manual",
+        "fire.start_firemode": "Iniciar FireMode",
+        "fire.launch_session": "Lanza una sesión de enfoque ahora",
+        "fire.delete_session": "¿Eliminar Sesión?",
+        "fire.delete_session_confirm": "Esto eliminará permanentemente esta sesión de enfoque.",
+
+        // Quests
+        "quests.title": "METAS",
+        "quests.subtitle": "Sigue tu progreso y construye hábitos.",
+        "quests.active": "Activas",
+        "quests.completed": "Completadas",
+        "quests.add_quest": "Añadir Meta",
+        "quests.new_quest": "Nueva Meta",
+        "quests.progress": "Progreso",
+        "quests.no_quests": "Sin metas aún",
+        "quests.quest_title": "Título de la meta",
+        "quests.target": "Objetivo (opcional)",
+        "quests.target_hint": "¿Cuántas veces quieres lograr esto?",
+        "quests.current_progress": "Progreso Actual",
+        "quests.progress_hint": "Usa el deslizador en la tarjeta para actualizar el progreso",
+        "quests.mark_complete": "Marcar como Completada",
+        "quests.swipe_hint": "Desliza a la derecha para completar",
+        "quests.areas": "Áreas",
+        "quests.quests": "Metas",
+        "quests.no_areas": "Sin áreas registradas aún",
+        "quests.no_areas_hint": "Crea metas para ver tu progreso por área",
+        "quests.no_quests_hint": "Crea tu primera meta para comenzar a seguir tu progreso",
+        "quests.create_quest": "Crear Meta",
+        "quests.quest_placeholder": "ej., Leer 12 libros, Correr un maratón...",
+        "quests.edit_quest": "Editar Meta",
+        "quests.delete_quest": "Eliminar Meta",
+        "quests.delete_confirm": "Esta acción no se puede deshacer.",
+        "quests.quest_details": "Detalles de la Meta",
+        "quests.target_date": "Fecha Objetivo",
+        "quests.update_progress": "Actualizar Progreso",
+        "quests.swipe_to_update": "Desliza para actualizar progreso",
+
+        // Routines / Rituals
+        "routines.title": "Rituales Diarios",
+        "routines.subtitle": "Construye hábitos diarios que se acumulan con el tiempo",
+        "routines.daily": "Rutinas Diarias",
+        "routines.completed": "Completado",
+        "routines.add_routine": "Añadir Ritual",
+        "routines.new_ritual": "Nuevo Ritual",
+        "routines.edit_ritual": "Editar Ritual",
+        "routines.no_routines": "Sin rituales aún",
+        "routines.no_routines_hint": "Crea rituales diarios para construir consistencia",
+        "routines.add_first": "Añade Tu Primer Ritual",
+        "routines.total": "Total",
+        "routines.done_today": "Hecho hoy",
+        "routines.swipe_hint": "Desliza a la derecha para completar, izquierda para editar/eliminar",
+        "routines.delete_ritual": "Eliminar Ritual",
+        "routines.delete_confirm": "¿Eliminar Ritual?",
+        "routines.delete_message": "¿Seguro que quieres eliminar \"%@\"? Esta acción no se puede deshacer.",
+        "routines.choose_icon": "Elige un icono",
+        "routines.ritual_name": "Nombre del ritual",
+        "routines.ritual_placeholder": "ej., Ejercicio matutino, Leer 30 min...",
+        "routines.life_area": "Área de vida",
+        "routines.no_areas": "Sin áreas disponibles",
+        "routines.frequency": "Frecuencia",
+        "routines.frequency.daily": "Diario",
+        "routines.frequency.weekdays": "Días laborables",
+        "routines.frequency.weekends": "Fines de semana",
+        "routines.frequency.weekly": "Semanal",
+        "routines.create": "Crear Ritual",
+        "routines.save_changes": "Guardar Cambios",
+        "routines.loading_areas": "Cargando áreas...",
+        "routines.no_scheduled": "Sin rituales programados para hoy",
+
+        // Crew
+        "crew.title": "EQUIPO",
+        "crew.subtitle": "Construye juntos. Crece juntos.",
+        "crew.leaderboard": "Clasificación",
+        "crew.my_crew": "Mi Equipo",
+        "crew.requests": "Solicitudes",
+        "crew.account": "Cuenta",
+        "crew.top_builders": "Top Constructores Esta Semana",
+        "crew.your_crew": "Tu Equipo",
+        "crew.members": "miembros",
+        "crew.this_week": "esta semana",
+        "crew.search": "Buscar",
+        "crew.search_placeholder": "Buscar usuarios...",
+        "crew.no_users_found": "No se encontraron usuarios",
+        "crew.pending": "Pendiente",
+        "crew.respond": "Responder",
+        "crew.accept": "Aceptar",
+        "crew.reject": "Rechazar",
+        "crew.in_crew": "En Equipo",
+        "crew.remove": "Eliminar",
+        "crew.no_members": "Sin miembros aún",
+        "crew.no_requests": "Sin solicitudes pendientes",
+        "crew.received_requests": "Solicitudes Recibidas",
+        "crew.sent_requests": "Solicitudes Enviadas",
+        "crew.incoming": "Entrantes",
+        "crew.outgoing": "Salientes",
+        "crew.remove_confirm": "¿Seguro que quieres eliminar a %@ de tu equipo?",
+        "crew.search_hint": "Busca usuarios y envíales una solicitud de equipo",
+        "crew.start_session_hint": "Inicia una sesión de enfoque para aparecer en la clasificación",
+        "crew.requests_hint": "Cuando alguien quiera unirse a tu equipo, aparecerá aquí",
+        "crew.no_sent_requests": "Sin solicitudes enviadas",
+        "crew.search_to_send": "Busca usuarios para enviar solicitudes de equipo",
+        "crew.crew_member": "Miembro del Equipo",
+        "crew.day_not_visible": "Día No Visible",
+        "crew.day_private": "Este usuario tiene su día configurado como privado",
+        "crew.no_activity": "Sin actividad este día",
+        "crew.intentions": "Intenciones",
+        "crew.focus_sessions": "Sesiones de Enfoque",
+        "crew.sessions": "sesiones",
+        "crew.completed_routines": "Rutinas Completadas",
+        "crew.done": "hecho",
+        "crew.focus_this_week": "enfoque esta semana",
+        "crew.routines_done": "rutinas hechas",
+
+        // Profile / Account
+        "profile.title": "Perfil",
+        "profile.level": "Nivel %d",
+        "profile.my_statistics": "Mis Estadísticas",
+        "profile.day_visibility": "Visibilidad del Día",
+        "profile.visibility_description": "Controla quién puede ver tu actividad diaria",
+        "profile.public": "Público",
+        "profile.public_desc": "Cualquiera puede ver tu día",
+        "profile.crew_only": "Solo Equipo",
+        "profile.crew_only_desc": "Solo los miembros del equipo pueden ver",
+        "profile.private": "Privado",
+        "profile.private_desc": "Nadie puede ver tu día",
+        "profile.language": "Idioma",
+        "profile.sign_out": "Cerrar Sesión",
+        "profile.sign_out_title": "Cerrar Sesión",
+        "profile.sign_out_confirm": "¿Seguro que quieres cerrar sesión?",
+        "profile.language_change_title": "Cambiar Idioma",
+        "profile.language_change_message": "La aplicación necesita reiniciarse para aplicar el cambio de idioma.",
+        "profile.restart_app": "Reiniciar",
+        "profile.version": "Volta v1.0.0",
+        "profile.guest_account": "Cuenta de Invitado",
+
+        // Statistics
+        "stats.title": "Estadísticas",
+        "stats.my_statistics": "Mis Estadísticas",
+        "stats.member_stats": "Estadísticas de %@",
+        "stats.week": "Semana",
+        "stats.month": "Mes",
+        "stats.focus_time": "Tiempo de Enfoque",
+        "stats.avg_daily": "Promedio Diario",
+        "stats.routines": "Rutinas",
+        "stats.completion": "Completado",
+        "stats.completed": "completado",
+        "stats.rate": "tasa",
+        "stats.this_week": "esta semana",
+        "stats.this_month": "este mes",
+        "stats.last_7_days": "Últimos 7 días",
+        "stats.last_30_days": "Últimos 30 días",
+        "stats.focus_sessions": "Sesiones de Enfoque",
+        "stats.daily_routines": "Rutinas Diarias",
+        "stats.no_sessions": "Sin sesiones de enfoque aún",
+        "stats.no_routines": "Sin rutinas completadas aún",
+        "stats.view_stats": "Ver Estadísticas",
+        "stats.failed_to_load": "Error al cargar estadísticas",
+
+        // Start The Day
+        "start_day.title": "Comienza tu Día",
+        "start_day.greeting_morning": "¡Buenos Días!",
+        "start_day.greeting_afternoon": "¡Buenas Tardes!",
+        "start_day.greeting_evening": "¡Buenas Noches!",
+        "start_day.subtitle": "Tómate un momento para establecer el tono de un día enfocado y productivo.",
+        "start_day.how_feeling": "¿Cómo te sientes?",
+        "start_day.feeling_hint": "Selecciona la emoción que mejor describe tu estado actual",
+        "start_day.add_note": "Añadir nota (opcional)",
+        "start_day.note_placeholder": "¿Qué tienes en mente esta mañana?",
+        "start_day.sleep_quality": "¿Cómo dormiste?",
+        "start_day.sleep_hint": "Califica la calidad de tu descanso del 1 al 10",
+        "start_day.poor": "Mal",
+        "start_day.excellent": "Excelente",
+        "start_day.sleep_notes": "Notas sobre el sueño (opcional)",
+        "start_day.sleep_placeholder": "¿Algún pensamiento sobre tu sueño?",
+        "start_day.intentions": "Intenciones del Día",
+        "start_day.intention_1": "Intención 1",
+        "start_day.intention_2": "Intención 2",
+        "start_day.intention_3": "Intención 3",
+        "start_day.intention_placeholder": "¿En qué te enfocarás?",
+        "start_day.life_area": "Área de vida",
+        "start_day.review": "Revisa tu Día",
+        "start_day.confirm_subtitle": "Confirma tu check-in matutino",
+        "start_day.not_set": "No establecido",
+        "start_day.feeling": "Estado de ánimo",
+        "start_day.focus_areas": "Áreas de enfoque de hoy",
+        "start_day.start_my_day": "Comenzar Mi Día",
+        "start_day.lets_go": "¡Vamos!",
+        "start_day.youre_ready": "¡Estás Listo!",
+        "start_day.ready_subtitle": "Tus intenciones están establecidas.\n¡Es hora de hacerlo realidad!",
+        "start_day.sleep_1": "Muy mal descanso",
+        "start_day.sleep_3": "Podría ser mejor",
+        "start_day.sleep_5": "Sueño decente",
+        "start_day.sleep_7": "Buen descanso",
+        "start_day.sleep_10": "¡Excelente recuperación!",
+        "start_day.step_indicator": "Paso %d de %d",
+        "start_day.step.welcome": "Bienvenida",
+        "start_day.step.welcome_subtitle": "Comencemos bien tu día",
+        "start_day.step.sleep_subtitle": "¿Cómo fue tu descanso?",
+        "start_day.step.intention1_subtitle": "¿Cuál es tu primera prioridad?",
+        "start_day.step.intention2_subtitle": "¿Qué más importa hoy?",
+        "start_day.step.intention3_subtitle": "Una cosa más en qué enfocarte",
+        "start_day.intention_prompt_1": "¿Qué es lo más importante que quieres lograr hoy?",
+        "start_day.intention_prompt_2": "¿Qué más haría que hoy se sienta exitoso?",
+        "start_day.intention_prompt_3": "Una intención más para completar tu día",
+        "start_day.intention_example_1": "ej., Terminar la propuesta del proyecto",
+        "start_day.intention_example_2": "ej., 30 minutos de ejercicio",
+        "start_day.intention_example_3": "ej., Llamar a un amigo",
+
+        // End of Day
+        "end_day.title": "Revisión Nocturna",
+        "end_day.time_to_reflect": "Hora de Reflexionar",
+        "end_day.subtitle": "Tómate unos minutos para revisar tu día y prepararte para mañana.",
+        "end_day.lets_reflect": "Reflexionemos",
+        "end_day.daily_rituals": "Rituales Diarios",
+        "end_day.your_rituals": "Tus Rituales Diarios",
+        "end_day.rituals_hint": "Marca lo que completaste hoy",
+        "end_day.rituals": "Rituales",
+        "end_day.rituals_progress": "%d de %d completados",
+        "end_day.rituals_completed": "%d/%d completados",
+        "end_day.ideas": "Ideas para comenzar:",
+        "end_day.biggest_win": "Mayor Logro",
+        "end_day.biggest_win_question": "¿Cuál fue tu mayor logro hoy?",
+        "end_day.biggest_win_hint": "Celebra tus logros, sin importar lo pequeños que sean",
+        "end_day.biggest_win_placeholder": "Estoy orgulloso de...",
+        "end_day.challenges": "Desafíos",
+        "end_day.challenges_question": "¿Qué te desafió hoy?",
+        "end_day.challenges_hint": "Identificar obstáculos te ayuda a superarlos",
+        "end_day.challenges_placeholder": "Tuve dificultades con...",
+        "end_day.best_moment": "Mejor Momento",
+        "end_day.best_moment_question": "¿Cuál fue tu mejor momento?",
+        "end_day.best_moment_hint": "Encuentra los puntos brillantes de tu día",
+        "end_day.best_moment_placeholder": "Me sentí feliz cuando...",
+        "end_day.tomorrow": "Mañana",
+        "end_day.tomorrow_question": "¿Cuál es tu meta #1 para mañana?",
+        "end_day.tomorrow_hint": "Prepárate para el éxito",
+        "end_day.tomorrow_placeholder": "Mañana voy a...",
+        "end_day.tomorrow_goal": "Meta para Mañana",
+        "end_day.summary": "Resumen",
+        "end_day.your_day_review": "Tu Día en Revisión",
+        "end_day.summary_hint": "Aquí hay un resumen de tu reflexión",
+        "end_day.no_reflections": "Sin reflexiones añadidas",
+        "end_day.no_reflections_hint": "Aún puedes completar tu revisión, o volver atrás para añadir algunos pensamientos.",
+        "end_day.day_complete": "¡Día Completado!",
+        "end_day.rest_well": "Descansa bien. Mañana es una nueva oportunidad.",
+        "end_day.rituals_done": "Rituales Hechos",
+        "end_day.goal_set": "Meta Establecida",
+        "end_day.complete_review": "Completar Revisión",
+        "end_day.good_night": "Buenas Noches",
+        "end_day.step_indicator": "Paso %d de %d",
+
+        // Time Formatting
+        "time.hours": "horas",
+        "time.minutes": "minutos",
+        "time.h": "h",
+        "time.m": "m",
+        "time.days": "días",
+        "time.day": "día",
+        "time.today": "Hoy",
+        "time.yesterday": "Ayer",
+        "time.ago": "hace",
+        "time.just_now": "Justo ahora",
+        "time.1_day_ago": "hace 1 día",
+        "time.days_ago": "hace %d días",
+        "time.1_hour_ago": "hace 1 hora",
+        "time.hours_ago": "hace %d horas",
+        "time.1_min_ago": "hace 1 min",
+        "time.mins_ago": "hace %d min",
+
+        // Streak
+        "streak.active": "Racha Activa",
+        "streak.day_count": "Día %d",
+        "streak.free_for": "Has estado en fuego por:",
+        "streak.motivational": "Un nuevo día para progresar",
+        "streak.name": "Nombre",
+        "streak.since": "Racha desde",
+        "streak.start_today": "¡Inicia una sesión de enfoque para comenzar tu racha!",
+        "streak.today_done": "Hecho",
+        "streak.today_pending": "Pendiente",
+
+        // CTA (Call to Action)
+        "cta.start_day.title": "Comienza bien tu día",
+        "cta.start_day.subtitle": "Completa tu check-in matutino",
+        "cta.start_day.button": "Comenzar el Día",
+        "cta.fire_mode.title": "Inicia una sesión FireMode",
+        "cta.fire_mode.subtitle": "Lanza tu primera sesión de enfoque",
+        "cta.fire_mode.button": "Entrar en FireMode",
+        "cta.end_day.title": "Completa tu revisión de fin de día",
+        "cta.end_day.subtitle": "Reflexiona y cierra tu día",
+        "cta.end_day.button": "Revisión de Fin de Día",
+        "cta.completed.title": "Ya estás listo para hoy",
+        "cta.completed.subtitle": "Buen trabajo. Descansa y prepárate para mañana.",
+        "cta.completed.button": "Ver Progreso",
+
+        // Errors
+        "error.generic": "Algo salió mal",
+        "error.network": "Error de red. Por favor intenta de nuevo.",
+        "error.loading_data": "Error al cargar datos",
+        "error.saving": "Error al guardar",
+        "error.update_visibility": "Error al actualizar visibilidad",
+
+        // Feelings
+        "feeling.happy": "Feliz",
+        "feeling.calm": "Tranquilo",
+        "feeling.neutral": "Neutral",
+        "feeling.sad": "Triste",
+        "feeling.anxious": "Ansioso",
+        "feeling.frustrated": "Frustrado",
+        "feeling.excited": "Emocionado",
+        "feeling.tired": "Cansado",
+
+        // Areas
+        "area.health": "Salud",
+        "area.learning": "Aprendizaje",
+        "area.career": "Carrera",
+        "area.relationships": "Relaciones",
+        "area.creativity": "Creatividad",
+        "area.other": "Otro",
+
+        // Legal
+        "legal.privacy.title": "Política de Privacidad",
+        "legal.privacy.content": "Volta solo recopila la información necesaria para crear y proteger tu cuenta (nombre, correo, contraseña mediante Apple Sign In). No se comparten datos con terceros. Puedes eliminar tu cuenta en cualquier momento. ¿Preguntas? support@volta.app"
     ]
 }

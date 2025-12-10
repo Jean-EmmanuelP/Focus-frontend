@@ -169,23 +169,29 @@ class StartTheDayViewModel: ObservableObject {
                 )
             }
 
-            store.morningCheckIn = MorningCheckIn(
-                id: response.id,
-                userId: store.authUserId ?? "",
-                date: Date(),
-                feeling: selectedFeeling ?? .neutral,
-                feelingNote: feelingNote.isEmpty ? nil : feelingNote,
-                sleepQuality: sleepQuality,
-                sleepNote: sleepNote.isEmpty ? nil : sleepNote,
-                intentions: dailyIntentions
-            )
+            await MainActor.run {
+                store.morningCheckIn = MorningCheckIn(
+                    id: response.id,
+                    userId: store.authUserId ?? "",
+                    date: Date(),
+                    feeling: selectedFeeling ?? .neutral,
+                    feelingNote: feelingNote.isEmpty ? nil : feelingNote,
+                    sleepQuality: sleepQuality,
+                    sleepNote: sleepNote.isEmpty ? nil : sleepNote,
+                    intentions: dailyIntentions
+                )
 
-            isComplete = true
+                isComplete = true
+            }
         } catch {
-            errorMessage = error.localizedDescription
+            await MainActor.run {
+                errorMessage = error.localizedDescription
+            }
         }
 
-        isLoading = false
+        await MainActor.run {
+            isLoading = false
+        }
     }
 
     // Convert Feeling enum to mood rating (1-5)
@@ -217,6 +223,7 @@ struct StartTheDayView: View {
     @StateObject private var viewModel = StartTheDayViewModel()
     @ObservedObject private var localization = LocalizationManager.shared
     @Environment(\.dismiss) var dismiss
+    @FocusState private var isTextFieldFocused: Bool
 
     var body: some View {
         ZStack {
@@ -247,8 +254,24 @@ struct StartTheDayView: View {
                 Button(action: { dismiss() }) {
                     Image(systemName: "xmark")
                         .foregroundColor(ColorTokens.textSecondary)
+                        .font(.system(size: 16, weight: .semibold))
+                        .frame(width: 36, height: 36)
+                        .background(ColorTokens.surface)
+                        .clipShape(Circle())
                 }
             }
+        }
+        .onChange(of: viewModel.currentStep) { _, newStep in
+            // Focus text field on intention steps
+            if case .intention1 = newStep { focusTextField() }
+            if case .intention2 = newStep { focusTextField() }
+            if case .intention3 = newStep { focusTextField() }
+        }
+    }
+
+    private func focusTextField() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            isTextFieldFocused = true
         }
     }
 
@@ -292,59 +315,81 @@ struct StartTheDayView: View {
     // MARK: - Step Content
     @ViewBuilder
     private var stepContent: some View {
-        ScrollView {
-            VStack(spacing: SpacingTokens.xl) {
-                switch viewModel.currentStep {
-                case .welcome:
-                    welcomeStep
-                case .feeling:
-                    feelingStep
-                case .sleep:
-                    sleepStep
-                case .intention1:
-                    singleIntentionStep(index: 0)
-                case .intention2:
-                    singleIntentionStep(index: 1)
-                case .intention3:
-                    singleIntentionStep(index: 2)
-                case .review:
-                    reviewStep
+        ScrollViewReader { scrollProxy in
+            ScrollView {
+                VStack(spacing: SpacingTokens.xl) {
+                    // Anchor at top for scrolling
+                    Color.clear
+                        .frame(height: 1)
+                        .id("top")
+
+                    switch viewModel.currentStep {
+                    case .welcome:
+                        welcomeStep
+                    case .feeling:
+                        feelingStep
+                    case .sleep:
+                        sleepStep
+                    case .intention1:
+                        singleIntentionStep(index: 0)
+                    case .intention2:
+                        singleIntentionStep(index: 1)
+                    case .intention3:
+                        singleIntentionStep(index: 2)
+                    case .review:
+                        reviewStep
+                    }
+                }
+                .padding(SpacingTokens.lg)
+            }
+            .scrollDismissesKeyboard(.interactively)
+            .onTapGesture {
+                hideKeyboard()
+            }
+            .onChange(of: viewModel.currentStep) { _, _ in
+                // Scroll to top when step changes
+                withAnimation(.easeOut(duration: 0.3)) {
+                    scrollProxy.scrollTo("top", anchor: .top)
                 }
             }
-            .padding(SpacingTokens.lg)
-        }
-        .scrollDismissesKeyboard(.interactively)
-        .onTapGesture {
-            hideKeyboard()
         }
     }
 
     // MARK: - Welcome Step
     private var welcomeStep: some View {
-        VStack(spacing: SpacingTokens.xl) {
-            Spacer()
-                .frame(height: 40)
+        GeometryReader { geometry in
+            let isSmallScreen = geometry.size.height < 500
+            let emojiSize: CGFloat = isSmallScreen ? 60 : 80
 
-            Text("☀️")
-                .font(.system(size: 80))
+            VStack(spacing: isSmallScreen ? SpacingTokens.lg : SpacingTokens.xl) {
+                Spacer()
+                    .frame(height: isSmallScreen ? SpacingTokens.lg : 40)
 
-            VStack(spacing: SpacingTokens.sm) {
-                Text(timeOfDayGreeting)
-                    .heading1()
-                    .foregroundColor(ColorTokens.textPrimary)
+                Text("☀️")
+                    .font(.system(size: emojiSize))
 
-                Text(Date().formatted(date: .complete, time: .omitted))
+                VStack(spacing: SpacingTokens.sm) {
+                    Text(timeOfDayGreeting)
+                        .heading1()
+                        .foregroundColor(ColorTokens.textPrimary)
+                        .minimumScaleFactor(0.8)
+
+                    Text(Date().formatted(date: .complete, time: .omitted))
+                        .bodyText()
+                        .foregroundColor(ColorTokens.textSecondary)
+                        .minimumScaleFactor(0.9)
+                }
+
+                Text("start_day.subtitle".localized)
                     .bodyText()
-                    .foregroundColor(ColorTokens.textSecondary)
+                    .foregroundColor(ColorTokens.textMuted)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, SpacingTokens.xl)
+                    .minimumScaleFactor(0.9)
+
+                Spacer()
             }
-
-            Text("start_day.subtitle".localized)
-                .bodyText()
-                .foregroundColor(ColorTokens.textMuted)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, SpacingTokens.xl)
-
-            Spacer()
+            .frame(maxWidth: .infinity)
         }
     }
 
@@ -546,18 +591,15 @@ struct StartTheDayView: View {
 
     // MARK: - Single Intention Step
     private func singleIntentionStep(index: Int) -> some View {
-        let intentionNumber = index + 1
         let emoji = intentionEmoji(for: index)
         let prompt = intentionPrompt(for: index)
         let intentionTitle = intentionTitleLocalized(for: index)
 
-        return VStack(spacing: SpacingTokens.xl) {
-            Spacer()
-                .frame(height: 20)
-
+        return VStack(spacing: SpacingTokens.lg) {
             // Large emoji
             Text(emoji)
-                .font(.system(size: 70))
+                .font(.system(size: 60))
+                .padding(.top, SpacingTokens.md)
 
             // Title and subtitle
             VStack(spacing: SpacingTokens.sm) {
@@ -572,21 +614,20 @@ struct StartTheDayView: View {
                     .padding(.horizontal, SpacingTokens.md)
             }
 
-            Spacer()
-                .frame(height: 20)
-
             // Input card
             VStack(alignment: .leading, spacing: SpacingTokens.lg) {
-                // Text input
+                // Text input with focus
                 VStack(alignment: .leading, spacing: SpacingTokens.sm) {
                     Text("start_day.intention_placeholder".localized)
                         .caption()
                         .foregroundColor(ColorTokens.textMuted)
 
-                    CustomTextField(
-                        placeholder: intentionPlaceholder(for: index),
-                        text: $viewModel.intentions[index].text
-                    )
+                    TextField(intentionPlaceholder(for: index), text: $viewModel.intentions[index].text)
+                        .focused($isTextFieldFocused)
+                        .padding(SpacingTokens.md)
+                        .background(ColorTokens.surfaceElevated)
+                        .cornerRadius(RadiusTokens.md)
+                        .foregroundColor(ColorTokens.textPrimary)
                 }
 
                 // Area selection
@@ -612,8 +653,6 @@ struct StartTheDayView: View {
             .padding(SpacingTokens.lg)
             .background(ColorTokens.surface)
             .cornerRadius(RadiusTokens.xl)
-
-            Spacer()
         }
     }
 
@@ -655,7 +694,7 @@ struct StartTheDayView: View {
 
     // MARK: - Review Step
     private var reviewStep: some View {
-        VStack(alignment: .leading, spacing: SpacingTokens.xl) {
+        VStack(alignment: .leading, spacing: SpacingTokens.lg) {
             VStack(alignment: .leading, spacing: SpacingTokens.xs) {
                 Text("start_day.review".localized)
                     .heading2()
@@ -665,6 +704,7 @@ struct StartTheDayView: View {
                     .caption()
                     .foregroundColor(ColorTokens.textSecondary)
             }
+            .padding(.bottom, SpacingTokens.sm)
 
             // Feeling summary
             reviewCard(
@@ -708,12 +748,12 @@ struct StartTheDayView: View {
 
                         Spacer()
                     }
-                    .padding(SpacingTokens.sm)
+                    .padding(SpacingTokens.md)
                     .background(ColorTokens.surfaceElevated)
-                    .cornerRadius(RadiusTokens.sm)
+                    .cornerRadius(RadiusTokens.md)
                 }
             }
-            .padding(SpacingTokens.md)
+            .padding(SpacingTokens.lg)
             .background(ColorTokens.surface)
             .cornerRadius(RadiusTokens.lg)
 
@@ -751,7 +791,7 @@ struct StartTheDayView: View {
                     .italic()
             }
         }
-        .padding(SpacingTokens.md)
+        .padding(SpacingTokens.lg)
         .background(ColorTokens.surface)
         .cornerRadius(RadiusTokens.lg)
     }

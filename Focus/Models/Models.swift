@@ -14,9 +14,6 @@ struct User: Codable, Identifiable {
     var hobbies: String?
     var lifeGoal: String?       // What they want to achieve
     var dayVisibility: String?  // public, crew, private
-    var level: Int
-    var experiencePoints: Int
-    var experienceToNextLevel: Int
     var currentStreak: Int
     var longestStreak: Int
 
@@ -32,19 +29,6 @@ struct User: Codable, Identifiable {
             return first
         }
         return email.components(separatedBy: "@").first ?? "User"
-    }
-
-    var progressToNextLevel: Double {
-        let previousLevelXP = calculateXPForLevel(level - 1)
-        let nextLevelXP = experienceToNextLevel
-        let currentLevelProgress = experiencePoints - previousLevelXP
-        let levelRange = nextLevelXP - previousLevelXP
-        return Double(currentLevelProgress) / Double(levelRange)
-    }
-
-    private func calculateXPForLevel(_ level: Int) -> Int {
-        // Simple formula: each level requires more XP
-        return level * 1000
     }
 }
 
@@ -181,20 +165,34 @@ struct DailyRitual: Codable, Identifiable {
     var isCompleted: Bool
     var category: RitualCategory
     var frequency: RitualFrequency
+    var scheduledTime: String? // Time in "HH:mm" format (e.g., "07:30")
 
     // Simplified initializer for API conversion
-    init(id: String, title: String, icon: String, isCompleted: Bool, category: RitualCategory, frequency: RitualFrequency = .daily) {
+    init(id: String, title: String, icon: String, isCompleted: Bool, category: RitualCategory, frequency: RitualFrequency = .daily, scheduledTime: String? = nil) {
         self.id = id
         self.title = title
         self.icon = icon
         self.isCompleted = isCompleted
         self.category = category
         self.frequency = frequency
+        self.scheduledTime = scheduledTime
     }
 
     /// Check if this ritual should be shown today based on frequency
     var shouldShowToday: Bool {
         frequency.isActiveToday
+    }
+
+    /// Formatted scheduled time for display
+    var formattedScheduledTime: String? {
+        guard let time = scheduledTime else { return nil }
+        // Convert "HH:mm" to localized time format
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        guard let date = formatter.date(from: time) else { return time }
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
     }
 }
 
@@ -366,9 +364,6 @@ extension User {
         self.hobbies = response.hobbies
         self.lifeGoal = response.lifeGoal
         self.dayVisibility = response.dayVisibility
-        self.level = 1
-        self.experiencePoints = 0
-        self.experienceToNextLevel = 1000
         self.currentStreak = 0
         self.longestStreak = 0
     }
@@ -383,6 +378,7 @@ extension DailyRitual {
         self.isCompleted = response.completed ?? false
         self.category = .other
         self.frequency = RitualFrequency(rawValue: response.frequency) ?? .daily
+        self.scheduledTime = response.scheduledTime
     }
 }
 
@@ -396,7 +392,14 @@ extension Quest {
         self.progress = response.progress
         self.status = QuestStatus(rawValue: response.status) ?? .active
         self.createdAt = Date()
-        self.targetDate = nil
+
+        // Parse targetDate from ISO string
+        if let dateString = response.targetDate {
+            let formatter = ISO8601DateFormatter()
+            self.targetDate = formatter.date(from: dateString)
+        } else {
+            self.targetDate = nil
+        }
     }
 
     private static func mapAreaToQuestArea(slug: String?) -> QuestArea {

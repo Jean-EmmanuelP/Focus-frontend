@@ -170,6 +170,12 @@ class AuthService: NSObject, ObservableObject {
             self.userEmail = session.user.email
             self.userName = session.user.userMetadata["full_name"]?.stringValue
             print("🎉 Sign in successful! Token: \(session.accessToken.prefix(20))...")
+            
+            // Check onboarding status after successful sign in
+            Task {
+                await FocusAppStore.shared.checkOnboardingStatus()
+            }
+            
             isAuthenticating = false
 
         } catch {

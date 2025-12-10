@@ -259,6 +259,11 @@ enum APIConfiguration {
         case statsFocus
         case statsRoutines
 
+        // Streak
+        case streak(date: String)
+        case streakDay(date: String)
+        case streakRecalculate(date: String)
+
         // Crew
         case crewMembers
         case crewRequests
@@ -273,6 +278,40 @@ enum APIConfiguration {
         case crewMemberDay(userId: String, date: String)
         case updateDayVisibility
         case myStats
+        case likeRoutineCompletion(completionId: String)
+        case unlikeRoutineCompletion(completionId: String)
+        case suggestedUsers(limit: Int?)
+
+        // Onboarding
+        case onboardingStatus
+        case onboardingProgress
+        case onboardingComplete
+        case onboardingReset
+
+        // Calendar - Day Plans
+        case calendarDay(date: String)
+        case createDayPlan
+        case updateDayPlan(String)
+
+        // Calendar - Tasks
+        case calendarTasks(date: String?)
+        case createCalendarTask
+        case updateCalendarTask(String)
+        case completeCalendarTask(String)
+        case uncompleteCalendarTask(String)
+        case deleteCalendarTask(String)
+        case rescheduleTask(String)
+
+        // Calendar - AI
+        case generateDayPlan
+
+        // Calendar - Week View
+        case calendarWeek(startDate: String)
+
+        // Voice
+        case voiceProcess
+        case voiceAssistant  // New endpoint with Gradium TTS
+        case voiceIntentions
 
         var path: String {
             switch self {
@@ -378,6 +417,14 @@ enum APIConfiguration {
             case .statsRoutines:
                 return "/stats/routines"
 
+            // Streak
+            case .streak(let date):
+                return "/streak?date=\(date)"
+            case .streakDay(let date):
+                return "/streak/day?date=\(date)"
+            case .streakRecalculate(let date):
+                return "/streak/recalculate?date=\(date)"
+
             // Crew
             case .crewMembers:
                 return "/crew/members"
@@ -412,6 +459,68 @@ enum APIConfiguration {
                 return "/me/visibility"
             case .myStats:
                 return "/me/stats"
+            case .likeRoutineCompletion(let completionId):
+                return "/completions/\(completionId)/like"
+            case .unlikeRoutineCompletion(let completionId):
+                return "/completions/\(completionId)/like"
+            case .suggestedUsers(let limit):
+                if let limit = limit {
+                    return "/crew/suggestions?limit=\(limit)"
+                }
+                return "/crew/suggestions"
+
+            // Onboarding
+            case .onboardingStatus:
+                return "/onboarding/status"
+            case .onboardingProgress:
+                return "/onboarding/progress"
+            case .onboardingComplete:
+                return "/onboarding/complete"
+            case .onboardingReset:
+                return "/onboarding"
+
+            // Calendar - Day Plans
+            case .calendarDay(let date):
+                return "/calendar/day?date=\(date)"
+            case .createDayPlan:
+                return "/calendar/day"
+            case .updateDayPlan(let id):
+                return "/calendar/day/\(id)"
+
+            // Calendar - Tasks
+            case .calendarTasks(let date):
+                if let date = date {
+                    return "/calendar/tasks?date=\(date)"
+                }
+                return "/calendar/tasks"
+            case .createCalendarTask:
+                return "/calendar/tasks"
+            case .updateCalendarTask(let id):
+                return "/calendar/tasks/\(id)"
+            case .completeCalendarTask(let id):
+                return "/calendar/tasks/\(id)/complete"
+            case .uncompleteCalendarTask(let id):
+                return "/calendar/tasks/\(id)/uncomplete"
+            case .deleteCalendarTask(let id):
+                return "/calendar/tasks/\(id)"
+            case .rescheduleTask(let id):
+                return "/calendar/tasks/\(id)/reschedule"
+
+            // Calendar - AI
+            case .generateDayPlan:
+                return "/calendar/ai/generate-day"
+
+            // Calendar - Week View
+            case .calendarWeek(let startDate):
+                return "/calendar/week?startDate=\(startDate)"
+
+            // Voice
+            case .voiceProcess:
+                return "/voice/process"
+            case .voiceAssistant:
+                return "/assistant/voice"
+            case .voiceIntentions:
+                return "/voice/intentions"
             }
         }
 

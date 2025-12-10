@@ -1,0 +1,167 @@
+{
+  "flow_onboarding": [
+    {
+      "id_frame_logique": "onboarding_01_welcome",
+      "objectif": "Accrocher l'utilisateur avec une promesse claire et créer une première connexion émotionnelle",
+      "titre": "Lance ton side project",
+      "sous_titre": "Transforme tes idées en projets concrets. Rejoins une communauté de jeunes builders qui passent à l'action.",
+      "visuel": "Illustration centrale d'une flamme animée (style gradient orange/jaune), fond sombre #0A0A0A, particules lumineuses subtiles autour de la flamme suggérant l'énergie et le potentiel",
+      "cta_principal_label": "Commencer",
+      "cta_principal_action": "aller à l'écran suivant (onboarding_02_project_status)",
+      "cta_secondaire_label": "J'ai déjà un compte",
+      "notes_ux": "Barre de progression visible en haut (étape 1/6). Animation douce de la flamme au chargement. Le bouton secondaire mène directement à l'écran de connexion."
+    },
+    {
+      "id_frame_logique": "onboarding_02_project_status",
+      "objectif": "Qualifier l'utilisateur selon son niveau d'avancement pour personnaliser l'expérience",
+      "titre": "Où en es-tu ?",
+      "sous_titre": "Dis-nous où tu en es dans ton projet pour qu'on t'accompagne au mieux.",
+      "visuel": "3 cartes sélectionnables empilées verticalement avec icônes distinctes: 💡 pour idée, 🚀 pour en cours, ✅ pour lancé. Fond sombre, cartes avec bordure subtle qui s'illumine en orange au survol/sélection",
+      "cta_principal_label": "Continuer",
+      "cta_principal_action": "enregistrer le choix et aller à onboarding_03_time_available",
+      "cta_secondaire_label": null,
+      "notes_ux": "Barre de progression étape 2/6. Le bouton principal est désactivé tant qu'aucune option n'est sélectionnée. Animation de sélection fluide avec haptic feedback."
+    },
+    {
+      "id_frame_logique": "onboarding_03_time_available",
+      "objectif": "Comprendre la disponibilité de l'utilisateur pour adapter les recommandations",
+      "titre": "Combien de temps par semaine ?",
+      "sous_titre": "Même 2h par semaine suffisent pour avancer. Sois honnête, on s'adapte.",
+      "visuel": "4 options en grille 2x2: '< 2h' avec 🌱, '2-5h' avec 🌿, '5-10h' avec 🌳, '10h+' avec 🔥. Style cartes avec fond surface, sélection en highlight gradient orange",
+      "cta_principal_label": "Continuer",
+      "cta_principal_action": "enregistrer le choix et aller à onboarding_04_goals",
+      "cta_secondaire_label": null,
+      "notes_ux": "Barre de progression étape 3/6. Sélection unique obligatoire. Texte de réassurance sous les options: 'Peu importe le temps, l'important c'est la régularité.'"
+    },
+    {
+      "id_frame_logique": "onboarding_04_goals",
+      "objectif": "Identifier les objectifs principaux pour personnaliser le parcours",
+      "titre": "Qu'est-ce qui t'attire ?",
+      "sous_titre": "Choisis ce qui te motive le plus. Tu pourras explorer le reste plus tard.",
+      "visuel": "Liste de 5-6 options avec icônes: '💰 Générer des revenus', '📚 Apprendre en faisant', '🎨 Créer quelque chose', '👥 Rejoindre une communauté', '🏆 Me challenger', '🌍 Avoir un impact'. Sélection multiple possible avec checkmarks",
+      "cta_principal_label": "Continuer",
+      "cta_principal_action": "enregistrer les choix et aller à problem_01",
+      "cta_secondaire_label": null,
+      "notes_ux": "Barre de progression étape 4/6. Sélection multiple autorisée (1-3 max recommandé). Badge 'Populaire' sur '📚 Apprendre en faisant'."
+    },
+    {
+      "id_frame_logique": "onboarding_05_social_proof",
+      "objectif": "Créer la confiance et montrer que l'utilisateur rejoint une communauté active",
+      "titre": "Tu n'es pas seul",
+      "sous_titre": "Rejoins +2,000 jeunes qui construisent leur projet en parallèle de leurs études.",
+      "visuel": "Grille de 3 mini-témoignages avec avatars (style minimaliste), citation courte et prénom/âge. En bas: compteur animé '2,847 projets lancés' avec icône fusée. Fond avec gradient subtil vers le haut",
+      "cta_principal_label": "Rejoindre la communauté",
+      "cta_principal_action": "aller à onboarding_06_account",
+      "cta_secondaire_label": null,
+      "notes_ux": "Barre de progression étape 5/6. Animation d'entrée des témoignages en cascade. Le compteur peut être animé (incrément progressif)."
+    },
+    {
+      "id_frame_logique": "onboarding_06_account",
+      "objectif": "Convertir l'utilisateur en créant son compte",
+      "titre": "Prêt à te lancer ?",
+      "sous_titre": "Crée ton compte en 10 secondes et commence ton parcours.",
+      "visuel": "Bouton Sign in with Apple proéminent, fond sombre avec glow orange subtil derrière le bouton. Icône de verrou petit en bas pour réassurance sécurité",
+      "cta_principal_label": "Continuer avec Apple",
+      "cta_principal_action": "déclencher le flow Apple Sign In",
+      "cta_secondaire_label": "Continuer avec email",
+      "notes_ux": "Barre de progression étape 6/6. Texte légal en petit en bas: 'En continuant, tu acceptes nos CGU et Politique de confidentialité'. Option email en fallback."
+    }
+  ],
+  "screens_probleme_solution": [
+    {
+      "id_frame_logique": "problem_01",
+      "type": "problem",
+      "titre": "Tu as plein d'idées...",
+      "sous_titre": "Mais tu ne sais jamais par où commencer. Tu procrastines, tu doutes, et tes idées restent dans ta tête.",
+      "visuel": "Fond noir #0A0A0A, texte centré en blanc, illustration minimaliste d'une ampoule éteinte ou d'un cerveau avec des points d'interrogation. Style épuré, focus sur le texte émotionnel",
+      "cta_principal_label": "Je me reconnais",
+      "cta_principal_action": "passer à solution_01",
+      "notes_ux": "Transition fade-in douce. Texte avec légère animation de typing ou apparition progressive. Pas de barre de progression sur les écrans problème/solution pour maintenir l'immersion."
+    },
+    {
+      "id_frame_logique": "solution_01",
+      "type": "solution",
+      "titre": "On te guide pas à pas",
+      "sous_titre": "Un parcours structuré avec des étapes claires. Tu sais toujours quoi faire ensuite.",
+      "visuel": "Même layout que problem_01 mais avec une illustration de chemin/escalier lumineux ou une checklist avec des étapes cochées. Accent de couleur orange/gradient sur l'élément clé",
+      "cta_principal_label": "Découvrir",
+      "cta_principal_action": "passer à problem_02",
+      "notes_ux": "Transition slide depuis la droite. Le visuel doit donner un sentiment de clarté et de progression. Conserver le même espacement que l'écran problème pour cohérence."
+    },
+    {
+      "id_frame_logique": "problem_02",
+      "type": "problem",
+      "titre": "Tu te sens seul",
+      "sous_titre": "Personne autour de toi ne comprend ce que tu veux construire. Tu manques de feedback et de soutien.",
+      "visuel": "Illustration d'une silhouette isolée ou d'une bulle de message vide. Tons sombres, ambiance de solitude mais pas déprimante",
+      "cta_principal_label": "C'est exactement ça",
+      "cta_principal_action": "passer à solution_02",
+      "notes_ux": "Même structure que problem_01. Le texte doit résonner émotionnellement avec l'expérience d'isolement des jeunes entrepreneurs."
+    },
+    {
+      "id_frame_logique": "solution_02",
+      "type": "solution",
+      "titre": "Une communauté qui te comprend",
+      "sous_titre": "Échange avec d'autres builders de ton âge. Partage tes victoires, tes doutes, et avance ensemble.",
+      "visuel": "Illustration de plusieurs silhouettes connectées ou d'un chat de groupe actif. Points lumineux orange reliant les personnes. Ambiance chaleureuse et collaborative",
+      "cta_principal_label": "J'ai besoin de ça",
+      "cta_principal_action": "passer à problem_03",
+      "notes_ux": "Contraste visuel fort avec l'écran problème précédent. Sentiment d'appartenance et de connexion."
+    },
+    {
+      "id_frame_logique": "problem_03",
+      "type": "problem",
+      "titre": "Tu abandonnes trop vite",
+      "sous_titre": "Sans structure ni accountability, la motivation s'effondre. Tes projets finissent dans un tiroir.",
+      "visuel": "Illustration d'un projet abandonné - dossier fermé, flamme qui s'éteint, ou graphique de progression qui chute. Tons gris/sombres",
+      "cta_principal_label": "Malheureusement oui",
+      "cta_principal_action": "passer à solution_03",
+      "notes_ux": "Ce problème est souvent le plus douloureux. Le ton doit être empathique, pas accusateur."
+    },
+    {
+      "id_frame_logique": "solution_03",
+      "type": "solution",
+      "titre": "Un système qui te fait tenir",
+      "sous_titre": "Challenges hebdomadaires, streaks, et mentorat. On t'aide à rester motivé sur la durée.",
+      "visuel": "Illustration d'une flamme grandissante avec un compteur de streak, ou d'un calendrier avec des jours cochés formant une série. Gradient orange vif, énergie positive",
+      "cta_principal_label": "Je veux ça",
+      "cta_principal_action": "passer à onboarding_05_social_proof",
+      "notes_ux": "Dernier écran problème/solution. La transition vers social_proof doit être fluide. Ce screen doit laisser l'utilisateur motivé et prêt à s'engager."
+    }
+  ],
+  "flow_order": [
+    "onboarding_01_welcome",
+    "onboarding_02_project_status",
+    "onboarding_03_time_available",
+    "onboarding_04_goals",
+    "problem_01",
+    "solution_01",
+    "problem_02",
+    "solution_02",
+    "problem_03",
+    "solution_03",
+    "onboarding_05_social_proof",
+    "onboarding_06_account"
+  ],
+  "qualification_options": {
+    "project_status": [
+      {"id": "idea", "label": "J'ai une idée", "icon": "💡", "description": "Tu as un concept mais tu n'as pas encore commencé"},
+      {"id": "in_progress", "label": "En cours de création", "icon": "🚀", "description": "Tu travailles déjà sur ton projet"},
+      {"id": "launched", "label": "Déjà lancé", "icon": "✅", "description": "Ton projet est live, tu cherches à grandir"}
+    ],
+    "time_available": [
+      {"id": "less_than_2h", "label": "< 2h", "icon": "🌱", "hours_per_week": 2},
+      {"id": "2_to_5h", "label": "2-5h", "icon": "🌿", "hours_per_week": 5},
+      {"id": "5_to_10h", "label": "5-10h", "icon": "🌳", "hours_per_week": 10},
+      {"id": "more_than_10h", "label": "10h+", "icon": "🔥", "hours_per_week": 15}
+    ],
+    "goals": [
+      {"id": "revenue", "label": "Générer des revenus", "icon": "💰"},
+      {"id": "learn", "label": "Apprendre en faisant", "icon": "📚", "popular": true},
+      {"id": "create", "label": "Créer quelque chose", "icon": "🎨"},
+      {"id": "community", "label": "Rejoindre une communauté", "icon": "👥"},
+      {"id": "challenge", "label": "Me challenger", "icon": "🏆"},
+      {"id": "impact", "label": "Avoir un impact", "icon": "🌍"}
+    ]
+  }
+}

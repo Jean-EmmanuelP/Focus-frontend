@@ -43,6 +43,11 @@
 		623E95772EE4AC3100356DD7 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		623E95792EE4AC3100356DD7 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		623E95972EE4AC9000356DD7 /* FocusWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FocusWidgetExtension.entitlements; sourceTree = "<group>"; };
+		6272BAAE2EE9D2C8002693DF /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
+		6297A4A12EE91E7600BF5326 /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
+		6297A73A2EE9B4DC00BF5326 /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
+		6297A8512EE9B60300BF5326 /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
+		6297A9692EE9C02200BF5326 /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -131,6 +136,41 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		6272BAEA2EE9D2C8002693DF /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		6297A4A52EE91E7600BF5326 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		6297A7752EE9B4DC00BF5326 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		6297A88C2EE9B60300BF5326 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		6297A9A42EE9C02200BF5326 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -205,6 +245,8 @@
 			knownRegions = (
 				en,
 				Base,
+				fr,
+				es,
 			);
 			mainGroup = 623E89412EE1F65300356DD7;
 			minimizedProjectReferenceProxies = 1;
@@ -214,6 +256,28 @@
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 623E894B2EE1F65300356DD7 /* Products */;
 			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = 6297A9A42EE9C02200BF5326 /* Products */;
+					ProjectRef = 6297A9692EE9C02200BF5326 /* TextParticle.xcodeproj */;
+				},
+				{
+					ProductGroup = 6297A4A52EE91E7600BF5326 /* Products */;
+					ProjectRef = 6297A4A12EE91E7600BF5326 /* TextParticle.xcodeproj */;
+				},
+				{
+					ProductGroup = 6297A7752EE9B4DC00BF5326 /* Products */;
+					ProjectRef = 6297A73A2EE9B4DC00BF5326 /* TextParticle.xcodeproj */;
+				},
+				{
+					ProductGroup = 6297A88C2EE9B60300BF5326 /* Products */;
+					ProjectRef = 6297A8512EE9B60300BF5326 /* TextParticle.xcodeproj */;
+				},
+				{
+					ProductGroup = 6272BAEA2EE9D2C8002693DF /* Products */;
+					ProjectRef = 6272BAAE2EE9D2C8002693DF /* TextParticle.xcodeproj */;
+				},
+			);
 			projectRoot = "";
 			targets = (
 				623E89492EE1F65300356DD7 /* Focus */,
@@ -387,13 +451,14 @@
 				CODE_SIGN_ENTITLEMENTS = Focus/Focus.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 6com;
 				DEVELOPMENT_TEAM = 62NW6K29QN;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Focus/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Volta;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Volta needs access to your camera to take a profile photo selfie.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Volta needs access to your photo library to select a profile photo.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
@@ -436,13 +501,14 @@
 				CODE_SIGN_ENTITLEMENTS = Focus/Focus.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 6com;
 				DEVELOPMENT_TEAM = 62NW6K29QN;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Focus/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Volta;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Volta needs access to your camera to take a profile photo selfie.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Volta needs access to your photo library to select a profile photo.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
@@ -500,6 +566,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.jep.volta.FocusWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -534,6 +601,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.jep.volta.FocusWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;

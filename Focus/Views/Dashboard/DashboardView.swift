@@ -40,8 +40,8 @@ struct DashboardView: View {
                                 .padding(.top, SpacingTokens.lg)
                                 .padding(.bottom, SpacingTokens.xl)
 
-                            // Level Widget (Hero)
-                            levelSection
+                            // Streak Card (Hero)
+                            streakCardSection
                                 .padding(.horizontal, SpacingTokens.lg)
                                 .padding(.bottom, SpacingTokens.xl)
 
@@ -50,19 +50,14 @@ struct DashboardView: View {
                                 .padding(.horizontal, SpacingTokens.lg)
                                 .padding(.bottom, SpacingTokens.xl)
 
-                            // Quick Stats Row
-                            quickStatsSection
-                                .padding(.horizontal, SpacingTokens.lg)
-                                .padding(.bottom, SpacingTokens.xl)
-
-                            // Quick FireMode Button
-                            quickFireModeSection
+                            // Timer Section (Replaces Quick Stats and FireMode Button)
+                            timerSection
                                 .padding(.horizontal, SpacingTokens.lg)
                                 .padding(.bottom, SpacingTokens.xl)
 
                             // Section Divider for Morning Intentions
                             if viewModel.hasMorningCheckIn {
-                                sectionDivider(title: "dashboard.todays_intentions".localized)
+                                sectionDivider(title: "dashboard.todays_intentions".localized, icon: "🎯")
                                     .id(DashboardSection.intentions)
 
                                 // Morning Intentions
@@ -72,7 +67,7 @@ struct DashboardView: View {
                             }
 
                             // Section Divider
-                            sectionDivider(title: "dashboard.daily_habits".localized)
+                            sectionDivider(title: "dashboard.daily_habits".localized, icon: "✅")
                                 .id(DashboardSection.rituals)
 
                             // Daily Rituals
@@ -82,7 +77,7 @@ struct DashboardView: View {
 
                             // Section Divider for Reflections
                             if viewModel.hasReflection {
-                                sectionDivider(title: "dashboard.evening_reflection".localized)
+                                sectionDivider(title: "dashboard.evening_reflection".localized, icon: "🌙")
                                     .id(DashboardSection.reflection)
 
                                 // Daily Reflection
@@ -93,7 +88,7 @@ struct DashboardView: View {
 
                             // Section Divider for Week Sessions
                             if !viewModel.thisWeekSessions.isEmpty {
-                                sectionDivider(title: "\("dashboard.sessions_this_week".localized) (\(viewModel.weekRangeString))")
+                                sectionDivider(title: "\("dashboard.sessions_this_week".localized) (\(viewModel.weekRangeString))", icon: "🔥")
                                     .id(DashboardSection.sessions)
 
                                 // Week Sessions grouped by day
@@ -135,36 +130,50 @@ struct DashboardView: View {
             }
         }
         .navigationBarHidden(true)
-        .sheet(isPresented: $showFireModeModal) {
+        .sheet(isPresented: $showFireModeModal, onDismiss: {
+            // Clear presets when modal is dismissed (only if not starting a session)
+            if !router.showFireModeSession {
+                router.fireModePresetDuration = nil
+                router.fireModePresetDescription = nil
+            }
+        }) {
             StartFireModeSheet(
                 quests: viewModel.quests,
                 onStart: { duration, questId, description in
                     showFireModeModal = false
-                    router.navigateToFireMode(duration: duration, questId: questId, description: description)
-                }
+                    // Navigate to FireMode (shows fullscreen modal via MainTabView)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        router.navigateToFireMode(duration: duration, questId: questId, description: description)
+                    }
+                },
+                presetDuration: router.fireModePresetDuration,
+                presetDescription: router.fireModePresetDescription
             )
             .presentationDetents([.large])
         }
     }
 
     // MARK: - Section Divider
-    private func sectionDivider(title: String) -> some View {
+    private func sectionDivider(title: String, icon: String? = nil) -> some View {
         HStack(spacing: SpacingTokens.md) {
+            if let icon = icon {
+                Text(icon)
+                    .font(.system(size: 18))
+            }
+
+            Text(title)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(ColorTokens.textSecondary)
+
+            Spacer()
+
             Rectangle()
                 .fill(ColorTokens.border)
                 .frame(height: 1)
-
-            Text(title.uppercased())
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(ColorTokens.textMuted)
-                .tracking(1.2)
-
-            Rectangle()
-                .fill(ColorTokens.border)
-                .frame(height: 1)
+                .frame(maxWidth: 80)
         }
         .padding(.horizontal, SpacingTokens.lg)
-        .padding(.vertical, SpacingTokens.lg)
+        .padding(.vertical, SpacingTokens.md)
     }
 
     // MARK: - Header Section
@@ -215,10 +224,16 @@ struct DashboardView: View {
                     showEditProfile = true
                 },
                 onTakeSelfie: {
-                    showCamera = true
+                    showProfileSheet = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                        showCamera = true
+                    }
+                },
+                onSignOut: {
+                    FocusAppStore.shared.signOut()
                 }
             )
-            .presentationDetents([.medium])
+            .presentationDetents([.large])
         }
         .sheet(isPresented: $showEditProfile) {
             EditProfileSheet(
@@ -248,57 +263,108 @@ struct DashboardView: View {
         .fullScreenCover(isPresented: $showImageEditor) {
             if let image = selectedImage {
                 ImageEditorSheet(image: image) { croppedImage in
+                    print("📷 Editor: Save pressed, cropped image size: \(croppedImage.size)")
                     Task {
                         isUploadingPhoto = true
                         if let imageData = croppedImage.jpegData(compressionQuality: 0.8) {
+                            print("📷 Editor: JPEG data created, size: \(imageData.count) bytes")
+                            print("📷 Editor: Starting upload...")
                             await viewModel.uploadAvatar(imageData: imageData)
+                            print("📷 Editor: Upload completed")
+                        } else {
+                            print("❌ Editor: Failed to create JPEG data")
                         }
                         isUploadingPhoto = false
                         selectedImage = nil
                     }
                 }
-            }
-        }
-        .onChange(of: selectedPhotoItem) { _, newValue in
-            Task {
-                if let newValue = newValue,
-                   let data = try? await newValue.loadTransferable(type: Data.self),
-                   let uiImage = UIImage(data: data) {
-                    selectedImage = uiImage
-                    showImageEditor = true
-                    selectedPhotoItem = nil
+            } else {
+                // Debug: this should not happen
+                Color.clear.onAppear {
+                    print("❌ Editor: fullScreenCover opened but selectedImage is NIL!")
                 }
             }
         }
-        .onChange(of: selectedImage) { _, newImage in
-            // When camera captures an image, show the editor
-            if newImage != nil && !showCamera {
-                showImageEditor = true
+        .onChange(of: selectedPhotoItem) { _, newValue in
+            guard let newValue = newValue else { return }
+
+            print("📷 Gallery: Photo item selected")
+            Task {
+                do {
+                    print("📷 Gallery: Loading transferable data...")
+                    if let data = try await newValue.loadTransferable(type: Data.self) {
+                        print("📷 Gallery: Got data, size: \(data.count) bytes")
+                        if let uiImage = UIImage(data: data) {
+                            print("📷 Gallery: UIImage created successfully, size: \(uiImage.size)")
+                            await MainActor.run {
+                                selectedImage = uiImage
+                                selectedPhotoItem = nil
+                                // Dismiss profile sheet first, then show editor after delay
+                                showProfileSheet = false
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                                    showImageEditor = true
+                                }
+                            }
+                        } else {
+                            print("❌ Gallery: Failed to create UIImage from data")
+                            await MainActor.run {
+                                selectedPhotoItem = nil
+                            }
+                        }
+                    } else {
+                        print("❌ Gallery: loadTransferable returned nil")
+                        await MainActor.run {
+                            selectedPhotoItem = nil
+                        }
+                    }
+                } catch {
+                    print("❌ Failed to load image from gallery: \(error)")
+                    await MainActor.run {
+                        selectedPhotoItem = nil
+                    }
+                }
+            }
+        }
+        .onChange(of: showCamera) { _, isShowing in
+            // When camera closes and we have an image, show the editor
+            if !isShowing && selectedImage != nil {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    showImageEditor = true
+                }
             }
         }
     }
 
-    // MARK: - Level Section
-    private var levelSection: some View {
+    // MARK: - Streak Card Section (Circular design)
+    @State private var isStreakCardPressed = false
+    @State private var flameScale: CGFloat = 1.0
+
+    private var streakCardSection: some View {
         VStack(spacing: SpacingTokens.md) {
-            if let user = viewModel.user {
-                LevelBadge(
-                    level: user.level,
-                    progress: viewModel.levelProgress,
-                    size: 140
-                )
+            // Flame with subtle glow
+            Text("🔥")
+                .font(.system(size: 80))
+                .scaleEffect(flameScale)
+                .shadow(color: ColorTokens.primaryStart.opacity(0.6), radius: 20, x: 0, y: 0)
 
-                Text("\(Int(viewModel.levelProgress * 100))% to next level")
-                    .caption()
-                    .foregroundColor(ColorTokens.textMuted)
+            // Streak text - "Jour 1" / "Day 1" format
+            Text("streak.day_count".localized(with: viewModel.currentStreak))
+                .font(.system(size: 48, weight: .bold))
+                .foregroundColor(.white)
 
-                Text("Your flame grows.")
-                    .bodyText()
-                    .foregroundColor(ColorTokens.textSecondary)
-            }
+            // Motivational text
+            Text("streak.motivational".localized)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.white.opacity(0.6))
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, SpacingTokens.lg)
+        .padding(.vertical, SpacingTokens.xxl)
+        .onAppear {
+            // Subtle pulsing animation for the flame
+            withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+                flameScale = 1.1
+            }
+        }
     }
 
     // MARK: - Adaptive CTA Section
@@ -346,73 +412,277 @@ struct DashboardView: View {
         }
     }
 
-    // MARK: - Quick FireMode Section
-    private var quickFireModeSection: some View {
-        Button(action: {
-            // Preload quests before showing modal
-            Task {
-                await FocusAppStore.shared.loadQuestsIfNeeded()
-            }
-            showFireModeModal = true
-        }) {
-            HStack(spacing: SpacingTokens.md) {
-                // Fire icon with glow effect
-                ZStack {
-                    Circle()
-                        .fill(
-                            RadialGradient(
-                                colors: [ColorTokens.primaryStart.opacity(0.3), Color.clear],
-                                center: .center,
-                                startRadius: 0,
-                                endRadius: 30
-                            )
-                        )
-                        .frame(width: 60, height: 60)
-
-                    Text("🔥")
-                        .font(.system(size: 32))
-                }
-
-                VStack(alignment: .leading, spacing: SpacingTokens.xs) {
-                    Text("fire.start_firemode".localized)
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(ColorTokens.textPrimary)
-
-                    Text("fire.launch_session".localized)
-                        .font(.system(size: 14))
-                        .foregroundColor(ColorTokens.textSecondary)
-                }
+    // MARK: - Timer Section (New)
+    private var timerSection: some View {
+        VStack(spacing: SpacingTokens.lg) {
+            // Timer header with "+ New" button
+            HStack {
+                Text("Focus Timer")
+                    .subtitle()
+                    .fontWeight(.semibold)
+                    .foregroundColor(ColorTokens.textPrimary)
 
                 Spacer()
 
-                Image(systemName: "play.fill")
-                    .font(.system(size: 20))
-                    .foregroundColor(.white)
-                    .frame(width: 44, height: 44)
-                    .background(
-                        LinearGradient(
-                            colors: [ColorTokens.primaryStart, ColorTokens.primaryEnd],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+                Button(action: {
+                    Task {
+                        await FocusAppStore.shared.loadQuestsIfNeeded()
+                    }
+                    showFireModeModal = true
+                }) {
+                    HStack(spacing: SpacingTokens.xs) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 14, weight: .medium))
+                        Text("New")
+                            .bodyText()
+                            .fontWeight(.medium)
+                    }
+                    .foregroundColor(ColorTokens.textSecondary)
+                }
+            }
+
+            // Focus preset cards - horizontal scroll
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: SpacingTokens.md) {
+                    // Preset 1: Get it done
+                    FocusPresetCard(
+                        emoji: "🎯",
+                        title: "Get it done",
+                        duration: 20,
+                        imageName: "focus_city"
+                    ) {
+                        router.fireModePresetDuration = 20
+                        router.fireModePresetDescription = "Get it done"
+                        showFireModeModal = true
+                    }
+
+                    // Preset 2: Work Sprint
+                    FocusPresetCard(
+                        emoji: "👨‍💼",
+                        title: "Work Sprint",
+                        duration: 25,
+                        imageName: "focus_meditation"
+                    ) {
+                        router.fireModePresetDuration = 25
+                        router.fireModePresetDescription = "Work Sprint"
+                        showFireModeModal = true
+                    }
+
+                    // Preset 3: Deep Focus
+                    FocusPresetCard(
+                        emoji: "🧘",
+                        title: "Deep Focus",
+                        duration: 45,
+                        imageName: "focus_night"
+                    ) {
+                        router.fireModePresetDuration = 45
+                        router.fireModePresetDescription = "Deep Focus"
+                        showFireModeModal = true
+                    }
+
+                    // Preset 4: Power Hour
+                    FocusPresetCard(
+                        emoji: "⚡",
+                        title: "Power Hour",
+                        duration: 60,
+                        imageName: "focus_sunrise"
+                    ) {
+                        router.fireModePresetDuration = 60
+                        router.fireModePresetDescription = "Power Hour"
+                        showFireModeModal = true
+                    }
+                }
+                .padding(.horizontal, 1) // Small padding for shadow visibility
+            }
+        }
+    }
+
+    // MARK: - Focus Preset Card
+    struct FocusPresetCard: View {
+        let emoji: String
+        let title: String
+        let duration: Int
+        let imageName: String
+        let action: () -> Void
+
+        var body: some View {
+            Button(action: action) {
+                ZStack(alignment: .bottom) {
+                    // Background image placeholder (gradient fallback)
+                    RoundedRectangle(cornerRadius: RadiusTokens.lg)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color(white: 0.2),
+                                    Color(white: 0.1)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
                         )
+
+                    // Content overlay
+                    VStack(alignment: .leading, spacing: SpacingTokens.xs) {
+                        Spacer()
+
+                        // Title with emoji
+                        HStack(spacing: SpacingTokens.xs) {
+                            Text(emoji)
+                                .font(.system(size: 16))
+                            Text(title)
+                                .bodyText()
+                                .fontWeight(.semibold)
+                                .foregroundColor(.white)
+                        }
+
+                        // Duration
+                        Text("\(duration)m")
+                            .caption()
+                            .foregroundColor(ColorTokens.textSecondary)
+
+                        // Start button
+                        HStack(spacing: SpacingTokens.xs) {
+                            Image(systemName: "play.fill")
+                                .font(.system(size: 10))
+                            Text("Start")
+                                .caption()
+                                .fontWeight(.medium)
+                        }
+                        .foregroundColor(.white)
+                        .padding(.top, SpacingTokens.sm)
+                    }
+                    .padding(SpacingTokens.md)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(width: 160, height: 140)
+                .cornerRadius(RadiusTokens.lg)
+            }
+            .buttonStyle(PlainButtonStyle())
+        }
+    }
+    
+    // MARK: - Focus Time Encouragement Section (New)
+    private var focusTimeEncouragementSection: some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.lg) {
+            // Header with icon
+            HStack(alignment: .top, spacing: SpacingTokens.md) {
+                // Icon in circle
+                Circle()
+                    .fill(ColorTokens.primarySoft)
+                    .frame(width: 40, height: 40)
+                    .overlay(
+                        Text("🎯")
+                            .font(.system(size: 20))
                     )
-                    .cornerRadius(RadiusTokens.full)
+                
+                VStack(alignment: .leading, spacing: SpacingTokens.xs) {
+                    Text("dashboard.focus_encouragement".localized)
+                        .subtitle()
+                        .fontWeight(.semibold)
+                        .foregroundColor(ColorTokens.textPrimary)
+                    
+                    Text("dashboard.focus_benefits".localized)
+                        .caption()
+                        .foregroundColor(ColorTokens.textSecondary)
+                }
+                
+                Spacer()
+            }
+            
+            // Main encouragement card
+            VStack(alignment: .leading, spacing: SpacingTokens.md) {
+                // Motivational message
+                if viewModel.focusedMinutesToday == 0 {
+                    HStack(spacing: SpacingTokens.sm) {
+                        Text("🚀")
+                            .font(.system(size: 16))
+                        Text("dashboard.start_first_session".localized)
+                            .bodyText()
+                            .fontWeight(.medium)
+                    }
+                    .foregroundColor(ColorTokens.textPrimary)
+                } else {
+                    HStack(spacing: SpacingTokens.sm) {
+                        Text("🔥")
+                            .font(.system(size: 16))
+                        Text("dashboard.keep_momentum".localized)
+                            .bodyText()
+                            .fontWeight(.medium)
+                    }
+                    .foregroundColor(ColorTokens.success)
+                }
+                
+                // Progress stats
+                if viewModel.focusedMinutesToday > 0 {
+                    Divider()
+                        .background(ColorTokens.border)
+                    
+                    HStack(spacing: SpacingTokens.lg) {
+                        // Daily progress
+                        VStack(alignment: .leading, spacing: SpacingTokens.xs) {
+                            Text("dashboard.daily_goal".localized)
+                                .caption()
+                                .foregroundColor(ColorTokens.textMuted)
+                            
+                            Text("dashboard.minutes_today".localized(with: viewModel.focusedMinutesToday))
+                                .bodyText()
+                                .fontWeight(.medium)
+                                .foregroundColor(ColorTokens.textPrimary)
+                        }
+                        
+                        Divider()
+                            .frame(height: 30)
+                            .background(ColorTokens.border)
+                        
+                        // Weekly progress
+                        VStack(alignment: .leading, spacing: SpacingTokens.xs) {
+                            Text("dashboard.weekly_progress".localized)
+                                .caption()
+                                .foregroundColor(ColorTokens.textMuted)
+                            
+                            HStack(spacing: SpacingTokens.md) {
+                                VStack(alignment: .leading, spacing: SpacingTokens.xs) {
+                                    Text("dashboard.sessions_week".localized(with: viewModel.totalSessionsThisWeek))
+                                        .caption()
+                                        .foregroundColor(ColorTokens.textSecondary)
+                                    
+                                    Text("dashboard.minutes_week".localized(with: viewModel.totalActualMinutesThisWeek))
+                                        .caption()
+                                        .foregroundColor(ColorTokens.textSecondary)
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Action button
+                Button(action: {
+                    showFireModeModal = true
+                }) {
+                    HStack {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("fire.start_session".localized)
+                            .caption()
+                            .fontWeight(.medium)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, SpacingTokens.md)
+                    .background(ColorTokens.primaryStart)
+                    .foregroundColor(.white)
+                    .cornerRadius(RadiusTokens.md)
+                }
+                .buttonStyle(PlainButtonStyle())
             }
             .padding(SpacingTokens.lg)
-            .background(
-                LinearGradient(
-                    colors: [ColorTokens.surface, ColorTokens.primarySoft.opacity(0.3)],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-            )
+            .frame(maxWidth: .infinity)
+            .background(ColorTokens.surface)
             .cornerRadius(RadiusTokens.lg)
             .overlay(
                 RoundedRectangle(cornerRadius: RadiusTokens.lg)
-                    .stroke(ColorTokens.primaryStart.opacity(0.3), lineWidth: 1)
+                    .stroke(ColorTokens.border, lineWidth: 1)
             )
         }
-        .buttonStyle(PlainButtonStyle())
     }
 
     // MARK: - Rituals Section
@@ -797,12 +1067,6 @@ struct DashboardView: View {
         switch cta {
         case .startTheDay:
             router.navigateToStartTheDay()
-        case .startFireMode:
-            // Preload quests before navigating
-            Task {
-                await FocusAppStore.shared.loadQuestsIfNeeded()
-            }
-            router.navigateToFireMode()
         case .endOfDay:
             router.navigateToEndOfDay()
         case .allCompleted:
@@ -833,7 +1097,7 @@ struct IntentionCard: View {
                     .strikethrough(intention.isCompleted)
                     .lineLimit(2)
 
-                Text(intention.area.rawValue)
+                Text(intention.area.localizedName)
                     .caption()
                     .foregroundColor(ColorTokens.textMuted)
             }
@@ -1121,6 +1385,8 @@ struct DayTimelineView: View {
 struct StartFireModeSheet: View {
     let quests: [Quest]
     let onStart: (Int, String?, String?) -> Void
+    let presetDuration: Int?
+    let presetDescription: String?
     @Environment(\.dismiss) private var dismiss
 
     // Step 1: Duration
@@ -1134,27 +1400,41 @@ struct StartFireModeSheet: View {
     @State private var focusDescription: String = ""
     @FocusState private var isDescriptionFocused: Bool
 
-    // Current step
+    // Current step - start at step 2 if preset provided
     @State private var currentStep: Int = 1
+
+    // Track if using preset (simplified flow)
+    private var hasPreset: Bool { presetDuration != nil }
+
+    init(quests: [Quest], onStart: @escaping (Int, String?, String?) -> Void, presetDuration: Int? = nil, presetDescription: String? = nil) {
+        self.quests = quests
+        self.onStart = onStart
+        self.presetDuration = presetDuration
+        self.presetDescription = presetDescription
+    }
 
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
-                // Progress indicator
-                HStack(spacing: SpacingTokens.sm) {
-                    ForEach(1...3, id: \.self) { step in
-                        Circle()
-                            .fill(step <= currentStep ? ColorTokens.primaryStart : ColorTokens.surface)
-                            .frame(width: 10, height: 10)
+                // Progress indicator - show only relevant steps
+                if !hasPreset {
+                    HStack(spacing: SpacingTokens.sm) {
+                        ForEach(1...3, id: \.self) { step in
+                            Circle()
+                                .fill(step <= currentStep ? ColorTokens.primaryStart : ColorTokens.surface)
+                                .frame(width: 10, height: 10)
+                        }
                     }
+                    .padding(.top, SpacingTokens.md)
                 }
-                .padding(.top, SpacingTokens.md)
 
                 // Step content
                 TabView(selection: $currentStep) {
-                    // Step 1: Choose Duration
-                    step1DurationView
-                        .tag(1)
+                    // Step 1: Choose Duration (skip if preset)
+                    if !hasPreset {
+                        step1DurationView
+                            .tag(1)
+                    }
 
                     // Step 2: Link to Quest
                     step2QuestView
@@ -1169,8 +1449,9 @@ struct StartFireModeSheet: View {
 
                 // Navigation buttons
                 HStack(spacing: SpacingTokens.md) {
-                    if currentStep > 1 {
+                    if currentStep > (hasPreset ? 2 : 1) {
                         Button(action: {
+                            isDescriptionFocused = false
                             withAnimation { currentStep -= 1 }
                         }) {
                             Text("Back")
@@ -1211,6 +1492,16 @@ struct StartFireModeSheet: View {
                         dismiss()
                     }
                     .foregroundColor(ColorTokens.textSecondary)
+                }
+            }
+            .onAppear {
+                // Apply presets if provided
+                if let duration = presetDuration {
+                    selectedDuration = duration
+                    currentStep = 2  // Skip step 1
+                }
+                if let description = presetDescription {
+                    focusDescription = description
                 }
             }
         }
@@ -1342,21 +1633,20 @@ struct StartFireModeSheet: View {
 
     // MARK: - Step 3: Description
     private var step3DescriptionView: some View {
-        VStack(spacing: SpacingTokens.xl) {
-            Spacer()
+        VStack(spacing: SpacingTokens.md) {
+            // Compact header - smaller when keyboard is shown
+            VStack(spacing: SpacingTokens.sm) {
+                Text("✍️")
+                    .font(.system(size: isDescriptionFocused ? 32 : 48))
 
-            Text("✍️")
-                .font(.system(size: 64))
+                Text("What will you work on?")
+                    .font(.system(size: isDescriptionFocused ? 18 : 22, weight: .bold))
+                    .foregroundColor(ColorTokens.textPrimary)
+            }
+            .padding(.top, SpacingTokens.lg)
+            .animation(.easeInOut(duration: 0.2), value: isDescriptionFocused)
 
-            Text("What will you work on?")
-                .heading2()
-                .foregroundColor(ColorTokens.textPrimary)
-
-            Text("Describe your focus intention")
-                .bodyText()
-                .foregroundColor(ColorTokens.textSecondary)
-
-            // Description input
+            // Description input - takes main focus
             TextField("e.g., Finish the report, Study chapter 5...", text: $focusDescription, axis: .vertical)
                 .textFieldStyle(.plain)
                 .padding(SpacingTokens.md)
@@ -1364,43 +1654,58 @@ struct StartFireModeSheet: View {
                 .cornerRadius(RadiusTokens.md)
                 .overlay(
                     RoundedRectangle(cornerRadius: RadiusTokens.md)
-                        .stroke(ColorTokens.border, lineWidth: 1)
+                        .stroke(isDescriptionFocused ? ColorTokens.primaryStart : ColorTokens.border, lineWidth: isDescriptionFocused ? 2 : 1)
                 )
-                .lineLimit(3...5)
+                .lineLimit(2...4)
                 .focused($isDescriptionFocused)
 
-            // Summary
-            VStack(spacing: SpacingTokens.sm) {
-                HStack {
-                    Text("Duration:")
-                        .foregroundColor(ColorTokens.textMuted)
-                    Spacer()
-                    Text("\(selectedDuration) minutes")
+            // Inline summary - compact
+            HStack(spacing: SpacingTokens.md) {
+                // Duration badge
+                HStack(spacing: SpacingTokens.xs) {
+                    Text("🔥")
+                        .font(.system(size: 14))
+                    Text("\(selectedDuration)min")
+                        .font(.system(size: 14, weight: .medium))
                         .foregroundColor(ColorTokens.textPrimary)
-                        .fontWeight(.medium)
                 }
+                .padding(.horizontal, SpacingTokens.sm)
+                .padding(.vertical, SpacingTokens.xs)
+                .background(ColorTokens.surface)
+                .cornerRadius(RadiusTokens.sm)
 
+                // Quest badge (if selected)
                 if let questId = selectedQuestId,
                    let quest = quests.first(where: { $0.id == questId }) {
-                    HStack {
-                        Text("Quest:")
-                            .foregroundColor(ColorTokens.textMuted)
-                        Spacer()
-                        Text("\(quest.area.emoji) \(quest.title)")
+                    HStack(spacing: SpacingTokens.xs) {
+                        Text(quest.area.emoji)
+                            .font(.system(size: 14))
+                        Text(quest.title)
+                            .font(.system(size: 14, weight: .medium))
                             .foregroundColor(ColorTokens.textPrimary)
-                            .fontWeight(.medium)
+                            .lineLimit(1)
                     }
+                    .padding(.horizontal, SpacingTokens.sm)
+                    .padding(.vertical, SpacingTokens.xs)
+                    .background(ColorTokens.surface)
+                    .cornerRadius(RadiusTokens.sm)
                 }
+
+                Spacer()
             }
-            .padding(SpacingTokens.md)
-            .background(ColorTokens.surface.opacity(0.5))
-            .cornerRadius(RadiusTokens.md)
 
             Spacer()
         }
         .padding(.horizontal, SpacingTokens.lg)
+        .contentShape(Rectangle())
         .onTapGesture {
             isDescriptionFocused = false
+        }
+        .onAppear {
+            // Auto-focus the text field when this step appears
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                isDescriptionFocused = true
+            }
         }
     }
 }
@@ -1414,10 +1719,16 @@ struct ProfilePhotoSheet: View {
     let onDeletePhoto: () -> Void
     let onEditProfile: () -> Void
     let onTakeSelfie: () -> Void
+    let onSignOut: () -> Void
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var localization = LocalizationManager.shared
+    @State private var showingSignOutAlert = false
+    @State private var showingLanguageChangeAlert = false
+    @State private var pendingLanguage: AppLanguage?
 
     var body: some View {
         NavigationView {
+            ScrollView {
             VStack(spacing: SpacingTokens.xl) {
                 // Current avatar preview
                 if let user = user {
@@ -1471,10 +1782,7 @@ struct ProfilePhotoSheet: View {
                     HStack(spacing: SpacingTokens.md) {
                         // Take Selfie button
                         Button(action: {
-                            dismiss()
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                onTakeSelfie()
-                            }
+                            onTakeSelfie()
                         }) {
                             HStack(spacing: SpacingTokens.sm) {
                                 Image(systemName: "camera")
@@ -1552,7 +1860,10 @@ struct ProfilePhotoSheet: View {
                     VStack(spacing: SpacingTokens.sm) {
                         ForEach(AppLanguage.allCases) { language in
                             Button {
-                                LocalizationManager.shared.currentLanguage = language
+                                if LocalizationManager.shared.currentLanguage != language {
+                                    pendingLanguage = language
+                                    showingLanguageChangeAlert = true
+                                }
                             } label: {
                                 HStack {
                                     Text(language.flag)
@@ -1583,9 +1894,34 @@ struct ProfilePhotoSheet: View {
                 }
                 .padding(.top, SpacingTokens.md)
 
+                // Sign Out button
+                Button(action: {
+                    showingSignOutAlert = true
+                }) {
+                    HStack {
+                        Image(systemName: "rectangle.portrait.and.arrow.right")
+                            .font(.system(size: 14))
+                        Text("profile.sign_out".localized)
+                            .bodyText()
+                    }
+                    .foregroundColor(ColorTokens.error)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, SpacingTokens.md)
+                    .background(ColorTokens.surface)
+                    .cornerRadius(RadiusTokens.md)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: RadiusTokens.md)
+                            .stroke(ColorTokens.error.opacity(0.3), lineWidth: 1)
+                    )
+                }
+                .padding(.horizontal, SpacingTokens.lg)
+                .padding(.top, SpacingTokens.md)
+
                 Spacer()
+                    .frame(height: SpacingTokens.xl)
             }
             .padding(.top, SpacingTokens.xl)
+            }
             .background(ColorTokens.background)
             .navigationTitle("profile.title".localized)
             .navigationBarTitleDisplayMode(.inline)
@@ -1597,7 +1933,33 @@ struct ProfilePhotoSheet: View {
                     .foregroundColor(ColorTokens.primaryStart)
                 }
             }
+            .alert("profile.sign_out_title".localized, isPresented: $showingSignOutAlert) {
+                Button("common.cancel".localized, role: .cancel) { }
+                Button("profile.sign_out".localized, role: .destructive) {
+                    dismiss()
+                    onSignOut()
+                }
+            } message: {
+                Text("profile.sign_out_confirm".localized)
+            }
+            .alert("profile.language_change_title".localized, isPresented: $showingLanguageChangeAlert) {
+                Button("common.cancel".localized, role: .cancel) {
+                    pendingLanguage = nil
+                }
+                Button("profile.restart_app".localized, role: .destructive) {
+                    if let language = pendingLanguage {
+                        LocalizationManager.shared.currentLanguage = language
+                        // Force app restart by exiting
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            exit(0)
+                        }
+                    }
+                }
+            } message: {
+                Text("profile.language_change_message".localized)
+            }
         }
+        .id(localization.currentLanguage)
     }
 }
 
@@ -1614,17 +1976,32 @@ struct ImageEditorSheet: View {
 
     private let cropSize: CGFloat = 280
 
+    /// Calculate image display size to maintain aspect ratio and fill the crop area
+    private var imageDisplaySize: CGSize {
+        let aspectRatio = image.size.width / image.size.height
+        if aspectRatio > 1 {
+            // Landscape: fit height to cropSize, width extends
+            return CGSize(width: cropSize * aspectRatio, height: cropSize)
+        } else {
+            // Portrait: fit width to cropSize, height extends
+            return CGSize(width: cropSize, height: cropSize / aspectRatio)
+        }
+    }
+
     var body: some View {
         NavigationView {
             GeometryReader { geometry in
                 ZStack {
                     Color.black.ignoresSafeArea()
 
-                    // Image with gestures
+                    // Image with gestures - maintain aspect ratio
                     Image(uiImage: image)
                         .resizable()
-                        .scaledToFill()
-                        .frame(width: cropSize * scale, height: cropSize * scale)
+                        .aspectRatio(contentMode: .fill)
+                        .frame(
+                            width: imageDisplaySize.width * scale,
+                            height: imageDisplaySize.height * scale
+                        )
                         .offset(offset)
                         .gesture(
                             SimultaneousGesture(
@@ -1716,13 +2093,26 @@ struct ImageEditorSheet: View {
             let rect = CGRect(x: 0, y: 0, width: cropSize, height: cropSize)
             UIBezierPath(ovalIn: rect).addClip()
 
-            // Calculate the scaled and offset image rect
-            let imageSize = CGSize(width: cropSize * scale, height: cropSize * scale)
+            // Calculate the scaled image size maintaining aspect ratio
+            let aspectRatio = image.size.width / image.size.height
+            var imageWidth: CGFloat
+            var imageHeight: CGFloat
+
+            if aspectRatio > 1 {
+                // Landscape: fit height, width extends
+                imageHeight = cropSize * scale
+                imageWidth = imageHeight * aspectRatio
+            } else {
+                // Portrait: fit width, height extends
+                imageWidth = cropSize * scale
+                imageHeight = imageWidth / aspectRatio
+            }
+
             let imageRect = CGRect(
-                x: (cropSize - imageSize.width) / 2 + offset.width,
-                y: (cropSize - imageSize.height) / 2 + offset.height,
-                width: imageSize.width,
-                height: imageSize.height
+                x: (cropSize - imageWidth) / 2 + offset.width,
+                y: (cropSize - imageHeight) / 2 + offset.height,
+                width: imageWidth,
+                height: imageHeight
             )
 
             image.draw(in: imageRect)

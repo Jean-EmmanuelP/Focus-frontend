@@ -147,12 +147,35 @@ class DashboardViewModel: ObservableObject {
     }
 
     // MARK: - Computed Properties
-    var levelProgress: Double {
-        store.levelProgress
-    }
-
     var currentStreak: Int {
         store.currentStreak
+    }
+
+    var streakStartDate: String {
+        // Use streak start date from API if available
+        if let streakStart = store.streakStartDateString {
+            // Convert from "YYYY-MM-DD" to "dd/MM"
+            let inputFormatter = DateFormatter()
+            inputFormatter.dateFormat = "yyyy-MM-dd"
+            let outputFormatter = DateFormatter()
+            outputFormatter.dateFormat = "dd/MM"
+
+            if let date = inputFormatter.date(from: streakStart) {
+                return outputFormatter.string(from: date)
+            }
+        }
+
+        // Fallback: calculate from current streak
+        let calendar = Calendar.current
+        let formatter = DateFormatter()
+        formatter.dateFormat = "dd/MM"
+
+        if currentStreak > 0 {
+            let startDate = calendar.date(byAdding: .day, value: -(currentStreak - 1), to: Date()) ?? Date()
+            return formatter.string(from: startDate)
+        }
+        // If streak is 0, show today's date
+        return formatter.string(from: Date())
     }
 
     var focusedMinutesToday: Int {
@@ -173,6 +196,19 @@ class DashboardViewModel: ObservableObject {
         todaysRituals.count
     }
 
+    /// Accountability check: User is accountable if they set intentions AND completed at least 40% of rituals
+    var isTodayAccountable: Bool {
+        // Must have done morning check-in (set intentions)
+        guard store.hasDoneMorningCheckIn else { return false }
+
+        // If no rituals, just having intentions is enough
+        guard totalRitualsCount > 0 else { return true }
+
+        // Must complete at least 40% of rituals
+        let completionRate = Double(completedRitualsCount) / Double(totalRitualsCount)
+        return completionRate >= 0.4
+    }
+
     var hasSessionsThisWeek: Bool {
         !weeklyProgress.isEmpty && weeklyProgress.contains { $0.minutes > 0 }
     }
@@ -180,8 +216,6 @@ class DashboardViewModel: ObservableObject {
     var adaptiveCTA: AdaptiveCTA {
         if !store.hasDoneMorningCheckIn {
             return .startTheDay
-        } else if store.todaySessionsCount == 0 {
-            return .startFireMode
         } else if !store.hasDoneEveningReview {
             return .endOfDay
         } else {
@@ -203,20 +237,34 @@ class DashboardViewModel: ObservableObject {
 
     func editSession(id: String, description: String?, durationMinutes: Int?) async {
         do {
-            _ = try await sessionService.editSession(id: id, description: description, durationMinutes: durationMinutes)
-            // Refresh to get updated sessions
-            await store.refresh()
+            let response = try await sessionService.editSession(id: id, description: description, durationMinutes: durationMinutes)
+            // Optimistic update - update session in store directly
+            if let index = store.weekSessions.firstIndex(where: { $0.id == id }) {
+                store.weekSessions[index] = FocusSession(from: response)
+            }
+            if let index = store.todaysSessions.firstIndex(where: { $0.id == id }) {
+                store.todaysSessions[index] = FocusSession(from: response)
+            }
         } catch {
             print("❌ Failed to edit session: \(error)")
         }
     }
 
     func deleteSession(id: String) async {
+        // Store original sessions for rollback
+        let originalWeekSessions = store.weekSessions
+        let originalTodaysSessions = store.todaysSessions
+
+        // Optimistic delete
+        store.weekSessions.removeAll { $0.id == id }
+        store.todaysSessions.removeAll { $0.id == id }
+
         do {
             try await sessionService.deleteSession(id: id)
-            // Refresh to get updated sessions
-            await store.refresh()
         } catch {
+            // Rollback on error
+            store.weekSessions = originalWeekSessions
+            store.todaysSessions = originalTodaysSessions
             print("❌ Failed to delete session: \(error)")
         }
     }
@@ -227,13 +275,11 @@ class DashboardViewModel: ObservableObject {
     func uploadAvatar(imageData: Data) async {
         do {
             let avatarUrl = try await userService.uploadAvatar(imageData: imageData)
-            // Update local user with new avatar URL
-            if var updatedUser = user {
+            // Update local user with new avatar URL (no full refresh needed)
+            if var updatedUser = store.user {
                 updatedUser.avatarURL = avatarUrl
-                user = updatedUser
+                store.user = updatedUser
             }
-            // Refresh to get updated user from server
-            await store.refresh()
         } catch {
             print("❌ Failed to upload avatar: \(error)")
         }
@@ -242,13 +288,11 @@ class DashboardViewModel: ObservableObject {
     func deleteAvatar() async {
         do {
             try await userService.deleteAvatar()
-            // Update local user to remove avatar URL
-            if var updatedUser = user {
+            // Update local user to remove avatar URL (no full refresh needed)
+            if var updatedUser = store.user {
                 updatedUser.avatarURL = nil
-                user = updatedUser
+                store.user = updatedUser
             }
-            // Refresh to get updated user from server
-            await store.refresh()
         } catch {
             print("❌ Failed to delete avatar: \(error)")
         }
@@ -276,10 +320,8 @@ class DashboardViewModel: ObservableObject {
                 hobbies: hobbies,
                 lifeGoal: lifeGoal
             )
-            // Update local user with response
-            user = User(from: response)
-            // Refresh to sync with store
-            await store.refresh()
+            // Update store user directly (no full refresh needed)
+            store.user = User(from: response)
         } catch {
             print("❌ Failed to update profile: \(error)")
         }
@@ -289,46 +331,39 @@ class DashboardViewModel: ObservableObject {
 // MARK: - Adaptive CTA Model
 enum AdaptiveCTA {
     case startTheDay
-    case startFireMode
     case endOfDay
     case allCompleted
 
     var title: String {
         switch self {
         case .startTheDay:
-            return "Start your day right"
-        case .startFireMode:
-            return "Start a FireMode session"
+            return "cta.start_day.title".localized
         case .endOfDay:
-            return "Complete your End of Day review"
+            return "cta.end_day.title".localized
         case .allCompleted:
-            return "You're all set for today 🔥"
+            return "cta.completed.title".localized
         }
     }
 
     var subtitle: String {
         switch self {
         case .startTheDay:
-            return "Complete your morning check-in"
-        case .startFireMode:
-            return "Launch your first focus session"
+            return "cta.start_day.subtitle".localized
         case .endOfDay:
-            return "Reflect and close your day"
+            return "cta.end_day.subtitle".localized
         case .allCompleted:
-            return "Great work. Rest and prepare for tomorrow."
+            return "cta.completed.subtitle".localized
         }
     }
 
     var buttonTitle: String {
         switch self {
         case .startTheDay:
-            return "Start the Day"
-        case .startFireMode:
-            return "Enter FireMode"
+            return "cta.start_day.button".localized
         case .endOfDay:
-            return "End of Day Review"
+            return "cta.end_day.button".localized
         case .allCompleted:
-            return "View Progress"
+            return "cta.completed.button".localized
         }
     }
 
@@ -336,8 +371,6 @@ enum AdaptiveCTA {
         switch self {
         case .startTheDay:
             return "☀️"
-        case .startFireMode:
-            return "🔥"
         case .endOfDay:
             return "🌙"
         case .allCompleted:

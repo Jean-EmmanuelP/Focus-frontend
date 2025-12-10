@@ -8,141 +8,29 @@ struct PrivacyPolicyView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: SpacingTokens.lg) {
-                    Group {
-                        sectionHeader("Privacy Policy")
-                        Text("Last updated: \(formattedDate)")
-                            .caption()
-                            .foregroundColor(ColorTokens.textMuted)
+                    Text("legal.privacy.title".localized)
+                        .font(.title)
+                        .bold()
+                        .foregroundColor(ColorTokens.textPrimary)
 
-                        Text("Volta (\"we\", \"our\", or \"us\") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our mobile application.")
-                            .bodyText()
-                            .foregroundColor(ColorTokens.textSecondary)
-                    }
-
-                    // Information We Collect
-                    Group {
-                        sectionTitle("1. Information We Collect")
-
-                        subsectionTitle("Personal Information")
-                        bulletPoint("Name and email address (when you sign in with Apple)")
-                        bulletPoint("Profile photo (optional, stored securely)")
-                        bulletPoint("Account preferences and settings")
-
-                        subsectionTitle("Usage Data")
-                        bulletPoint("Focus session duration and frequency")
-                        bulletPoint("Quest and ritual completion data")
-                        bulletPoint("App usage patterns and preferences")
-                        bulletPoint("Device information (model, OS version)")
-
-                        subsectionTitle("Health & Wellness Data")
-                        bulletPoint("Sleep quality ratings (self-reported)")
-                        bulletPoint("Mood and feeling check-ins (self-reported)")
-                        bulletPoint("Daily intentions and reflections")
-                    }
-
-                    // How We Use Your Information
-                    Group {
-                        sectionTitle("2. How We Use Your Information")
-                        bulletPoint("To provide and maintain our service")
-                        bulletPoint("To personalize your experience")
-                        bulletPoint("To track your progress and streaks")
-                        bulletPoint("To send you notifications (with your permission)")
-                        bulletPoint("To improve our app and develop new features")
-                        bulletPoint("To provide customer support")
-                    }
-
-                    // Data Storage & Security
-                    Group {
-                        sectionTitle("3. Data Storage & Security")
-                        Text("Your data is stored securely using industry-standard encryption. We use Supabase as our backend provider, which implements:")
-                            .bodyText()
-                            .foregroundColor(ColorTokens.textSecondary)
-                        bulletPoint("SSL/TLS encryption for data in transit")
-                        bulletPoint("AES-256 encryption for data at rest")
-                        bulletPoint("Regular security audits and updates")
-                        bulletPoint("Secure authentication via Sign in with Apple")
-                    }
-
-                    // Data Sharing
-                    Group {
-                        sectionTitle("4. Data Sharing")
-                        Text("We do NOT sell, trade, or rent your personal information to third parties. We may share data only in the following cases:")
-                            .bodyText()
-                            .foregroundColor(ColorTokens.textSecondary)
-                        bulletPoint("With your explicit consent")
-                        bulletPoint("To comply with legal obligations")
-                        bulletPoint("To protect our rights and safety")
-                        bulletPoint("With service providers who assist our operations (under strict confidentiality)")
-                    }
-
-                    // Your Rights
-                    Group {
-                        sectionTitle("5. Your Rights")
-                        Text("You have the right to:")
-                            .bodyText()
-                            .foregroundColor(ColorTokens.textSecondary)
-                        bulletPoint("Access your personal data")
-                        bulletPoint("Correct inaccurate data")
-                        bulletPoint("Delete your account and all associated data")
-                        bulletPoint("Export your data in a portable format")
-                        bulletPoint("Opt-out of non-essential communications")
-                    }
-
-                    // Data Retention
-                    Group {
-                        sectionTitle("6. Data Retention")
-                        Text("We retain your data for as long as your account is active. If you delete your account, we will delete all your personal data within 30 days, except where we are required to retain it for legal purposes.")
-                            .bodyText()
-                            .foregroundColor(ColorTokens.textSecondary)
-                    }
-
-                    // Children's Privacy
-                    Group {
-                        sectionTitle("7. Children's Privacy")
-                        Text("Volta is not intended for children under 13 years of age. We do not knowingly collect personal information from children under 13. If we discover that a child under 13 has provided us with personal information, we will delete it immediately.")
-                            .bodyText()
-                            .foregroundColor(ColorTokens.textSecondary)
-                    }
-
-                    // Changes to Privacy Policy
-                    Group {
-                        sectionTitle("8. Changes to This Policy")
-                        Text("We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy in the app and updating the \"Last updated\" date.")
-                            .bodyText()
-                            .foregroundColor(ColorTokens.textSecondary)
-                    }
-
-                    // Contact
-                    Group {
-                        sectionTitle("9. Contact Us")
-                        Text("If you have any questions about this Privacy Policy, please contact us at:")
-                            .bodyText()
-                            .foregroundColor(ColorTokens.textSecondary)
-                        Text("support@volta.app")
-                            .bodyText()
-                            .foregroundColor(ColorTokens.primaryStart)
-                    }
+                    Text("legal.privacy.content".localized)
+                        .bodyText()
+                        .foregroundColor(ColorTokens.textSecondary)
                 }
                 .padding(SpacingTokens.lg)
             }
             .background(ColorTokens.background)
-            .navigationTitle("Privacy Policy")
+            .navigationTitle("legal.privacy.title".localized)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
+                    Button("common.done".localized) {
                         dismiss()
                     }
                     .foregroundColor(ColorTokens.primaryStart)
                 }
             }
         }
-    }
-
-    private var formattedDate: String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .long
-        return formatter.string(from: Date())
     }
 }
 
@@ -311,11 +199,11 @@ struct TermsOfServiceView: View {
                 .padding(SpacingTokens.lg)
             }
             .background(ColorTokens.background)
-            .navigationTitle("Terms of Service")
+            .navigationTitle("legal.tos.title".localized)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
+                    Button("common.done".localized) {
                         dismiss()
                     }
                     .foregroundColor(ColorTokens.primaryStart)

@@ -470,7 +470,7 @@ struct QuestCard: View {
                         HStack(spacing: SpacingTokens.xs) {
                             Text(quest.area.emoji)
                                 .font(.system(size: 14))
-                            Text(quest.area.rawValue)
+                            Text(quest.area.localizedName)
                                 .caption()
                                 .foregroundColor(ColorTokens.textSecondary)
                         }
@@ -541,7 +541,7 @@ struct SwipeableQuestCard: View {
                 HStack(spacing: SpacingTokens.xs) {
                     Text(quest.area.emoji)
                         .font(.system(size: 14))
-                    Text(quest.area.rawValue)
+                    Text(quest.area.localizedName)
                         .caption()
                         .foregroundColor(ColorTokens.textSecondary)
                 }
@@ -636,7 +636,7 @@ struct SwipeableQuestCard: View {
 
                 // Progress label
                 HStack {
-                    Text("Swipe to update progress")
+                    Text("quests.swipe_to_update".localized)
                         .font(.system(size: 10))
                         .foregroundColor(ColorTokens.textMuted)
 

@@ -7,6 +7,9 @@ class FireModeViewModel: ObservableObject {
     private var store: FocusAppStore { FocusAppStore.shared }
     private var cancellables = Set<AnyCancellable>()
 
+    // UserDefaults key for last used quest
+    private let lastUsedQuestKey = "firemode.lastUsedQuestId"
+
     // MARK: - Timer State
     enum TimerState {
         case idle
@@ -24,7 +27,14 @@ class FireModeViewModel: ObservableObject {
     // MARK: - Published UI State
     @Published var selectedDuration: Int = 25
     @Published var customDuration: Double = 25
-    @Published var selectedQuestId: String?
+    @Published var selectedQuestId: String? {
+        didSet {
+            // Save last used quest to UserDefaults when changed
+            if let questId = selectedQuestId {
+                UserDefaults.standard.set(questId, forKey: lastUsedQuestKey)
+            }
+        }
+    }
     @Published var sessionDescription: String = ""
     @Published var showingLogManualSession = false
     @Published var isLoading = false
@@ -45,6 +55,20 @@ class FireModeViewModel: ObservableObject {
             // Ensure quests are loaded for "Link to Quest" feature
             if store.quests.isEmpty {
                 await store.loadQuestsIfNeeded()
+            }
+            // Set default quest to last used (after quests are loaded)
+            selectLastUsedQuest()
+        }
+    }
+
+    /// Select the last used quest if it exists and is still active
+    private func selectLastUsedQuest() {
+        guard selectedQuestId == nil else { return } // Don't override if already set
+
+        if let lastQuestId = UserDefaults.standard.string(forKey: lastUsedQuestKey) {
+            // Check if the quest still exists and is active
+            if availableQuests.contains(where: { $0.id == lastQuestId }) {
+                selectedQuestId = lastQuestId
             }
         }
     }
@@ -251,10 +275,10 @@ class FireModeViewModel: ObservableObject {
         // End widget session
         store.endWidgetSession()
 
-        // Complete the session in backend (sets completed_at = now)
+        // Cancel the session in backend (not complete - user stopped manually)
         if let sessionId = currentSessionId {
             Task {
-                await completeSessionInBackend(sessionId: sessionId)
+                await cancelSessionInBackend(sessionId: sessionId)
                 store.syncWidgetData()
             }
         }
@@ -263,6 +287,15 @@ class FireModeViewModel: ObservableObject {
 
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.warning)
+    }
+
+    private func cancelSessionInBackend(sessionId: String) async {
+        do {
+            try await store.cancelSession(sessionId: sessionId)
+            print("✅ Session cancelled in backend: \(sessionId)")
+        } catch {
+            print("❌ Failed to cancel session in backend: \(error)")
+        }
     }
 
     func completeSession() {
@@ -351,9 +384,10 @@ class FireModeViewModel: ObservableObject {
         isLoading = false
     }
 
-    // Reset form
+    // Reset form - keeps last used quest as default
     func resetForm() {
         sessionDescription = ""
-        selectedQuestId = nil
+        // Don't clear selectedQuestId - keep last used quest as default for next session
+        // User can change it if needed
     }
 }

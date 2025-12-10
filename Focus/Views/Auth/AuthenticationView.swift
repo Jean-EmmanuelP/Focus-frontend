@@ -10,49 +10,55 @@ struct AuthenticationView: View {
     @State private var showTermsOfService = false
 
     var body: some View {
-        ZStack {
-            // Background
-            ColorTokens.background
-                .ignoresSafeArea()
+        GeometryReader { geometry in
+            ZStack {
+                // Background
+                ColorTokens.background
+                    .ignoresSafeArea()
 
-            // Content
-            VStack(spacing: SpacingTokens.xxl) {
-                Spacer()
+                // Content
+                VStack(spacing: 0) {
+                    Spacer()
 
-                // Logo and branding
-                brandingSection
+                    // Logo and branding
+                    brandingSection(screenHeight: geometry.size.height)
 
-                // Story/Value proposition
-                storySection
+                    Spacer()
+                        .frame(height: geometry.size.height < 700 ? SpacingTokens.xl : SpacingTokens.xxl)
 
-                Spacer()
+                    // Story/Value proposition
+                    storySection
 
-                // Sign in button
-                signInSection
+                    Spacer()
 
-                // Terms
-                termsSection
+                    // Sign in button
+                    signInSection
+
+                    // Terms
+                    termsSection
+                }
+                .padding(.horizontal, SpacingTokens.xl)
+                .padding(.bottom, geometry.safeAreaInsets.bottom > 0 ? SpacingTokens.md : SpacingTokens.xl)
+
+                // Loading overlay
+                if authService.isAuthenticating {
+                    loadingOverlay
+                }
             }
-            .padding(SpacingTokens.xl)
-
-            // Loading overlay
-            if authService.isAuthenticating {
-                loadingOverlay
+            .alert("auth.error_title".localized, isPresented: $showError) {
+                Button("common.ok".localized, role: .cancel) {}
+            } message: {
+                Text(authService.error?.localizedDescription ?? "error.generic".localized)
             }
-        }
-        .alert("Authentication Error", isPresented: $showError) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(authService.error?.localizedDescription ?? "An error occurred")
-        }
-        .onChange(of: authService.error) { _, error in
-            if error != nil && error != .userCancelled {
-                showError = true
+            .onChange(of: authService.error) { _, error in
+                if error != nil && error != .userCancelled {
+                    showError = true
+                }
             }
-        }
-        .onChange(of: authService.isSignedIn) { _, isSignedIn in
-            if isSignedIn {
-                store.handleAuthServiceUpdate()
+            .onChange(of: authService.isSignedIn) { _, isSignedIn in
+                if isSignedIn {
+                    store.handleAuthServiceUpdate()
+                }
             }
         }
     }
@@ -68,7 +74,7 @@ struct AuthenticationView: View {
                     .progressViewStyle(CircularProgressViewStyle(tint: ColorTokens.primaryStart))
                     .scaleEffect(1.5)
 
-                Text("Signing in...")
+                Text("auth.signing_in".localized)
                     .bodyText()
                     .foregroundColor(ColorTokens.textPrimary)
             }
@@ -79,15 +85,20 @@ struct AuthenticationView: View {
     }
 
     // MARK: - Branding Section
-    private var brandingSection: some View {
-        VStack(spacing: SpacingTokens.lg) {
+    private func brandingSection(screenHeight: CGFloat) -> some View {
+        let isSmallScreen = screenHeight < 700
+        let glowSize: CGFloat = isSmallScreen ? 100 : 140
+        let flameSize: CGFloat = isSmallScreen ? 60 : 80
+        let titleSize: CGFloat = isSmallScreen ? 30 : 36
+
+        return VStack(spacing: isSmallScreen ? SpacingTokens.md : SpacingTokens.lg) {
             // Animated flame icon
             ZStack {
                 // Glow effect
                 Circle()
                     .fill(ColorTokens.primaryGlow)
-                    .frame(width: 140, height: 140)
-                    .blur(radius: 30)
+                    .frame(width: glowSize, height: glowSize)
+                    .blur(radius: isSmallScreen ? 20 : 30)
                     .scaleEffect(isAnimating ? 1.2 : 1.0)
                     .animation(
                         .easeInOut(duration: 2.0).repeatForever(autoreverses: true),
@@ -96,7 +107,7 @@ struct AuthenticationView: View {
 
                 // Flame emoji
                 Text("🔥")
-                    .font(.system(size: 80))
+                    .font(.system(size: flameSize))
                     .scaleEffect(isAnimating ? 1.05 : 1.0)
                     .animation(
                         .easeInOut(duration: 1.5).repeatForever(autoreverses: true),
@@ -110,11 +121,11 @@ struct AuthenticationView: View {
             // App name
             VStack(spacing: SpacingTokens.xs) {
                 Text("VOLTA")
-                    .font(.system(size: 36, weight: .bold))
+                    .font(.system(size: titleSize, weight: .bold))
                     .foregroundColor(ColorTokens.textPrimary)
                     .tracking(2)
 
-                Text("Ship your side project")
+                Text("auth.tagline".localized)
                     .bodyText()
                     .foregroundColor(ColorTokens.textSecondary)
             }
@@ -126,10 +137,10 @@ struct AuthenticationView: View {
         VStack(spacing: SpacingTokens.lg) {
             // Feature highlights
             VStack(spacing: SpacingTokens.md) {
-                featureRow(icon: "⚡", text: "Deep focus sessions")
-                featureRow(icon: "🎯", text: "Track quests and goals")
-                featureRow(icon: "📈", text: "Level up with habits")
-                featureRow(icon: "🌅", text: "Daily rituals")
+                featureRow(icon: "⚡", text: "auth.feature.focus".localized)
+                featureRow(icon: "🎯", text: "auth.feature.quests".localized)
+                featureRow(icon: "📈", text: "auth.feature.habits".localized)
+                featureRow(icon: "🌅", text: "auth.feature.rituals".localized)
             }
         }
         .padding(.horizontal, SpacingTokens.md)
@@ -150,43 +161,63 @@ struct AuthenticationView: View {
     // MARK: - Sign In Section
     private var signInSection: some View {
         VStack(spacing: SpacingTokens.md) {
-            // Sign in with Apple button
-            SignInWithAppleButton(
-                onRequest: { request in
-                    request.requestedScopes = [.fullName, .email]
-                },
-                onCompletion: { result in
-                    handleAppleSignIn(result)
+            // Custom Sign in with Apple button with localized text
+            Button {
+                triggerAppleSignIn()
+            } label: {
+                HStack(spacing: SpacingTokens.sm) {
+                    Image(systemName: "apple.logo")
+                        .font(.system(size: 18, weight: .medium))
+                    Text("auth.sign_in_apple".localized)
+                        .font(.system(size: 17, weight: .medium))
                 }
-            )
-            .signInWithAppleButtonStyle(.white)
-            .frame(height: 56)
-            .cornerRadius(RadiusTokens.md)
+                .foregroundColor(.black)
+                .frame(maxWidth: .infinity)
+                .frame(height: 56)
+                .background(Color.white)
+                .cornerRadius(RadiusTokens.md)
+            }
         }
+    }
+
+    @State private var appleSignInCoordinator: AppleSignInCoordinator?
+
+    private func triggerAppleSignIn() {
+        let coordinator = AppleSignInCoordinator { result in
+            handleAppleSignIn(result)
+        }
+        appleSignInCoordinator = coordinator
+        coordinator.startSignIn()
     }
 
     // MARK: - Terms Section
     private var termsSection: some View {
         VStack(spacing: SpacingTokens.xs) {
-            Text("By continuing, you agree to our")
-                .caption()
+            Text("auth.terms.agree".localized)
+                .font(.caption)
                 .foregroundColor(ColorTokens.textMuted)
 
             HStack(spacing: SpacingTokens.xs) {
-                Button("Terms of Service") {
+                Button {
                     showTermsOfService = true
+                } label: {
+                    Text("auth.terms.tos".localized)
+                        .font(.caption)
+                        .foregroundColor(ColorTokens.primaryStart)
                 }
-                .foregroundColor(ColorTokens.primaryStart)
 
-                Text("and")
+                Text("auth.terms.and".localized)
+                    .font(.caption)
                     .foregroundColor(ColorTokens.textMuted)
 
-                Button("Privacy Policy") {
+                Button {
                     showPrivacyPolicy = true
+                } label: {
+                    Text("auth.terms.privacy".localized)
+                        .font(.caption)
+                        .foregroundColor(ColorTokens.primaryStart)
                 }
-                .foregroundColor(ColorTokens.primaryStart)
             }
-            .caption()
         }
         .padding(.bottom, SpacingTokens.lg)
         .sheet(isPresented: $showTermsOfService) {
@@ -222,6 +253,42 @@ struct AuthenticationView: View {
         case .failure(let error):
             print("Apple Sign In error: \(error.localizedDescription)")
         }
+    }
+}
+
+// MARK: - Apple Sign In Coordinator
+class AppleSignInCoordinator: NSObject, ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
+    private var completion: (Result<ASAuthorization, Error>) -> Void
+
+    init(completion: @escaping (Result<ASAuthorization, Error>) -> Void) {
+        self.completion = completion
+    }
+
+    func startSignIn() {
+        let provider = ASAuthorizationAppleIDProvider()
+        let request = provider.createRequest()
+        request.requestedScopes = [.fullName, .email]
+
+        let controller = ASAuthorizationController(authorizationRequests: [request])
+        controller.delegate = self
+        controller.presentationContextProvider = self
+        controller.performRequests()
+    }
+
+    func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
+        completion(.success(authorization))
+    }
+
+    func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
+        completion(.failure(error))
+    }
+
+    func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+        guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let window = scene.windows.first else {
+            return UIWindow()
+        }
+        return window
     }
 }
 

@@ -194,6 +194,8 @@ struct AvatarView: View {
     var avatarURL: String? = nil
     var size: CGFloat = 40
     var showBorder: Bool = true
+    var allowZoom: Bool = false
+    @State private var showingZoom = false
 
     private var initials: String {
         let components = name.split(separator: " ")
@@ -233,6 +235,16 @@ struct AvatarView: View {
                     lineWidth: 2
                 )
         )
+        .if(allowZoom && avatarURL != nil) { view in
+            view
+                .contentShape(Circle())
+                .onTapGesture {
+                    showingZoom = true
+                }
+        }
+        .fullScreenCover(isPresented: $showingZoom) {
+            ZoomablePhotoView(imageURL: avatarURL, fallbackName: name)
+        }
     }
 
     private var initialsView: some View {
@@ -248,12 +260,136 @@ struct AvatarView: View {
     }
 }
 
+// MARK: - Zoomable Photo View (Full Screen)
+struct ZoomablePhotoView: View {
+    let imageURL: String?
+    let fallbackName: String
+    @Environment(\.dismiss) private var dismiss
+    @State private var scale: CGFloat = 1.0
+    @State private var lastScale: CGFloat = 1.0
+    @State private var offset: CGSize = .zero
+    @State private var lastOffset: CGSize = .zero
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+
+            if let urlString = imageURL, let url = URL(string: urlString) {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .scaleEffect(scale)
+                            .offset(offset)
+                            .gesture(
+                                SimultaneousGesture(
+                                    MagnificationGesture()
+                                        .onChanged { value in
+                                            let delta = value / lastScale
+                                            lastScale = value
+                                            let newScale = scale * delta
+                                            scale = min(max(newScale, 1.0), 5.0)
+                                        }
+                                        .onEnded { _ in
+                                            lastScale = 1.0
+                                            if scale < 1.0 {
+                                                withAnimation { scale = 1.0 }
+                                            }
+                                        },
+                                    DragGesture()
+                                        .onChanged { value in
+                                            offset = CGSize(
+                                                width: lastOffset.width + value.translation.width,
+                                                height: lastOffset.height + value.translation.height
+                                            )
+                                        }
+                                        .onEnded { _ in
+                                            lastOffset = offset
+                                        }
+                                )
+                            )
+                            .onTapGesture(count: 2) {
+                                withAnimation {
+                                    if scale > 1.0 {
+                                        scale = 1.0
+                                        offset = .zero
+                                        lastOffset = .zero
+                                    } else {
+                                        scale = 2.5
+                                    }
+                                }
+                            }
+                    case .failure(_):
+                        fallbackView
+                    case .empty:
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    @unknown default:
+                        fallbackView
+                    }
+                }
+            } else {
+                fallbackView
+            }
+
+            // Close button
+            VStack {
+                HStack {
+                    Spacer()
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 30))
+                            .foregroundColor(.white.opacity(0.8))
+                    }
+                    .padding()
+                }
+                Spacer()
+            }
+
+            // Instructions
+            GeometryReader { geometry in
+                VStack {
+                    Spacer()
+                    Text("Pinch to zoom • Double tap to zoom")
+                        .caption()
+                        .foregroundColor(.white.opacity(0.5))
+                        .padding(.bottom, geometry.safeAreaInsets.bottom + SpacingTokens.lg)
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+    }
+
+    private var fallbackView: some View {
+        ZStack {
+            Circle()
+                .fill(ColorTokens.fireGradient)
+                .frame(width: 200, height: 200)
+
+            Text(initials)
+                .font(.system(size: 80, weight: .bold))
+                .foregroundColor(.white)
+        }
+    }
+
+    private var initials: String {
+        let components = fallbackName.split(separator: " ")
+        let firstInitial = components.first?.first.map(String.init) ?? ""
+        let lastInitial = components.count > 1 ? components.last?.first.map(String.init) ?? "" : ""
+        return (firstInitial + lastInitial).uppercased()
+    }
+}
+
 // MARK: - Section Header
 struct SectionHeader: View {
     let title: String
     var action: (() -> Void)?
     var actionTitle: String = "Manage"
-    
+
     var body: some View {
         HStack {
             Text(title)

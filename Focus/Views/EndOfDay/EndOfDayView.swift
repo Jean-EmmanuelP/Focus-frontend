@@ -322,41 +322,50 @@ struct EndOfDayView: View {
 
     // MARK: - Welcome Step
     private var welcomeStep: some View {
-        VStack(spacing: SpacingTokens.xl) {
-            Spacer()
-                .frame(height: 40)
+        GeometryReader { geometry in
+            let isSmallScreen = geometry.size.height < 500
+            let emojiSize: CGFloat = isSmallScreen ? 60 : 80
 
-            Text("🌙")
-                .font(.system(size: 80))
+            VStack(spacing: isSmallScreen ? SpacingTokens.lg : SpacingTokens.xl) {
+                Spacer()
+                    .frame(height: isSmallScreen ? SpacingTokens.lg : 40)
 
-            VStack(spacing: SpacingTokens.sm) {
-                Text("end_day.time_to_reflect".localized)
-                    .heading1()
-                    .foregroundColor(ColorTokens.textPrimary)
+                Text("🌙")
+                    .font(.system(size: emojiSize))
 
-                Text(Date().formatted(date: .complete, time: .omitted))
-                    .bodyText()
-                    .foregroundColor(ColorTokens.textSecondary)
-            }
+                VStack(spacing: SpacingTokens.sm) {
+                    Text("end_day.time_to_reflect".localized)
+                        .heading1()
+                        .foregroundColor(ColorTokens.textPrimary)
+                        .minimumScaleFactor(0.8)
 
-            Text("end_day.subtitle".localized)
-                .bodyText()
-                .foregroundColor(ColorTokens.textMuted)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, SpacingTokens.xl)
-
-            // Quick stats preview
-            if !viewModel.todaysRituals.isEmpty {
-                HStack(spacing: SpacingTokens.lg) {
-                    statBadge(
-                        value: "\(viewModel.completedRitualCount)/\(viewModel.totalRitualCount)",
-                        label: "end_day.rituals".localized
-                    )
+                    Text(Date().formatted(date: .complete, time: .omitted))
+                        .bodyText()
+                        .foregroundColor(ColorTokens.textSecondary)
+                        .minimumScaleFactor(0.9)
                 }
-                .padding(.top, SpacingTokens.lg)
-            }
 
-            Spacer()
+                Text("end_day.subtitle".localized)
+                    .bodyText()
+                    .foregroundColor(ColorTokens.textMuted)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, SpacingTokens.xl)
+                    .minimumScaleFactor(0.9)
+
+                // Quick stats preview
+                if !viewModel.todaysRituals.isEmpty {
+                    HStack(spacing: SpacingTokens.lg) {
+                        statBadge(
+                            value: "\(viewModel.completedRitualCount)/\(viewModel.totalRitualCount)",
+                            label: "end_day.rituals".localized
+                        )
+                    }
+                    .padding(.top, isSmallScreen ? SpacingTokens.md : SpacingTokens.lg)
+                }
+
+                Spacer()
+            }
+            .frame(maxWidth: .infinity)
         }
     }
 

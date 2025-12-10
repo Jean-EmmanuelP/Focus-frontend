@@ -41,21 +41,12 @@ struct FireModeView: View {
     // MARK: - Setup View (Before Timer Starts)
     private var setupView: some View {
         ScrollView {
-            VStack(spacing: SpacingTokens.xl) {
-                // Header
-                headerSection
+            VStack(spacing: SpacingTokens.lg) {
+                // Header with compact stats
+                headerWithStatsSection
 
-                // Top Metrics
-                metricsSection
-
-                // Duration Selector
-                durationSection
-
-                // Quest Link (Optional)
-                questLinkSection
-
-                // Description
-                descriptionSection
+                // Main focus configuration card
+                focusConfigurationCard
 
                 // Actions
                 actionsSection
@@ -73,6 +64,178 @@ struct FireModeView: View {
         }
         .refreshable {
             await viewModel.refreshData()
+        }
+    }
+
+    // MARK: - Header with Compact Stats
+    private var headerWithStatsSection: some View {
+        VStack(spacing: SpacingTokens.md) {
+            // Title row
+            HStack {
+                // Close button
+                Button(action: {
+                    router.dismissFireMode()
+                }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(ColorTokens.textSecondary)
+                        .frame(width: 32, height: 32)
+                        .background(ColorTokens.surface)
+                        .cornerRadius(RadiusTokens.full)
+                }
+
+                Text("🔥")
+                    .font(.system(size: 28))
+
+                Text("fire.title".localized)
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundColor(ColorTokens.textPrimary)
+
+                Spacer()
+
+                // Compact stats inline
+                if viewModel.hasAnySessions {
+                    HStack(spacing: SpacingTokens.md) {
+                        CompactStat(icon: "flame.fill", value: "\(viewModel.totalSessionsThisWeek)", color: ColorTokens.primaryStart)
+                        CompactStat(icon: "clock.fill", value: "\(viewModel.totalMinutesToday)m", color: .blue)
+                    }
+                }
+            }
+
+            Text("fire.subtitle".localized)
+                .caption()
+                .foregroundColor(ColorTokens.textSecondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    // MARK: - Focus Configuration Card
+    private var focusConfigurationCard: some View {
+        Card(elevated: true) {
+            VStack(spacing: SpacingTokens.lg) {
+                // Duration Section
+                VStack(alignment: .leading, spacing: SpacingTokens.md) {
+                    Text("fire.duration".localized)
+                        .caption()
+                        .fontWeight(.semibold)
+                        .foregroundColor(ColorTokens.textMuted)
+
+                    // Preset buttons
+                    HStack(spacing: SpacingTokens.sm) {
+                        ForEach(viewModel.presetDurations, id: \.self) { duration in
+                            DurationChip(
+                                duration: duration,
+                                isSelected: viewModel.selectedDuration == duration
+                            ) {
+                                viewModel.selectDuration(duration)
+                            }
+                        }
+                    }
+
+                    // Custom slider
+                    CustomSlider(
+                        value: $viewModel.customDuration,
+                        range: 5...180,
+                        step: 5,
+                        label: "fire.custom".localized
+                    )
+                    .onChange(of: viewModel.customDuration) { _, newValue in
+                        viewModel.updateCustomDuration(newValue)
+                    }
+                }
+
+                Divider()
+                    .background(ColorTokens.border)
+
+                // Quest Link Section
+                VStack(alignment: .leading, spacing: SpacingTokens.sm) {
+                    Text("fire.link_quest".localized)
+                        .caption()
+                        .fontWeight(.semibold)
+                        .foregroundColor(ColorTokens.textMuted)
+
+                    questSelector
+                }
+
+                Divider()
+                    .background(ColorTokens.border)
+
+                // Description Section
+                VStack(alignment: .leading, spacing: SpacingTokens.sm) {
+                    Text("fire.description".localized)
+                        .caption()
+                        .fontWeight(.semibold)
+                        .foregroundColor(ColorTokens.textMuted)
+
+                    CustomTextArea(
+                        placeholder: "fire.description_placeholder".localized,
+                        text: $viewModel.sessionDescription,
+                        minHeight: 60
+                    )
+                }
+            }
+            .padding(SpacingTokens.sm)
+        }
+    }
+
+    // MARK: - Quest Selector
+    private var questSelector: some View {
+        Group {
+            if viewModel.availableQuests.isEmpty {
+                HStack {
+                    Text("fire.no_active_quests".localized)
+                        .bodyText()
+                        .foregroundColor(ColorTokens.textMuted)
+                    Spacer()
+                }
+                .padding(SpacingTokens.sm)
+                .background(ColorTokens.surfaceElevated)
+                .cornerRadius(RadiusTokens.sm)
+            } else {
+                Menu {
+                    Button(action: {
+                        viewModel.selectedQuestId = nil
+                    }) {
+                        Label("common.none".localized, systemImage: "xmark.circle")
+                    }
+
+                    ForEach(viewModel.availableQuests) { quest in
+                        Button(action: {
+                            viewModel.selectedQuestId = quest.id
+                        }) {
+                            Text("\(quest.area.emoji) \(quest.title)")
+                        }
+                    }
+                } label: {
+                    HStack {
+                        if let selectedId = viewModel.selectedQuestId,
+                           let quest = viewModel.quests.first(where: { $0.id == selectedId }) {
+                            Text(quest.area.emoji)
+                                .font(.system(size: 16))
+                            Text(quest.title)
+                                .bodyText()
+                                .foregroundColor(ColorTokens.textPrimary)
+                                .lineLimit(1)
+                        } else {
+                            Image(systemName: "link")
+                                .font(.system(size: 14))
+                                .foregroundColor(ColorTokens.textMuted)
+                            Text("fire.select_quest".localized)
+                                .bodyText()
+                                .foregroundColor(ColorTokens.textMuted)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(ColorTokens.textMuted)
+                    }
+                    .padding(SpacingTokens.sm)
+                    .background(ColorTokens.surfaceElevated)
+                    .cornerRadius(RadiusTokens.sm)
+                }
+            }
         }
     }
 
@@ -120,7 +283,16 @@ struct FireModeView: View {
 
                 Spacer()
 
-                if viewModel.timerState != .completed {
+                if viewModel.timerState == .completed {
+                    // Close button when completed
+                    Button(action: {
+                        router.dismissFireMode()
+                    }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 28))
+                            .foregroundColor(ColorTokens.textMuted)
+                    }
+                } else {
                     // Stop button (top right)
                     Button(action: {
                         viewModel.stopTimer()
@@ -252,190 +424,6 @@ struct FireModeView: View {
         }
     }
 
-    // MARK: - Header Section
-    private var headerSection: some View {
-        VStack(alignment: .leading, spacing: SpacingTokens.xs) {
-            HStack {
-                Text("🔥")
-                    .font(.system(size: 28))
-
-                Text("fire.title".localized)
-                    .label()
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(ColorTokens.textPrimary)
-
-                Spacer()
-            }
-
-            Text("fire.subtitle".localized)
-                .caption()
-                .foregroundColor(ColorTokens.textSecondary)
-        }
-    }
-
-    // MARK: - Metrics Section
-    private var metricsSection: some View {
-        Group {
-            if viewModel.hasAnySessions {
-                // Show stats when there are sessions
-                HStack(spacing: SpacingTokens.md) {
-                    MetricCard(
-                        icon: "🔥",
-                        value: "\(viewModel.totalSessionsThisWeek)",
-                        label: "crew.this_week".localized
-                    )
-
-                    MetricCard(
-                        icon: "⏱️",
-                        value: "\(viewModel.totalMinutesToday)m",
-                        label: "time.today".localized
-                    )
-
-                    MetricCard(
-                        icon: "⚡",
-                        value: "\(viewModel.totalSessionsToday)",
-                        label: "crew.sessions".localized
-                    )
-                }
-            } else {
-                // Show encouraging message when no sessions
-                Card(elevated: true) {
-                    VStack(spacing: SpacingTokens.md) {
-                        Text("🚀")
-                            .font(.system(size: 40))
-
-                        Text("fire.ready_to_focus".localized)
-                            .subtitle()
-                            .fontWeight(.semibold)
-                            .foregroundColor(ColorTokens.textPrimary)
-
-                        Text("fire.ready_subtitle".localized)
-                            .caption()
-                            .foregroundColor(ColorTokens.textSecondary)
-                            .multilineTextAlignment(.center)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, SpacingTokens.md)
-                }
-            }
-        }
-    }
-
-    // MARK: - Duration Section
-    private var durationSection: some View {
-        VStack(alignment: .leading, spacing: SpacingTokens.md) {
-            Text("fire.duration".localized)
-                .subtitle()
-                .fontWeight(.semibold)
-                .foregroundColor(ColorTokens.textPrimary)
-
-            // Preset buttons
-            HStack(spacing: SpacingTokens.md) {
-                ForEach(viewModel.presetDurations, id: \.self) { duration in
-                    DurationButton(
-                        duration: duration,
-                        isSelected: viewModel.selectedDuration == duration
-                    ) {
-                        viewModel.selectDuration(duration)
-                    }
-                }
-            }
-
-            // Custom slider
-            CustomSlider(
-                value: $viewModel.customDuration,
-                range: 5...180,
-                step: 5,
-                label: "Custom Duration"
-            )
-            .onChange(of: viewModel.customDuration) { _, newValue in
-                viewModel.updateCustomDuration(newValue)
-            }
-        }
-    }
-
-    // MARK: - Quest Link Section
-    private var questLinkSection: some View {
-        VStack(alignment: .leading, spacing: SpacingTokens.md) {
-            Text("fire.link_quest".localized)
-                .subtitle()
-                .fontWeight(.semibold)
-                .foregroundColor(ColorTokens.textPrimary)
-
-            if viewModel.availableQuests.isEmpty {
-                Card {
-                    HStack {
-                        Text("fire.no_active_quests".localized)
-                            .bodyText()
-                            .foregroundColor(ColorTokens.textMuted)
-                        Spacer()
-                    }
-                }
-            } else {
-                Menu {
-                    Button(action: {
-                        viewModel.selectedQuestId = nil
-                    }) {
-                        Text("common.none".localized)
-                    }
-
-                    ForEach(viewModel.availableQuests) { quest in
-                        Button(action: {
-                            viewModel.selectedQuestId = quest.id
-                        }) {
-                            Text("\(quest.area.emoji) \(quest.title)")
-                        }
-                    }
-                } label: {
-                    HStack {
-                        if let selectedId = viewModel.selectedQuestId,
-                           let quest = viewModel.quests.first(where: { $0.id == selectedId }) {
-                            Text(quest.area.emoji)
-                                .font(.system(size: 18))
-                            Text(quest.title)
-                                .bodyText()
-                                .foregroundColor(ColorTokens.textPrimary)
-                                .lineLimit(1)
-                        } else {
-                            Text("fire.select_quest".localized)
-                                .bodyText()
-                                .foregroundColor(ColorTokens.textMuted)
-                        }
-
-                        Spacer()
-
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(ColorTokens.textMuted)
-                    }
-                    .padding(SpacingTokens.md)
-                    .background(ColorTokens.surface)
-                    .cornerRadius(RadiusTokens.md)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: RadiusTokens.md)
-                            .stroke(ColorTokens.border, lineWidth: 1)
-                    )
-                }
-            }
-        }
-    }
-
-    // MARK: - Description Section
-    private var descriptionSection: some View {
-        VStack(alignment: .leading, spacing: SpacingTokens.md) {
-            Text("fire.description".localized)
-                .subtitle()
-                .fontWeight(.semibold)
-                .foregroundColor(ColorTokens.textPrimary)
-
-            CustomTextArea(
-                placeholder: "fire.description_placeholder".localized,
-                text: $viewModel.sessionDescription,
-                minHeight: 80
-            )
-        }
-    }
-
     // MARK: - Actions Section
     private var actionsSection: some View {
         VStack(spacing: SpacingTokens.md) {
@@ -449,9 +437,6 @@ struct FireModeView: View {
                 }
             }
 
-            SecondaryButton("fire.log_past_session".localized) {
-                viewModel.showingLogManualSession = true
-            }
         }
         .padding(.top, SpacingTokens.md)
     }
@@ -695,6 +680,63 @@ struct SessionLogCard: View {
             RoundedRectangle(cornerRadius: RadiusTokens.lg)
                 .stroke(ColorTokens.border, lineWidth: 1)
         )
+    }
+}
+
+// MARK: - Compact Stat Component
+struct CompactStat: View {
+    let icon: String
+    let value: String
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 10))
+                .foregroundColor(color)
+
+            Text(value)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(color)
+        }
+        .padding(.horizontal, SpacingTokens.sm)
+        .padding(.vertical, 4)
+        .background(color.opacity(0.15))
+        .cornerRadius(RadiusTokens.sm)
+    }
+}
+
+// MARK: - Duration Chip Component
+struct DurationChip: View {
+    let duration: Int
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: {
+            action()
+            HapticFeedback.selection()
+        }) {
+            Text("\(duration)m")
+                .font(.system(size: 14, weight: isSelected ? .bold : .medium))
+                .foregroundColor(isSelected ? .white : ColorTokens.textSecondary)
+                .padding(.horizontal, SpacingTokens.md)
+                .padding(.vertical, SpacingTokens.sm)
+                .frame(maxWidth: .infinity)
+                .background(
+                    isSelected
+                        ? ColorTokens.fireGradient
+                        : LinearGradient(colors: [ColorTokens.surface, ColorTokens.surface], startPoint: .leading, endPoint: .trailing)
+                )
+                .cornerRadius(RadiusTokens.md)
+                .overlay(
+                    RoundedRectangle(cornerRadius: RadiusTokens.md)
+                        .stroke(isSelected ? Color.clear : ColorTokens.border, lineWidth: 1)
+                )
+        }
+        .buttonStyle(PlainButtonStyle())
+        .scaleEffect(isSelected ? 1.02 : 1.0)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
     }
 }
 

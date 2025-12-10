@@ -1,5 +1,10 @@
 /* English Localization - Volta App */
 
+// MARK: - Welcome / Splash
+"welcome.title" = "Welcome to Volta";
+"welcome.subtitle" = "Your path to success starts here";
+"welcome.loading" = "Preparing your experience...";
+
 // MARK: - Common
 "common.done" = "Done";
 "common.cancel" = "Cancel";
@@ -27,6 +32,7 @@
 
 // MARK: - Tabs
 "tab.dashboard" = "Dashboard";
+"tab.calendar" = "Calendar";
 "tab.fire" = "Fire";
 "tab.quests" = "Quests";
 "tab.crew" = "Crew";
@@ -43,6 +49,18 @@
 "dashboard.todays_intentions" = "Today's Intentions";
 "dashboard.daily_habits" = "Daily Habits";
 "dashboard.evening_reflection" = "Evening Reflection";
+"dashboard.focus_timer" = "Focus Timer";
+"dashboard.today_focus" = "%d min today";
+"dashboard.focus_encouragement" = "Focus Time";
+"dashboard.focus_benefits" = "Focus sessions help you be more productive and achieve your goals faster.";
+"dashboard.start_first_session" = "Start your first focus session today!";
+"dashboard.keep_momentum" = "Great job! Keep the momentum going.";
+"dashboard.daily_goal" = "Daily Goal";
+"dashboard.minutes_today" = "%d minutes today";
+"dashboard.weekly_progress" = "Weekly Progress";
+"dashboard.sessions_week" = "%d sessions this week";
+"dashboard.minutes_week" = "%d minutes this week";
+"dashboard.quick_start" = "%d min";
 "dashboard.focus_time" = "Focus Time";
 "dashboard.streak" = "Streak";
 "dashboard.day_streak" = "day streak";
@@ -118,6 +136,7 @@
 "quests.quest_details" = "Quest Details";
 "quests.target_date" = "Target Date";
 "quests.update_progress" = "Update Progress";
+"quests.swipe_to_update" = "Swipe to update progress";
 "routines.delete_ritual" = "Delete Ritual";
 
 // MARK: - Routines / Rituals
@@ -194,6 +213,16 @@
 "crew.done" = "done";
 "crew.focus_this_week" = "focus this week";
 "crew.routines_done" = "routines done";
+"crew.suggested" = "Suggested Users";
+"crew.suggested_hint" = "Active users you might want to connect with";
+
+// MARK: - Visibility
+"visibility.public" = "Public";
+"visibility.crew" = "Crew Only";
+"visibility.private" = "Private";
+"visibility.public_desc" = "Anyone can see your day";
+"visibility.crew_desc" = "Only crew members can see your day";
+"visibility.private_desc" = "Your day is hidden from everyone";
 
 // MARK: - Profile / Account
 "profile.title" = "Profile";
@@ -211,6 +240,9 @@
 "profile.sign_out" = "Sign Out";
 "profile.sign_out_title" = "Sign Out";
 "profile.sign_out_confirm" = "Are you sure you want to sign out?";
+"profile.language_change_title" = "Change Language";
+"profile.language_change_message" = "The app needs to restart to apply the language change.";
+"profile.restart_app" = "Restart";
 "profile.version" = "Volta v1.0.0";
 "profile.guest_account" = "Guest Account";
 
@@ -370,6 +402,14 @@
 "error.saving" = "Failed to save";
 "error.update_visibility" = "Failed to update visibility";
 
+// MARK: - Areas
+"area.health" = "Health";
+"area.learning" = "Learning";
+"area.career" = "Career";
+"area.relationships" = "Relationships";
+"area.creativity" = "Creativity";
+"area.other" = "Other";
+
 // MARK: - Feelings
 "feeling.happy" = "Happy";
 "feeling.calm" = "Calm";
@@ -379,3 +419,105 @@
 "feeling.frustrated" = "Frustrated";
 "feeling.excited" = "Excited";
 "feeling.tired" = "Tired";
+
+// MARK: - Authentication
+"auth.tagline" = "Focus. Build. Progress.";
+"auth.feature.focus" = "Deep focus sessions without distractions";
+"auth.feature.quests" = "Track goals and build momentum";
+"auth.feature.habits" = "Build habits that compound over time";
+"auth.feature.rituals" = "Morning & evening rituals for success";
+"auth.terms.agree" = "By continuing, you agree to our";
+"auth.terms.tos" = "Terms of Service";
+"auth.terms.and" = "and";
+"auth.terms.privacy" = "Privacy Policy";
+"auth.signing_in" = "Signing in...";
+"auth.error_title" = "Authentication Error";
+"auth.sign_in_apple" = "Sign in with Apple";
+
+// MARK: - Streak
+"streak.day_count" = "Day %d";
+"streak.subtitle" = "A new day to progress";
+
+// MARK: - Legal
+"legal.privacy.title" = "Privacy Policy";
+"legal.privacy.content" = "Your privacy is important to us. Volta collects and stores only the data necessary to provide our service. This includes your account information, focus sessions, quests, and rituals. We do not sell your data to third parties. Your data is securely stored and you can request deletion at any time by contacting support@volta.app.";
+"legal.tos.title" = "Terms of Service";
+
+// MARK: - Calendar
+"calendar.title" = "Calendar";
+"calendar.subtitle" = "Plan your day with AI";
+"calendar.loading" = "Loading your day...";
+"calendar.today" = "Today";
+"calendar.day_progress" = "Day Progress";
+"calendar.tasks_completed" = "tasks completed";
+"calendar.ai_summary" = "AI Summary";
+"calendar.time_blocks" = "Time Blocks";
+"calendar.other_tasks" = "Other Tasks";
+"calendar.no_plan_title" = "No plan for this day";
+"calendar.no_plan_subtitle" = "Let AI help you plan a productive day based on your goals and priorities.";
+"calendar.plan_your_day" = "Plan Your Day";
+"calendar.ai_plan_title" = "Plan with AI";
+"calendar.ai_plan_subtitle" = "Describe your ideal day and let AI create a plan for you";
+"calendar.describe_your_day" = "Describe your ideal day...";
+"calendar.generating" = "Creating your plan...";
+"calendar.generate_plan" = "Generate Plan";
+"calendar.add_task" = "Add task";
+"calendar.generate_tasks" = "Generate tasks";
+"calendar.create_block" = "Create Time Block";
+"calendar.block_title" = "Title";
+"calendar.block_title_placeholder" = "e.g., Deep work, Meetings...";
+"calendar.block_description" = "Description (optional)";
+"calendar.block_description_placeholder" = "What will you focus on?";
+"calendar.start_time" = "Start Time";
+"calendar.end_time" = "End Time";
+"calendar.link_quest" = "Link to Quest (optional)";
+"calendar.link_area" = "Life Area (optional)";
+"calendar.create_task" = "Create Task";
+"calendar.task_title" = "Task";
+"calendar.task_title_placeholder" = "What needs to be done?";
+"calendar.task_description" = "Description (optional)";
+"calendar.task_description_placeholder" = "Add more details...";
+"calendar.estimated_time" = "Estimated Time";
+"calendar.priority" = "Priority";
+"calendar.priority.low" = "Low";
+"calendar.priority.medium" = "Medium";
+"calendar.priority.high" = "High";
+"calendar.priority.urgent" = "Urgent";
+"calendar.ai_prompt_placeholder" = "I want to focus on my project in the morning, have a workout at noon, then review my quests in the afternoon...";
+"calendar.ai_hint" = "Be specific about your goals, energy levels, and constraints";
+"calendar.this_week" = "This Week";
+"calendar.tasks" = "Tasks";
+"calendar.block_detail" = "Block Details";
+"calendar.goal_detail" = "Goal Details";
+"calendar.add_goal" = "Add Goal";
+"calendar.add_block" = "Add Time Block";
+"calendar.voice_input" = "Voice Input";
+"calendar.new_goal" = "New Goal";
+"calendar.goal_title" = "Title";
+"calendar.goal_description" = "Description (optional)";
+"calendar.date" = "Date";
+"calendar.time_block" = "Time of Day";
+"calendar.morning" = "Morning";
+"calendar.afternoon" = "Afternoon";
+"calendar.evening" = "Evening";
+"calendar.schedule_time" = "Schedule specific time";
+"calendar.quest" = "Quest";
+"calendar.start_focus" = "Start Focus";
+"calendar.mark_complete" = "Mark as Complete";
+"calendar.priority_low" = "Low";
+"calendar.priority_medium" = "Medium";
+"calendar.priority_high" = "High";
+"calendar.quick_create" = "Add Task";
+"calendar.quick_create_placeholder" = "What do you want to do?";
+"common.completed" = "Completed";
+"common.creating" = "Creating...";
+
+// MARK: - Voice / AI Assistant
+"voice.title" = "AI Assistant";
+"voice.assistant_title" = "Plan Your Day";
+"voice.assistant_subtitle" = "Tell me what you want to accomplish today and I'll help you organize it";
+"voice.ai_response" = "AI Response";
+"voice.input_placeholder" = "What do you want to accomplish today?";
+"voice.processing" = "Processing...";
+"voice.send" = "Send";
+"voice.error" = "An error occurred. Please try again.";

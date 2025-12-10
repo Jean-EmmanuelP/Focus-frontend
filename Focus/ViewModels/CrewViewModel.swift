@@ -18,7 +18,9 @@ class CrewViewModel: ObservableObject {
     // Search
     @Published var searchQuery = ""
     @Published var searchResults: [SearchUserResult] = []
+    @Published var suggestedUsers: [SearchUserResult] = []
     @Published var isSearching = false
+    @Published var isLoadingSuggestions = false
 
     // Leaderboard
     @Published var leaderboard: [LeaderboardEntry] = []
@@ -76,7 +78,8 @@ class CrewViewModel: ObservableObject {
         do {
             crewMembers = try await crewService.fetchCrewMembers()
         } catch {
-            handleError(error, context: "loading crew members")
+            // Silent error - don't show alert for refresh failures
+            handleError(error, context: "loading crew members", silent: true)
         }
     }
 
@@ -87,7 +90,8 @@ class CrewViewModel: ObservableObject {
         do {
             receivedRequests = try await crewService.fetchReceivedRequests()
         } catch {
-            handleError(error, context: "loading requests")
+            // Silent error - don't show alert for refresh failures
+            handleError(error, context: "loading requests", silent: true)
         }
     }
 
@@ -95,7 +99,8 @@ class CrewViewModel: ObservableObject {
         do {
             sentRequests = try await crewService.fetchSentRequests()
         } catch {
-            handleError(error, context: "loading sent requests")
+            // Silent error - don't show alert for refresh failures
+            handleError(error, context: "loading sent requests", silent: true)
         }
     }
 
@@ -106,7 +111,21 @@ class CrewViewModel: ObservableObject {
         do {
             leaderboard = try await crewService.fetchLeaderboard(limit: 50)
         } catch {
-            handleError(error, context: "loading leaderboard")
+            // Silent error - don't show alert for refresh failures
+            handleError(error, context: "loading leaderboard", silent: true)
+        }
+    }
+
+    func loadSuggestedUsers() async {
+        isLoadingSuggestions = true
+        defer { isLoadingSuggestions = false }
+
+        do {
+            suggestedUsers = try await crewService.fetchSuggestedUsers(limit: 10)
+        } catch {
+            // Silently fail - suggestions are optional
+            print("⚠️ Could not load suggestions: \(error.localizedDescription)")
+            suggestedUsers = []
         }
     }
 
@@ -270,10 +289,55 @@ class CrewViewModel: ObservableObject {
         selectedMemberDay = nil
     }
 
+    // MARK: - Routine Likes
+
+    /// Toggle like on a completed routine
+    func toggleRoutineLike(completionId: String, isCurrentlyLiked: Bool) async {
+        do {
+            if isCurrentlyLiked {
+                try await crewService.unlikeRoutineCompletion(completionId: completionId)
+            } else {
+                try await crewService.likeRoutineCompletion(completionId: completionId)
+            }
+
+            // Update local state optimistically
+            if var dayData = selectedMemberDay {
+                // Update in completedRoutines
+                if let index = dayData.completedRoutines?.firstIndex(where: { $0.id == completionId }) {
+                    let currentLiked = dayData.completedRoutines?[index].isLikedByMe ?? false
+                    let currentCount = dayData.completedRoutines?[index].likeCount ?? 0
+                    dayData.completedRoutines?[index].isLikedByMe = !currentLiked
+                    dayData.completedRoutines?[index].likeCount = currentLiked ? max(0, currentCount - 1) : currentCount + 1
+                }
+
+                // Update in allRoutines
+                if let index = dayData.routines?.firstIndex(where: { $0.id == completionId }) {
+                    let currentLiked = dayData.routines?[index].isLikedByMe ?? false
+                    let currentCount = dayData.routines?[index].likeCount ?? 0
+                    dayData.routines?[index].isLikedByMe = !currentLiked
+                    dayData.routines?[index].likeCount = currentLiked ? max(0, currentCount - 1) : currentCount + 1
+                }
+
+                selectedMemberDay = dayData
+            }
+        } catch {
+            handleError(error, context: "toggling like")
+        }
+    }
+
+    // MARK: - Visibility
+
+    func updateVisibility(_ visibility: DayVisibility) async throws {
+        try await crewService.updateDayVisibility(visibility)
+    }
+
     // MARK: - Error Handling
 
-    private func handleError(_ error: Error, context: String) {
+    private func handleError(_ error: Error, context: String, silent: Bool = false) {
         print("❌ Crew error (\(context)): \(error.localizedDescription)")
+
+        // Don't show error alert for silent errors (like refresh failures)
+        guard !silent else { return }
 
         if let apiError = error as? APIError {
             errorMessage = apiError.errorDescription

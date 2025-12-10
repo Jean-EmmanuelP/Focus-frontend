@@ -10,17 +10,17 @@ enum DayVisibility: String, Codable, CaseIterable {
 
     var displayName: String {
         switch self {
-        case .publicVisibility: return "Public"
-        case .crewOnly: return "Crew Only"
-        case .privateVisibility: return "Private"
+        case .publicVisibility: return "visibility.public".localized
+        case .crewOnly: return "visibility.crew".localized
+        case .privateVisibility: return "visibility.private".localized
         }
     }
 
     var description: String {
         switch self {
-        case .publicVisibility: return "Anyone can see your day"
-        case .crewOnly: return "Only crew members can see"
-        case .privateVisibility: return "Nobody can see your day"
+        case .publicVisibility: return "visibility.public_desc".localized
+        case .crewOnly: return "visibility.crew_desc".localized
+        case .privateVisibility: return "visibility.private_desc".localized
         }
     }
 
@@ -53,6 +53,7 @@ struct CrewMemberResponse: Codable, Identifiable {
     let totalMinutes7d: Int?
     let activityScore: Int?
     let createdAt: String?
+    let email: String?
 
     var displayName: String {
         if let pseudo = pseudo, !pseudo.isEmpty {
@@ -63,6 +64,10 @@ struct CrewMemberResponse: Codable, Identifiable {
                 return "\(first) \(last)"
             }
             return first
+        }
+        // Fallback to email username
+        if let email = email, let atIndex = email.firstIndex(of: "@") {
+            return String(email[..<atIndex])
         }
         return "User"
     }
@@ -90,6 +95,7 @@ struct CrewUserInfo: Codable {
     let firstName: String?
     let lastName: String?
     let avatarUrl: String?
+    let email: String?
 
     var displayName: String {
         if let pseudo = pseudo, !pseudo.isEmpty {
@@ -100,6 +106,10 @@ struct CrewUserInfo: Codable {
                 return "\(first) \(last)"
             }
             return first
+        }
+        // Fallback to email username
+        if let email = email, let atIndex = email.firstIndex(of: "@") {
+            return String(email[..<atIndex])
         }
         return "User"
     }
@@ -119,6 +129,7 @@ struct SearchUserResult: Codable, Identifiable {
     let isCrewMember: Bool
     let hasPendingRequest: Bool
     let requestDirection: String?  // "outgoing" or "incoming"
+    let email: String?
 
     var displayName: String {
         if let pseudo = pseudo, !pseudo.isEmpty {
@@ -129,6 +140,10 @@ struct SearchUserResult: Codable, Identifiable {
                 return "\(first) \(last)"
             }
             return first
+        }
+        // Fallback to email username
+        if let email = email, let atIndex = email.firstIndex(of: "@") {
+            return String(email[..<atIndex])
         }
         return "User"
     }
@@ -147,10 +162,12 @@ struct LeaderboardEntry: Codable, Identifiable {
     let totalMinutes7d: Int?
     let completedRoutines7d: Int?
     let activityScore: Int?
+    let currentStreak: Int?
     let lastActive: String?
     let isCrewMember: Bool?
     let hasPendingRequest: Bool?
     let requestDirection: String?  // "outgoing" or "incoming"
+    let email: String?
 
     var displayName: String {
         if let pseudo = pseudo, !pseudo.isEmpty {
@@ -161,6 +178,10 @@ struct LeaderboardEntry: Codable, Identifiable {
                 return "\(first) \(last)"
             }
             return first
+        }
+        // Fallback to email username
+        if let email = email, let atIndex = email.firstIndex(of: "@") {
+            return String(email[..<atIndex])
         }
         return "User"
     }
@@ -177,6 +198,7 @@ struct LeaderboardEntry: Codable, Identifiable {
 
     var safeRank: Int { rank ?? 0 }
     var safeActivityScore: Int { activityScore ?? 0 }
+    var safeCurrentStreak: Int { currentStreak ?? 0 }
     var safeIsCrewMember: Bool { isCrewMember ?? false }
     var safeHasPendingRequest: Bool { hasPendingRequest ?? false }
 }
@@ -186,8 +208,8 @@ struct CrewMemberDayResponse: Codable {
     let user: CrewUserInfo
     let intentions: [CrewIntention]?
     let focusSessions: [CrewFocusSession]?
-    let completedRoutines: [CrewCompletedRoutine]?
-    let routines: [CrewRoutine]?
+    var completedRoutines: [CrewCompletedRoutine]?
+    var routines: [CrewRoutine]?
     let stats: CrewMemberStats?
 }
 
@@ -257,6 +279,8 @@ struct CrewCompletedRoutine: Codable, Identifiable {
     let title: String
     let icon: String?
     let completedAt: Date
+    var likeCount: Int?
+    var isLikedByMe: Bool?
 }
 
 struct CrewRoutine: Codable, Identifiable {
@@ -265,6 +289,8 @@ struct CrewRoutine: Codable, Identifiable {
     let icon: String?
     let completed: Bool
     let completedAt: Date?
+    var likeCount: Int?
+    var isLikedByMe: Bool?
 }
 
 // MARK: - Crew Service
@@ -369,6 +395,7 @@ class CrewService {
     func fetchCrewMemberDay(userId: String, date: Date) async throws -> CrewMemberDayResponse? {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
+        dateFormatter.timeZone = TimeZone.current // Use user's local timezone
         let dateString = dateFormatter.string(from: date)
 
         do {
@@ -404,6 +431,34 @@ class CrewService {
     func fetchMyStats() async throws -> MyStatsResponse {
         return try await apiClient.request(
             endpoint: .myStats,
+            method: .get
+        )
+    }
+
+    // MARK: - Routine Likes
+
+    /// Like a crew member's completed routine
+    func likeRoutineCompletion(completionId: String) async throws {
+        try await apiClient.request(
+            endpoint: .likeRoutineCompletion(completionId: completionId),
+            method: .post
+        )
+    }
+
+    /// Unlike a crew member's completed routine
+    func unlikeRoutineCompletion(completionId: String) async throws {
+        try await apiClient.request(
+            endpoint: .unlikeRoutineCompletion(completionId: completionId),
+            method: .delete
+        )
+    }
+
+    // MARK: - User Suggestions
+
+    /// Fetch suggested users to add to crew
+    func fetchSuggestedUsers(limit: Int? = 10) async throws -> [SearchUserResult] {
+        return try await apiClient.request(
+            endpoint: .suggestedUsers(limit: limit),
             method: .get
         )
     }

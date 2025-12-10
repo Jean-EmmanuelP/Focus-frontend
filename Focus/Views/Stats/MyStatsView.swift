@@ -8,8 +8,12 @@ struct MyStatsView: View {
     @State private var selectedPeriod: StatsPeriod = .week
 
     enum StatsPeriod: String, CaseIterable {
-        case week = "Week"
-        case month = "Month"
+        case week = "stats.week"
+        case month = "stats.month"
+
+        var localizedName: String {
+            rawValue.localized
+        }
     }
 
     var body: some View {
@@ -30,7 +34,7 @@ struct MyStatsView: View {
                             .bodyText()
                             .foregroundColor(ColorTokens.textSecondary)
                             .multilineTextAlignment(.center)
-                        Button("Retry") {
+                        Button("common.retry".localized) {
                             Task { await loadStats() }
                         }
                         .foregroundColor(ColorTokens.primaryStart)
@@ -55,11 +59,11 @@ struct MyStatsView: View {
                     }
                 }
             }
-            .navigationTitle("My Statistics")
+            .navigationTitle("stats.my_statistics".localized)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
+                    Button("common.done".localized) {
                         dismiss()
                     }
                     .foregroundColor(ColorTokens.primaryStart)
@@ -81,7 +85,7 @@ struct MyStatsView: View {
                         selectedPeriod = period
                     }
                 } label: {
-                    Text(period.rawValue)
+                    Text(period.localizedName)
                         .bodyText()
                         .fontWeight(.medium)
                         .foregroundColor(selectedPeriod == period ? .white : ColorTokens.textSecondary)
@@ -99,24 +103,25 @@ struct MyStatsView: View {
     private func summaryCards(stats: MyStatsResponse) -> some View {
         let focusMinutes = selectedPeriod == .week ? (stats.weeklyTotalFocus ?? 0) : (stats.monthlyTotalFocus ?? 0)
         let routinesDone = selectedPeriod == .week ? (stats.weeklyTotalRoutines ?? 0) : (stats.monthlyTotalRoutines ?? 0)
-        let routineRate = stats.weeklyRoutineRate ?? 0
         let totalRoutines = stats.totalRoutines ?? 0
+        // Fix: Show 0% if no routines exist
+        let routineRate = totalRoutines > 0 ? (stats.weeklyRoutineRate ?? 0) : 0
         let possibleRoutines = selectedPeriod == .week ? totalRoutines * 7 : totalRoutines * 30
 
         return VStack(spacing: SpacingTokens.md) {
             HStack(spacing: SpacingTokens.md) {
                 StatSummaryCard(
-                    title: "Focus Time",
+                    title: "stats.focus_time".localized,
                     value: formatMinutes(focusMinutes),
-                    subtitle: selectedPeriod == .week ? "this week" : "this month",
+                    subtitle: selectedPeriod == .week ? "stats.this_week".localized : "stats.this_month".localized,
                     icon: "flame.fill",
                     color: ColorTokens.primaryStart
                 )
 
                 StatSummaryCard(
-                    title: "Avg. Daily",
+                    title: "stats.avg_daily".localized,
                     value: formatMinutes(selectedPeriod == .week ? (stats.weeklyAvgFocus ?? 0) : (focusMinutes / 30)),
-                    subtitle: "focus time",
+                    subtitle: "stats.focus_time".localized,
                     icon: "clock.fill",
                     color: .blue
                 )
@@ -124,17 +129,17 @@ struct MyStatsView: View {
 
             HStack(spacing: SpacingTokens.md) {
                 StatSummaryCard(
-                    title: "Routines",
+                    title: "stats.routines".localized,
                     value: "\(routinesDone)/\(possibleRoutines)",
-                    subtitle: "completed",
+                    subtitle: "stats.completed".localized,
                     icon: "checkmark.circle.fill",
                     color: ColorTokens.success
                 )
 
                 StatSummaryCard(
-                    title: "Completion",
+                    title: "stats.completion".localized,
                     value: "\(routineRate)%",
-                    subtitle: "rate",
+                    subtitle: "stats.rate".localized,
                     icon: "chart.pie.fill",
                     color: .purple
                 )
@@ -154,18 +159,18 @@ struct MyStatsView: View {
                 HStack {
                     Image(systemName: "flame.fill")
                         .foregroundColor(ColorTokens.primaryStart)
-                    Text("Focus Sessions")
+                    Text("stats.focus_sessions".localized)
                         .bodyText()
                         .fontWeight(.semibold)
                         .foregroundColor(ColorTokens.textPrimary)
                     Spacer()
-                    Text(selectedPeriod == .week ? "Last 7 days" : "Last 30 days")
+                    Text(selectedPeriod == .week ? "stats.last_7_days".localized : "stats.last_30_days".localized)
                         .caption()
                         .foregroundColor(ColorTokens.textMuted)
                 }
 
                 if data.isEmpty {
-                    Text("No focus sessions yet")
+                    Text("stats.no_sessions".localized)
                         .caption()
                         .foregroundColor(ColorTokens.textMuted)
                         .frame(maxWidth: .infinity)
@@ -193,18 +198,18 @@ struct MyStatsView: View {
                 HStack {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundColor(ColorTokens.success)
-                    Text("Daily Routines")
+                    Text("stats.daily_routines".localized)
                         .bodyText()
                         .fontWeight(.semibold)
                         .foregroundColor(ColorTokens.textPrimary)
                     Spacer()
-                    Text(selectedPeriod == .week ? "Last 7 days" : "Last 30 days")
+                    Text(selectedPeriod == .week ? "stats.last_7_days".localized : "stats.last_30_days".localized)
                         .caption()
                         .foregroundColor(ColorTokens.textMuted)
                 }
 
                 if data.isEmpty {
-                    Text("No routines completed yet")
+                    Text("stats.no_routines".localized)
                         .caption()
                         .foregroundColor(ColorTokens.textMuted)
                         .frame(maxWidth: .infinity)
@@ -242,7 +247,7 @@ struct MyStatsView: View {
             let crewService = CrewService()
             stats = try await crewService.fetchMyStats()
         } catch {
-            errorMessage = "Failed to load statistics"
+            errorMessage = "stats.failed_to_load".localized
         }
 
         isLoading = false
@@ -260,34 +265,40 @@ struct MonthlyBarChart: View {
     }
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(alignment: .bottom, spacing: 4) {
-                ForEach(data) { stat in
-                    VStack(spacing: 2) {
-                        // Bar
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(stat.value > 0 ? color : ColorTokens.surface)
-                            .frame(width: 8, height: barHeight(for: stat.value))
+        GeometryReader { geometry in
+            let isSmallScreen = geometry.size.width < 350
+            let chartHeight: CGFloat = isSmallScreen ? 70 : 90
+            let barWidth: CGFloat = isSmallScreen ? 6 : 8
 
-                        // Day number (show every 5th day)
-                        if shouldShowLabel(for: stat.date) {
-                            Text(dayNumber(from: stat.date))
-                                .font(.system(size: 8))
-                                .foregroundColor(ColorTokens.textMuted)
-                        } else {
-                            Text("")
-                                .font(.system(size: 8))
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(alignment: .bottom, spacing: isSmallScreen ? 3 : 4) {
+                    ForEach(data) { stat in
+                        VStack(spacing: 2) {
+                            // Bar
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(stat.value > 0 ? color : ColorTokens.surface)
+                                .frame(width: barWidth, height: barHeight(for: stat.value, maxHeight: chartHeight - 20))
+
+                            // Day number (show every 5th day)
+                            if shouldShowLabel(for: stat.date) {
+                                Text(dayNumber(from: stat.date))
+                                    .font(.system(size: isSmallScreen ? 7 : 8))
+                                    .foregroundColor(ColorTokens.textMuted)
+                            } else {
+                                Text("")
+                                    .font(.system(size: isSmallScreen ? 7 : 8))
+                            }
                         }
                     }
                 }
+                .padding(.horizontal, SpacingTokens.sm)
             }
-            .padding(.horizontal, SpacingTokens.sm)
+            .frame(height: chartHeight)
         }
-        .frame(height: 90)
+        .frame(height: 90) // Keep overall frame for layout
     }
 
-    private func barHeight(for value: Int) -> CGFloat {
-        let maxHeight: CGFloat = 60
+    private func barHeight(for value: Int, maxHeight: CGFloat = 60) -> CGFloat {
         let minHeight: CGFloat = 2
         guard maxValue > 0 else { return minHeight }
         let ratio = CGFloat(value) / CGFloat(maxValue)

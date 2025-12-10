@@ -10,8 +10,14 @@ final class FocusAppStore: ObservableObject {
     // MARK: - Authentication State
     @Published var isAuthenticated = false
     @Published var authUserId: String?
+    @Published var hasCompletedOnboarding = false
+    @Published var isCheckingOnboarding = false
     private var hasLoadedInitialData = false
     private var isCurrentlyLoadingData = false  // Prevents concurrent loads
+
+    // MARK: - UserDefaults Keys for Onboarding Cache
+    private let onboardingCompletedKey = "volta_onboarding_completed"
+    private let onboardingUserIdKey = "volta_onboarding_user_id"
 
     // MARK: - Published State
     @Published var user: User?
@@ -46,11 +52,11 @@ final class FocusAppStore: ObservableObject {
     }
 
     var currentStreak: Int {
-        stats?.streakDays ?? user?.currentStreak ?? 0
+        streakData?.currentStreak ?? stats?.streakDays ?? user?.currentStreak ?? 0
     }
 
-    var levelProgress: Double {
-        user?.progressToNextLevel ?? 0
+    var streakStartDateString: String? {
+        streakData?.streakStart
     }
 
     // MARK: - API Data
@@ -58,6 +64,7 @@ final class FocusAppStore: ObservableObject {
     @Published var weeklyProgress: [DayProgress] = []
     @Published var stats: DashboardStats?
     @Published var firemodeStats: FiremodeResponse?
+    @Published var streakData: StreakResponse?
     @Published var areasLoaded = false
 
     // MARK: - Data Loading Timestamps (for caching)
@@ -74,6 +81,8 @@ final class FocusAppStore: ObservableObject {
     private let intentionsService = IntentionsService()
     private let areasService = AreasService()
     private let completionsService = CompletionsService()
+    private let streakService = StreakService()
+    private let onboardingService = OnboardingService()
 
     // Default area definitions (for creating if none exist)
     private static let defaultAreaDefinitions: [(name: String, slug: String, icon: String)] = [
@@ -143,9 +152,7 @@ final class FocusAppStore: ObservableObject {
             description: nil,
             hobbies: nil,
             lifeGoal: nil,
-            level: 1,
-            experiencePoints: 0,
-            experienceToNextLevel: 1000,
+            dayVisibility: nil,
             currentStreak: 0,
             longestStreak: 0
         )
@@ -175,9 +182,7 @@ final class FocusAppStore: ObservableObject {
             description: nil,
             hobbies: nil,
             lifeGoal: nil,
-            level: 1,
-            experiencePoints: 0,
-            experienceToNextLevel: 1000,
+            dayVisibility: nil,
             currentStreak: 0,
             longestStreak: 0
         )
@@ -196,9 +201,14 @@ final class FocusAppStore: ObservableObject {
                 print("Error signing out: \(error)")
             }
 
+            // Clear onboarding cache for this user
+            UserDefaults.standard.removeObject(forKey: onboardingCompletedKey)
+            UserDefaults.standard.removeObject(forKey: onboardingUserIdKey)
+
             // Reset state regardless of sign out result
             self.authUserId = nil
             self.isAuthenticated = false
+            self.hasCompletedOnboarding = false
             self.hasLoadedInitialData = false
             self.isCurrentlyLoadingData = false
             self.lastDashboardLoad = nil
@@ -213,8 +223,86 @@ final class FocusAppStore: ObservableObject {
             self.areasLoaded = false
             self.stats = nil
             self.weeklyProgress = []
-            print("🔓 User signed out, state reset")
+            print("🔓 User signed out, state reset (onboarding cache cleared)")
         }
+    }
+
+    // MARK: - Onboarding
+    /// Check onboarding status - first from local cache, then from backend
+    func checkOnboardingStatus() async {
+        isCheckingOnboarding = true
+
+        // 1. Check local cache first (for same user)
+        let cachedUserId = UserDefaults.standard.string(forKey: onboardingUserIdKey)
+        let cachedCompleted = UserDefaults.standard.bool(forKey: onboardingCompletedKey)
+
+        if let currentUserId = authUserId,
+           cachedUserId == currentUserId,
+           cachedCompleted {
+            // User has completed onboarding according to local cache
+            hasCompletedOnboarding = true
+            isCheckingOnboarding = false
+            print("📋 Onboarding status from cache: completed=true (user: \(currentUserId))")
+            return
+        }
+
+        // 2. Check backend
+        do {
+            let status = try await onboardingService.getStatus()
+            hasCompletedOnboarding = status.isCompleted
+
+            // Update local cache if completed
+            if status.isCompleted, let currentUserId = authUserId {
+                UserDefaults.standard.set(true, forKey: onboardingCompletedKey)
+                UserDefaults.standard.set(currentUserId, forKey: onboardingUserIdKey)
+            }
+
+            print("📋 Onboarding status from API: completed=\(status.isCompleted), step=\(status.currentStep)")
+        } catch {
+            // On error, check if we have local cache for this user
+            if let currentUserId = authUserId,
+               cachedUserId == currentUserId,
+               cachedCompleted {
+                hasCompletedOnboarding = true
+                print("⚠️ API error but local cache says completed: \(error)")
+            } else {
+                // No cache, assume not completed (new user)
+                hasCompletedOnboarding = false
+                print("⚠️ Error checking onboarding status (no cache): \(error)")
+            }
+        }
+        isCheckingOnboarding = false
+    }
+
+    /// Mark onboarding as completed and load initial data
+    func completeOnboarding() async {
+        print("🚀 completeOnboarding: Starting...")
+
+        // 1. Save to local cache FIRST (ensures we don't get stuck)
+        if let currentUserId = authUserId {
+            UserDefaults.standard.set(true, forKey: onboardingCompletedKey)
+            UserDefaults.standard.set(currentUserId, forKey: onboardingUserIdKey)
+            print("💾 Onboarding saved to local cache for user: \(currentUserId)")
+        }
+
+        // 2. Mark as complete in memory
+        hasCompletedOnboarding = true
+
+        // 3. Try to sync with backend (but don't block on failure)
+        do {
+            print("🚀 completeOnboarding: Calling API...")
+            let response = try await onboardingService.completeOnboarding()
+            print("🚀 completeOnboarding: API response - isCompleted=\(response.isCompleted)")
+            print("✅ Onboarding marked as complete (API + local)")
+        } catch {
+            print("⚠️ Error syncing onboarding to API (local cache saved): \(error)")
+            // Don't worry - local cache is already saved
+        }
+
+        // 4. Load initial data for the dashboard
+        print("🚀 completeOnboarding: Loading initial data...")
+        await loadInitialData(force: true)
+        print("🚀 completeOnboarding: Done!")
     }
 
     // MARK: - Load Data
@@ -303,6 +391,16 @@ final class FocusAppStore: ObservableObject {
             // Store stats
             self.stats = dashboardData.stats
             print("🔥 Stats: \(dashboardData.stats.focusedToday) min today, \(dashboardData.stats.streakDays) day streak")
+
+            // Load streak data from dedicated endpoint
+            do {
+                let streakResponse = try await streakService.fetchStreak()
+                self.streakData = streakResponse
+                print("🔥 Streak loaded: current=\(streakResponse.currentStreak), longest=\(streakResponse.longestStreak), start=\(streakResponse.streakStart ?? "nil")")
+            } catch {
+                print("⚠️ Failed to load streak data: \(error)")
+                // Fallback to dashboard stats
+            }
 
             // Use today_intentions from dashboard if available
             if let todayIntentions = dashboardData.todayIntentions {
@@ -448,7 +546,7 @@ final class FocusAppStore: ObservableObject {
         }
     }
 
-    func createRitual(areaId: String, title: String, frequency: String, icon: String) async throws {
+    func createRitual(areaId: String, title: String, frequency: String, icon: String, scheduledTime: String? = nil) async throws {
         // Ensure areas exist before creating ritual
         if !areasLoaded {
             await ensureAreasExist()
@@ -463,19 +561,21 @@ final class FocusAppStore: ObservableObject {
             areaId: areaId,
             title: title,
             frequency: frequency,
-            icon: icon
+            icon: icon,
+            scheduledTime: scheduledTime
         )
 
         // Refresh dashboard to sync all data after mutation
         await refresh()
     }
 
-    func updateRitual(id: String, title: String?, frequency: String?, icon: String?) async throws {
+    func updateRitual(id: String, title: String?, frequency: String?, icon: String?, scheduledTime: String? = nil) async throws {
         _ = try await routineService.updateRoutine(
             id: id,
             title: title,
             frequency: frequency,
-            icon: icon
+            icon: icon,
+            scheduledTime: scheduledTime
         )
 
         // Refresh dashboard to sync all data after mutation
@@ -602,6 +702,13 @@ final class FocusAppStore: ObservableObject {
     /// Complete a focus session (sets status = completed, completed_at = now)
     func completeSession(sessionId: String) async throws {
         _ = try await sessionService.completeSession(sessionId: sessionId)
+        // Refresh dashboard to sync all data after mutation
+        await refresh()
+    }
+
+    /// Cancel a focus session (sets status = cancelled - user stopped manually)
+    func cancelSession(sessionId: String) async throws {
+        _ = try await sessionService.cancelSession(sessionId: sessionId)
         // Refresh dashboard to sync all data after mutation
         await refresh()
     }
@@ -761,15 +868,15 @@ final class FocusAppStore: ObservableObject {
         }
     }
 
-    func createQuest(areaId: String, title: String, targetValue: Int = 1) async throws -> Quest {
-        let response = try await questService.createQuest(areaId: areaId, title: title, targetValue: targetValue)
+    func createQuest(areaId: String, title: String, targetValue: Int = 1, targetDate: Date? = nil) async throws -> Quest {
+        let response = try await questService.createQuest(areaId: areaId, title: title, targetValue: targetValue, targetDate: targetDate)
         let area = areas.first { $0.id == response.areaId }
         let quest = Quest(from: response, area: area)
         quests.append(quest)
         return quest
     }
 
-    func updateQuest(questId: String, title: String? = nil, status: String? = nil, currentValue: Int? = nil, targetValue: Int? = nil) async throws {
+    func updateQuest(questId: String, title: String? = nil, status: String? = nil, currentValue: Int? = nil, targetValue: Int? = nil, targetDate: Date? = nil) async throws {
         guard let index = quests.firstIndex(where: { $0.id == questId }) else { return }
 
         let updatedResponse = try await questService.updateQuest(
@@ -777,7 +884,8 @@ final class FocusAppStore: ObservableObject {
             title: title,
             status: status,
             currentValue: currentValue,
-            targetValue: targetValue
+            targetValue: targetValue,
+            targetDate: targetDate
         )
         let area = areas.first { $0.id == updatedResponse.areaId }
         quests[index] = Quest(from: updatedResponse, area: area)

@@ -45,12 +45,12 @@ class RitualsViewModel: ObservableObject {
         rituals = store.rituals
     }
 
-    func createRitual(areaId: String, title: String, frequency: String, icon: String) async -> Bool {
+    func createRitual(areaId: String, title: String, frequency: String, icon: String, scheduledTime: String? = nil) async -> Bool {
         isLoading = true
         errorMessage = nil
 
         do {
-            try await store.createRitual(areaId: areaId, title: title, frequency: frequency, icon: icon)
+            try await store.createRitual(areaId: areaId, title: title, frequency: frequency, icon: icon, scheduledTime: scheduledTime)
             rituals = store.rituals
             isLoading = false
             return true
@@ -61,12 +61,12 @@ class RitualsViewModel: ObservableObject {
         }
     }
 
-    func updateRitual(id: String, title: String, frequency: String, icon: String) async -> Bool {
+    func updateRitual(id: String, title: String, frequency: String, icon: String, scheduledTime: String? = nil) async -> Bool {
         isLoading = true
         errorMessage = nil
 
         do {
-            try await store.updateRitual(id: id, title: title, frequency: frequency, icon: icon)
+            try await store.updateRitual(id: id, title: title, frequency: frequency, icon: icon, scheduledTime: scheduledTime)
             rituals = store.rituals
             isLoading = false
             return true
@@ -98,7 +98,7 @@ struct ManageRitualsView: View {
                 .ignoresSafeArea()
 
             if viewModel.isLoading && viewModel.rituals.isEmpty {
-                LoadingView(message: "Loading rituals...")
+                LoadingView(message: "routines.loading_areas".localized)
             } else {
                 ScrollView {
                     VStack(spacing: SpacingTokens.lg) {
@@ -119,7 +119,7 @@ struct ManageRitualsView: View {
                 }
             }
         }
-        .navigationTitle("Daily Rituals")
+        .navigationTitle("routines.title".localized)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -146,7 +146,7 @@ struct ManageRitualsView: View {
     // MARK: - Header Section
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: SpacingTokens.sm) {
-            Text("Build daily habits that compound over time")
+            Text("routines.subtitle".localized)
                 .bodyText()
                 .foregroundColor(ColorTokens.textSecondary)
 
@@ -156,7 +156,7 @@ struct ManageRitualsView: View {
                     Text("\(viewModel.rituals.count)")
                         .heading2()
                         .foregroundColor(ColorTokens.textPrimary)
-                    Text("Total")
+                    Text("routines.total".localized)
                         .caption()
                         .foregroundColor(ColorTokens.textMuted)
                 }
@@ -165,7 +165,7 @@ struct ManageRitualsView: View {
                     Text("\(viewModel.rituals.filter { $0.isCompleted }.count)")
                         .heading2()
                         .foregroundColor(ColorTokens.success)
-                    Text("Done today")
+                    Text("routines.done_today".localized)
                         .caption()
                         .foregroundColor(ColorTokens.textMuted)
                 }
@@ -180,29 +180,36 @@ struct ManageRitualsView: View {
 
     // MARK: - Empty State
     private var emptyStateView: some View {
-        VStack(spacing: SpacingTokens.lg) {
-            Spacer()
-                .frame(height: 60)
+        GeometryReader { geometry in
+            let isSmallScreen = geometry.size.height < 700
 
-            Text("✨")
-                .font(.system(size: 64))
+            VStack(spacing: SpacingTokens.lg) {
+                Spacer()
+                    .frame(height: isSmallScreen ? SpacingTokens.xl : 60)
 
-            Text("No rituals yet")
-                .heading2()
-                .foregroundColor(ColorTokens.textPrimary)
+                Text("✨")
+                    .font(.system(size: isSmallScreen ? 52 : 64))
 
-            Text("Create daily rituals to build consistency and track your progress")
-                .bodyText()
-                .foregroundColor(ColorTokens.textSecondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, SpacingTokens.xl)
+                Text("routines.no_routines".localized)
+                    .heading2()
+                    .foregroundColor(ColorTokens.textPrimary)
+                    .minimumScaleFactor(0.8)
 
-            PrimaryButton("Add Your First Ritual", icon: "✨") {
-                viewModel.showingAddSheet = true
+                Text("routines.no_routines_hint".localized)
+                    .bodyText()
+                    .foregroundColor(ColorTokens.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, SpacingTokens.xl)
+                    .minimumScaleFactor(0.9)
+
+                PrimaryButton("routines.add_first".localized, icon: "✨") {
+                    viewModel.showingAddSheet = true
+                }
+                .padding(.top, SpacingTokens.md)
+
+                Spacer()
             }
-            .padding(.top, SpacingTokens.md)
-
-            Spacer()
+            .frame(maxWidth: .infinity)
         }
     }
 
@@ -240,7 +247,7 @@ struct ManageRitualsView: View {
                 HStack(spacing: SpacingTokens.xs) {
                     Image(systemName: "hand.draw")
                         .font(.system(size: 12))
-                    Text("Swipe right to complete, left to edit/delete")
+                    Text("routines.swipe_hint".localized)
                         .font(.system(size: 12))
                 }
                 .foregroundColor(ColorTokens.textMuted)
@@ -476,17 +483,17 @@ struct SwipeableRitualManageCard: View {
                     }
             )
         }
-        .alert("Delete Ritual?", isPresented: $showingDeleteConfirm) {
-            Button("Cancel", role: .cancel) {
+        .alert("routines.delete_confirm".localized, isPresented: $showingDeleteConfirm) {
+            Button("common.cancel".localized, role: .cancel) {
                 withAnimation(.spring(response: 0.35)) {
                     offset = 0
                 }
             }
-            Button("Delete", role: .destructive) {
+            Button("common.delete".localized, role: .destructive) {
                 onDelete()
             }
         } message: {
-            Text("Are you sure you want to delete \"\(ritual.title)\"? This action cannot be undone.")
+            Text("routines.delete_message".localized(with: ritual.title))
         }
         .onAppear {
             lightHaptic.prepare()
@@ -594,11 +601,11 @@ struct RitualManageCard: View {
         .padding(SpacingTokens.md)
         .background(ColorTokens.surface)
         .cornerRadius(RadiusTokens.md)
-        .alert("Delete Ritual?", isPresented: $showingDeleteConfirm) {
-            Button("Cancel", role: .cancel) {}
-            Button("Delete", role: .destructive, action: onDelete)
+        .alert("routines.delete_confirm".localized, isPresented: $showingDeleteConfirm) {
+            Button("common.cancel".localized, role: .cancel) {}
+            Button("common.delete".localized, role: .destructive, action: onDelete)
         } message: {
-            Text("Are you sure you want to delete \"\(ritual.title)\"? This action cannot be undone.")
+            Text("routines.delete_message".localized(with: ritual.title))
         }
     }
 }
@@ -620,7 +627,14 @@ struct AddRitualSheet: View {
     @State private var errorMessage: String?
 
     let frequencies = ["daily", "weekdays", "weekends", "weekly"]
-    let frequencyLabels = ["Daily", "Weekdays", "Weekends", "Weekly"]
+    var frequencyLabels: [String] {
+        [
+            "routines.frequency.daily".localized,
+            "routines.frequency.weekdays".localized,
+            "routines.frequency.weekends".localized,
+            "routines.frequency.weekly".localized
+        ]
+    }
 
     let iconOptions = ["🌟", "💪", "📚", "🧘", "🏃", "💧", "🍎", "😴", "📝", "🎯", "💡", "🔥"]
 
@@ -656,7 +670,7 @@ struct AddRitualSheet: View {
 
                         // Save button
                         PrimaryButton(
-                            "Create Ritual",
+                            "routines.create".localized,
                             isLoading: isLoading,
                             isDisabled: title.isEmpty || selectedAreaId == nil
                         ) {
@@ -682,11 +696,11 @@ struct AddRitualSheet: View {
                 }
                 .scrollDismissesKeyboard(.interactively)
             }
-            .navigationTitle("New Ritual")
+            .navigationTitle("routines.new_ritual".localized)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
+                    Button("common.cancel".localized) {
                         dismiss()
                     }
                     .foregroundColor(ColorTokens.primaryStart)
@@ -705,7 +719,7 @@ struct AddRitualSheet: View {
 
     private var iconSection: some View {
         VStack(alignment: .leading, spacing: SpacingTokens.md) {
-            Text("Choose an icon")
+            Text("routines.choose_icon".localized)
                 .subtitle()
                 .foregroundColor(ColorTokens.textPrimary)
 
@@ -742,12 +756,12 @@ struct AddRitualSheet: View {
 
     private var titleSection: some View {
         VStack(alignment: .leading, spacing: SpacingTokens.md) {
-            Text("Ritual name")
+            Text("routines.ritual_name".localized)
                 .subtitle()
                 .foregroundColor(ColorTokens.textPrimary)
 
             CustomTextField(
-                placeholder: "e.g., Morning workout, Read 30 min...",
+                placeholder: "routines.ritual_placeholder".localized,
                 text: $title
             )
         }
@@ -760,14 +774,14 @@ struct AddRitualSheet: View {
 
     private var areaSection: some View {
         VStack(alignment: .leading, spacing: SpacingTokens.md) {
-            Text("Life area")
+            Text("routines.life_area".localized)
                 .subtitle()
                 .foregroundColor(ColorTokens.textPrimary)
 
             if validAreas.isEmpty {
                 // No valid areas - show message
                 VStack(spacing: SpacingTokens.md) {
-                    Text("No areas available")
+                    Text("routines.no_areas".localized)
                         .caption()
                         .foregroundColor(ColorTokens.textMuted)
                 }
@@ -806,7 +820,7 @@ struct AddRitualSheet: View {
 
     private var frequencySection: some View {
         VStack(alignment: .leading, spacing: SpacingTokens.md) {
-            Text("Frequency")
+            Text("routines.frequency".localized)
                 .subtitle()
                 .foregroundColor(ColorTokens.textPrimary)
 
@@ -845,7 +859,14 @@ struct EditRitualSheet: View {
     @State private var errorMessage: String?
 
     let frequencies = ["daily", "weekdays", "weekends", "weekly"]
-    let frequencyLabels = ["Daily", "Weekdays", "Weekends", "Weekly"]
+    var frequencyLabels: [String] {
+        [
+            "routines.frequency.daily".localized,
+            "routines.frequency.weekdays".localized,
+            "routines.frequency.weekends".localized,
+            "routines.frequency.weekly".localized
+        ]
+    }
 
     let iconOptions = ["🌟", "💪", "📚", "🧘", "🏃", "💧", "🍎", "😴", "📝", "🎯", "💡", "🔥"]
 
@@ -885,7 +906,7 @@ struct EditRitualSheet: View {
 
                         // Save button
                         PrimaryButton(
-                            "Save Changes",
+                            "routines.save_changes".localized,
                             isLoading: isLoading,
                             isDisabled: title.isEmpty
                         ) {
@@ -910,11 +931,11 @@ struct EditRitualSheet: View {
                 }
                 .scrollDismissesKeyboard(.interactively)
             }
-            .navigationTitle("Edit Ritual")
+            .navigationTitle("routines.edit_ritual".localized)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
+                    Button("common.cancel".localized) {
                         dismiss()
                     }
                     .foregroundColor(ColorTokens.primaryStart)
@@ -933,7 +954,7 @@ struct EditRitualSheet: View {
 
     private var iconSection: some View {
         VStack(alignment: .leading, spacing: SpacingTokens.md) {
-            Text("Choose an icon")
+            Text("routines.choose_icon".localized)
                 .subtitle()
                 .foregroundColor(ColorTokens.textPrimary)
 
@@ -970,12 +991,12 @@ struct EditRitualSheet: View {
 
     private var titleSection: some View {
         VStack(alignment: .leading, spacing: SpacingTokens.md) {
-            Text("Ritual name")
+            Text("routines.ritual_name".localized)
                 .subtitle()
                 .foregroundColor(ColorTokens.textPrimary)
 
             CustomTextField(
-                placeholder: "e.g., Morning workout, Read 30 min...",
+                placeholder: "routines.ritual_placeholder".localized,
                 text: $title
             )
         }
@@ -983,7 +1004,7 @@ struct EditRitualSheet: View {
 
     private var frequencySection: some View {
         VStack(alignment: .leading, spacing: SpacingTokens.md) {
-            Text("Frequency")
+            Text("routines.frequency".localized)
                 .subtitle()
                 .foregroundColor(ColorTokens.textPrimary)
 

@@ -119,9 +119,9 @@ class QuestsViewModel: ObservableObject {
         rituals = store.rituals
     }
 
-    func createRitual(areaId: String, title: String, frequency: String, icon: String) async -> Bool {
+    func createRitual(areaId: String, title: String, frequency: String, icon: String, scheduledTime: String? = nil) async -> Bool {
         do {
-            try await store.createRitual(areaId: areaId, title: title, frequency: frequency, icon: icon)
+            try await store.createRitual(areaId: areaId, title: title, frequency: frequency, icon: icon, scheduledTime: scheduledTime)
             rituals = store.rituals
             return true
         } catch {
@@ -130,9 +130,9 @@ class QuestsViewModel: ObservableObject {
         }
     }
 
-    func updateRitual(id: String, title: String?, frequency: String?, icon: String?) async -> Bool {
+    func updateRitual(id: String, title: String?, frequency: String?, icon: String?, scheduledTime: String? = nil) async -> Bool {
         do {
-            try await store.updateRitual(id: id, title: title, frequency: frequency, icon: icon)
+            try await store.updateRitual(id: id, title: title, frequency: frequency, icon: icon, scheduledTime: scheduledTime)
             rituals = store.rituals
             return true
         } catch {
@@ -156,9 +156,9 @@ class QuestsViewModel: ObservableObject {
     @Published var showingAddQuestSheet = false
     @Published var questToEdit: Quest?
 
-    func createQuest(areaId: String, title: String, targetValue: Int) async -> Bool {
+    func createQuest(areaId: String, title: String, targetValue: Int, targetDate: Date? = nil) async -> Bool {
         do {
-            _ = try await store.createQuest(areaId: areaId, title: title, targetValue: targetValue)
+            _ = try await store.createQuest(areaId: areaId, title: title, targetValue: targetValue, targetDate: targetDate)
             quests = store.quests
             areaProgress = calculateAreaProgress(from: store.quests)
             return true
@@ -331,7 +331,7 @@ struct QuestsView: View {
                 } else {
                     ForEach(viewModel.areaProgress) { progress in
                         ProgressCard(
-                            title: "\(progress.area.emoji) \(progress.area.rawValue)",
+                            title: "\(progress.area.emoji) \(progress.area.localizedName)",
                             progress: progress.progress,
                             color: Color(hex: progress.area.color)
                         )
@@ -497,6 +497,8 @@ struct AddRitualFromQuestsSheet: View {
     @State private var selectedIcon = "🌟"
     @State private var selectedAreaId: String?
     @State private var selectedFrequency = "daily"
+    @State private var hasScheduledTime = false
+    @State private var scheduledTime = Date()
     @State private var isLoading = false
     @State private var errorMessage: String?
 
@@ -508,6 +510,14 @@ struct AddRitualFromQuestsSheet: View {
 
     // Pre-prepared haptic generator for instant feedback
     private let hapticGenerator = UIImpactFeedbackGenerator(style: .light)
+
+    /// Convert Date to "HH:mm" string for API
+    private var scheduledTimeString: String? {
+        guard hasScheduledTime else { return nil }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: scheduledTime)
+    }
 
     var body: some View {
         NavigationStack {
@@ -528,6 +538,9 @@ struct AddRitualFromQuestsSheet: View {
 
                         // Frequency selector
                         frequencySection
+
+                        // Scheduled time picker
+                        scheduledTimeSection
 
                         // Error message
                         if let error = errorMessage {
@@ -550,7 +563,8 @@ struct AddRitualFromQuestsSheet: View {
                                     areaId: areaId,
                                     title: title,
                                     frequency: selectedFrequency,
-                                    icon: selectedIcon
+                                    icon: selectedIcon,
+                                    scheduledTime: scheduledTimeString
                                 )
                                 isLoading = false
                                 if success {
@@ -723,6 +737,50 @@ struct AddRitualFromQuestsSheet: View {
             }
         }
     }
+
+    private var scheduledTimeSection: some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.md) {
+            Text("routines.scheduled_time".localized)
+                .subtitle()
+                .foregroundColor(ColorTokens.textPrimary)
+
+            VStack(spacing: SpacingTokens.sm) {
+                // Toggle for enabling scheduled time
+                Toggle(isOn: $hasScheduledTime) {
+                    HStack {
+                        Image(systemName: "clock")
+                            .foregroundColor(hasScheduledTime ? ColorTokens.primaryStart : ColorTokens.textMuted)
+                        Text(hasScheduledTime ? (scheduledTimeString ?? "routines.no_time".localized) : "routines.no_time".localized)
+                            .bodyText()
+                            .foregroundColor(hasScheduledTime ? ColorTokens.textPrimary : ColorTokens.textMuted)
+                    }
+                }
+                .toggleStyle(SwitchToggleStyle(tint: ColorTokens.primaryStart))
+                .padding(SpacingTokens.md)
+                .background(ColorTokens.surface)
+                .cornerRadius(RadiusTokens.md)
+
+                // Time picker (shown when enabled)
+                if hasScheduledTime {
+                    DatePicker(
+                        "routines.scheduled_time".localized,
+                        selection: $scheduledTime,
+                        displayedComponents: .hourAndMinute
+                    )
+                    .datePickerStyle(.wheel)
+                    .labelsHidden()
+                    .frame(maxHeight: 120)
+                    .padding(SpacingTokens.sm)
+                    .background(ColorTokens.surface)
+                    .cornerRadius(RadiusTokens.md)
+                }
+            }
+
+            Text("routines.scheduled_time_hint".localized)
+                .caption()
+                .foregroundColor(ColorTokens.textMuted)
+        }
+    }
 }
 
 // MARK: - Add Quest Sheet
@@ -734,6 +792,8 @@ struct AddQuestSheet: View {
     @State private var title = ""
     @State private var selectedAreaId: String?
     @State private var targetValue: Double = 1
+    @State private var hasDeadline = false
+    @State private var deadlineDate = Calendar.current.date(byAdding: .month, value: 1, to: Date()) ?? Date()
     @State private var isLoading = false
     @State private var errorMessage: String?
 
@@ -825,6 +885,47 @@ struct AddQuestSheet: View {
                                 .foregroundColor(ColorTokens.textMuted)
                         }
 
+                        // Deadline date picker
+                        VStack(alignment: .leading, spacing: SpacingTokens.md) {
+                            Text("quests.deadline".localized)
+                                .subtitle()
+                                .foregroundColor(ColorTokens.textPrimary)
+
+                            VStack(spacing: SpacingTokens.sm) {
+                                Toggle(isOn: $hasDeadline) {
+                                    HStack {
+                                        Image(systemName: "calendar")
+                                            .foregroundColor(hasDeadline ? ColorTokens.primaryStart : ColorTokens.textMuted)
+                                        Text(hasDeadline ? deadlineDate.formatted(date: .abbreviated, time: .omitted) : "quests.no_deadline".localized)
+                                            .bodyText()
+                                            .foregroundColor(hasDeadline ? ColorTokens.textPrimary : ColorTokens.textMuted)
+                                    }
+                                }
+                                .toggleStyle(SwitchToggleStyle(tint: ColorTokens.primaryStart))
+                                .padding(SpacingTokens.md)
+                                .background(ColorTokens.surface)
+                                .cornerRadius(RadiusTokens.md)
+
+                                if hasDeadline {
+                                    DatePicker(
+                                        "quests.deadline".localized,
+                                        selection: $deadlineDate,
+                                        in: Date()...,
+                                        displayedComponents: .date
+                                    )
+                                    .datePickerStyle(.graphical)
+                                    .tint(ColorTokens.primaryStart)
+                                    .padding(SpacingTokens.sm)
+                                    .background(ColorTokens.surface)
+                                    .cornerRadius(RadiusTokens.md)
+                                }
+                            }
+
+                            Text("quests.deadline_hint".localized)
+                                .caption()
+                                .foregroundColor(ColorTokens.textMuted)
+                        }
+
                         // Error message
                         if let error = errorMessage {
                             Text(error)
@@ -845,7 +946,8 @@ struct AddQuestSheet: View {
                                 let success = await viewModel.createQuest(
                                     areaId: areaId,
                                     title: title,
-                                    targetValue: Int(targetValue)
+                                    targetValue: Int(targetValue),
+                                    targetDate: hasDeadline ? deadlineDate : nil
                                 )
                                 isLoading = false
                                 if success {
@@ -908,7 +1010,7 @@ struct EditQuestSheet: View {
                                 .font(.system(size: 48))
 
                             HStack(spacing: SpacingTokens.xs) {
-                                Text(quest.area.rawValue)
+                                Text(quest.area.localizedName)
                                     .caption()
                                     .foregroundColor(ColorTokens.textSecondary)
                             }
@@ -1066,7 +1168,7 @@ struct QuestDetailView: View {
                                 .font(.system(size: 32))
 
                             VStack(alignment: .leading, spacing: SpacingTokens.xs) {
-                                Text(quest.area.rawValue)
+                                Text(quest.area.localizedName)
                                     .caption()
                                     .foregroundColor(ColorTokens.textSecondary)
 
@@ -1163,6 +1265,8 @@ struct EditRitualFromQuestsSheet: View {
     @State private var title: String
     @State private var selectedIcon: String
     @State private var selectedFrequency: String
+    @State private var hasScheduledTime: Bool
+    @State private var scheduledTime: Date
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var showDeleteConfirmation = false
@@ -1175,12 +1279,34 @@ struct EditRitualFromQuestsSheet: View {
 
     private let hapticGenerator = UIImpactFeedbackGenerator(style: .light)
 
+    /// Convert Date to "HH:mm" string for API
+    private var scheduledTimeString: String? {
+        guard hasScheduledTime else { return nil }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: scheduledTime)
+    }
+
     init(viewModel: QuestsViewModel, ritual: DailyRitual) {
         self.viewModel = viewModel
         self.ritual = ritual
         self._title = State(initialValue: ritual.title)
         self._selectedIcon = State(initialValue: ritual.icon)
         self._selectedFrequency = State(initialValue: ritual.frequency.rawValue)
+        self._hasScheduledTime = State(initialValue: ritual.scheduledTime != nil)
+
+        // Parse existing scheduled time
+        if let timeString = ritual.scheduledTime {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "HH:mm"
+            if let date = formatter.date(from: timeString) {
+                self._scheduledTime = State(initialValue: date)
+            } else {
+                self._scheduledTime = State(initialValue: Date())
+            }
+        } else {
+            self._scheduledTime = State(initialValue: Date())
+        }
     }
 
     var body: some View {
@@ -1254,6 +1380,47 @@ struct EditRitualFromQuestsSheet: View {
                             }
                         }
 
+                        // Scheduled time picker
+                        VStack(alignment: .leading, spacing: SpacingTokens.md) {
+                            Text("routines.scheduled_time".localized)
+                                .subtitle()
+                                .foregroundColor(ColorTokens.textPrimary)
+
+                            VStack(spacing: SpacingTokens.sm) {
+                                Toggle(isOn: $hasScheduledTime) {
+                                    HStack {
+                                        Image(systemName: "clock")
+                                            .foregroundColor(hasScheduledTime ? ColorTokens.primaryStart : ColorTokens.textMuted)
+                                        Text(hasScheduledTime ? (scheduledTimeString ?? "routines.no_time".localized) : "routines.no_time".localized)
+                                            .bodyText()
+                                            .foregroundColor(hasScheduledTime ? ColorTokens.textPrimary : ColorTokens.textMuted)
+                                    }
+                                }
+                                .toggleStyle(SwitchToggleStyle(tint: ColorTokens.primaryStart))
+                                .padding(SpacingTokens.md)
+                                .background(ColorTokens.surface)
+                                .cornerRadius(RadiusTokens.md)
+
+                                if hasScheduledTime {
+                                    DatePicker(
+                                        "routines.scheduled_time".localized,
+                                        selection: $scheduledTime,
+                                        displayedComponents: .hourAndMinute
+                                    )
+                                    .datePickerStyle(.wheel)
+                                    .labelsHidden()
+                                    .frame(maxHeight: 120)
+                                    .padding(SpacingTokens.sm)
+                                    .background(ColorTokens.surface)
+                                    .cornerRadius(RadiusTokens.md)
+                                }
+                            }
+
+                            Text("routines.scheduled_time_hint".localized)
+                                .caption()
+                                .foregroundColor(ColorTokens.textMuted)
+                        }
+
                         // Error message
                         if let error = errorMessage {
                             Text(error)
@@ -1274,7 +1441,8 @@ struct EditRitualFromQuestsSheet: View {
                                     id: ritual.id,
                                     title: title,
                                     frequency: selectedFrequency,
-                                    icon: selectedIcon
+                                    icon: selectedIcon,
+                                    scheduledTime: scheduledTimeString
                                 )
                                 isLoading = false
                                 if success {
