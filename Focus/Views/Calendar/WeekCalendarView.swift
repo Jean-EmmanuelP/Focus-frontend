@@ -299,13 +299,16 @@ struct WeekCalendarView: View {
                     timeColumnWidth: timeColumnWidth
                 )
 
+                // Full width of day column (minus small padding)
+                let taskWidth = dayWidth - 2
+
                 TaskBlockView(
                     task: task,
-                    width: dayWidth - 4,
+                    width: taskWidth,
                     onTap: { selectedTask = task },
                     onStartFocus: { startFocusForTask(task) }
                 )
-                .frame(width: dayWidth - 4, height: position.height)
+                .frame(width: taskWidth, height: position.height)
                 .position(x: position.x, y: position.y)
                 .gesture(
                     DragGesture()
