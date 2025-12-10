@@ -99,6 +99,11 @@ struct WeekCalendarView: View {
             // Create invisible tap targets for each hour slot on each day
             ForEach(0..<7, id: \.self) { dayIndex in
                 ForEach(hours, id: \.self) { hour in
+                    let dateStr = dateString(for: dayIndex)
+                    let startTime = String(format: "%02d:00", hour)
+                    let endTime = String(format: "%02d:00", min(hour + 1, 23))
+                    let isOccupied = viewModel.hasOverlap(date: dateStr, startTime: startTime, endTime: endTime)
+
                     Rectangle()
                         .fill(Color.clear)
                         .frame(width: dayWidth - 2, height: hourHeight)
@@ -108,6 +113,9 @@ struct WeekCalendarView: View {
                             y: CGFloat(hour - hours.first!) * hourHeight + hourHeight / 2
                         )
                         .onTapGesture {
+                            // Only allow creating if slot is not occupied
+                            guard !isOccupied else { return }
+
                             // Set quick create parameters
                             quickCreateDate = viewModel.weekDays[dayIndex]
                             quickCreateStartHour = hour
@@ -117,6 +125,12 @@ struct WeekCalendarView: View {
                 }
             }
         }
+    }
+
+    private func dateString(for dayIndex: Int) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: viewModel.weekDays[dayIndex])
     }
 
     // MARK: - Floating Action Button
@@ -485,6 +499,11 @@ struct TaskBlockView: View {
     }
 
     private var taskColor: Color {
+        // Green for completed tasks
+        if task.isCompleted {
+            return Color.green
+        }
+
         switch task.priorityEnum {
         case .urgent:
             return Color.red

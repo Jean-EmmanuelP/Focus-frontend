@@ -158,6 +158,63 @@ class CalendarViewModel: ObservableObject {
         return (dayOfWeek + 5) % 7 // Monday = 0, Sunday = 6
     }
 
+    // MARK: - Overlap Detection
+
+    /// Check if a time slot overlaps with existing tasks on a given date
+    func hasOverlap(date: String, startTime: String, endTime: String, excludingTaskId: String? = nil) -> Bool {
+        let tasksOnDate = weekTasks.filter { $0.date == date && $0.id != excludingTaskId }
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+
+        guard let newStart = formatter.date(from: startTime),
+              let newEnd = formatter.date(from: endTime) else {
+            return false
+        }
+
+        for task in tasksOnDate {
+            guard let taskStart = task.scheduledStart,
+                  let taskEnd = task.scheduledEnd,
+                  let existingStart = formatter.date(from: taskStart),
+                  let existingEnd = formatter.date(from: taskEnd) else {
+                continue
+            }
+
+            // Check for overlap: new task starts before existing ends AND new task ends after existing starts
+            if newStart < existingEnd && newEnd > existingStart {
+                return true
+            }
+        }
+
+        return false
+    }
+
+    /// Find the next available time slot on a given date
+    func findNextAvailableSlot(date: String, preferredStart: String, duration: Int) -> (start: String, end: String)? {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+
+        guard var startTime = formatter.date(from: preferredStart) else { return nil }
+
+        let calendar = Calendar.current
+        let endOfDay = calendar.date(bySettingHour: 23, minute: 0, second: 0, of: startTime) ?? startTime
+
+        while startTime < endOfDay {
+            let endTime = startTime.addingTimeInterval(TimeInterval(duration * 60))
+            let startStr = formatter.string(from: startTime)
+            let endStr = formatter.string(from: endTime)
+
+            if !hasOverlap(date: date, startTime: startStr, endTime: endStr) {
+                return (startStr, endStr)
+            }
+
+            // Try next hour
+            startTime = startTime.addingTimeInterval(3600)
+        }
+
+        return nil
+    }
+
     // MARK: - Data Loading
     func loadWeekData() async {
         isLoading = true
