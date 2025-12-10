@@ -800,10 +800,13 @@ struct QuickCreateTaskSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var title = ""
-    @State private var selectedTimeBlock = "morning"
+    @State private var startHour = 9
+    @State private var endHour = 10
     @State private var selectedPriority = "medium"
     @State private var isCreating = false
     @FocusState private var isTitleFocused: Bool
+
+    private let hours = Array(6...23)
 
     var body: some View {
         NavigationStack {
@@ -816,33 +819,52 @@ struct QuickCreateTaskSheet: View {
                     .cornerRadius(RadiusTokens.md)
                     .focused($isTitleFocused)
 
-                // Time block picker
+                // Time picker
                 VStack(alignment: .leading, spacing: SpacingTokens.sm) {
-                    Text("calendar.time_block".localized)
+                    Text("Horaire")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(ColorTokens.textSecondary)
 
-                    HStack(spacing: SpacingTokens.sm) {
-                        ForEach(["morning", "afternoon", "evening"], id: \.self) { block in
-                            Button(action: { selectedTimeBlock = block }) {
-                                VStack(spacing: 4) {
-                                    Text(blockEmoji(block))
-                                        .font(.system(size: 20))
-                                    Text(blockName(block))
-                                        .font(.system(size: 12))
+                    HStack(spacing: SpacingTokens.md) {
+                        // Start time
+                        VStack(spacing: 4) {
+                            Text("Debut")
+                                .font(.system(size: 12))
+                                .foregroundColor(ColorTokens.textMuted)
+                            Picker("", selection: $startHour) {
+                                ForEach(hours, id: \.self) { hour in
+                                    Text(String(format: "%02d:00", hour)).tag(hour)
                                 }
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, SpacingTokens.sm)
-                                .background(selectedTimeBlock == block ? ColorTokens.primaryStart.opacity(0.2) : ColorTokens.surface)
-                                .cornerRadius(RadiusTokens.md)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: RadiusTokens.md)
-                                        .stroke(selectedTimeBlock == block ? ColorTokens.primaryStart : Color.clear, lineWidth: 2)
-                                )
                             }
-                            .buttonStyle(PlainButtonStyle())
+                            .pickerStyle(.wheel)
+                            .frame(height: 100)
+                            .clipped()
                         }
+                        .frame(maxWidth: .infinity)
+
+                        Text("-")
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundColor(ColorTokens.textMuted)
+
+                        // End time
+                        VStack(spacing: 4) {
+                            Text("Fin")
+                                .font(.system(size: 12))
+                                .foregroundColor(ColorTokens.textMuted)
+                            Picker("", selection: $endHour) {
+                                ForEach(hours.filter { $0 > startHour }, id: \.self) { hour in
+                                    Text(String(format: "%02d:00", hour)).tag(hour)
+                                }
+                            }
+                            .pickerStyle(.wheel)
+                            .frame(height: 100)
+                            .clipped()
+                        }
+                        .frame(maxWidth: .infinity)
                     }
+                    .padding()
+                    .background(ColorTokens.surface)
+                    .cornerRadius(RadiusTokens.md)
                 }
 
                 Spacer()
@@ -870,40 +892,36 @@ struct QuickCreateTaskSheet: View {
             }
             .onAppear {
                 isTitleFocused = true
+                // Set default to current hour if within range
+                let currentHour = Calendar.current.component(.hour, from: Date())
+                if hours.contains(currentHour) {
+                    startHour = currentHour
+                    endHour = min(currentHour + 1, 23)
+                }
+            }
+            .onChange(of: startHour) { _, newValue in
+                if endHour <= newValue {
+                    endHour = min(newValue + 1, 23)
+                }
             }
         }
-        .presentationDetents([.height(350)])
-    }
-
-    private func blockEmoji(_ block: String) -> String {
-        switch block {
-        case "morning": return "🌅"
-        case "afternoon": return "☀️"
-        case "evening": return "🌙"
-        default: return "📅"
-        }
-    }
-
-    private func blockName(_ block: String) -> String {
-        switch block {
-        case "morning": return "calendar.morning".localized
-        case "afternoon": return "calendar.afternoon".localized
-        case "evening": return "calendar.evening".localized
-        default: return block
-        }
+        .presentationDetents([.height(420)])
     }
 
     private func createTask() {
         guard !title.isEmpty else { return }
         isCreating = true
 
+        let startTime = String(format: "%02d:00", startHour)
+        let endTime = String(format: "%02d:00", endHour)
+
         Task {
             await viewModel.createTask(
                 title: title,
-                timeBlock: selectedTimeBlock,
+                scheduledStart: startTime,
+                scheduledEnd: endTime,
                 priority: selectedPriority
             )
-            // Wait for data to reload before dismissing
             await MainActor.run {
                 isCreating = false
                 dismiss()
