@@ -478,73 +478,43 @@ struct TaskBlockView: View {
     let onStartFocus: () -> Void
 
     var body: some View {
-        Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 4) {
-                // Header: Quest icon + Title + Completed check
-                HStack(spacing: 4) {
-                    if let areaIcon = task.areaIcon {
-                        Text(areaIcon)
-                            .font(.system(size: 12))
-                    }
-
-                    Text(task.title)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(.white)
-                        .lineLimit(2)
-
-                    Spacer()
-
-                    if task.isCompleted {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 12))
-                            .foregroundColor(.white)
-                    }
+        VStack(alignment: .leading, spacing: 2) {
+            // Header: Title + Completed check
+            HStack(spacing: 4) {
+                if let areaIcon = task.areaIcon {
+                    Text(areaIcon)
+                        .font(.system(size: 10))
                 }
 
-                // Quest name if available
-                if let questTitle = task.questTitle {
-                    Text(questTitle)
-                        .font(.system(size: 9))
-                        .foregroundColor(.white.opacity(0.7))
-                        .lineLimit(1)
-                }
+                Text(task.title)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(.white)
+                    .lineLimit(2)
 
                 Spacer()
 
-                // Footer: Time range + Focus button
-                HStack {
-                    Text(task.formattedTimeRange)
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundColor(.white.opacity(0.9))
-
-                    Spacer()
-
-                    if !task.isCompleted {
-                        Button(action: onStartFocus) {
-                            HStack(spacing: 2) {
-                                Image(systemName: "play.fill")
-                                    .font(.system(size: 8))
-                                Text("Focus")
-                                    .font(.system(size: 9, weight: .medium))
-                            }
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Color.white.opacity(0.25))
-                            .cornerRadius(6)
-                        }
-                        .buttonStyle(PlainButtonStyle())
+                if task.isCompleted {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 10))
                         .foregroundColor(.white)
-                    }
                 }
             }
-            .padding(6)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .background(taskColor)
-            .cornerRadius(8)
-            .shadow(color: taskColor.opacity(0.4), radius: 3, x: 0, y: 2)
+
+            Spacer(minLength: 0)
+
+            // Footer: Time range
+            Text(task.formattedTimeRange)
+                .font(.system(size: 8, weight: .medium))
+                .foregroundColor(.white.opacity(0.8))
         }
-        .buttonStyle(PlainButtonStyle())
-        .frame(width: width)
+        .padding(4)
+        .frame(width: width, alignment: .topLeading)
+        .background(taskColor)
+        .cornerRadius(6)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            onTap()
+        }
     }
 
     private var taskColor: Color {
