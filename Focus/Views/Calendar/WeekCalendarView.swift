@@ -686,63 +686,58 @@ struct DayTaskBlockView: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // Left: Task info
-            VStack(alignment: .leading, spacing: 4) {
-                // Title with area icon
-                HStack(spacing: 6) {
-                    if let areaIcon = task.areaIcon {
-                        Text(areaIcon)
-                            .font(.system(size: 16))
+            // Left: Area icon
+            if let areaIcon = task.areaIcon {
+                Text(areaIcon)
+                    .font(.system(size: 20))
+            }
+
+            // Center: Task info
+            VStack(alignment: .leading, spacing: 2) {
+                Text(task.title)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.white)
+                    .lineLimit(2)
+
+                HStack(spacing: 8) {
+                    // Time range
+                    Text(task.formattedTimeRange)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.white.opacity(0.8))
+
+                    // Quest name if available
+                    if let questTitle = task.questTitle {
+                        Text("• \(questTitle)")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.white.opacity(0.7))
+                            .lineLimit(1)
                     }
-
-                    Text(task.title)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.white)
-                        .lineLimit(2)
                 }
-
-                // Quest name if available
-                if let questTitle = task.questTitle {
-                    Text(questTitle)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(.white.opacity(0.7))
-                        .lineLimit(1)
-                }
-
-                Spacer(minLength: 0)
-
-                // Time range
-                Text(task.formattedTimeRange)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.white.opacity(0.8))
             }
 
             Spacer()
 
-            // Right: Actions
-            VStack(spacing: 8) {
-                if task.isCompleted {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 20))
+            // Right: Status icon or Focus button
+            if task.isCompleted {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 22))
+                    .foregroundColor(.white)
+            } else {
+                Button(action: onStartFocus) {
+                    Image(systemName: "flame.fill")
+                        .font(.system(size: 16))
                         .foregroundColor(.white)
-                } else {
-                    // Start Focus button
-                    Button(action: onStartFocus) {
-                        Image(systemName: "flame.fill")
-                            .font(.system(size: 16))
-                            .foregroundColor(.white)
-                            .frame(width: 32, height: 32)
-                            .background(Color.white.opacity(0.2))
-                            .clipShape(Circle())
-                    }
+                        .frame(width: 36, height: 36)
+                        .background(Color.white.opacity(0.2))
+                        .clipShape(Circle())
                 }
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity)
         .background(taskColor)
-        .cornerRadius(10)
+        .cornerRadius(12)
         .contentShape(Rectangle())
         .onTapGesture {
             onTap()
