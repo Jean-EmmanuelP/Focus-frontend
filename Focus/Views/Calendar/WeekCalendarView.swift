@@ -9,6 +9,7 @@ struct WeekCalendarView: View {
     @State private var showQuickCreateSheet = false
     @State private var selectedTask: CalendarTask?
     @State private var draggedTask: CalendarTask?
+    @State private var isDayView: Bool = false  // Toggle between week and day view
 
     // Quick create state
     @State private var quickCreateDate: Date = Date()
@@ -28,21 +29,29 @@ struct WeekCalendarView: View {
                 // Compact header with week navigation + day selector
                 modernHeader
 
-                // Calendar grid
+                // Calendar grid - Week or Day view
                 ScrollView {
                     ZStack(alignment: .topLeading) {
-                        // Tappable grid for quick create
-                        tappableGrid
+                        if isDayView {
+                            // Day view - single column for selected date
+                            dayViewTappableGrid
+                            hourGrid
+                            dayTasksOverlay
 
-                        // Hour lines and labels
-                        hourGrid
+                            // Current time indicator only for today
+                            if Calendar.current.isDateInToday(viewModel.selectedDate) {
+                                dayViewCurrentTimeIndicator
+                            }
+                        } else {
+                            // Week view - 7 columns
+                            tappableGrid
+                            hourGrid
+                            tasksOverlay
 
-                        // Tasks overlay
-                        tasksOverlay
-
-                        // Current time indicator
-                        if viewModel.isCurrentWeek {
-                            currentTimeIndicator
+                            // Current time indicator
+                            if viewModel.isCurrentWeek {
+                                currentTimeIndicator
+                            }
                         }
                     }
                     .frame(height: CGFloat(hours.count) * hourHeight)
@@ -167,9 +176,15 @@ struct WeekCalendarView: View {
         VStack(spacing: 0) {
             // Combined: Navigation arrows + Week days in one row
             HStack(spacing: 0) {
-                // Previous week button
-                Button(action: { viewModel.goToPreviousWeek() }) {
-                    Image(systemName: "chevron.left")
+                // Previous week button (or back to week view if in day view)
+                Button(action: {
+                    if isDayView {
+                        isDayView = false
+                    } else {
+                        viewModel.goToPreviousWeek()
+                    }
+                }) {
+                    Image(systemName: isDayView ? "chevron.left" : "chevron.left")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(ColorTokens.textMuted)
                         .frame(width: 32, height: 44)
@@ -182,7 +197,11 @@ struct WeekCalendarView: View {
                         let isSelected = Calendar.current.isDate(date, inSameDayAs: viewModel.selectedDate)
                         let tasksCount = tasksForDate(date).count
 
-                        Button(action: { viewModel.selectDate(date) }) {
+                        Button(action: {
+                            viewModel.selectDate(date)
+                            // Always switch to day view when tapping a day
+                            isDayView = true
+                        }) {
                             VStack(spacing: 3) {
                                 // Day name
                                 Text(date.formatted(.dateTime.weekday(.narrow)).uppercased())
@@ -200,6 +219,10 @@ struct WeekCalendarView: View {
                                                     endPoint: .bottomTrailing
                                                 )
                                             )
+                                            .frame(width: 32, height: 32)
+                                    } else if isSelected && isDayView {
+                                        Circle()
+                                            .fill(ColorTokens.primaryStart.opacity(0.3))
                                             .frame(width: 32, height: 32)
                                     } else if isSelected {
                                         Circle()
@@ -231,12 +254,25 @@ struct WeekCalendarView: View {
                     }
                 }
 
-                // Next week button
-                Button(action: { viewModel.goToNextWeek() }) {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(ColorTokens.textMuted)
-                        .frame(width: 32, height: 44)
+                // Next week button (or toggle to week view)
+                Button(action: {
+                    if isDayView {
+                        isDayView = false
+                    } else {
+                        viewModel.goToNextWeek()
+                    }
+                }) {
+                    if isDayView {
+                        Text("Semaine")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(ColorTokens.primaryStart)
+                            .frame(width: 60, height: 44)
+                    } else {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(ColorTokens.textMuted)
+                            .frame(width: 32, height: 44)
+                    }
                 }
             }
             .padding(.horizontal, 4)
@@ -417,6 +453,107 @@ struct WeekCalendarView: View {
         }
     }
 
+    // MARK: - Day View Components
+
+    // Tappable grid for day view (single column)
+    private var dayViewTappableGrid: some View {
+        GeometryReader { geometry in
+            dayViewTappableGridContent(geometry: geometry)
+        }
+    }
+
+    private func dayViewTappableGridContent(geometry: GeometryProxy) -> some View {
+        let timeColumnWidth: CGFloat = 28
+        let dayWidth = geometry.size.width - timeColumnWidth
+
+        return ForEach(hours, id: \.self) { hour in
+            Rectangle()
+                .fill(Color.clear)
+                .frame(width: dayWidth, height: hourHeight)
+                .contentShape(Rectangle())
+                .offset(x: timeColumnWidth, y: CGFloat(hour - (hours.first ?? 6)) * hourHeight)
+                .onTapGesture {
+                    handleDayViewTap(hour: hour)
+                }
+        }
+    }
+
+    private func handleDayViewTap(hour: Int) {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let dateString = dateFormatter.string(from: viewModel.selectedDate)
+        let startTime = String(format: "%02d:00", hour)
+        let endTime = String(format: "%02d:00", hour + 1)
+
+        if !viewModel.hasOverlap(date: dateString, startTime: startTime, endTime: endTime) {
+            quickCreateDate = viewModel.selectedDate
+            quickCreateStartHour = hour
+            quickCreateEndHour = hour + 1
+            showQuickCreateSheet = true
+        }
+    }
+
+    // Tasks overlay for day view (full width)
+    private var dayTasksOverlay: some View {
+        GeometryReader { geometry in
+            dayTasksOverlayContent(geometry: geometry)
+        }
+    }
+
+    private func dayTasksOverlayContent(geometry: GeometryProxy) -> some View {
+        let timeColumnWidth: CGFloat = 28
+        let dayWidth = geometry.size.width - timeColumnWidth
+        let selectedDayTasks = tasksForDate(viewModel.selectedDate)
+
+        return ZStack(alignment: .top) {
+            Color.clear
+
+            ForEach(selectedDayTasks) { task in
+                dayTaskBlock(task: task, dayWidth: dayWidth, timeColumnWidth: timeColumnWidth)
+            }
+        }
+    }
+
+    private func dayTaskBlock(task: CalendarTask, dayWidth: CGFloat, timeColumnWidth: CGFloat) -> some View {
+        let displayTimes = getDisplayTimes(for: task)
+        let yOffset = calculateYOffset(startTime: displayTimes.start)
+        let height = calculateTaskHeight(startTime: displayTimes.start, endTime: displayTimes.end)
+
+        return DayTaskBlockView(
+            task: task,
+            onTap: { selectedTask = task },
+            onStartFocus: { startFocusForTask(task) }
+        )
+        .frame(width: dayWidth - 8)
+        .frame(height: height)
+        .offset(x: timeColumnWidth + 4, y: yOffset)
+    }
+
+    // Current time indicator for day view
+    private var dayViewCurrentTimeIndicator: some View {
+        GeometryReader { geometry in
+            let now = Date()
+            let hour = Calendar.current.component(.hour, from: now)
+            let minute = Calendar.current.component(.minute, from: now)
+            let timeColumnWidth: CGFloat = 28
+
+            if hour >= hours.first! && hour <= hours.last! {
+                let yOffset = CGFloat(hour - hours.first!) * hourHeight + CGFloat(minute) / 60.0 * hourHeight
+
+                HStack(spacing: 0) {
+                    Circle()
+                        .fill(Color.red)
+                        .frame(width: 8, height: 8)
+
+                    Rectangle()
+                        .fill(Color.red.opacity(0.8))
+                        .frame(height: 2)
+                }
+                .offset(x: timeColumnWidth - 4, y: yOffset)
+            }
+        }
+    }
+
     // MARK: - Helpers
     private func calculateTaskPosition(startTime: Date, endTime: Date, dayWidth: CGFloat, dayIndex: Int, timeColumnWidth: CGFloat) -> (x: CGFloat, y: CGFloat, height: CGFloat) {
         let startHour = Calendar.current.component(.hour, from: startTime)
@@ -524,6 +661,95 @@ struct TaskBlockView: View {
 
     private var taskColor: Color {
         // Green for completed tasks
+        if task.isCompleted {
+            return Color.green
+        }
+
+        switch task.priorityEnum {
+        case .urgent:
+            return Color.red
+        case .high:
+            return Color.orange
+        case .medium:
+            return ColorTokens.primaryStart
+        case .low:
+            return Color.gray
+        }
+    }
+}
+
+// MARK: - Day Task Block View (larger for day view)
+struct DayTaskBlockView: View {
+    let task: CalendarTask
+    let onTap: () -> Void
+    let onStartFocus: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Left: Task info
+            VStack(alignment: .leading, spacing: 4) {
+                // Title with area icon
+                HStack(spacing: 6) {
+                    if let areaIcon = task.areaIcon {
+                        Text(areaIcon)
+                            .font(.system(size: 16))
+                    }
+
+                    Text(task.title)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white)
+                        .lineLimit(2)
+                }
+
+                // Quest name if available
+                if let questTitle = task.questTitle {
+                    Text(questTitle)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.white.opacity(0.7))
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 0)
+
+                // Time range
+                Text(task.formattedTimeRange)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.white.opacity(0.8))
+            }
+
+            Spacer()
+
+            // Right: Actions
+            VStack(spacing: 8) {
+                if task.isCompleted {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(.white)
+                } else {
+                    // Start Focus button
+                    Button(action: onStartFocus) {
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(.white)
+                            .frame(width: 32, height: 32)
+                            .background(Color.white.opacity(0.2))
+                            .clipShape(Circle())
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .background(taskColor)
+        .cornerRadius(10)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            onTap()
+        }
+    }
+
+    private var taskColor: Color {
         if task.isCompleted {
             return Color.green
         }
