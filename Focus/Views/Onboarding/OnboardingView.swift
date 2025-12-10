@@ -1177,14 +1177,7 @@ struct StreakCardStepView: View {
                             isCompleting = true
                             HapticFeedback.success()
                             Task {
-                                do {
-                                    try await store.completeOnboarding()
-                                } catch {
-                                    print("⚠️ Error completing onboarding: \(error)")
-                                    await MainActor.run {
-                                        isCompleting = false
-                                    }
-                                }
+                                await store.completeOnboarding()
                             }
                         }) {
                             HStack(spacing: SpacingTokens.sm) {

@@ -164,41 +164,43 @@ struct MainTabView: View {
             }
             .accentColor(ColorTokens.primaryStart)
 
-            // Start Focus button above tab bar
-            VStack(spacing: 0) {
-                Spacer()
-                Button(action: {
-                    HapticFeedback.selection()
-                    Task {
-                        await FocusAppStore.shared.loadQuestsIfNeeded()
-                    }
-                    showFireModeModal = true
-                }) {
-                    HStack(spacing: SpacingTokens.sm) {
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 12, weight: .semibold))
-                        Text("Start Focus")
-                            .font(.system(size: 15, weight: .semibold))
-                    }
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(
-                        LinearGradient(
-                            colors: [
-                                ColorTokens.primaryStart.opacity(0.9),
-                                ColorTokens.primaryEnd.opacity(0.7),
-                                Color.clear.opacity(0.1)
-                            ],
-                            startPoint: .leading,
-                            endPoint: .trailing
+            // Start Focus button above tab bar (hide on calendar tab)
+            if router.selectedTab != .calendar {
+                VStack(spacing: 0) {
+                    Spacer()
+                    Button(action: {
+                        HapticFeedback.selection()
+                        Task {
+                            await FocusAppStore.shared.loadQuestsIfNeeded()
+                        }
+                        showFireModeModal = true
+                    }) {
+                        HStack(spacing: SpacingTokens.sm) {
+                            Image(systemName: "play.fill")
+                                .font(.system(size: 12, weight: .semibold))
+                            Text("Start Focus")
+                                .font(.system(size: 15, weight: .semibold))
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(
+                            LinearGradient(
+                                colors: [
+                                    ColorTokens.primaryStart.opacity(0.9),
+                                    ColorTokens.primaryEnd.opacity(0.7),
+                                    Color.clear.opacity(0.1)
+                                ],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
                         )
-                    )
-                    .background(Color(white: 0.12))
-                    .cornerRadius(RadiusTokens.xl)
+                        .background(Color(white: 0.12))
+                        .cornerRadius(RadiusTokens.xl)
+                    }
+                    .padding(.horizontal, SpacingTokens.md)
+                    .padding(.bottom, 85) // Above tab bar
                 }
-                .padding(.horizontal, SpacingTokens.md)
-                .padding(.bottom, 85) // Above tab bar
             }
         }
         .fullScreenCover(isPresented: $router.showStartTheDay) {

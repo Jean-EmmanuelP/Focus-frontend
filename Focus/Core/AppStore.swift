@@ -129,8 +129,8 @@ final class FocusAppStore: ObservableObject {
             return
         }
 
-        // Skip if already authenticated with the same user
-        if self.isAuthenticated && self.authUserId == userId && self.hasLoadedInitialData {
+        // Skip if already authenticated with the same user AND onboarding already checked
+        if self.isAuthenticated && self.authUserId == userId && self.hasLoadedInitialData && !self.isCheckingOnboarding {
             print("🔄 handleAuthServiceUpdate: Already loaded, skipping")
             return
         }
@@ -138,6 +138,9 @@ final class FocusAppStore: ObservableObject {
         print("🔐 handleAuthServiceUpdate: Setting up user \(userId)")
         self.authUserId = userId
         self.isAuthenticated = true
+
+        // CRITICAL: Set isCheckingOnboarding = true IMMEDIATELY to prevent flash of OnboardingView
+        self.isCheckingOnboarding = true
 
         // Create local user object from AuthService data
         self.user = User(
@@ -157,9 +160,13 @@ final class FocusAppStore: ObservableObject {
             longestStreak: 0
         )
 
-        // Load app data only if not already loaded
-        if !hasLoadedInitialData {
-            Task {
+        // Check onboarding status, then load data
+        Task {
+            // Check onboarding status from cache/API
+            await checkOnboardingStatus()
+
+            // Only load initial data if onboarding is completed
+            if hasCompletedOnboarding && !hasLoadedInitialData {
                 await loadInitialData()
             }
         }
