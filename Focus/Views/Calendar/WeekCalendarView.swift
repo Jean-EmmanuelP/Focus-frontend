@@ -299,16 +299,14 @@ struct WeekCalendarView: View {
                     timeColumnWidth: timeColumnWidth
                 )
 
-                // Full width of day column (minus small padding)
-                let taskWidth = dayWidth - 2
-
+                // Full width of day column
                 TaskBlockView(
                     task: task,
-                    width: taskWidth,
+                    width: dayWidth,
                     onTap: { selectedTask = task },
                     onStartFocus: { startFocusForTask(task) }
                 )
-                .frame(width: taskWidth, height: position.height)
+                .frame(width: dayWidth, height: position.height)
                 .position(x: position.x, y: position.y)
                 .gesture(
                     DragGesture()
@@ -460,10 +458,16 @@ struct TaskBlockView: View {
 
     var body: some View {
         Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                // Header: Quest icon + Title + Completed check
+                HStack(spacing: 4) {
+                    if let areaIcon = task.areaIcon {
+                        Text(areaIcon)
+                            .font(.system(size: 12))
+                    }
+
                     Text(task.title)
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.system(size: 11, weight: .semibold))
                         .foregroundColor(.white)
                         .lineLimit(2)
 
@@ -471,32 +475,52 @@ struct TaskBlockView: View {
 
                     if task.isCompleted {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 10))
+                            .font(.system(size: 12))
                             .foregroundColor(.white)
                     }
                 }
 
-                Text(task.formattedTimeRange)
-                    .font(.system(size: 8))
-                    .foregroundColor(.white.opacity(0.8))
-
-                // Start focus button
-                Button(action: onStartFocus) {
-                    Text("Focus")
-                        .font(.system(size: 8, weight: .medium))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.white.opacity(0.2))
-                        .cornerRadius(4)
+                // Quest name if available
+                if let questTitle = task.questTitle {
+                    Text(questTitle)
+                        .font(.system(size: 9))
+                        .foregroundColor(.white.opacity(0.7))
+                        .lineLimit(1)
                 }
-                .buttonStyle(PlainButtonStyle())
+
+                Spacer()
+
+                // Footer: Time range + Focus button
+                HStack {
+                    Text(task.formattedTimeRange)
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundColor(.white.opacity(0.9))
+
+                    Spacer()
+
+                    if !task.isCompleted {
+                        Button(action: onStartFocus) {
+                            HStack(spacing: 2) {
+                                Image(systemName: "play.fill")
+                                    .font(.system(size: 8))
+                                Text("Focus")
+                                    .font(.system(size: 9, weight: .medium))
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.white.opacity(0.25))
+                            .cornerRadius(6)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .foregroundColor(.white)
+                    }
+                }
             }
-            .padding(4)
+            .padding(6)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(taskColor)
-            .cornerRadius(6)
-            .shadow(color: taskColor.opacity(0.3), radius: 2, x: 0, y: 1)
-            .opacity(task.isCompleted ? 0.6 : 1.0)
+            .cornerRadius(8)
+            .shadow(color: taskColor.opacity(0.4), radius: 3, x: 0, y: 2)
         }
         .buttonStyle(PlainButtonStyle())
     }
