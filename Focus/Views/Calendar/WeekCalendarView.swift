@@ -287,39 +287,60 @@ struct WeekCalendarView: View {
             let timeColumnWidth: CGFloat = 28
             let dayWidth = (geometry.size.width - timeColumnWidth) / 7
 
-            ForEach(viewModel.weekTasks) { task in
-                // Get display times - use actual times or default based on timeBlock
-                let displayTimes = getDisplayTimes(for: task)
-                let dayIndex = viewModel.dayIndexForTask(task)
-                let position = calculateTaskPosition(
-                    startTime: displayTimes.start,
-                    endTime: displayTimes.end,
-                    dayWidth: dayWidth,
-                    dayIndex: dayIndex,
-                    timeColumnWidth: timeColumnWidth
-                )
+            ZStack(alignment: .topLeading) {
+                ForEach(viewModel.weekTasks) { task in
+                    // Get display times - use actual times or default based on timeBlock
+                    let displayTimes = getDisplayTimes(for: task)
+                    let dayIndex = viewModel.dayIndexForTask(task)
+                    let taskLayout = calculateTaskLayout(
+                        startTime: displayTimes.start,
+                        endTime: displayTimes.end,
+                        dayWidth: dayWidth,
+                        dayIndex: dayIndex,
+                        timeColumnWidth: timeColumnWidth
+                    )
 
-                // Full width of day column
-                TaskBlockView(
-                    task: task,
-                    width: dayWidth,
-                    onTap: { selectedTask = task },
-                    onStartFocus: { startFocusForTask(task) }
-                )
-                .frame(width: dayWidth, height: position.height)
-                .position(x: position.x, y: position.y)
-                .gesture(
-                    DragGesture()
-                        .onChanged { value in
-                            draggedTask = task
-                        }
-                        .onEnded { value in
-                            handleTaskDrop(task: task, translation: value.translation, geometry: geometry)
-                            draggedTask = nil
-                        }
-                )
+                    // Full width of day column using offset instead of position
+                    TaskBlockView(
+                        task: task,
+                        width: dayWidth - 4, // Small margin for visual separation
+                        onTap: { selectedTask = task },
+                        onStartFocus: { startFocusForTask(task) }
+                    )
+                    .frame(width: dayWidth - 4, height: taskLayout.height)
+                    .offset(x: taskLayout.x + 2, y: taskLayout.y) // +2 for centering the margin
+                    .gesture(
+                        DragGesture()
+                            .onChanged { value in
+                                draggedTask = task
+                            }
+                            .onEnded { value in
+                                handleTaskDrop(task: task, translation: value.translation, geometry: geometry)
+                                draggedTask = nil
+                            }
+                    )
+                }
             }
         }
+    }
+
+    // Calculate task layout (x, y offsets and height) - for use with .offset()
+    private func calculateTaskLayout(startTime: Date, endTime: Date, dayWidth: CGFloat, dayIndex: Int, timeColumnWidth: CGFloat) -> (x: CGFloat, y: CGFloat, height: CGFloat) {
+        let startHour = Calendar.current.component(.hour, from: startTime)
+        let startMinute = Calendar.current.component(.minute, from: startTime)
+        let endHour = Calendar.current.component(.hour, from: endTime)
+        let endMinute = Calendar.current.component(.minute, from: endTime)
+
+        let startOffset = CGFloat(startHour - hours.first!) * hourHeight + CGFloat(startMinute) / 60.0 * hourHeight
+        let endOffset = CGFloat(endHour - hours.first!) * hourHeight + CGFloat(endMinute) / 60.0 * hourHeight
+        let height = max(endOffset - startOffset, 30)
+
+        // X position: start of day column (not center)
+        let x = timeColumnWidth + CGFloat(dayIndex) * dayWidth
+        // Y position: top of task
+        let y = startOffset
+
+        return (x: x, y: y, height: height)
     }
 
     // Get display times for a task - use scheduled times or defaults based on timeBlock
