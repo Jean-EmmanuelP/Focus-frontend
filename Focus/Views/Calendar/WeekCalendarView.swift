@@ -9,7 +9,6 @@ struct WeekCalendarView: View {
     @State private var showQuickCreateSheet = false
     @State private var selectedTask: CalendarTask?
     @State private var draggedTask: CalendarTask?
-    @State private var isDayView: Bool = false  // Toggle between week and day view
 
     // Quick create state
     @State private var quickCreateDate: Date = Date()
@@ -29,29 +28,16 @@ struct WeekCalendarView: View {
                 // Compact header with week navigation + day selector
                 modernHeader
 
-                // Calendar grid - Week or Day view
+                // Calendar grid - Day view only
                 ScrollView {
                     ZStack(alignment: .topLeading) {
-                        if isDayView {
-                            // Day view - single column for selected date
-                            dayViewTappableGrid
-                            hourGrid
-                            dayTasksOverlay
+                        dayViewTappableGrid
+                        hourGrid
+                        dayTasksOverlay
 
-                            // Current time indicator only for today
-                            if Calendar.current.isDateInToday(viewModel.selectedDate) {
-                                dayViewCurrentTimeIndicator
-                            }
-                        } else {
-                            // Week view - 7 columns
-                            tappableGrid
-                            hourGrid
-                            tasksOverlay
-
-                            // Current time indicator
-                            if viewModel.isCurrentWeek {
-                                currentTimeIndicator
-                            }
+                        // Current time indicator only for today
+                        if Calendar.current.isDateInToday(viewModel.selectedDate) {
+                            dayViewCurrentTimeIndicator
                         }
                     }
                     .frame(height: CGFloat(hours.count) * hourHeight)
@@ -100,48 +86,6 @@ struct WeekCalendarView: View {
     }
 
     // MARK: - Tappable Grid for Quick Create
-    private var tappableGrid: some View {
-        GeometryReader { geometry in
-            let timeColumnWidth: CGFloat = 28
-            let dayWidth = (geometry.size.width - timeColumnWidth) / 7
-
-            // Create invisible tap targets for each hour slot on each day
-            ForEach(0..<7, id: \.self) { dayIndex in
-                ForEach(hours, id: \.self) { hour in
-                    let dateStr = dateString(for: dayIndex)
-                    let startTime = String(format: "%02d:00", hour)
-                    let endTime = String(format: "%02d:00", min(hour + 1, 23))
-                    let isOccupied = viewModel.hasOverlap(date: dateStr, startTime: startTime, endTime: endTime)
-
-                    Rectangle()
-                        .fill(Color.clear)
-                        .frame(width: dayWidth - 2, height: hourHeight)
-                        .contentShape(Rectangle())
-                        .position(
-                            x: timeColumnWidth + CGFloat(dayIndex) * dayWidth + dayWidth / 2,
-                            y: CGFloat(hour - hours.first!) * hourHeight + hourHeight / 2
-                        )
-                        .onTapGesture {
-                            // Only allow creating if slot is not occupied
-                            guard !isOccupied else { return }
-
-                            // Set quick create parameters
-                            quickCreateDate = viewModel.weekDays[dayIndex]
-                            quickCreateStartHour = hour
-                            quickCreateEndHour = min(hour + 1, 23)
-                            showQuickCreateSheet = true
-                        }
-                }
-            }
-        }
-    }
-
-    private func dateString(for dayIndex: Int) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.string(from: viewModel.weekDays[dayIndex])
-    }
-
     // MARK: - Floating Action Button
     private var floatingActionButton: some View {
         Menu {
@@ -176,15 +120,9 @@ struct WeekCalendarView: View {
         VStack(spacing: 0) {
             // Combined: Navigation arrows + Week days in one row
             HStack(spacing: 0) {
-                // Previous week button (or back to week view if in day view)
-                Button(action: {
-                    if isDayView {
-                        isDayView = false
-                    } else {
-                        viewModel.goToPreviousWeek()
-                    }
-                }) {
-                    Image(systemName: isDayView ? "chevron.left" : "chevron.left")
+                // Previous week button
+                Button(action: { viewModel.goToPreviousWeek() }) {
+                    Image(systemName: "chevron.left")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(ColorTokens.textMuted)
                         .frame(width: 32, height: 44)
@@ -197,11 +135,7 @@ struct WeekCalendarView: View {
                         let isSelected = Calendar.current.isDate(date, inSameDayAs: viewModel.selectedDate)
                         let tasksCount = tasksForDate(date).count
 
-                        Button(action: {
-                            viewModel.selectDate(date)
-                            // Always switch to day view when tapping a day
-                            isDayView = true
-                        }) {
+                        Button(action: { viewModel.selectDate(date) }) {
                             VStack(spacing: 3) {
                                 // Day name
                                 Text(date.formatted(.dateTime.weekday(.narrow)).uppercased())
@@ -220,13 +154,9 @@ struct WeekCalendarView: View {
                                                 )
                                             )
                                             .frame(width: 32, height: 32)
-                                    } else if isSelected && isDayView {
-                                        Circle()
-                                            .fill(ColorTokens.primaryStart.opacity(0.3))
-                                            .frame(width: 32, height: 32)
                                     } else if isSelected {
                                         Circle()
-                                            .stroke(ColorTokens.primaryStart.opacity(0.5), lineWidth: 1.5)
+                                            .fill(ColorTokens.primaryStart.opacity(0.3))
                                             .frame(width: 32, height: 32)
                                     }
 
@@ -254,25 +184,12 @@ struct WeekCalendarView: View {
                     }
                 }
 
-                // Next week button (or toggle to week view)
-                Button(action: {
-                    if isDayView {
-                        isDayView = false
-                    } else {
-                        viewModel.goToNextWeek()
-                    }
-                }) {
-                    if isDayView {
-                        Text("Semaine")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(ColorTokens.primaryStart)
-                            .frame(width: 60, height: 44)
-                    } else {
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(ColorTokens.textMuted)
-                            .frame(width: 32, height: 44)
-                    }
+                // Next week button
+                Button(action: { viewModel.goToNextWeek() }) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(ColorTokens.textMuted)
+                        .frame(width: 32, height: 44)
                 }
             }
             .padding(.horizontal, 4)
@@ -318,54 +235,6 @@ struct WeekCalendarView: View {
     }
 
     // MARK: - Tasks Overlay
-    private var tasksOverlay: some View {
-        GeometryReader { geometry in
-            let timeColumnWidth: CGFloat = 28
-            let availableWidth = geometry.size.width - timeColumnWidth
-            let dayWidth = availableWidth / 7
-
-            HStack(alignment: .top, spacing: 0) {
-                // Time column spacer
-                Color.clear
-                    .frame(width: timeColumnWidth)
-
-                // 7 day columns
-                ForEach(0..<7, id: \.self) { dayIndex in
-                    // Tasks for this day
-                    ZStack(alignment: .top) {
-                        // Invisible background to establish size
-                        Color.clear
-
-                        // Tasks for this day column
-                        ForEach(tasksForDayIndex(dayIndex)) { task in
-                            let displayTimes = getDisplayTimes(for: task)
-                            let yOffset = calculateYOffset(startTime: displayTimes.start)
-                            let height = calculateTaskHeight(startTime: displayTimes.start, endTime: displayTimes.end)
-
-                            TaskBlockView(
-                                task: task,
-                                onTap: { selectedTask = task },
-                                onStartFocus: { startFocusForTask(task) }
-                            )
-                            .frame(maxWidth: .infinity)
-                            .frame(height: height)
-                            .padding(.horizontal, 1)
-                            .offset(y: yOffset)
-                        }
-                    }
-                    .frame(width: dayWidth)
-                }
-            }
-        }
-    }
-
-    // Get tasks for a specific day index (0 = Monday, 6 = Sunday)
-    private func tasksForDayIndex(_ dayIndex: Int) -> [CalendarTask] {
-        viewModel.weekTasks.filter { task in
-            viewModel.dayIndexForTask(task) == dayIndex
-        }
-    }
-
     // Calculate Y offset for a task based on start time
     private func calculateYOffset(startTime: Date) -> CGFloat {
         let startHour = Calendar.current.component(.hour, from: startTime)
@@ -422,35 +291,6 @@ struct WeekCalendarView: View {
         let start = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: now) ?? now
         let end = start.addingTimeInterval(3600)
         return (start, end)
-    }
-
-    // MARK: - Current Time Indicator
-    private var currentTimeIndicator: some View {
-        GeometryReader { geometry in
-            let now = Date()
-            let hour = Calendar.current.component(.hour, from: now)
-            let minute = Calendar.current.component(.minute, from: now)
-            let timeColumnWidth: CGFloat = 28
-
-            if hour >= hours.first! && hour <= hours.last! {
-                let yOffset = CGFloat(hour - hours.first!) * hourHeight + CGFloat(minute) / 60.0 * hourHeight
-                let weekday = Calendar.current.component(.weekday, from: now)
-                // Convert Sunday=1...Saturday=7 to Monday=0...Sunday=6
-                let dayIndex = weekday == 1 ? 6 : weekday - 2
-                let dayWidth = (geometry.size.width - timeColumnWidth) / 7
-
-                HStack(spacing: 0) {
-                    Circle()
-                        .fill(Color.red)
-                        .frame(width: 8, height: 8)
-
-                    Rectangle()
-                        .fill(Color.red.opacity(0.8))
-                        .frame(height: 2)
-                }
-                .offset(x: timeColumnWidth + CGFloat(dayIndex) * dayWidth - 4, y: yOffset)
-            }
-        }
     }
 
     // MARK: - Day View Components
@@ -613,72 +453,7 @@ struct WeekCalendarView: View {
     }
 }
 
-// MARK: - Task Block View (for calendar)
-struct TaskBlockView: View {
-    let task: CalendarTask
-    let onTap: () -> Void
-    let onStartFocus: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            // Header: Title + Completed check
-            HStack(spacing: 4) {
-                if let areaIcon = task.areaIcon {
-                    Text(areaIcon)
-                        .font(.system(size: 10))
-                }
-
-                Text(task.title)
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(.white)
-                    .lineLimit(2)
-
-                Spacer()
-
-                if task.isCompleted {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 10))
-                        .foregroundColor(.white)
-                }
-            }
-
-            Spacer(minLength: 0)
-
-            // Footer: Time range
-            Text(task.formattedTimeRange)
-                .font(.system(size: 8, weight: .medium))
-                .foregroundColor(.white.opacity(0.8))
-        }
-        .padding(4)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
-        .background(taskColor)
-        .cornerRadius(6)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            onTap()
-        }
-    }
-
-    private var taskColor: Color {
-        // Green for completed tasks
-        if task.isCompleted {
-            return Color.green
-        }
-
-        switch task.priorityEnum {
-        case .urgent:
-            return Color.red
-        case .high:
-            return Color.orange
-        case .medium:
-            return ColorTokens.primaryStart
-        case .low:
-            return Color.gray
-        }
-    }
-}
-
-// MARK: - Day Task Block View (larger for day view)
+// MARK: - Day Task Block View
 struct DayTaskBlockView: View {
     let task: CalendarTask
     let onTap: () -> Void
