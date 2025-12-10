@@ -523,6 +523,7 @@ struct TaskBlockView: View {
             .shadow(color: taskColor.opacity(0.4), radius: 3, x: 0, y: 2)
         }
         .buttonStyle(PlainButtonStyle())
+        .frame(width: width)
     }
 
     private var taskColor: Color {
