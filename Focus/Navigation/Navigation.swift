@@ -244,7 +244,7 @@ struct MainTabView: View {
     private func destinationView(for destination: NavigationDestination) -> some View {
         switch destination {
         case .startTheDay:
-            VoiceAssistantView()
+            StartTheDayView()
         case .endOfDay:
             EndOfDayView()
         case .focusSession:
