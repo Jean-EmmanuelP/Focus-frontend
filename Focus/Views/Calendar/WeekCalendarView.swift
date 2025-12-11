@@ -364,9 +364,9 @@ struct WeekCalendarView: View {
             onTap: { selectedTask = task },
             onStartFocus: { startFocusForTask(task) }
         )
-        .frame(width: dayWidth - 8)
+        .frame(width: dayWidth - 16)
         .frame(height: height)
-        .offset(x: timeColumnWidth + 4, y: yOffset)
+        .offset(x: timeColumnWidth + 8, y: yOffset)
     }
 
     // Current time indicator for day view

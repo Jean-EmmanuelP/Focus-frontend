@@ -408,13 +408,30 @@ class VoiceAssistantViewModel: ObservableObject {
 
     private func startRecording() {
         guard let speechRecognizer = speechRecognizer, speechRecognizer.isAvailable else {
+            print("Speech recognizer not available")
+            return
+        }
+
+        // Check microphone permission first
+        let audioSession = AVAudioSession.sharedInstance()
+        guard audioSession.recordPermission == .granted else {
+            print("Microphone permission not granted")
+            // Request permission
+            audioSession.requestRecordPermission { granted in
+                if granted {
+                    Task { @MainActor in
+                        self.startRecording()
+                    }
+                }
+            }
             return
         }
 
         do {
-            try AVAudioSession.sharedInstance().setCategory(.record, mode: .measurement, options: .duckOthers)
-            try AVAudioSession.sharedInstance().setActive(true, options: .notifyOthersOnDeactivation)
+            try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
+            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
         } catch {
+            print("Failed to set audio session: \(error)")
             return
         }
 
@@ -424,6 +441,13 @@ class VoiceAssistantViewModel: ObservableObject {
         recognitionRequest.shouldReportPartialResults = true
 
         let inputNode = audioEngine.inputNode
+        let recordingFormat = inputNode.outputFormat(forBus: 0)
+
+        // Check if format is valid
+        guard recordingFormat.sampleRate > 0 && recordingFormat.channelCount > 0 else {
+            print("Invalid audio format: sampleRate=\(recordingFormat.sampleRate), channels=\(recordingFormat.channelCount)")
+            return
+        }
 
         recognitionTask = speechRecognizer.recognitionTask(with: recognitionRequest) { [weak self] result, error in
             Task { @MainActor in
@@ -448,7 +472,6 @@ class VoiceAssistantViewModel: ObservableObject {
             }
         }
 
-        let recordingFormat = inputNode.outputFormat(forBus: 0)
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { buffer, _ in
             self.recognitionRequest?.append(buffer)
         }
@@ -468,7 +491,9 @@ class VoiceAssistantViewModel: ObservableObject {
                 }
             }
         } catch {
-            print("Audio engine failed to start")
+            print("Audio engine failed to start: \(error)")
+            // Clean up tap if engine fails
+            inputNode.removeTap(onBus: 0)
         }
     }
 
