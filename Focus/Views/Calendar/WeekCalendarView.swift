@@ -133,7 +133,11 @@ struct WeekCalendarView: View {
                     ForEach(viewModel.weekDays, id: \.self) { date in
                         let isToday = Calendar.current.isDateInToday(date)
                         let isSelected = Calendar.current.isDate(date, inSameDayAs: viewModel.selectedDate)
-                        let tasksCount = tasksForDate(date).count
+                        let dayTasks = tasksForDate(date)
+                        let tasksCount = dayTasks.count
+                        let completedCount = dayTasks.filter { $0.isCompleted }.count
+                        let allCompleted = tasksCount > 0 && completedCount == tasksCount
+                        let hasCompletedTasks = completedCount > 0
 
                         Button(action: { viewModel.selectDate(date) }) {
                             VStack(spacing: 3) {
@@ -165,13 +169,19 @@ struct WeekCalendarView: View {
                                         .foregroundColor(isToday ? .white : ColorTokens.textPrimary)
                                 }
 
-                                // Tasks indicator dots
+                                // Tasks indicator dots - green when completed
                                 if tasksCount > 0 {
                                     HStack(spacing: 2) {
-                                        ForEach(0..<min(tasksCount, 3), id: \.self) { _ in
+                                        ForEach(0..<min(tasksCount, 3), id: \.self) { index in
                                             Circle()
-                                                .fill(ColorTokens.primaryStart)
+                                                .fill(index < completedCount ? Color.green : ColorTokens.primaryStart)
                                                 .frame(width: 4, height: 4)
+                                        }
+                                        // Show checkmark if all completed
+                                        if allCompleted && tasksCount <= 3 {
+                                            Image(systemName: "checkmark")
+                                                .font(.system(size: 6, weight: .bold))
+                                                .foregroundColor(Color.green)
                                         }
                                     }
                                 } else {
@@ -216,18 +226,21 @@ struct WeekCalendarView: View {
     private var hourGrid: some View {
         VStack(spacing: 0) {
             ForEach(hours, id: \.self) { hour in
-                HStack(spacing: 0) {
-                    // Time label - compact
-                    Text(String(format: "%02d", hour))
-                        .font(.system(size: 10, weight: .regular, design: .monospaced))
-                        .foregroundColor(ColorTokens.textMuted.opacity(0.6))
-                        .frame(width: 24, alignment: .trailing)
-                        .padding(.trailing, 4)
+                VStack(spacing: 0) {
+                    HStack(spacing: 0) {
+                        // Time label - compact, aligned at top of hour
+                        Text(String(format: "%02d", hour))
+                            .font(.system(size: 10, weight: .regular, design: .monospaced))
+                            .foregroundColor(ColorTokens.textMuted.opacity(0.6))
+                            .frame(width: 24, alignment: .trailing)
+                            .padding(.trailing, 4)
 
-                    // Grid line - subtle
-                    Rectangle()
-                        .fill(ColorTokens.border.opacity(0.15))
-                        .frame(height: 0.5)
+                        // Grid line - subtle
+                        Rectangle()
+                            .fill(ColorTokens.border.opacity(0.15))
+                            .frame(height: 0.5)
+                    }
+                    Spacer()
                 }
                 .frame(height: hourHeight)
             }
@@ -251,7 +264,8 @@ struct WeekCalendarView: View {
 
         let startOffset = CGFloat(startHour - hours.first!) * hourHeight + CGFloat(startMinute) / 60.0 * hourHeight
         let endOffset = CGFloat(endHour - hours.first!) * hourHeight + CGFloat(endMinute) / 60.0 * hourHeight
-        return max(endOffset - startOffset, 30)
+        // Minimum height of 56 to fit content (icon + title + time + button)
+        return max(endOffset - startOffset, 56)
     }
 
     // Get display times for a task - use scheduled times or defaults based on timeBlock
@@ -325,48 +339,98 @@ struct WeekCalendarView: View {
         let startTime = String(format: "%02d:00", hour)
         let endTime = String(format: "%02d:00", hour + 1)
 
-        if !viewModel.hasOverlap(date: dateString, startTime: startTime, endTime: endTime) {
-            quickCreateDate = viewModel.selectedDate
-            quickCreateStartHour = hour
-            quickCreateEndHour = hour + 1
-            showQuickCreateSheet = true
+        // Check if slot is already occupied
+        if viewModel.hasOverlap(date: dateString, startTime: startTime, endTime: endTime) {
+            // Slot is occupied - give feedback
+            HapticFeedback.error()
+            return
         }
+
+        quickCreateDate = viewModel.selectedDate
+        quickCreateStartHour = hour
+        quickCreateEndHour = hour + 1
+        showQuickCreateSheet = true
     }
 
     // Tasks overlay for day view (full width)
     private var dayTasksOverlay: some View {
-        GeometryReader { geometry in
-            dayTasksOverlayContent(geometry: geometry)
-        }
-    }
-
-    private func dayTasksOverlayContent(geometry: GeometryProxy) -> some View {
-        let timeColumnWidth: CGFloat = 28
-        let dayWidth = geometry.size.width - timeColumnWidth
         let selectedDayTasks = tasksForDate(viewModel.selectedDate)
+        let timeColumnWidth: CGFloat = 28
+        let horizontalPadding: CGFloat = 16
 
-        return ZStack(alignment: .top) {
-            Color.clear
-
+        return ZStack(alignment: .topLeading) {
+            // Tasks
             ForEach(selectedDayTasks) { task in
-                dayTaskBlock(task: task, dayWidth: dayWidth, timeColumnWidth: timeColumnWidth)
+                let displayTimes = getDisplayTimes(for: task)
+                let yOffset = calculateYOffset(startTime: displayTimes.start)
+                let height = calculateTaskHeight(startTime: displayTimes.start, endTime: displayTimes.end)
+
+                DayTaskBlockView(
+                    task: task,
+                    onTap: { selectedTask = task },
+                    onStartFocus: { startFocusForTask(task) },
+                    onComplete: {
+                        Task {
+                            await viewModel.toggleTask(task.id)
+                        }
+                    },
+                    onUncomplete: {
+                        Task {
+                            await viewModel.toggleTask(task.id)
+                        }
+                    }
+                )
+                .padding(.leading, timeColumnWidth + 4)
+                .padding(.trailing, horizontalPadding)
+                .frame(height: height)
+                .offset(y: yOffset)
+            }
+
+            // Rituals with scheduled time
+            ForEach(viewModel.scheduledRituals) { ritual in
+                if let displayTimes = getRitualDisplayTimes(for: ritual) {
+                    let yOffset = calculateYOffset(startTime: displayTimes.start)
+
+                    DayRitualBlockView(
+                        ritual: ritual,
+                        onToggle: {
+                            Task {
+                                await viewModel.toggleRitual(ritual)
+                            }
+                        }
+                    )
+                    .padding(.leading, timeColumnWidth + 4)
+                    .padding(.trailing, horizontalPadding)
+                    .frame(height: 44)
+                    .offset(y: yOffset)
+                }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func dayTaskBlock(task: CalendarTask, dayWidth: CGFloat, timeColumnWidth: CGFloat) -> some View {
-        let displayTimes = getDisplayTimes(for: task)
-        let yOffset = calculateYOffset(startTime: displayTimes.start)
-        let height = calculateTaskHeight(startTime: displayTimes.start, endTime: displayTimes.end)
+    // Get display times for a ritual
+    private func getRitualDisplayTimes(for ritual: DailyRitual) -> (start: Date, end: Date)? {
+        guard let scheduledTime = ritual.scheduledTime else { return nil }
 
-        return DayTaskBlockView(
-            task: task,
-            onTap: { selectedTask = task },
-            onStartFocus: { startFocusForTask(task) }
-        )
-        .frame(width: dayWidth - 16)
-        .frame(height: height)
-        .offset(x: timeColumnWidth + 8, y: yOffset)
+        let calendar = Calendar.current
+        let now = Date()
+        var components = calendar.dateComponents([.year, .month, .day], from: now)
+
+        // Parse the scheduled time (HH:mm format)
+        let timeParts = scheduledTime.split(separator: ":")
+        guard timeParts.count == 2,
+              let hour = Int(timeParts[0]),
+              let minute = Int(timeParts[1]) else { return nil }
+
+        components.hour = hour
+        components.minute = minute
+        components.second = 0
+
+        guard let startDate = calendar.date(from: components) else { return nil }
+        let endDate = startDate.addingTimeInterval(30 * 60) // 30 minute duration
+
+        return (startDate, endDate)
     }
 
     // Current time indicator for day view
@@ -453,86 +517,343 @@ struct WeekCalendarView: View {
     }
 }
 
-// MARK: - Day Task Block View
+// MARK: - Day Task Block View (with swipe to complete/uncomplete)
 struct DayTaskBlockView: View {
     let task: CalendarTask
     let onTap: () -> Void
     let onStartFocus: () -> Void
+    var onComplete: (() -> Void)? = nil
+    var onUncomplete: (() -> Void)? = nil
+
+    @State private var swipeOffset: CGFloat = 0
+    private let swipeThreshold: CGFloat = 100
 
     var body: some View {
-        HStack(spacing: 12) {
-            // Left: Area icon
-            if let areaIcon = task.areaIcon {
-                Text(areaIcon)
-                    .font(.system(size: 20))
+        ZStack {
+            // Background action - left side (undo) for completed tasks
+            if swipeOffset > 0 && task.isCompleted {
+                HStack {
+                    ZStack(alignment: .leading) {
+                        Color.orange
+                            .cornerRadius(12)
+                        HStack(spacing: 8) {
+                            Image(systemName: "arrow.uturn.backward.circle.fill")
+                                .font(.system(size: 24))
+                                .foregroundColor(.white)
+                            Text("Annuler")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.white)
+                        }
+                        .padding(.leading, 20)
+                    }
+                    .frame(width: max(100, swipeOffset + 20))
+                    Spacer()
+                }
             }
 
-            // Center: Task info
-            VStack(alignment: .leading, spacing: 2) {
-                Text(task.title)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.white)
-                    .lineLimit(2)
+            // Background action - right side (complete) for incomplete tasks
+            if swipeOffset < 0 && !task.isCompleted {
+                HStack {
+                    Spacer()
+                    ZStack(alignment: .trailing) {
+                        Color.green
+                            .cornerRadius(12)
+                        HStack(spacing: 8) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 24))
+                                .foregroundColor(.white)
+                            Text("Valider")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.white)
+                        }
+                        .padding(.trailing, 20)
+                    }
+                    .frame(width: max(100, -swipeOffset + 20))
+                }
+            }
 
-                HStack(spacing: 8) {
-                    // Time range
-                    Text(task.formattedTimeRange)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.white.opacity(0.8))
+            // Main task card
+            HStack(spacing: 12) {
+                // Left: Area icon (emoji when completed, area emoji otherwise)
+                if task.isCompleted {
+                    Text("✅")
+                        .font(.system(size: 20))
+                } else if let areaIcon = task.areaIcon {
+                    Text(areaIcon)
+                        .font(.system(size: 20))
+                }
 
-                    // Quest name if available
-                    if let questTitle = task.questTitle {
-                        Text("• \(questTitle)")
+                // Center: Task info
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(task.title)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.white)
+                        .lineLimit(2)
+
+                    HStack(spacing: 8) {
+                        // Time range
+                        Text(task.formattedTimeRange)
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(.white.opacity(0.7))
-                            .lineLimit(1)
+                            .foregroundColor(.white.opacity(0.8))
+
+                        // Quest name if available
+                        if let questTitle = task.questTitle {
+                            Text("• \(questTitle)")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.white.opacity(0.7))
+                                .lineLimit(1)
+                        }
                     }
                 }
-            }
 
-            Spacer()
+                Spacer()
 
-            // Right: Status icon or Focus button
-            if task.isCompleted {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 22))
-                    .foregroundColor(.white)
-            } else {
-                Button(action: onStartFocus) {
-                    Image(systemName: "flame.fill")
-                        .font(.system(size: 16))
+                // Right: Focus button (only if not completed)
+                if !task.isCompleted {
+                    Button(action: {
+                        HapticFeedback.medium()
+                        onStartFocus()
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "flame.fill")
+                                .font(.system(size: 14))
+                            Text("Focus")
+                                .font(.system(size: 12, weight: .semibold))
+                        }
                         .foregroundColor(.white)
-                        .frame(width: 36, height: 36)
-                        .background(Color.white.opacity(0.2))
-                        .clipShape(Circle())
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Color.white.opacity(0.25))
+                        .cornerRadius(RadiusTokens.full)
+                    }
+                    .buttonStyle(PlainButtonStyle())
                 }
             }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .frame(maxWidth: .infinity)
-        .background(taskColor)
-        .cornerRadius(12)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            onTap()
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity)
+            .background(taskColor)
+            .cornerRadius(12)
+            .offset(x: swipeOffset)
+            .gesture(
+                DragGesture(minimumDistance: 20)
+                    .onChanged { value in
+                        withAnimation(.interactiveSpring()) {
+                            if task.isCompleted {
+                                // Completed task: allow right swipe to undo
+                                if value.translation.width > 0 {
+                                    swipeOffset = min(value.translation.width, 150)
+                                }
+                            } else {
+                                // Incomplete task: allow left swipe to complete
+                                if value.translation.width < 0 {
+                                    swipeOffset = max(value.translation.width, -150)
+                                }
+                            }
+                        }
+                    }
+                    .onEnded { value in
+                        if task.isCompleted && swipeOffset > swipeThreshold {
+                            // Undo completion
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                swipeOffset = 0
+                            }
+                            HapticFeedback.medium()
+                            onUncomplete?()
+                        } else if !task.isCompleted && swipeOffset < -swipeThreshold {
+                            // Complete task
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                swipeOffset = 0
+                            }
+                            HapticFeedback.success()
+                            onComplete?()
+                        } else {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                swipeOffset = 0
+                            }
+                        }
+                    }
+            )
+            .contentShape(Rectangle())
+            .onTapGesture {
+                if swipeOffset == 0 {
+                    onTap()
+                }
+            }
         }
     }
 
+    // Task color based on area or green if completed
     private var taskColor: Color {
+        // Green for completed tasks
         if task.isCompleted {
             return Color.green
         }
 
-        switch task.priorityEnum {
-        case .urgent:
-            return Color.red
-        case .high:
-            return Color.orange
-        case .medium:
-            return ColorTokens.primaryStart
-        case .low:
-            return Color.gray
+        // Color based on area
+        if let areaName = task.areaName?.lowercased() {
+            switch areaName {
+            case "health", "santé":
+                return Color(hex: "#4CAF50") ?? .green // Green
+            case "learning", "apprentissage":
+                return Color(hex: "#2196F3") ?? .blue // Blue
+            case "career", "carrière":
+                return Color(hex: "#FF9800") ?? .orange // Orange
+            case "relationships", "relations":
+                return Color(hex: "#E91E63") ?? .pink // Pink
+            case "creativity", "créativité":
+                return Color(hex: "#9C27B0") ?? .purple // Purple
+            default:
+                return Color(hex: "#607D8B") ?? .gray // Gray for other
+            }
+        }
+
+        // Default color if no area
+        return ColorTokens.primaryStart
+    }
+}
+
+// MARK: - Ritual Block View for Calendar
+struct DayRitualBlockView: View {
+    let ritual: DailyRitual
+    let onToggle: () -> Void
+
+    @State private var swipeOffset: CGFloat = 0
+    private let swipeThreshold: CGFloat = 100
+
+    var body: some View {
+        ZStack {
+            // Background action - left side (undo) for completed rituals
+            if swipeOffset > 0 && ritual.isCompleted {
+                HStack {
+                    ZStack(alignment: .leading) {
+                        Color.orange
+                            .cornerRadius(12)
+                        HStack(spacing: 8) {
+                            Image(systemName: "arrow.uturn.backward.circle.fill")
+                                .font(.system(size: 20))
+                                .foregroundColor(.white)
+                            Text("Annuler")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.white)
+                        }
+                        .padding(.leading, 12)
+                    }
+                    .frame(width: max(80, swipeOffset + 16))
+                    Spacer()
+                }
+            }
+
+            // Background action - right side (complete) for incomplete rituals
+            if swipeOffset < 0 && !ritual.isCompleted {
+                HStack {
+                    Spacer()
+                    ZStack(alignment: .trailing) {
+                        Color.green
+                            .cornerRadius(12)
+                        HStack(spacing: 8) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 20))
+                                .foregroundColor(.white)
+                            Text("Fait")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.white)
+                        }
+                        .padding(.trailing, 12)
+                    }
+                    .frame(width: max(80, -swipeOffset + 16))
+                }
+            }
+
+            // Main ritual card
+            HStack(spacing: 10) {
+                // Icon
+                Text(ritual.isCompleted ? "✅" : ritual.icon)
+                    .font(.system(size: 18))
+
+                // Ritual info
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(ritual.title)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+
+                    if let time = ritual.scheduledTime {
+                        Text(time)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.white.opacity(0.7))
+                    }
+                }
+
+                Spacer()
+
+                // "Routine" label to differentiate from tasks
+                Text("Routine")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(.white.opacity(0.7))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.white.opacity(0.2))
+                    .cornerRadius(RadiusTokens.full)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity)
+            .background(ritualColor)
+            .cornerRadius(10)
+            .offset(x: swipeOffset)
+            .gesture(
+                DragGesture(minimumDistance: 20)
+                    .onChanged { value in
+                        withAnimation(.interactiveSpring()) {
+                            if ritual.isCompleted {
+                                if value.translation.width > 0 {
+                                    swipeOffset = min(value.translation.width, 120)
+                                }
+                            } else {
+                                if value.translation.width < 0 {
+                                    swipeOffset = max(value.translation.width, -120)
+                                }
+                            }
+                        }
+                    }
+                    .onEnded { _ in
+                        if (ritual.isCompleted && swipeOffset > swipeThreshold) ||
+                           (!ritual.isCompleted && swipeOffset < -swipeThreshold) {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                swipeOffset = 0
+                            }
+                            HapticFeedback.success()
+                            onToggle()
+                        } else {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                swipeOffset = 0
+                            }
+                        }
+                    }
+            )
+        }
+    }
+
+    private var ritualColor: Color {
+        if ritual.isCompleted {
+            return Color.green.opacity(0.8)
+        }
+
+        // Color based on category
+        switch ritual.category {
+        case .health:
+            return Color(hex: "#4CAF50").opacity(0.85)
+        case .learning:
+            return Color(hex: "#2196F3").opacity(0.85)
+        case .career:
+            return Color(hex: "#FF9800").opacity(0.85)
+        case .relationships:
+            return Color(hex: "#E91E63").opacity(0.85)
+        case .creativity:
+            return Color(hex: "#9C27B0").opacity(0.85)
+        case .other:
+            return Color(hex: "#607D8B").opacity(0.85)
         }
     }
 }
@@ -930,7 +1251,7 @@ struct QuickCreateTaskSheet: View {
     }
 }
 
-// MARK: - Quick Create Task Sheet with Time
+// MARK: - Quick Create Task Sheet with Time (Improved UX)
 struct QuickCreateTaskSheetWithTime: View {
     @ObservedObject var viewModel: CalendarViewModel
     @Environment(\.dismiss) private var dismiss
@@ -940,60 +1261,219 @@ struct QuickCreateTaskSheetWithTime: View {
     let endHour: Int
 
     @State private var title = ""
+    @State private var selectedQuestId: String?
+    @State private var selectedStartHour: Int
+    @State private var selectedEndHour: Int
     @State private var isCreating = false
+    @State private var showQuestPicker = false
     @FocusState private var isTitleFocused: Bool
+
+    private let hours = Array(6...23)
+
+    init(viewModel: CalendarViewModel, date: Date, startHour: Int, endHour: Int) {
+        self.viewModel = viewModel
+        self.date = date
+        self.startHour = startHour
+        self.endHour = endHour
+        _selectedStartHour = State(initialValue: startHour)
+        _selectedEndHour = State(initialValue: endHour)
+    }
+
+    // Get area from selected quest
+    private var selectedQuest: Quest? {
+        guard let questId = selectedQuestId else { return nil }
+        return viewModel.quests.first { $0.id == questId }
+    }
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: SpacingTokens.lg) {
-                // Date & Time info
+            VStack(spacing: 0) {
+                // Title input at top - big and focused
                 VStack(spacing: SpacingTokens.sm) {
-                    Text(date.formatted(.dateTime.weekday(.wide).day().month()))
-                        .font(.system(size: 16, weight: .semibold))
+                    TextField("Que vas-tu faire ?", text: $title)
+                        .font(.system(size: 20, weight: .medium))
                         .foregroundColor(ColorTokens.textPrimary)
+                        .focused($isTitleFocused)
+                        .submitLabel(.done)
 
-                    Text("\(String(format: "%02d:00", startHour)) - \(String(format: "%02d:00", endHour))")
-                        .font(.system(size: 14))
-                        .foregroundColor(ColorTokens.textMuted)
+                    Rectangle()
+                        .fill(isTitleFocused ? ColorTokens.primaryStart : ColorTokens.border)
+                        .frame(height: isTitleFocused ? 2 : 1)
                 }
-                .padding(.top, SpacingTokens.md)
+                .padding(.horizontal, SpacingTokens.lg)
+                .padding(.top, SpacingTokens.lg)
+                .padding(.bottom, SpacingTokens.xl)
 
-                // Title input - simple and focused
-                TextField("calendar.task_title_placeholder".localized, text: $title)
-                    .font(.system(size: 18))
-                    .padding()
-                    .background(ColorTokens.surface)
-                    .cornerRadius(RadiusTokens.md)
-                    .focused($isTitleFocused)
+                // Quick options
+                VStack(spacing: SpacingTokens.md) {
+                    // Time selector - compact
+                    HStack(spacing: SpacingTokens.md) {
+                        Image(systemName: "clock")
+                            .font(.system(size: 16))
+                            .foregroundColor(ColorTokens.textMuted)
+                            .frame(width: 24)
+
+                        // Start time picker
+                        Menu {
+                            ForEach(hours, id: \.self) { hour in
+                                Button(String(format: "%02d:00", hour)) {
+                                    selectedStartHour = hour
+                                    if selectedEndHour <= hour {
+                                        selectedEndHour = min(hour + 1, 23)
+                                    }
+                                }
+                            }
+                        } label: {
+                            Text(String(format: "%02d:00", selectedStartHour))
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(ColorTokens.textPrimary)
+                                .padding(.horizontal, SpacingTokens.md)
+                                .padding(.vertical, SpacingTokens.sm)
+                                .background(ColorTokens.surface)
+                                .cornerRadius(RadiusTokens.sm)
+                        }
+
+                        Text("-")
+                            .foregroundColor(ColorTokens.textMuted)
+
+                        // End time picker
+                        Menu {
+                            ForEach(hours.filter { $0 > selectedStartHour }, id: \.self) { hour in
+                                Button(String(format: "%02d:00", hour)) {
+                                    selectedEndHour = hour
+                                }
+                            }
+                        } label: {
+                            Text(String(format: "%02d:00", selectedEndHour))
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(ColorTokens.textPrimary)
+                                .padding(.horizontal, SpacingTokens.md)
+                                .padding(.vertical, SpacingTokens.sm)
+                                .background(ColorTokens.surface)
+                                .cornerRadius(RadiusTokens.sm)
+                        }
+
+                        Spacer()
+
+                        // Duration badge
+                        let duration = selectedEndHour - selectedStartHour
+                        Text("\(duration)h")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(ColorTokens.primaryStart)
+                            .padding(.horizontal, SpacingTokens.sm)
+                            .padding(.vertical, 4)
+                            .background(ColorTokens.primarySoft)
+                            .cornerRadius(RadiusTokens.full)
+                    }
+                    .padding(.horizontal, SpacingTokens.lg)
+
+                    // Quest selector
+                    HStack(spacing: SpacingTokens.md) {
+                        Image(systemName: "target")
+                            .font(.system(size: 16))
+                            .foregroundColor(ColorTokens.textMuted)
+                            .frame(width: 24)
+
+                        Button(action: {
+                            // Load quests before showing picker
+                            Task {
+                                await viewModel.loadQuestsIfNeeded()
+                            }
+                            showQuestPicker = true
+                        }) {
+                            HStack {
+                                if let quest = selectedQuest {
+                                    Text(quest.area.emoji)
+                                        .font(.system(size: 16))
+                                    Text(quest.title)
+                                        .font(.system(size: 15))
+                                        .foregroundColor(ColorTokens.textPrimary)
+                                        .lineLimit(1)
+                                } else {
+                                    Text("Lier à une quête")
+                                        .font(.system(size: 15))
+                                        .foregroundColor(ColorTokens.textMuted)
+                                }
+
+                                Spacer()
+
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(ColorTokens.textMuted)
+                            }
+                            .padding(.horizontal, SpacingTokens.md)
+                            .padding(.vertical, SpacingTokens.sm)
+                            .background(ColorTokens.surface)
+                            .cornerRadius(RadiusTokens.sm)
+                        }
+                    }
+                    .padding(.horizontal, SpacingTokens.lg)
+
+                    // Show area if quest selected
+                    if let quest = selectedQuest {
+                        HStack(spacing: SpacingTokens.md) {
+                            Image(systemName: "folder")
+                                .font(.system(size: 16))
+                                .foregroundColor(ColorTokens.textMuted)
+                                .frame(width: 24)
+
+                            HStack(spacing: SpacingTokens.sm) {
+                                Text(quest.area.emoji)
+                                    .font(.system(size: 14))
+                                Text(quest.area.localizedName)
+                                    .font(.system(size: 14))
+                                    .foregroundColor(ColorTokens.textSecondary)
+                            }
+                            .padding(.horizontal, SpacingTokens.md)
+                            .padding(.vertical, SpacingTokens.sm)
+                            .background(ColorTokens.surfaceElevated)
+                            .cornerRadius(RadiusTokens.sm)
+
+                            Spacer()
+                        }
+                        .padding(.horizontal, SpacingTokens.lg)
+                    }
+                }
 
                 Spacer()
 
-                // Create button
+                // Create button - always visible
                 PrimaryButton(
-                    isCreating ? "common.creating".localized : "common.add".localized,
+                    isCreating ? "Création..." : "Ajouter",
                     icon: isCreating ? nil : "plus",
                     isLoading: isCreating
                 ) {
                     createTask()
                 }
                 .disabled(title.isEmpty || isCreating)
+                .padding(.horizontal, SpacingTokens.lg)
+                .padding(.bottom, SpacingTokens.lg)
             }
-            .padding()
             .background(ColorTokens.background)
-            .navigationTitle("calendar.quick_create".localized)
+            .navigationTitle(date.formatted(.dateTime.weekday(.wide).day().month()))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("common.cancel".localized) {
+                    Button("Annuler") {
                         dismiss()
                     }
+                    .foregroundColor(ColorTokens.textSecondary)
                 }
             }
             .onAppear {
-                isTitleFocused = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    isTitleFocused = true
+                }
+            }
+            .sheet(isPresented: $showQuestPicker) {
+                QuestPickerSheet(
+                    quests: viewModel.quests,
+                    selectedQuestId: $selectedQuestId
+                )
+                .presentationDetents([.medium])
             }
         }
-        .presentationDetents([.height(280)])
+        .presentationDetents([.height(380)])
     }
 
     private func createTask() {
@@ -1004,14 +1484,14 @@ struct QuickCreateTaskSheetWithTime: View {
         dateFormatter.dateFormat = "yyyy-MM-dd"
         let dateStr = dateFormatter.string(from: date)
 
-        let scheduledStart = String(format: "%02d:00", startHour)
-        let scheduledEnd = String(format: "%02d:00", endHour)
+        let scheduledStart = String(format: "%02d:00", selectedStartHour)
+        let scheduledEnd = String(format: "%02d:00", selectedEndHour)
 
         // Determine time block from hour
         let timeBlock: String
-        if startHour < 12 {
+        if selectedStartHour < 12 {
             timeBlock = "morning"
-        } else if startHour < 18 {
+        } else if selectedStartHour < 18 {
             timeBlock = "afternoon"
         } else {
             timeBlock = "evening"
@@ -1023,9 +1503,9 @@ struct QuickCreateTaskSheetWithTime: View {
                 date: dateStr,
                 scheduledStart: scheduledStart,
                 scheduledEnd: scheduledEnd,
-                timeBlock: timeBlock
+                timeBlock: timeBlock,
+                questId: selectedQuestId
             )
-            // Wait for data to reload before dismissing
             await MainActor.run {
                 isCreating = false
                 dismiss()
@@ -1033,3 +1513,73 @@ struct QuickCreateTaskSheetWithTime: View {
         }
     }
 }
+
+// MARK: - Quest Picker Sheet
+struct QuestPickerSheet: View {
+    let quests: [Quest]
+    @Binding var selectedQuestId: String?
+    @Environment(\.dismiss) private var dismiss
+
+    // Filter out "Other" area quests
+    private var filteredQuests: [Quest] {
+        quests.filter { $0.area != .other }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                // No quest option
+                Button(action: {
+                    selectedQuestId = nil
+                    dismiss()
+                }) {
+                    HStack {
+                        Text("Aucune quête")
+                            .foregroundColor(ColorTokens.textSecondary)
+                        Spacer()
+                        if selectedQuestId == nil {
+                            Image(systemName: "checkmark")
+                                .foregroundColor(ColorTokens.primaryStart)
+                        }
+                    }
+                }
+
+                // Group quests by area (excluding "Other")
+                let questsByArea = Dictionary(grouping: filteredQuests) { $0.area.localizedName }
+                ForEach(questsByArea.keys.sorted(), id: \.self) { areaName in
+                    Section(header: Text(areaName)) {
+                        ForEach(questsByArea[areaName] ?? []) { quest in
+                            Button(action: {
+                                selectedQuestId = quest.id
+                                dismiss()
+                            }) {
+                                HStack {
+                                    Text(quest.area.emoji)
+                                        .font(.system(size: 20))
+                                    Text(quest.title)
+                                        .foregroundColor(ColorTokens.textPrimary)
+                                    Spacer()
+                                    if selectedQuestId == quest.id {
+                                        Image(systemName: "checkmark")
+                                            .foregroundColor(ColorTokens.primaryStart)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .listStyle(.insetGrouped)
+            .navigationTitle("Choisir une quête")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("OK") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+}
+

@@ -79,6 +79,9 @@
 "dashboard.focused_today" = "Focus aujourd'hui";
 "dashboard.swipe_hint" = "Glisse à gauche pour modifier ou supprimer";
 "dashboard.motivational" = "Tu progresses. Même les jours difficiles.";
+"dashboard.daily_progress" = "Progression du jour";
+"tasks" = "tâches";
+"rituals" = "routines";
 
 // MARK: - Fire Mode
 "fire.title" = "MODE FOCUS";

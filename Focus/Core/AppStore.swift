@@ -25,6 +25,7 @@ final class FocusAppStore: ObservableObject {
     @Published var weekSessions: [FocusSession] = []
     @Published var rituals: [DailyRitual] = []
     @Published var quests: [Quest] = []
+    @Published var todaysTasks: [CalendarTask] = []
     @Published var morningCheckIn: MorningCheckIn?
     @Published var eveningReview: EveningReview?
     @Published var isLoading = false
@@ -83,6 +84,7 @@ final class FocusAppStore: ObservableObject {
     private let completionsService = CompletionsService()
     private let streakService = StreakService()
     private let onboardingService = OnboardingService()
+    private let calendarService = CalendarService()
 
     // Default area definitions (for creating if none exist)
     private static let defaultAreaDefinitions: [(name: String, slug: String, icon: String)] = [
@@ -431,6 +433,18 @@ final class FocusAppStore: ObservableObject {
             } else {
                 print("📝 No intentions for today yet")
                 self.morningCheckIn = nil
+            }
+
+            // Load today's tasks for progress calculation
+            do {
+                let dateFormatter = DateFormatter()
+                dateFormatter.dateFormat = "yyyy-MM-dd"
+                let todayStr = dateFormatter.string(from: Date())
+                self.todaysTasks = try await calendarService.getTasks(date: todayStr)
+                print("📋 Today's tasks loaded: \(self.todaysTasks.count)")
+            } catch {
+                print("⚠️ Failed to load today's tasks: \(error)")
+                self.todaysTasks = []
             }
 
             // Note: All data now comes from dashboard - no separate calls needed

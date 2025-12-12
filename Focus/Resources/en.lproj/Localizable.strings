@@ -70,6 +70,9 @@
 "dashboard.focused_today" = "Focused Today";
 "dashboard.swipe_hint" = "Swipe left to edit or delete";
 "dashboard.motivational" = "You're progressing. Even on tough days.";
+"dashboard.daily_progress" = "Daily Progress";
+"tasks" = "tasks";
+"rituals" = "rituals";
 
 // MARK: - Fire Mode
 "fire.title" = "FIREMODE";

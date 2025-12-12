@@ -45,6 +45,11 @@ struct DashboardView: View {
                                 .padding(.horizontal, SpacingTokens.lg)
                                 .padding(.bottom, SpacingTokens.xl)
 
+                            // Daily Progress Bar
+                            dailyProgressSection
+                                .padding(.horizontal, SpacingTokens.lg)
+                                .padding(.bottom, SpacingTokens.xl)
+
                             // Adaptive CTA - Most important action
                             adaptiveCTASection
                                 .padding(.horizontal, SpacingTokens.lg)
@@ -365,6 +370,90 @@ struct DashboardView: View {
                 flameScale = 1.1
             }
         }
+    }
+
+    // MARK: - Daily Progress Section
+    private var dailyProgressSection: some View {
+        VStack(spacing: SpacingTokens.md) {
+            // Header
+            HStack {
+                Text("📊")
+                    .font(.system(size: 18))
+                Text("dashboard.daily_progress".localized)
+                    .subtitle()
+                    .fontWeight(.semibold)
+                    .foregroundColor(ColorTokens.textPrimary)
+                Spacer()
+                Text(viewModel.dailyProgressDisplay)
+                    .bodyText()
+                    .foregroundColor(ColorTokens.textSecondary)
+            }
+
+            // Progress bar
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    // Background
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(ColorTokens.surface)
+                        .frame(height: 12)
+
+                    // Progress fill with gradient
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(
+                            viewModel.dailyProgressPercentage >= 1.0
+                                ? ColorTokens.successGradient
+                                : ColorTokens.fireGradient
+                        )
+                        .frame(width: max(0, geometry.size.width * CGFloat(viewModel.dailyProgressPercentage)), height: 12)
+                        .animation(.spring(response: 0.6, dampingFraction: 0.8), value: viewModel.dailyProgressPercentage)
+                }
+            }
+            .frame(height: 12)
+
+            // Details breakdown
+            HStack(spacing: SpacingTokens.lg) {
+                // Tasks
+                HStack(spacing: SpacingTokens.xs) {
+                    Text("📋")
+                        .font(.system(size: 14))
+                    Text("\(viewModel.completedTasksCount)/\(viewModel.totalTasksCount)")
+                        .caption()
+                        .foregroundColor(ColorTokens.textSecondary)
+                    Text("tasks".localized)
+                        .caption()
+                        .foregroundColor(ColorTokens.textMuted)
+                }
+
+                // Rituals
+                HStack(spacing: SpacingTokens.xs) {
+                    Text("✅")
+                        .font(.system(size: 14))
+                    Text("\(viewModel.completedRitualsCount)/\(viewModel.totalRitualsCount)")
+                        .caption()
+                        .foregroundColor(ColorTokens.textSecondary)
+                    Text("rituals".localized)
+                        .caption()
+                        .foregroundColor(ColorTokens.textMuted)
+                }
+
+                Spacer()
+
+                // Percentage
+                if viewModel.totalDailyItems > 0 {
+                    Text("\(Int(viewModel.dailyProgressPercentage * 100))%")
+                        .bodyText()
+                        .fontWeight(.semibold)
+                        .foregroundColor(
+                            viewModel.dailyProgressPercentage >= 1.0
+                                ? ColorTokens.success
+                                : ColorTokens.primaryStart
+                        )
+                }
+            }
+        }
+        .padding(SpacingTokens.lg)
+        .background(ColorTokens.surface)
+        .cornerRadius(RadiusTokens.lg)
     }
 
     // MARK: - Adaptive CTA Section

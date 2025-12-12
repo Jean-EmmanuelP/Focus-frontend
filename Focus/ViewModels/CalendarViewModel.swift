@@ -82,6 +82,21 @@ class CalendarViewModel: ObservableObject {
         store.quests.filter { $0.status == .active }
     }
 
+    /// Rituals with scheduled time for calendar display
+    var scheduledRituals: [DailyRitual] {
+        store.rituals.filter { $0.scheduledTime != nil }
+    }
+
+    /// Load quests from store if needed
+    func loadQuestsIfNeeded() async {
+        await store.loadQuestsIfNeeded()
+    }
+
+    /// Toggle ritual completion
+    func toggleRitual(_ ritual: DailyRitual) async {
+        await store.toggleRitual(ritual)
+    }
+
     // Group tasks by hour for display
     var tasksByHour: [Int: [CalendarTask]] {
         var grouped: [Int: [CalendarTask]] = [:]
@@ -220,6 +235,9 @@ class CalendarViewModel: ObservableObject {
         isLoading = true
         defer { isLoading = false }
 
+        // Load quests in parallel for quick access
+        async let questsLoad: () = store.loadQuestsIfNeeded()
+
         // Use the new week endpoint
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
@@ -240,6 +258,9 @@ class CalendarViewModel: ObservableObject {
             weekTasks = []
             tasks = []
         }
+
+        // Wait for quests to load
+        await questsLoad
     }
 
     func loadDayData() async {
@@ -413,7 +434,9 @@ class CalendarViewModel: ObservableObject {
     }
 
     func toggleTask(_ taskId: String) async {
-        guard let task = tasks.first(where: { $0.id == taskId }) else { return }
+        // Try to find task in both arrays
+        let task = tasks.first(where: { $0.id == taskId }) ?? weekTasks.first(where: { $0.id == taskId })
+        guard let task = task else { return }
 
         do {
             let updated: CalendarTask

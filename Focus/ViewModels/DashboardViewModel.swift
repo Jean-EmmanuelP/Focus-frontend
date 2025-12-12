@@ -17,6 +17,7 @@ class DashboardViewModel: ObservableObject {
     @Published var todaysSessions: [FocusSession] = []
     @Published var weekSessions: [FocusSession] = []
     @Published var quests: [Quest] = []
+    @Published var todaysTasks: [CalendarTask] = []
 
     init() {
         setupBindings()
@@ -59,6 +60,10 @@ class DashboardViewModel: ObservableObject {
         store.$quests
             .receive(on: DispatchQueue.main)
             .assign(to: &$quests)
+
+        store.$todaysTasks
+            .receive(on: DispatchQueue.main)
+            .assign(to: &$todaysTasks)
     }
 
     // MARK: - Week Properties
@@ -194,6 +199,33 @@ class DashboardViewModel: ObservableObject {
 
     var totalRitualsCount: Int {
         todaysRituals.count
+    }
+
+    // MARK: - Tasks Progress
+    var completedTasksCount: Int {
+        todaysTasks.filter { $0.isCompleted }.count
+    }
+
+    var totalTasksCount: Int {
+        todaysTasks.count
+    }
+
+    // MARK: - Daily Progress (Tasks + Rituals combined)
+    var totalDailyItems: Int {
+        totalRitualsCount + totalTasksCount
+    }
+
+    var completedDailyItems: Int {
+        completedRitualsCount + completedTasksCount
+    }
+
+    var dailyProgressPercentage: Double {
+        guard totalDailyItems > 0 else { return 0 }
+        return Double(completedDailyItems) / Double(totalDailyItems)
+    }
+
+    var dailyProgressDisplay: String {
+        "\(completedDailyItems)/\(totalDailyItems)"
     }
 
     /// Accountability check: User is accountable if they set intentions AND completed at least 40% of rituals

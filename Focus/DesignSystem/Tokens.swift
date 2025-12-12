@@ -57,6 +57,13 @@ enum ColorTokens {
         startPoint: .leading,
         endPoint: .trailing
     )
+
+    // Success gradient (green)
+    static let successGradient = LinearGradient(
+        colors: [success, Color(hex: "#66BB6A")],
+        startPoint: .leading,
+        endPoint: .trailing
+    )
 }
 
 /// Typography tokens using Satoshi font

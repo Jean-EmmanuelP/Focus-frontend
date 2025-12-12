@@ -623,6 +623,8 @@ struct AddRitualSheet: View {
     @State private var selectedIcon = "🌟"
     @State private var selectedAreaId: String?
     @State private var selectedFrequency = "daily"
+    @State private var scheduledTime = Date()
+    @State private var hasScheduledTime = false
     @State private var isLoading = false
     @State private var errorMessage: String?
 
@@ -661,6 +663,9 @@ struct AddRitualSheet: View {
                         // Frequency selector
                         frequencySection
 
+                        // Time picker section
+                        timeSection
+
                         // Error message
                         if let error = errorMessage {
                             Text(error)
@@ -677,11 +682,21 @@ struct AddRitualSheet: View {
                             Task {
                                 guard let areaId = selectedAreaId else { return }
                                 isLoading = true
+
+                                // Format time if set
+                                var timeString: String? = nil
+                                if hasScheduledTime {
+                                    let formatter = DateFormatter()
+                                    formatter.dateFormat = "HH:mm"
+                                    timeString = formatter.string(from: scheduledTime)
+                                }
+
                                 let success = await viewModel.createRitual(
                                     areaId: areaId,
                                     title: title,
                                     frequency: selectedFrequency,
-                                    icon: selectedIcon
+                                    icon: selectedIcon,
+                                    scheduledTime: timeString
                                 )
                                 isLoading = false
                                 if success {
@@ -843,6 +858,39 @@ struct AddRitualSheet: View {
             }
         }
     }
+
+    private var timeSection: some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.md) {
+            HStack {
+                Text("Heure planifiée")
+                    .subtitle()
+                    .foregroundColor(ColorTokens.textPrimary)
+
+                Spacer()
+
+                Toggle("", isOn: $hasScheduledTime)
+                    .labelsHidden()
+                    .tint(ColorTokens.primaryStart)
+            }
+
+            if hasScheduledTime {
+                DatePicker(
+                    "",
+                    selection: $scheduledTime,
+                    displayedComponents: .hourAndMinute
+                )
+                .datePickerStyle(.wheel)
+                .labelsHidden()
+                .frame(maxWidth: .infinity)
+                .background(ColorTokens.surface)
+                .cornerRadius(RadiusTokens.md)
+            } else {
+                Text("Active le toggle pour définir une heure")
+                    .caption()
+                    .foregroundColor(ColorTokens.textMuted)
+            }
+        }
+    }
 }
 
 // MARK: - Edit Ritual Sheet
@@ -854,7 +902,9 @@ struct EditRitualSheet: View {
 
     @State private var title: String
     @State private var selectedIcon: String
-    @State private var selectedFrequency = "daily"
+    @State private var selectedFrequency: String
+    @State private var scheduledTime: Date
+    @State private var hasScheduledTime: Bool
     @State private var isLoading = false
     @State private var errorMessage: String?
 
@@ -878,6 +928,23 @@ struct EditRitualSheet: View {
         self.ritual = ritual
         _title = State(initialValue: ritual.title)
         _selectedIcon = State(initialValue: ritual.icon)
+        _selectedFrequency = State(initialValue: ritual.frequency.rawValue)
+
+        // Parse existing scheduled time
+        if let timeStr = ritual.scheduledTime {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "HH:mm"
+            if let date = formatter.date(from: timeStr) {
+                _scheduledTime = State(initialValue: date)
+                _hasScheduledTime = State(initialValue: true)
+            } else {
+                _scheduledTime = State(initialValue: Date())
+                _hasScheduledTime = State(initialValue: false)
+            }
+        } else {
+            _scheduledTime = State(initialValue: Date())
+            _hasScheduledTime = State(initialValue: false)
+        }
     }
 
     var body: some View {
@@ -897,6 +964,9 @@ struct EditRitualSheet: View {
                         // Frequency selector
                         frequencySection
 
+                        // Time picker
+                        timeSection
+
                         // Error message
                         if let error = errorMessage {
                             Text(error)
@@ -912,11 +982,21 @@ struct EditRitualSheet: View {
                         ) {
                             Task {
                                 isLoading = true
+
+                                // Format time if set
+                                var timeString: String? = nil
+                                if hasScheduledTime {
+                                    let formatter = DateFormatter()
+                                    formatter.dateFormat = "HH:mm"
+                                    timeString = formatter.string(from: scheduledTime)
+                                }
+
                                 let success = await viewModel.updateRitual(
                                     id: ritual.id,
                                     title: title,
                                     frequency: selectedFrequency,
-                                    icon: selectedIcon
+                                    icon: selectedIcon,
+                                    scheduledTime: timeString
                                 )
                                 isLoading = false
                                 if success {
@@ -1024,6 +1104,39 @@ struct EditRitualSheet: View {
                             .cornerRadius(RadiusTokens.sm)
                     }
                 }
+            }
+        }
+    }
+
+    private var timeSection: some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.md) {
+            HStack {
+                Text("Heure planifiée")
+                    .subtitle()
+                    .foregroundColor(ColorTokens.textPrimary)
+
+                Spacer()
+
+                Toggle("", isOn: $hasScheduledTime)
+                    .labelsHidden()
+                    .tint(ColorTokens.primaryStart)
+            }
+
+            if hasScheduledTime {
+                DatePicker(
+                    "",
+                    selection: $scheduledTime,
+                    displayedComponents: .hourAndMinute
+                )
+                .datePickerStyle(.wheel)
+                .labelsHidden()
+                .frame(maxWidth: .infinity)
+                .background(ColorTokens.surface)
+                .cornerRadius(RadiusTokens.md)
+            } else {
+                Text("Active le toggle pour définir une heure")
+                    .caption()
+                    .foregroundColor(ColorTokens.textMuted)
             }
         }
     }
