@@ -222,6 +222,9 @@
 "crew.routines_done" = "routines done";
 "crew.suggested" = "Suggested Users";
 "crew.suggested_hint" = "Active users you might want to connect with";
+"crew.search_friends" = "Search Friends";
+"crew.searching" = "Searching...";
+"crew.try_different_search" = "Try a different search term";
 
 // Crew Groups
 "crew.groups" = "Groups";
@@ -567,6 +570,21 @@
 "calendar.quick_create" = "Add Task";
 "calendar.quick_create_placeholder" = "What do you want to do?";
 "calendar.new_task" = "New Task";
+"calendar.new_routine" = "New Routine";
+"calendar.add_new" = "Add New";
+"calendar.add_new_description" = "What do you want to add?";
+"calendar.add_routine" = "Add Routine";
+"calendar.add_quest" = "Add Quest";
+"calendar.routine_time_hint" = "Routines with a scheduled time will appear in your calendar";
+"calendar.select_quest" = "Select a quest...";
+"calendar.task_detail" = "Task Detail";
+"calendar.priority.urgent" = "Urgent";
+"calendar.priority.high" = "High";
+"calendar.priority.medium" = "Medium";
+"calendar.priority.low" = "Low";
+"task.description" = "Description";
+"task.linked_quest" = "Linked Quest";
+"task.mark_incomplete" = "Mark as Incomplete";
 "common.completed" = "Completed";
 "common.creating" = "Creating...";
 
@@ -594,6 +612,8 @@
 "dashboard.upcoming_tasks" = "Upcoming tasks";
 "dashboard.upcoming_task" = "Upcoming task";
 "dashboard.see_all_tasks" = "See all %d tasks";
+"dashboard.active_quests" = "Active Quests";
+"dashboard.see_all_quests" = "See all";
 
 // MARK: - Settings
 "settings.title" = "Settings";

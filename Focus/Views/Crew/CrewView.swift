@@ -449,83 +449,146 @@ struct CrewView: View {
 
     // MARK: - Search Overlay
     private var searchOverlay: some View {
-        ZStack {
-            Color.black.opacity(0.5)
-                .ignoresSafeArea()
-                .onTapGesture {
-                    withAnimation {
-                        viewModel.showingSearch = false
-                        viewModel.clearSearch()
-                    }
-                }
-
-            VStack(spacing: SpacingTokens.md) {
-                // Search bar
-                HStack {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(ColorTokens.textMuted)
-
-                    TextField("crew.search_placeholder".localized, text: $viewModel.searchQuery)
-                        .foregroundColor(ColorTokens.textPrimary)
-                        .onChange(of: viewModel.searchQuery) { _, _ in
-                            viewModel.searchUsers()
-                        }
-
-                    if !viewModel.searchQuery.isEmpty {
-                        Button {
+        GeometryReader { geometry in
+            ZStack {
+                // Dimmed background
+                Color.black.opacity(0.6)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            viewModel.showingSearch = false
                             viewModel.clearSearch()
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(ColorTokens.textMuted)
                         }
                     }
-                }
-                .padding(SpacingTokens.md)
-                .background(ColorTokens.surface)
-                .cornerRadius(RadiusTokens.md)
 
-                // Search results or suggestions
-                if viewModel.isSearching || viewModel.isLoadingSuggestions {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: ColorTokens.primaryStart))
-                        .padding()
-                } else if !viewModel.searchResults.isEmpty {
-                    // Show search results
-                    ScrollView {
-                        VStack(spacing: SpacingTokens.sm) {
-                            ForEach(viewModel.searchResults) { result in
-                                SearchResultRow(
-                                    result: result,
-                                    onSendRequest: {
-                                        Task {
-                                            _ = await viewModel.sendRequest(to: result.id)
-                                        }
-                                    }
-                                )
+                // Search container - 90% height, full width
+                VStack(spacing: 0) {
+                    // Header with close button
+                    HStack {
+                        Text("crew.search_friends".localized)
+                            .font(.satoshi(20, weight: .bold))
+                            .foregroundColor(ColorTokens.textPrimary)
+
+                        Spacer()
+
+                        Button {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                viewModel.showingSearch = false
+                                viewModel.clearSearch()
                             }
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(ColorTokens.textSecondary)
+                                .frame(width: 32, height: 32)
+                                .background(ColorTokens.surface)
+                                .clipShape(Circle())
                         }
                     }
-                    .frame(maxHeight: 400)
-                } else if !viewModel.searchQuery.isEmpty {
-                    Text("crew.no_users_found".localized)
-                        .bodyText()
-                        .foregroundColor(ColorTokens.textMuted)
-                        .padding()
-                } else if !viewModel.suggestedUsers.isEmpty {
-                    // Show suggestions when search is empty
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: SpacingTokens.md) {
-                            VStack(alignment: .leading, spacing: SpacingTokens.xs) {
-                                Text("crew.suggested".localized)
-                                    .bodyText()
-                                    .fontWeight(.semibold)
-                                    .foregroundColor(ColorTokens.textPrimary)
-                                Text("crew.suggested_hint".localized)
-                                    .caption()
+                    .padding(.horizontal, SpacingTokens.lg)
+                    .padding(.top, SpacingTokens.lg)
+                    .padding(.bottom, SpacingTokens.md)
+
+                    // Search bar
+                    HStack(spacing: SpacingTokens.sm) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 18))
+                            .foregroundColor(ColorTokens.textMuted)
+
+                        TextField("crew.search_placeholder".localized, text: $viewModel.searchQuery)
+                            .font(.satoshi(16))
+                            .foregroundColor(ColorTokens.textPrimary)
+                            .autocapitalization(.none)
+                            .disableAutocorrection(true)
+                            .onChange(of: viewModel.searchQuery) { _, _ in
+                                viewModel.searchUsers()
+                            }
+
+                        if !viewModel.searchQuery.isEmpty {
+                            Button {
+                                viewModel.clearSearch()
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 18))
                                     .foregroundColor(ColorTokens.textMuted)
                             }
+                        }
+                    }
+                    .padding(.horizontal, SpacingTokens.md)
+                    .padding(.vertical, SpacingTokens.md)
+                    .background(ColorTokens.surface)
+                    .cornerRadius(RadiusTokens.lg)
+                    .padding(.horizontal, SpacingTokens.lg)
 
-                            VStack(spacing: SpacingTokens.sm) {
+                    // Divider
+                    Rectangle()
+                        .fill(ColorTokens.border.opacity(0.5))
+                        .frame(height: 1)
+                        .padding(.top, SpacingTokens.lg)
+
+                    // Content area
+                    ScrollView {
+                        LazyVStack(spacing: SpacingTokens.sm) {
+                            if viewModel.isSearching || viewModel.isLoadingSuggestions {
+                                // Loading state
+                                VStack(spacing: SpacingTokens.md) {
+                                    Spacer().frame(height: 60)
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: ColorTokens.primaryStart))
+                                        .scaleEffect(1.2)
+                                    Text("crew.searching".localized)
+                                        .font(.satoshi(14))
+                                        .foregroundColor(ColorTokens.textMuted)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.top, SpacingTokens.xl)
+
+                            } else if !viewModel.searchResults.isEmpty {
+                                // Search results
+                                ForEach(viewModel.searchResults) { result in
+                                    SearchResultRow(
+                                        result: result,
+                                        onSendRequest: {
+                                            Task {
+                                                _ = await viewModel.sendRequest(to: result.id)
+                                            }
+                                        }
+                                    )
+                                    .padding(.horizontal, SpacingTokens.lg)
+                                }
+
+                            } else if !viewModel.searchQuery.isEmpty {
+                                // No results found
+                                VStack(spacing: SpacingTokens.md) {
+                                    Spacer().frame(height: 60)
+                                    Image(systemName: "person.slash")
+                                        .font(.system(size: 48))
+                                        .foregroundColor(ColorTokens.textMuted.opacity(0.5))
+                                    Text("crew.no_users_found".localized)
+                                        .font(.satoshi(16, weight: .medium))
+                                        .foregroundColor(ColorTokens.textSecondary)
+                                    Text("crew.try_different_search".localized)
+                                        .font(.satoshi(14))
+                                        .foregroundColor(ColorTokens.textMuted)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.top, SpacingTokens.xl)
+
+                            } else if !viewModel.suggestedUsers.isEmpty {
+                                // Suggestions header
+                                VStack(alignment: .leading, spacing: SpacingTokens.xs) {
+                                    Text("crew.suggested".localized)
+                                        .font(.satoshi(14, weight: .semibold))
+                                        .foregroundColor(ColorTokens.textSecondary)
+                                    Text("crew.suggested_hint".localized)
+                                        .font(.satoshi(12))
+                                        .foregroundColor(ColorTokens.textMuted)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, SpacingTokens.lg)
+                                .padding(.top, SpacingTokens.md)
+
+                                // Suggested users
                                 ForEach(viewModel.suggestedUsers) { user in
                                     SearchResultRow(
                                         result: user,
@@ -535,34 +598,39 @@ struct CrewView: View {
                                             }
                                         }
                                     )
+                                    .padding(.horizontal, SpacingTokens.lg)
                                 }
+
+                            } else {
+                                // Empty state - no suggestions
+                                VStack(spacing: SpacingTokens.md) {
+                                    Spacer().frame(height: 60)
+                                    Image(systemName: "magnifyingglass")
+                                        .font(.system(size: 48))
+                                        .foregroundColor(ColorTokens.textMuted.opacity(0.5))
+                                    Text("crew.search_hint".localized)
+                                        .font(.satoshi(16, weight: .medium))
+                                        .foregroundColor(ColorTokens.textSecondary)
+                                        .multilineTextAlignment(.center)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.top, SpacingTokens.xl)
                             }
                         }
+                        .padding(.top, SpacingTokens.md)
+                        .padding(.bottom, SpacingTokens.xl)
                     }
-                    .frame(maxHeight: 400)
                 }
-
-                // Close button
-                Button {
-                    withAnimation {
-                        viewModel.showingSearch = false
-                        viewModel.clearSearch()
-                    }
-                } label: {
-                    Text("common.close".localized)
-                        .bodyText()
-                        .foregroundColor(ColorTokens.textPrimary)
-                        .padding(.vertical, SpacingTokens.sm)
-                        .padding(.horizontal, SpacingTokens.lg)
-                        .background(ColorTokens.surface)
-                        .cornerRadius(RadiusTokens.md)
-                }
+                .frame(width: geometry.size.width)
+                .frame(height: geometry.size.height * 0.9)
+                .background(ColorTokens.background)
+                .cornerRadius(RadiusTokens.xl)
+                .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: -5)
+                .offset(y: geometry.size.height * 0.05)
             }
-            .padding(SpacingTokens.lg)
-            .background(ColorTokens.background)
-            .cornerRadius(RadiusTokens.lg)
-            .padding(SpacingTokens.lg)
         }
+        .ignoresSafeArea()
+        .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 
     // MARK: - Account Section
