@@ -290,15 +290,16 @@ class RoutineService {
         )
     }
 
-    func updateRoutine(id: String, title: String?, frequency: String?, icon: String?, scheduledTime: String? = nil) async throws -> RoutineResponse {
+    func updateRoutine(id: String, title: String?, frequency: String?, icon: String?, scheduledTime: String? = nil, durationMinutes: Int? = nil) async throws -> RoutineResponse {
         struct UpdateRoutineRequest: Encodable {
             let title: String?
             let frequency: String?
             let icon: String?
             let scheduledTime: String?
+            let durationMinutes: Int?
         }
 
-        let request = UpdateRoutineRequest(title: title, frequency: frequency, icon: icon, scheduledTime: scheduledTime)
+        let request = UpdateRoutineRequest(title: title, frequency: frequency, icon: icon, scheduledTime: scheduledTime, durationMinutes: durationMinutes)
 
         return try await apiClient.request(
             endpoint: .updateRoutine(id),
@@ -307,23 +308,47 @@ class RoutineService {
         )
     }
 
-    func completeRoutine(id: String) async throws {
-        print("✅ Completing routine: \(id)")
+    func completeRoutine(id: String, date: String? = nil) async throws {
+        print("✅ Completing routine: \(id) for date: \(date ?? "today")")
         print("   Endpoint: POST /routines/\(id)/complete")
-        try await apiClient.request(
-            endpoint: .completeRoutine(id),
-            method: .post
-        )
+
+        if let date = date {
+            struct CompleteRequest: Encodable {
+                let date: String
+            }
+            try await apiClient.request(
+                endpoint: .completeRoutine(id),
+                method: .post,
+                body: CompleteRequest(date: date)
+            )
+        } else {
+            try await apiClient.request(
+                endpoint: .completeRoutine(id),
+                method: .post
+            )
+        }
         print("✅ Routine completed successfully")
     }
 
-    func uncompleteRoutine(id: String) async throws {
-        print("↩️ Uncompleting routine: \(id)")
+    func uncompleteRoutine(id: String, date: String? = nil) async throws {
+        print("↩️ Uncompleting routine: \(id) for date: \(date ?? "most recent")")
         print("   Endpoint: DELETE /routines/\(id)/complete")
-        try await apiClient.request(
-            endpoint: .uncompleteRoutine(id),
-            method: .delete
-        )
+
+        if let date = date {
+            struct UncompleteRequest: Encodable {
+                let date: String
+            }
+            try await apiClient.request(
+                endpoint: .uncompleteRoutine(id),
+                method: .delete,
+                body: UncompleteRequest(date: date)
+            )
+        } else {
+            try await apiClient.request(
+                endpoint: .uncompleteRoutine(id),
+                method: .delete
+            )
+        }
         print("↩️ Routine uncompleted successfully")
     }
 
@@ -879,11 +904,25 @@ struct RoutineStatsResponse: Codable {
 }
 
 // MARK: - Streak Response
+struct FlameLevel: Codable, Identifiable {
+    let level: Int
+    let name: String
+    let icon: String
+    let daysRequired: Int
+    let isUnlocked: Bool
+    let isCurrent: Bool
+
+    var id: Int { level }
+}
+
 struct StreakResponse: Codable {
     let currentStreak: Int
     let longestStreak: Int
     let lastValidDate: String?
     let streakStart: String?
+    let todayValidation: DayValidationResponse?
+    let flameLevels: [FlameLevel]
+    let currentFlameLevel: Int
 }
 
 struct DayValidationResponse: Codable {
@@ -892,7 +931,21 @@ struct DayValidationResponse: Codable {
     let totalRoutines: Int
     let completedRoutines: Int
     let routineRate: Int
+    let totalTasks: Int
+    let completedTasks: Int
+    let taskRate: Int
+    let focusSessions: Int
+    let totalItems: Int
+    let completedItems: Int
+    let overallRate: Int
     let isValid: Bool
+    // Requirements
+    let requiredCompletionRate: Int
+    let requiredFocusSessions: Int
+    let requiredMinTasks: Int
+    let meetsCompletionRate: Bool
+    let meetsFocusSessions: Bool
+    let meetsMinTasks: Bool
 }
 
 // MARK: - Streak Service

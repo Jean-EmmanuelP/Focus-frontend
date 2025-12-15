@@ -293,49 +293,141 @@ struct CrewRoutine: Codable, Identifiable {
     var isLikedByMe: Bool?
 }
 
+// MARK: - Crew Group Models
+
+/// A custom group created by the user to organize their crew members
+struct CrewGroup: Codable, Identifiable {
+    let id: String
+    let name: String
+    let description: String?
+    let icon: String
+    let color: String
+    let memberCount: Int
+    let members: [CrewGroupMember]?
+    let createdAt: Date
+    let updatedAt: Date
+}
+
+/// A member within a crew group
+struct CrewGroupMember: Codable, Identifiable {
+    let id: String
+    let memberId: String
+    let pseudo: String?
+    let firstName: String?
+    let lastName: String?
+    let avatarUrl: String?
+    let addedAt: Date?
+
+    var displayName: String {
+        if let pseudo = pseudo, !pseudo.isEmpty {
+            return pseudo
+        }
+        if let first = firstName, !first.isEmpty {
+            if let last = lastName, !last.isEmpty {
+                return "\(first) \(last)"
+            }
+            return first
+        }
+        return "User"
+    }
+}
+
+/// DTO for creating a new crew group
+struct CreateCrewGroupDTO: Encodable {
+    let name: String
+    let description: String?
+    let icon: String?
+    let color: String?
+    let memberIds: [String]
+}
+
+/// DTO for updating an existing crew group
+struct UpdateCrewGroupDTO: Encodable {
+    let name: String?
+    let description: String?
+    let icon: String?
+    let color: String?
+}
+
+/// DTO for adding members to a crew group
+struct AddCrewGroupMembersDTO: Encodable {
+    let memberIds: [String]
+}
+
+// MARK: - Group Invitation Models
+
+/// Brief info about a group (for invitations)
+struct GroupInfoBrief: Codable {
+    let id: String
+    let name: String
+    let icon: String?
+    let color: String?
+}
+
+/// A group invitation
+struct GroupInvitation: Codable, Identifiable {
+    let id: String
+    let groupId: String
+    let fromUserId: String
+    let toUserId: String
+    let status: String
+    let message: String?
+    let createdAt: Date
+    let updatedAt: Date?
+    let fromUser: CrewUserInfo?
+    let toUser: CrewUserInfo?
+    let group: GroupInfoBrief?
+}
+
+/// DTO for inviting a user to a group
+struct InviteToGroupDTO: Encodable {
+    let toUserId: String
+    let message: String?
+}
+
 // MARK: - Crew Service
 
 @MainActor
 class CrewService {
     private let apiClient = APIClient.shared
 
-    // MARK: - Crew Members
+    // MARK: - Friends
 
-    /// Fetch all crew members (accepted connections)
+    /// Fetch all friends (accepted connections)
     func fetchCrewMembers() async throws -> [CrewMemberResponse] {
         return try await apiClient.request(
-            endpoint: .crewMembers,
+            endpoint: .friends,
             method: .get
         )
     }
 
-    /// Remove a crew member
+    /// Remove a friend
     func removeCrewMember(memberId: String) async throws {
         try await apiClient.request(
-            endpoint: .removeCrewMember(memberId),
+            endpoint: .removeFriend(memberId),
             method: .delete
         )
     }
 
-    // MARK: - Crew Requests
+    // MARK: - Friend Requests
 
-    /// Fetch received crew requests (pending)
+    /// Fetch received friend requests (pending)
     func fetchReceivedRequests() async throws -> [CrewRequestResponse] {
         return try await apiClient.request(
-            endpoint: .crewRequestsReceived,
+            endpoint: .friendRequestsReceived,
             method: .get
         )
     }
 
-    /// Fetch sent crew requests
+    /// Fetch sent friend requests
     func fetchSentRequests() async throws -> [CrewRequestResponse] {
         return try await apiClient.request(
-            endpoint: .crewRequestsSent,
+            endpoint: .friendRequestsSent,
             method: .get
         )
     }
 
-    /// Send a crew request to another user
+    /// Send a friend request to another user
     func sendCrewRequest(toUserId: String, message: String? = nil) async throws -> CrewRequestResponse {
         struct SendRequestBody: Encodable {
             let toUserId: String
@@ -345,24 +437,24 @@ class CrewService {
         let body = SendRequestBody(toUserId: toUserId, message: message)
 
         return try await apiClient.request(
-            endpoint: .sendCrewRequest,
+            endpoint: .sendFriendRequest,
             method: .post,
             body: body
         )
     }
 
-    /// Accept a received crew request
+    /// Accept a received friend request
     func acceptCrewRequest(requestId: String) async throws {
         try await apiClient.request(
-            endpoint: .acceptCrewRequest(requestId),
+            endpoint: .acceptFriendRequest(requestId),
             method: .post
         )
     }
 
-    /// Reject a received crew request
+    /// Reject a received friend request
     func rejectCrewRequest(requestId: String) async throws {
         try await apiClient.request(
-            endpoint: .rejectCrewRequest(requestId),
+            endpoint: .rejectFriendRequest(requestId),
             method: .post
         )
     }
@@ -384,14 +476,14 @@ class CrewService {
     /// Fetch leaderboard of most active users
     func fetchLeaderboard(limit: Int? = 50) async throws -> [LeaderboardEntry] {
         return try await apiClient.request(
-            endpoint: .leaderboard(limit: limit),
+            endpoint: .friendsLeaderboard(limit: limit),
             method: .get
         )
     }
 
-    // MARK: - Crew Member Day
+    // MARK: - Friend Day
 
-    /// Fetch a crew member's day data (if they allow visibility)
+    /// Fetch a friend's day data (if they allow visibility)
     func fetchCrewMemberDay(userId: String, date: Date) async throws -> CrewMemberDayResponse? {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
@@ -400,7 +492,7 @@ class CrewService {
 
         do {
             return try await apiClient.request(
-                endpoint: .crewMemberDay(userId: userId, date: dateString),
+                endpoint: .friendDay(userId: userId, date: dateString),
                 method: .get
             )
         } catch APIError.notFound {
@@ -460,6 +552,141 @@ class CrewService {
         return try await apiClient.request(
             endpoint: .suggestedUsers(limit: limit),
             method: .get
+        )
+    }
+
+    // MARK: - Friend Groups
+
+    /// Fetch all friend groups for the current user
+    func fetchCrewGroups() async throws -> [CrewGroup] {
+        return try await apiClient.request(
+            endpoint: .friendGroups,
+            method: .get
+        )
+    }
+
+    /// Create a new friend group
+    func createCrewGroup(name: String, description: String? = nil, icon: String? = nil, color: String? = nil, memberIds: [String]) async throws -> CrewGroup {
+        let body = CreateCrewGroupDTO(
+            name: name,
+            description: description,
+            icon: icon,
+            color: color,
+            memberIds: memberIds
+        )
+        return try await apiClient.request(
+            endpoint: .createFriendGroup,
+            method: .post,
+            body: body
+        )
+    }
+
+    /// Fetch a specific friend group by ID (includes full member list)
+    func fetchCrewGroup(groupId: String) async throws -> CrewGroup {
+        return try await apiClient.request(
+            endpoint: .friendGroup(groupId),
+            method: .get
+        )
+    }
+
+    /// Update an existing friend group
+    func updateCrewGroup(groupId: String, name: String? = nil, description: String? = nil, icon: String? = nil, color: String? = nil) async throws -> CrewGroup {
+        let body = UpdateCrewGroupDTO(
+            name: name,
+            description: description,
+            icon: icon,
+            color: color
+        )
+        return try await apiClient.request(
+            endpoint: .updateFriendGroup(groupId),
+            method: .patch,
+            body: body
+        )
+    }
+
+    /// Delete a friend group
+    func deleteCrewGroup(groupId: String) async throws {
+        try await apiClient.request(
+            endpoint: .deleteFriendGroup(groupId),
+            method: .delete
+        )
+    }
+
+    /// Add members to a friend group
+    func addMembersToGroup(groupId: String, memberIds: [String]) async throws -> CrewGroup {
+        let body = AddCrewGroupMembersDTO(memberIds: memberIds)
+        return try await apiClient.request(
+            endpoint: .addFriendGroupMembers(groupId),
+            method: .post,
+            body: body
+        )
+    }
+
+    /// Remove a member from a friend group
+    func removeMemberFromGroup(groupId: String, memberId: String) async throws {
+        try await apiClient.request(
+            endpoint: .removeFriendGroupMember(groupId: groupId, memberId: memberId),
+            method: .delete
+        )
+    }
+
+    /// Leave a group (removes yourself as a member)
+    func leaveGroup(groupId: String) async throws {
+        try await apiClient.request(
+            endpoint: .leaveGroup(groupId),
+            method: .post
+        )
+    }
+
+    // MARK: - Group Invitations
+
+    /// Invite a user to join a group
+    func inviteToGroup(groupId: String, userId: String, message: String? = nil) async throws -> GroupInvitation {
+        let body = InviteToGroupDTO(toUserId: userId, message: message)
+        return try await apiClient.request(
+            endpoint: .inviteToGroup(groupId),
+            method: .post,
+            body: body
+        )
+    }
+
+    /// Fetch received group invitations (pending)
+    func fetchReceivedGroupInvitations() async throws -> [GroupInvitation] {
+        return try await apiClient.request(
+            endpoint: .groupInvitationsReceived,
+            method: .get
+        )
+    }
+
+    /// Fetch sent group invitations
+    func fetchSentGroupInvitations() async throws -> [GroupInvitation] {
+        return try await apiClient.request(
+            endpoint: .groupInvitationsSent,
+            method: .get
+        )
+    }
+
+    /// Accept a group invitation
+    func acceptGroupInvitation(invitationId: String) async throws {
+        try await apiClient.request(
+            endpoint: .acceptGroupInvitation(invitationId),
+            method: .post
+        )
+    }
+
+    /// Reject a group invitation
+    func rejectGroupInvitation(invitationId: String) async throws {
+        try await apiClient.request(
+            endpoint: .rejectGroupInvitation(invitationId),
+            method: .post
+        )
+    }
+
+    /// Cancel a sent group invitation
+    func cancelGroupInvitation(invitationId: String) async throws {
+        try await apiClient.request(
+            endpoint: .cancelGroupInvitation(invitationId),
+            method: .delete
         )
     }
 }

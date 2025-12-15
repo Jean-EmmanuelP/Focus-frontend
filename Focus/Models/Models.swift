@@ -166,9 +166,10 @@ struct DailyRitual: Codable, Identifiable {
     var category: RitualCategory
     var frequency: RitualFrequency
     var scheduledTime: String? // Time in "HH:mm" format (e.g., "07:30")
+    var durationMinutes: Int? // Duration in minutes (default 30)
 
     // Simplified initializer for API conversion
-    init(id: String, title: String, icon: String, isCompleted: Bool, category: RitualCategory, frequency: RitualFrequency = .daily, scheduledTime: String? = nil) {
+    init(id: String, title: String, icon: String, isCompleted: Bool, category: RitualCategory, frequency: RitualFrequency = .daily, scheduledTime: String? = nil, durationMinutes: Int? = nil) {
         self.id = id
         self.title = title
         self.icon = icon
@@ -176,6 +177,7 @@ struct DailyRitual: Codable, Identifiable {
         self.category = category
         self.frequency = frequency
         self.scheduledTime = scheduledTime
+        self.durationMinutes = durationMinutes
     }
 
     /// Check if this ritual should be shown today based on frequency
@@ -193,6 +195,11 @@ struct DailyRitual: Codable, Identifiable {
         formatter.dateStyle = .none
         formatter.timeStyle = .short
         return formatter.string(from: date)
+    }
+
+    /// Duration for calendar display (defaults to 30 minutes if not set)
+    var displayDuration: Int {
+        durationMinutes ?? 30
     }
 }
 

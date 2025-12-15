@@ -18,6 +18,7 @@ class DashboardViewModel: ObservableObject {
     @Published var weekSessions: [FocusSession] = []
     @Published var quests: [Quest] = []
     @Published var todaysTasks: [CalendarTask] = []
+    @Published var upcomingWeekTasks: [CalendarTask] = []
 
     init() {
         setupBindings()
@@ -64,6 +65,10 @@ class DashboardViewModel: ObservableObject {
         store.$todaysTasks
             .receive(on: DispatchQueue.main)
             .assign(to: &$todaysTasks)
+
+        store.$upcomingWeekTasks
+            .receive(on: DispatchQueue.main)
+            .assign(to: &$upcomingWeekTasks)
     }
 
     // MARK: - Week Properties
@@ -154,6 +159,18 @@ class DashboardViewModel: ObservableObject {
     // MARK: - Computed Properties
     var currentStreak: Int {
         store.currentStreak
+    }
+
+    var flameLevels: [FlameLevel] {
+        store.streakData?.flameLevels ?? []
+    }
+
+    var currentFlameLevel: Int {
+        store.streakData?.currentFlameLevel ?? 1
+    }
+
+    var todayValidation: DayValidationResponse? {
+        store.streakData?.todayValidation
     }
 
     var streakStartDate: String {
@@ -253,6 +270,62 @@ class DashboardViewModel: ObservableObject {
         } else {
             return .allCompleted
         }
+    }
+
+    // MARK: - Upcoming Tasks
+    /// Get all uncompleted tasks from today onwards, sorted by date then time
+    /// - For today: only show tasks that haven't ended yet
+    /// - For future days: show all uncompleted tasks
+    var upcomingTasks: [CalendarTask] {
+        let now = Date()
+        let calendar = Calendar.current
+        let currentHour = calendar.component(.hour, from: now)
+        let currentMinute = calendar.component(.minute, from: now)
+        let currentTimeString = String(format: "%02d:%02d", currentHour, currentMinute)
+
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let todayStr = dateFormatter.string(from: now)
+
+        return upcomingWeekTasks
+            .filter { task in
+                // Filter out completed tasks
+                guard !task.isCompleted else { return false }
+
+                // For today's tasks: filter by time (only show tasks that haven't ended yet)
+                if task.date == todayStr {
+                    // If task has no scheduled end, include it
+                    guard let scheduledEnd = task.scheduledEnd else { return true }
+                    // Include tasks that haven't ended yet
+                    return scheduledEnd > currentTimeString
+                }
+
+                // For future tasks: include all uncompleted tasks
+                return true
+            }
+            .sorted { task1, task2 in
+                // First sort by date
+                if task1.date != task2.date {
+                    return task1.date < task2.date
+                }
+                // Then by start time
+                guard let start1 = task1.scheduledStart,
+                      let start2 = task2.scheduledStart else {
+                    return task1.scheduledStart != nil
+                }
+                return start1 < start2
+            }
+    }
+
+    // MARK: - Next Task
+    /// Get the next uncompleted task based on scheduled time
+    var nextTask: CalendarTask? {
+        upcomingTasks.first
+    }
+
+    /// Check if user has done morning check-in
+    var hasStartedDay: Bool {
+        store.hasDoneMorningCheckIn
     }
 
     // MARK: - Actions

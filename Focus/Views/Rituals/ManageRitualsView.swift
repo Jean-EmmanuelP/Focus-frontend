@@ -61,12 +61,12 @@ class RitualsViewModel: ObservableObject {
         }
     }
 
-    func updateRitual(id: String, title: String, frequency: String, icon: String, scheduledTime: String? = nil) async -> Bool {
+    func updateRitual(id: String, title: String, frequency: String, icon: String, scheduledTime: String? = nil, durationMinutes: Int? = nil) async -> Bool {
         isLoading = true
         errorMessage = nil
 
         do {
-            try await store.updateRitual(id: id, title: title, frequency: frequency, icon: icon, scheduledTime: scheduledTime)
+            try await store.updateRitual(id: id, title: title, frequency: frequency, icon: icon, scheduledTime: scheduledTime, durationMinutes: durationMinutes)
             rituals = store.rituals
             isLoading = false
             return true
@@ -127,7 +127,7 @@ struct ManageRitualsView: View {
                     viewModel.showingAddSheet = true
                 }) {
                     Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 22))
+                        .font(.satoshi(22))
                         .foregroundColor(ColorTokens.primaryStart)
                 }
             }
@@ -217,16 +217,9 @@ struct ManageRitualsView: View {
     private var ritualsListSection: some View {
         VStack(spacing: SpacingTokens.sm) {
             ForEach(viewModel.rituals) { ritual in
-                SwipeableRitualManageCard(
+                SimpleRitualRow(
                     ritual: ritual,
-                    completedCount: viewModel.rituals.filter { $0.isCompleted }.count,
-                    totalCount: viewModel.rituals.count,
-                    onComplete: {
-                        Task {
-                            await viewModel.toggleRitual(ritual)
-                        }
-                    },
-                    onUndo: {
+                    onToggle: {
                         Task {
                             await viewModel.toggleRitual(ritual)
                         }
@@ -241,319 +234,38 @@ struct ManageRitualsView: View {
                     }
                 )
             }
-
-            // Swipe hint
-            if viewModel.rituals.filter({ $0.isCompleted }).count == 0 {
-                HStack(spacing: SpacingTokens.xs) {
-                    Image(systemName: "hand.draw")
-                        .font(.system(size: 12))
-                    Text("routines.swipe_hint".localized)
-                        .font(.system(size: 12))
-                }
-                .foregroundColor(ColorTokens.textMuted)
-                .padding(.top, SpacingTokens.xs)
-            }
         }
     }
 }
 
-// MARK: - Swipeable Ritual Manage Card (with edit/delete on swipe left)
-struct SwipeableRitualManageCard: View {
-    let ritual: DailyRitual
-    let completedCount: Int
-    let totalCount: Int
-    let onComplete: () -> Void
-    let onUndo: () -> Void
-    let onEdit: () -> Void
-    let onDelete: () -> Void
-
-    @State private var offset: CGFloat = 0
-    @State private var isAnimating = false
-    @State private var showSuccess = false
-    @State private var cardScale: CGFloat = 1.0
-    @State private var checkmarkScale: CGFloat = 0
-    @State private var showingDeleteConfirm = false
-
-    private let swipeThreshold: CGFloat = 80
-    private let maxSwipe: CGFloat = 120
-    private let actionSwipeThreshold: CGFloat = 60
-
-    private let lightHaptic = UIImpactFeedbackGenerator(style: .light)
-    private let successHaptic = UINotificationFeedbackGenerator()
-
-    private var swipeProgress: CGFloat {
-        min(abs(offset) / swipeThreshold, 1.0)
-    }
-
-    private var isSwipingRight: Bool { offset > 0 }
-    private var isSwipingLeft: Bool { offset < 0 }
-
-    var body: some View {
-        ZStack {
-            // Background revealed on swipe
-            HStack(spacing: 0) {
-                // Left side - Complete (green)
-                if isSwipingRight && !ritual.isCompleted {
-                    ZStack {
-                        LinearGradient(
-                            colors: [ColorTokens.success, ColorTokens.success.opacity(0.8)],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(.white)
-                            .scaleEffect(swipeProgress > 0.5 ? 1.0 : 0.5)
-                            .opacity(swipeProgress)
-                    }
-                    .frame(width: max(0, offset + 20))
-                    .clipShape(RoundedRectangle(cornerRadius: RadiusTokens.md))
-                }
-
-                Spacer()
-
-                // Right side - Edit/Delete actions
-                if isSwipingLeft {
-                    HStack(spacing: 0) {
-                        // Edit button
-                        Button(action: {
-                            withAnimation(.spring(response: 0.3)) {
-                                offset = 0
-                            }
-                            onEdit()
-                        }) {
-                            ZStack {
-                                Color.blue
-                                Image(systemName: "pencil")
-                                    .font(.system(size: 16, weight: .bold))
-                                    .foregroundColor(.white)
-                            }
-                            .frame(width: 60)
-                        }
-
-                        // Delete button
-                        Button(action: {
-                            showingDeleteConfirm = true
-                        }) {
-                            ZStack {
-                                ColorTokens.error
-                                Image(systemName: "trash")
-                                    .font(.system(size: 16, weight: .bold))
-                                    .foregroundColor(.white)
-                            }
-                            .frame(width: 60)
-                        }
-                    }
-                    .frame(width: min(abs(offset) + 20, 140))
-                    .clipShape(RoundedRectangle(cornerRadius: RadiusTokens.md))
-                }
-            }
-
-            // Main card
-            HStack(spacing: SpacingTokens.md) {
-                // Icon
-                ZStack {
-                    if showSuccess || ritual.isCompleted {
-                        Circle()
-                            .fill(ColorTokens.success.opacity(ritual.isCompleted && !showSuccess ? 0.15 : 1.0))
-                            .frame(width: 32, height: 32)
-
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 14, weight: ritual.isCompleted && !showSuccess ? .semibold : .bold))
-                            .foregroundColor(ritual.isCompleted && !showSuccess ? ColorTokens.success : .white)
-                            .scaleEffect(showSuccess ? checkmarkScale : 1.0)
-                    } else {
-                        if ritual.icon.count <= 2 {
-                            Text(ritual.icon)
-                                .font(.system(size: 22))
-                        } else {
-                            Image(systemName: ritual.icon)
-                                .font(.system(size: 18))
-                                .foregroundColor(ColorTokens.textSecondary)
-                        }
-                    }
-                }
-                .frame(width: 32, height: 32)
-
-                // Title and frequency
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(ritual.title)
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(ritual.isCompleted ? ColorTokens.textMuted : ColorTokens.textPrimary)
-                        .lineLimit(1)
-
-                    Text(ritual.frequency.displayName)
-                        .font(.system(size: 11))
-                        .foregroundColor(ColorTokens.textMuted)
-                }
-
-                Spacer()
-
-                // Swipe hints
-                if !isAnimating && offset == 0 {
-                    if ritual.isCompleted {
-                        HStack(spacing: 2) {
-                            Image(systemName: "chevron.left")
-                                .font(.system(size: 10, weight: .medium))
-                                .opacity(0.5)
-                            Image(systemName: "chevron.left")
-                                .font(.system(size: 10, weight: .medium))
-                                .opacity(0.3)
-                        }
-                        .foregroundColor(ColorTokens.textMuted)
-                    } else {
-                        HStack(spacing: 2) {
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 10, weight: .medium))
-                                .opacity(0.3)
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 10, weight: .medium))
-                                .opacity(0.5)
-                        }
-                        .foregroundColor(ColorTokens.textMuted)
-                    }
-                }
-            }
-            .padding(.horizontal, SpacingTokens.md)
-            .padding(.vertical, SpacingTokens.md)
-            .background(
-                RoundedRectangle(cornerRadius: RadiusTokens.md)
-                    .fill(ritual.isCompleted || showSuccess ? ColorTokens.success.opacity(0.08) : ColorTokens.surface)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: RadiusTokens.md)
-                    .stroke(
-                        ritual.isCompleted || showSuccess ? ColorTokens.success.opacity(0.2) : ColorTokens.border.opacity(0.5),
-                        lineWidth: 1
-                    )
-            )
-            .scaleEffect(cardScale)
-            .offset(x: offset)
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 20)
-                    .onChanged { value in
-                        guard !isAnimating else { return }
-                        let horizontal = value.translation.width
-                        let vertical = value.translation.height
-
-                        // Only handle horizontal swipes
-                        guard abs(horizontal) > abs(vertical) * 1.5 else { return }
-
-                        // Swipe right to complete (only if not completed)
-                        if horizontal > 0 && !ritual.isCompleted {
-                            offset = horizontal < maxSwipe
-                                ? horizontal
-                                : maxSwipe + (horizontal - maxSwipe) * 0.3
-                        }
-                        // Swipe left for actions (edit/delete)
-                        else if horizontal < 0 {
-                            offset = horizontal > -140
-                                ? horizontal
-                                : -140 + (horizontal + 140) * 0.3
-                        }
-                    }
-                    .onEnded { value in
-                        guard !isAnimating else { return }
-                        let horizontal = value.translation.width
-                        let vertical = value.translation.height
-
-                        guard abs(horizontal) > abs(vertical) * 1.5 else {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
-                                offset = 0
-                            }
-                            return
-                        }
-
-                        // Complete action
-                        if horizontal > swipeThreshold && !ritual.isCompleted {
-                            completeRitual()
-                        }
-                        // Show actions (keep offset at -120 to reveal buttons)
-                        else if horizontal < -actionSwipeThreshold {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
-                                offset = -120
-                            }
-                        }
-                        // Snap back
-                        else {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
-                                offset = 0
-                            }
-                        }
-                    }
-            )
-        }
-        .alert("routines.delete_confirm".localized, isPresented: $showingDeleteConfirm) {
-            Button("common.cancel".localized, role: .cancel) {
-                withAnimation(.spring(response: 0.35)) {
-                    offset = 0
-                }
-            }
-            Button("common.delete".localized, role: .destructive) {
-                onDelete()
-            }
-        } message: {
-            Text("routines.delete_message".localized(with: ritual.title))
-        }
-        .onAppear {
-            lightHaptic.prepare()
-            successHaptic.prepare()
-        }
-    }
-
-    private func completeRitual() {
-        isAnimating = true
-        successHaptic.notificationOccurred(.success)
-
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-            offset = 60
-            cardScale = 0.98
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                offset = 0
-                cardScale = 1.0
-                showSuccess = true
-                checkmarkScale = 1.2
-            }
-
-            withAnimation(.spring(response: 0.2, dampingFraction: 0.5).delay(0.1)) {
-                checkmarkScale = 1.0
-            }
-
-            onComplete()
-
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                isAnimating = false
-                showSuccess = false
-            }
-        }
-    }
-}
-
-// MARK: - Ritual Manage Card (legacy - keeping for compatibility)
-struct RitualManageCard: View {
+// MARK: - Simple Ritual Row
+struct SimpleRitualRow: View {
     let ritual: DailyRitual
     let onToggle: () -> Void
     let onEdit: () -> Void
     let onDelete: () -> Void
 
+    @State private var showingActions = false
     @State private var showingDeleteConfirm = false
+
+    private let hapticGenerator = UIImpactFeedbackGenerator(style: .light)
 
     var body: some View {
         HStack(spacing: SpacingTokens.md) {
-            // Checkbox
-            Button(action: onToggle) {
+            // Circle checkbox
+            Button(action: {
+                hapticGenerator.impactOccurred()
+                onToggle()
+            }) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 6)
+                    Circle()
                         .stroke(ritual.isCompleted ? ColorTokens.success : ColorTokens.border, lineWidth: 2)
-                        .frame(width: 24, height: 24)
+                        .frame(width: 28, height: 28)
 
                     if ritual.isCompleted {
-                        RoundedRectangle(cornerRadius: 6)
+                        Circle()
                             .fill(ColorTokens.success)
-                            .frame(width: 24, height: 24)
+                            .frame(width: 28, height: 28)
 
                         Image(systemName: "checkmark")
                             .font(.system(size: 12, weight: .bold))
@@ -561,51 +273,65 @@ struct RitualManageCard: View {
                     }
                 }
             }
+            .buttonStyle(PlainButtonStyle())
 
-            // Icon
-            if ritual.icon.count <= 2 {
-                Text(ritual.icon)
-                    .font(.system(size: 24))
-            } else {
-                Image(systemName: ritual.icon)
-                    .font(.system(size: 20))
-                    .foregroundColor(ColorTokens.primaryStart)
-            }
+            // Tap to edit - Icon + Title
+            Button(action: {
+                showingActions = true
+            }) {
+                HStack(spacing: SpacingTokens.sm) {
+                    // Icon
+                    if ritual.icon.count <= 2 {
+                        Text(ritual.icon)
+                            .font(.satoshi(20))
+                    } else {
+                        Image(systemName: ritual.icon)
+                            .font(.satoshi(16))
+                            .foregroundColor(ColorTokens.textSecondary)
+                    }
 
-            // Title
-            Text(ritual.title)
-                .bodyText()
-                .foregroundColor(ritual.isCompleted ? ColorTokens.textMuted : ColorTokens.textPrimary)
-                .strikethrough(ritual.isCompleted)
+                    // Title
+                    Text(ritual.title)
+                        .font(.satoshi(15, weight: .medium))
+                        .foregroundColor(ritual.isCompleted ? ColorTokens.textMuted : ColorTokens.textPrimary)
+                        .strikethrough(ritual.isCompleted, color: ColorTokens.textMuted)
+                        .lineLimit(1)
 
-            Spacer()
+                    Spacer()
 
-            // Actions menu
-            Menu {
-                Button(action: onEdit) {
-                    Label("Edit", systemImage: "pencil")
+                    // Scheduled time if any
+                    if let time = ritual.scheduledTime {
+                        Text(time)
+                            .font(.satoshi(12))
+                            .foregroundColor(ColorTokens.textMuted)
+                    }
                 }
-
-                Button(role: .destructive, action: {
-                    showingDeleteConfirm = true
-                }) {
-                    Label("Delete", systemImage: "trash")
-                }
-            } label: {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 16))
-                    .foregroundColor(ColorTokens.textMuted)
-                    .frame(width: 32, height: 32)
             }
+            .buttonStyle(PlainButtonStyle())
         }
-        .padding(SpacingTokens.md)
+        .padding(.horizontal, SpacingTokens.md)
+        .padding(.vertical, SpacingTokens.sm + 2)
         .background(ColorTokens.surface)
         .cornerRadius(RadiusTokens.md)
+        .confirmationDialog("", isPresented: $showingActions, titleVisibility: .hidden) {
+            Button("common.edit".localized) {
+                onEdit()
+            }
+            Button("common.delete".localized, role: .destructive) {
+                showingDeleteConfirm = true
+            }
+            Button("common.cancel".localized, role: .cancel) {}
+        }
         .alert("routines.delete_confirm".localized, isPresented: $showingDeleteConfirm) {
             Button("common.cancel".localized, role: .cancel) {}
-            Button("common.delete".localized, role: .destructive, action: onDelete)
+            Button("common.delete".localized, role: .destructive) {
+                onDelete()
+            }
         } message: {
             Text("routines.delete_message".localized(with: ritual.title))
+        }
+        .onAppear {
+            hapticGenerator.prepare()
         }
     }
 }
@@ -742,7 +468,7 @@ struct AddRitualSheet: View {
             HStack {
                 Spacer()
                 Text(selectedIcon)
-                    .font(.system(size: 64))
+                    .font(.satoshi(64))
                 Spacer()
             }
             .padding(.vertical, SpacingTokens.md)
@@ -755,7 +481,7 @@ struct AddRitualSheet: View {
                         triggerHaptic()
                     }) {
                         Text(icon)
-                            .font(.system(size: 28))
+                            .font(.satoshi(28))
                             .frame(width: 48, height: 48)
                             .background(selectedIcon == icon ? ColorTokens.primarySoft : ColorTokens.surface)
                             .cornerRadius(RadiusTokens.md)
@@ -813,7 +539,7 @@ struct AddRitualSheet: View {
                         }) {
                             HStack(spacing: SpacingTokens.xs) {
                                 Text(area.icon)
-                                    .font(.system(size: 16))
+                                    .font(.satoshi(16))
                                 Text(area.name)
                                     .caption()
                             }
@@ -905,10 +631,12 @@ struct EditRitualSheet: View {
     @State private var selectedFrequency: String
     @State private var scheduledTime: Date
     @State private var hasScheduledTime: Bool
+    @State private var durationMinutes: Int
     @State private var isLoading = false
     @State private var errorMessage: String?
 
     let frequencies = ["daily", "weekdays", "weekends", "weekly"]
+    let durationOptions = [15, 30, 45, 60, 90, 120]
     var frequencyLabels: [String] {
         [
             "routines.frequency.daily".localized,
@@ -945,6 +673,9 @@ struct EditRitualSheet: View {
             _scheduledTime = State(initialValue: Date())
             _hasScheduledTime = State(initialValue: false)
         }
+
+        // Parse existing duration
+        _durationMinutes = State(initialValue: ritual.durationMinutes ?? 30)
     }
 
     var body: some View {
@@ -966,6 +697,11 @@ struct EditRitualSheet: View {
 
                         // Time picker
                         timeSection
+
+                        // Duration picker (only if time is set)
+                        if hasScheduledTime {
+                            durationSection
+                        }
 
                         // Error message
                         if let error = errorMessage {
@@ -996,7 +732,8 @@ struct EditRitualSheet: View {
                                     title: title,
                                     frequency: selectedFrequency,
                                     icon: selectedIcon,
-                                    scheduledTime: timeString
+                                    scheduledTime: timeString,
+                                    durationMinutes: hasScheduledTime ? durationMinutes : nil
                                 )
                                 isLoading = false
                                 if success {
@@ -1042,7 +779,7 @@ struct EditRitualSheet: View {
             HStack {
                 Spacer()
                 Text(selectedIcon)
-                    .font(.system(size: 64))
+                    .font(.satoshi(64))
                 Spacer()
             }
             .padding(.vertical, SpacingTokens.md)
@@ -1055,7 +792,7 @@ struct EditRitualSheet: View {
                         triggerHaptic()
                     }) {
                         Text(icon)
-                            .font(.system(size: 28))
+                            .font(.satoshi(28))
                             .frame(width: 48, height: 48)
                             .background(selectedIcon == icon ? ColorTokens.primarySoft : ColorTokens.surface)
                             .cornerRadius(RadiusTokens.md)
@@ -1139,6 +876,47 @@ struct EditRitualSheet: View {
                     .foregroundColor(ColorTokens.textMuted)
             }
         }
+    }
+
+    private var durationSection: some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.md) {
+            Text("Durée")
+                .subtitle()
+                .foregroundColor(ColorTokens.textPrimary)
+
+            FlowLayout(spacing: SpacingTokens.sm) {
+                ForEach(durationOptions, id: \.self) { duration in
+                    Button(action: {
+                        durationMinutes = duration
+                        triggerHaptic()
+                    }) {
+                        Text(formatDuration(duration))
+                            .font(.system(size: 14, weight: durationMinutes == duration ? .semibold : .regular))
+                            .padding(.horizontal, SpacingTokens.md)
+                            .padding(.vertical, SpacingTokens.sm)
+                            .background(durationMinutes == duration ? ColorTokens.primarySoft : ColorTokens.surface)
+                            .foregroundColor(durationMinutes == duration ? ColorTokens.primaryStart : ColorTokens.textSecondary)
+                            .cornerRadius(RadiusTokens.sm)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: RadiusTokens.sm)
+                                    .stroke(durationMinutes == duration ? ColorTokens.primaryStart : ColorTokens.border, lineWidth: 1)
+                            )
+                    }
+                }
+            }
+        }
+    }
+
+    private func formatDuration(_ minutes: Int) -> String {
+        if minutes >= 60 {
+            let hours = minutes / 60
+            let mins = minutes % 60
+            if mins == 0 {
+                return "\(hours)h"
+            }
+            return "\(hours)h\(mins)"
+        }
+        return "\(minutes)min"
     }
 }
 

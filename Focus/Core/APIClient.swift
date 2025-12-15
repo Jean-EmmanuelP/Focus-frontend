@@ -264,23 +264,48 @@ enum APIConfiguration {
         case streakDay(date: String)
         case streakRecalculate(date: String)
 
-        // Crew
-        case crewMembers
-        case crewRequests
-        case crewRequestsReceived
-        case crewRequestsSent
-        case sendCrewRequest
-        case acceptCrewRequest(String)
-        case rejectCrewRequest(String)
-        case removeCrewMember(String)
+        // Friends
+        case friends
+        case removeFriend(String)
+        case friendDay(userId: String, date: String)
+        case friendsLeaderboard(limit: Int?)
+
+        // Friend Requests
+        case friendRequestsReceived
+        case friendRequestsSent
+        case sendFriendRequest
+        case acceptFriendRequest(String)
+        case rejectFriendRequest(String)
+
+        // Users Search & Suggestions
         case searchUsers(query: String, limit: Int?)
-        case leaderboard(limit: Int?)
-        case crewMemberDay(userId: String, date: String)
+        case suggestedUsers(limit: Int?)
+
+        // Profile
         case updateDayVisibility
         case myStats
+
+        // Social Actions
         case likeRoutineCompletion(completionId: String)
         case unlikeRoutineCompletion(completionId: String)
-        case suggestedUsers(limit: Int?)
+
+        // Friend Groups
+        case friendGroups
+        case createFriendGroup
+        case friendGroup(String)
+        case updateFriendGroup(String)
+        case deleteFriendGroup(String)
+        case addFriendGroupMembers(String)
+        case removeFriendGroupMember(groupId: String, memberId: String)
+        case inviteToGroup(String)
+        case leaveGroup(String)
+
+        // Group Invitations
+        case groupInvitationsReceived
+        case groupInvitationsSent
+        case acceptGroupInvitation(String)
+        case rejectGroupInvitation(String)
+        case cancelGroupInvitation(String)
 
         // Onboarding
         case onboardingStatus
@@ -311,6 +336,7 @@ enum APIConfiguration {
         // Voice
         case voiceProcess
         case voiceAssistant  // New endpoint with Gradium TTS
+        case voiceAnalyze    // New: analyze only, return proposals (no DB write)
         case voiceIntentions
 
         var path: String {
@@ -425,49 +451,81 @@ enum APIConfiguration {
             case .streakRecalculate(let date):
                 return "/streak/recalculate?date=\(date)"
 
-            // Crew
-            case .crewMembers:
-                return "/crew/members"
-            case .crewRequests:
-                return "/crew/requests"
-            case .crewRequestsReceived:
-                return "/crew/requests/received"
-            case .crewRequestsSent:
-                return "/crew/requests/sent"
-            case .sendCrewRequest:
-                return "/crew/requests"
-            case .acceptCrewRequest(let id):
-                return "/crew/requests/\(id)/accept"
-            case .rejectCrewRequest(let id):
-                return "/crew/requests/\(id)/reject"
-            case .removeCrewMember(let id):
-                return "/crew/members/\(id)"
+            // Friends
+            case .friends:
+                return "/friends"
+            case .removeFriend(let id):
+                return "/friends/\(id)"
+            case .friendDay(let userId, let date):
+                return "/friends/\(userId)/day?date=\(date)"
+            case .friendsLeaderboard(let limit):
+                if let limit = limit {
+                    return "/friends/leaderboard?limit=\(limit)"
+                }
+                return "/friends/leaderboard"
+
+            // Friend Requests
+            case .friendRequestsReceived:
+                return "/friend-requests/received"
+            case .friendRequestsSent:
+                return "/friend-requests/sent"
+            case .sendFriendRequest:
+                return "/friend-requests"
+            case .acceptFriendRequest(let id):
+                return "/friend-requests/\(id)/accept"
+            case .rejectFriendRequest(let id):
+                return "/friend-requests/\(id)/reject"
+
+            // Users Search & Suggestions
             case .searchUsers(let query, let limit):
                 var queryString = "q=\(query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query)"
                 if let limit = limit {
                     queryString += "&limit=\(limit)"
                 }
-                return "/crew/search?\(queryString)"
-            case .leaderboard(let limit):
+                return "/users/search?\(queryString)"
+            case .suggestedUsers(let limit):
                 if let limit = limit {
-                    return "/crew/leaderboard?limit=\(limit)"
+                    return "/users/suggestions?limit=\(limit)"
                 }
-                return "/crew/leaderboard"
-            case .crewMemberDay(let userId, let date):
-                return "/crew/members/\(userId)/day?date=\(date)"
+                return "/users/suggestions"
+
+            // Profile
             case .updateDayVisibility:
                 return "/me/visibility"
             case .myStats:
                 return "/me/stats"
+
+            // Social Actions
             case .likeRoutineCompletion(let completionId):
                 return "/completions/\(completionId)/like"
             case .unlikeRoutineCompletion(let completionId):
                 return "/completions/\(completionId)/like"
-            case .suggestedUsers(let limit):
-                if let limit = limit {
-                    return "/crew/suggestions?limit=\(limit)"
-                }
-                return "/crew/suggestions"
+
+            // Friend Groups
+            case .friendGroups, .createFriendGroup:
+                return "/friend-groups"
+            case .friendGroup(let id), .updateFriendGroup(let id), .deleteFriendGroup(let id):
+                return "/friend-groups/\(id)"
+            case .addFriendGroupMembers(let id):
+                return "/friend-groups/\(id)/members"
+            case .removeFriendGroupMember(let groupId, let memberId):
+                return "/friend-groups/\(groupId)/members/\(memberId)"
+            case .inviteToGroup(let id):
+                return "/friend-groups/\(id)/invite"
+            case .leaveGroup(let id):
+                return "/friend-groups/\(id)/leave"
+
+            // Group Invitations
+            case .groupInvitationsReceived:
+                return "/group-invitations/received"
+            case .groupInvitationsSent:
+                return "/group-invitations/sent"
+            case .acceptGroupInvitation(let id):
+                return "/group-invitations/\(id)/accept"
+            case .rejectGroupInvitation(let id):
+                return "/group-invitations/\(id)/reject"
+            case .cancelGroupInvitation(let id):
+                return "/group-invitations/\(id)"
 
             // Onboarding
             case .onboardingStatus:
@@ -519,6 +577,8 @@ enum APIConfiguration {
                 return "/voice/process"
             case .voiceAssistant:
                 return "/assistant/voice"
+            case .voiceAnalyze:
+                return "/assistant/analyze"
             case .voiceIntentions:
                 return "/voice/intentions"
             }

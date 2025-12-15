@@ -5,7 +5,6 @@ struct CrewView: View {
     @StateObject private var viewModel = CrewViewModel()
     @ObservedObject private var localization = LocalizationManager.shared
     @State private var showingShareSheet = false
-    @State private var showingMyStats = false
     @State private var selectedVisibility: DayVisibility = .crewOnly
     @State private var isUpdatingVisibility = false
 
@@ -28,6 +27,8 @@ struct CrewView: View {
                         leaderboardSection
                     case .myCrew:
                         myCrewSection
+                    case .groups:
+                        groupsSection
                     case .requests:
                         requestsSection
                     }
@@ -59,8 +60,13 @@ struct CrewView: View {
                 MemberDayDetailView(viewModel: viewModel)
             }
         }
-        .sheet(isPresented: $showingMyStats) {
-            MyStatsView()
+        .sheet(isPresented: $viewModel.showingCreateGroup) {
+            CreateGroupView(viewModel: viewModel)
+        }
+        .sheet(isPresented: $viewModel.showingGroupDetail) {
+            if viewModel.selectedGroup != nil {
+                GroupDetailView(viewModel: viewModel)
+            }
         }
         .alert("common.error".localized, isPresented: $viewModel.showError) {
             Button("common.ok".localized, role: .cancel) {
@@ -88,11 +94,11 @@ struct CrewView: View {
         VStack(alignment: .leading, spacing: SpacingTokens.xs) {
             HStack {
                 Text("👥")
-                    .font(.system(size: 28))
+                    .font(.satoshi(28))
 
                 Text("crew.title".localized)
                     .label()
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.satoshi(20, weight: .bold))
                     .foregroundColor(ColorTokens.textPrimary)
 
                 Spacer()
@@ -104,7 +110,7 @@ struct CrewView: View {
                     }
                 } label: {
                     Image(systemName: "magnifyingglass")
-                        .font(.system(size: 20, weight: .medium))
+                        .font(.satoshi(20, weight: .medium))
                         .foregroundColor(ColorTokens.textPrimary)
                         .frame(width: 44, height: 44)
                         .background(ColorTokens.surface)
@@ -157,10 +163,10 @@ struct CrewView: View {
                 Text(tab.displayName)
                     .font(.system(size: 13, weight: viewModel.activeTab == tab ? .semibold : .medium))
 
-                // Badge for requests
+                // Badge for requests (friend requests + group invitations)
                 if tab == .requests && viewModel.hasNewRequests {
-                    Text("\(viewModel.pendingRequestsCount)")
-                        .font(.system(size: 10, weight: .bold))
+                    Text("\(viewModel.totalPendingCount)")
+                        .font(.satoshi(10, weight: .bold))
                         .foregroundColor(.white)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 2)
@@ -180,7 +186,7 @@ struct CrewView: View {
         VStack(alignment: .leading, spacing: SpacingTokens.md) {
             HStack {
                 Text("🏆")
-                    .font(.system(size: 20))
+                    .font(.satoshi(20))
                 Text("crew.top_builders".localized)
                     .subtitle()
                     .fontWeight(.semibold)
@@ -236,7 +242,7 @@ struct CrewView: View {
         VStack(alignment: .leading, spacing: SpacingTokens.md) {
             HStack {
                 Text("🤝")
-                    .font(.system(size: 20))
+                    .font(.satoshi(20))
                 Text("crew.your_crew".localized)
                     .subtitle()
                     .fontWeight(.semibold)
@@ -279,11 +285,11 @@ struct CrewView: View {
     // MARK: - Requests Section
     private var requestsSection: some View {
         VStack(alignment: .leading, spacing: SpacingTokens.lg) {
-            // Received requests
+            // Received friend requests
             VStack(alignment: .leading, spacing: SpacingTokens.md) {
                 HStack {
                     Text("📥")
-                        .font(.system(size: 20))
+                        .font(.satoshi(20))
                     Text("crew.received_requests".localized)
                         .subtitle()
                         .fontWeight(.semibold)
@@ -321,11 +327,63 @@ struct CrewView: View {
                 }
             }
 
-            // Sent requests
+            // Received group invitations
+            VStack(alignment: .leading, spacing: SpacingTokens.md) {
+                HStack {
+                    Text("👥")
+                        .font(.satoshi(20))
+                    Text("crew.group_invitations".localized)
+                        .subtitle()
+                        .fontWeight(.semibold)
+                        .foregroundColor(ColorTokens.textPrimary)
+                    Spacer()
+
+                    if viewModel.pendingGroupInvitationsCount > 0 {
+                        Text("\(viewModel.pendingGroupInvitationsCount)")
+                            .font(.satoshi(12, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(ColorTokens.primaryStart)
+                            .clipShape(Capsule())
+                    }
+                }
+
+                if viewModel.isLoadingGroupInvitations {
+                    loadingView
+                } else if viewModel.receivedGroupInvitations.isEmpty {
+                    emptyStateCard(
+                        icon: "person.3",
+                        title: "crew.no_group_invitations".localized,
+                        subtitle: "crew.group_invitations_hint".localized
+                    )
+                } else {
+                    VStack(spacing: SpacingTokens.sm) {
+                        ForEach(viewModel.receivedGroupInvitations) { invitation in
+                            GroupInvitationRow(
+                                invitation: invitation,
+                                isReceived: true,
+                                onAccept: {
+                                    Task {
+                                        _ = await viewModel.acceptGroupInvitation(invitation)
+                                    }
+                                },
+                                onReject: {
+                                    Task {
+                                        _ = await viewModel.rejectGroupInvitation(invitation)
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Sent friend requests
             VStack(alignment: .leading, spacing: SpacingTokens.md) {
                 HStack {
                     Text("📤")
-                        .font(.system(size: 20))
+                        .font(.satoshi(20))
                     Text("crew.sent_requests".localized)
                         .subtitle()
                         .fontWeight(.semibold)
@@ -352,9 +410,40 @@ struct CrewView: View {
                     }
                 }
             }
+
+            // Sent group invitations
+            if !viewModel.sentGroupInvitations.isEmpty {
+                VStack(alignment: .leading, spacing: SpacingTokens.md) {
+                    HStack {
+                        Text("📨")
+                            .font(.satoshi(20))
+                        Text("crew.sent_group_invitations".localized)
+                            .subtitle()
+                            .fontWeight(.semibold)
+                            .foregroundColor(ColorTokens.textPrimary)
+                        Spacer()
+                    }
+
+                    VStack(spacing: SpacingTokens.sm) {
+                        ForEach(viewModel.sentGroupInvitations) { invitation in
+                            GroupInvitationRow(
+                                invitation: invitation,
+                                isReceived: false,
+                                onAccept: {},
+                                onReject: {
+                                    Task {
+                                        _ = await viewModel.cancelGroupInvitation(invitation)
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+            }
         }
         .task {
             await viewModel.loadSentRequests()
+            await viewModel.loadSentGroupInvitations()
         }
     }
 
@@ -479,31 +568,6 @@ struct CrewView: View {
     // MARK: - Account Section
     private var accountSection: some View {
         VStack(spacing: SpacingTokens.md) {
-            // My Statistics Button
-            Button {
-                showingMyStats = true
-            } label: {
-                Card {
-                    HStack {
-                        Image(systemName: "chart.bar.fill")
-                            .font(.system(size: 18))
-                            .foregroundColor(ColorTokens.primaryStart)
-
-                        Text("profile.my_statistics".localized)
-                            .bodyText()
-                            .fontWeight(.medium)
-                            .foregroundColor(ColorTokens.textPrimary)
-
-                        Spacer()
-
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 14))
-                            .foregroundColor(ColorTokens.textMuted)
-                    }
-                }
-            }
-            .buttonStyle(PlainButtonStyle())
-
             // Day Visibility Setting
             Card {
                 VStack(alignment: .leading, spacing: SpacingTokens.md) {
@@ -533,7 +597,7 @@ struct CrewView: View {
                             } label: {
                                 HStack {
                                     Image(systemName: visibility.icon)
-                                        .font(.system(size: 16))
+                                        .font(.satoshi(16))
                                         .foregroundColor(selectedVisibility == visibility ? ColorTokens.primaryStart : ColorTokens.textMuted)
                                         .frame(width: 24)
 
@@ -543,7 +607,7 @@ struct CrewView: View {
                                             .foregroundColor(selectedVisibility == visibility ? ColorTokens.textPrimary : ColorTokens.textSecondary)
 
                                         Text(visibility.description)
-                                            .font(.system(size: 11))
+                                            .font(.satoshi(11))
                                             .foregroundColor(ColorTokens.textMuted)
                                     }
 
@@ -570,7 +634,7 @@ struct CrewView: View {
 
             // Version info
             Text("profile.version".localized)
-                .font(.system(size: 10))
+                .font(.satoshi(10))
                 .foregroundColor(ColorTokens.textMuted.opacity(0.6))
                 .padding(.top, SpacingTokens.xs)
         }
@@ -636,7 +700,7 @@ struct CrewView: View {
         Card {
             VStack(spacing: SpacingTokens.md) {
                 Image(systemName: icon)
-                    .font(.system(size: 40))
+                    .font(.satoshi(40))
                     .foregroundColor(ColorTokens.textMuted)
 
                 Text(title)
@@ -667,7 +731,7 @@ struct LeaderboardEntryRow: View {
                 HStack(spacing: SpacingTokens.md) {
                     // Rank
                     Text("#\(entry.safeRank)")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.satoshi(16, weight: .bold))
                         .foregroundColor(rankColor)
                         .frame(width: 40)
 
@@ -689,18 +753,18 @@ struct LeaderboardEntryRow: View {
 
                             if entry.safeIsCrewMember {
                                 Image(systemName: "checkmark.seal.fill")
-                                    .font(.system(size: 12))
+                                    .font(.satoshi(12))
                                     .foregroundColor(ColorTokens.success)
                             }
                         }
 
                         HStack(spacing: SpacingTokens.sm) {
                             Label("\(entry.safeCurrentStreak)", systemImage: "flame.fill")
-                                .font(.system(size: 11))
+                                .font(.satoshi(11))
                                 .foregroundColor(ColorTokens.textMuted)
 
                             Label(entry.formattedFocusTime, systemImage: "clock")
-                                .font(.system(size: 11))
+                                .font(.satoshi(11))
                                 .foregroundColor(ColorTokens.textMuted)
                         }
                     }
@@ -711,7 +775,7 @@ struct LeaderboardEntryRow: View {
                     if entry.safeIsCrewMember {
                         // Already in crew - show checkmark
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 16))
+                            .font(.satoshi(16))
                             .foregroundColor(ColorTokens.success)
                     } else if entry.safeHasPendingRequest {
                         // Pending request
@@ -728,7 +792,7 @@ struct LeaderboardEntryRow: View {
                             onSendRequest()
                         } label: {
                             Image(systemName: "person.badge.plus")
-                                .font(.system(size: 16))
+                                .font(.satoshi(16))
                                 .foregroundColor(ColorTokens.primaryStart)
                                 .frame(width: 36, height: 36)
                                 .background(ColorTokens.primarySoft)
@@ -778,14 +842,14 @@ struct CrewMemberRow: View {
                         if let sessions = member.totalSessions7d, let minutes = member.totalMinutes7d {
                             HStack(spacing: SpacingTokens.sm) {
                                 Label("\(sessions) \("crew.sessions".localized)", systemImage: "flame.fill")
-                                    .font(.system(size: 11))
+                                    .font(.satoshi(11))
                                     .foregroundColor(ColorTokens.textMuted)
 
                                 let hours = minutes / 60
                                 let mins = minutes % 60
                                 let timeStr = hours > 0 ? "\(hours)h \(mins)m" : "\(mins)m"
                                 Label(timeStr, systemImage: "clock")
-                                    .font(.system(size: 11))
+                                    .font(.satoshi(11))
                                     .foregroundColor(ColorTokens.textMuted)
                             }
                         }
@@ -796,7 +860,7 @@ struct CrewMemberRow: View {
                     // Visibility indicator
                     if let visibility = member.dayVisibility {
                         Image(systemName: visibilityIcon(visibility))
-                            .font(.system(size: 14))
+                            .font(.satoshi(14))
                             .foregroundColor(ColorTokens.textMuted)
                     }
 
@@ -805,7 +869,7 @@ struct CrewMemberRow: View {
                         showingRemoveAlert = true
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 14))
+                            .font(.satoshi(14))
                             .foregroundColor(ColorTokens.textMuted)
                             .frame(width: 30, height: 30)
                     }
@@ -878,7 +942,7 @@ struct CrewRequestRow: View {
                             onReject()
                         } label: {
                             Image(systemName: "xmark")
-                                .font(.system(size: 14, weight: .medium))
+                                .font(.satoshi(14, weight: .medium))
                                 .foregroundColor(ColorTokens.error)
                                 .frame(width: 36, height: 36)
                                 .background(ColorTokens.error.opacity(0.1))
@@ -889,7 +953,7 @@ struct CrewRequestRow: View {
                             onAccept()
                         } label: {
                             Image(systemName: "checkmark")
-                                .font(.system(size: 14, weight: .medium))
+                                .font(.satoshi(14, weight: .medium))
                                 .foregroundColor(ColorTokens.success)
                                 .frame(width: 36, height: 36)
                                 .background(ColorTokens.success.opacity(0.1))
@@ -912,6 +976,119 @@ struct CrewRequestRow: View {
 
     private var statusColor: Color {
         switch request.status {
+        case "pending": return ColorTokens.warning
+        case "accepted": return ColorTokens.success
+        case "rejected": return ColorTokens.error
+        default: return ColorTokens.textMuted
+        }
+    }
+}
+
+// MARK: - Group Invitation Row
+struct GroupInvitationRow: View {
+    let invitation: GroupInvitation
+    let isReceived: Bool
+    let onAccept: () -> Void
+    let onReject: () -> Void
+
+    var body: some View {
+        Card {
+            HStack(spacing: SpacingTokens.md) {
+                // Group icon
+                ZStack {
+                    Circle()
+                        .fill(groupColor.opacity(0.2))
+                        .frame(width: 44, height: 44)
+
+                    Text(invitation.group?.icon ?? "👥")
+                        .font(.satoshi(20))
+                }
+
+                // Info
+                VStack(alignment: .leading, spacing: SpacingTokens.xs) {
+                    Text(invitation.group?.name ?? "crew.group".localized)
+                        .bodyText()
+                        .fontWeight(.medium)
+                        .foregroundColor(ColorTokens.textPrimary)
+
+                    if isReceived, let fromUser = invitation.fromUser {
+                        Text("crew.invited_by".localized(with: fromUser.displayName))
+                            .caption()
+                            .foregroundColor(ColorTokens.textSecondary)
+                    } else if let toUser = invitation.toUser {
+                        Text("crew.invited_user".localized(with: toUser.displayName))
+                            .caption()
+                            .foregroundColor(ColorTokens.textSecondary)
+                    }
+
+                    Text(invitation.createdAt.timeAgoDisplay())
+                        .caption()
+                        .foregroundColor(ColorTokens.textMuted)
+                }
+
+                Spacer()
+
+                // Actions
+                if isReceived && invitation.status == "pending" {
+                    HStack(spacing: SpacingTokens.sm) {
+                        Button {
+                            onReject()
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.satoshi(14, weight: .medium))
+                                .foregroundColor(ColorTokens.error)
+                                .frame(width: 36, height: 36)
+                                .background(ColorTokens.error.opacity(0.1))
+                                .cornerRadius(RadiusTokens.sm)
+                        }
+
+                        Button {
+                            onAccept()
+                        } label: {
+                            Image(systemName: "checkmark")
+                                .font(.satoshi(14, weight: .medium))
+                                .foregroundColor(ColorTokens.success)
+                                .frame(width: 36, height: 36)
+                                .background(ColorTokens.success.opacity(0.1))
+                                .cornerRadius(RadiusTokens.sm)
+                        }
+                    }
+                } else if !isReceived && invitation.status == "pending" {
+                    // Sent invitation - can cancel
+                    Button {
+                        onReject()
+                    } label: {
+                        Text("common.cancel".localized)
+                            .caption()
+                            .foregroundColor(ColorTokens.error)
+                            .padding(.horizontal, SpacingTokens.sm)
+                            .padding(.vertical, SpacingTokens.xs)
+                            .background(ColorTokens.error.opacity(0.1))
+                            .cornerRadius(RadiusTokens.sm)
+                    }
+                } else {
+                    // Status badge
+                    Text(invitation.status.capitalized)
+                        .caption()
+                        .foregroundColor(statusColor)
+                        .padding(.horizontal, SpacingTokens.sm)
+                        .padding(.vertical, SpacingTokens.xs)
+                        .background(statusColor.opacity(0.1))
+                        .cornerRadius(RadiusTokens.sm)
+                }
+            }
+        }
+    }
+
+    private var groupColor: Color {
+        if let colorHex = invitation.group?.color {
+            return Color(hex: colorHex) ?? ColorTokens.primaryStart
+        }
+        return ColorTokens.primaryStart
+    }
+
+    private var statusColor: Color {
+        switch invitation.status {
         case "pending": return ColorTokens.warning
         case "accepted": return ColorTokens.success
         case "rejected": return ColorTokens.error
@@ -943,14 +1120,14 @@ struct SearchResultRow: View {
 
                         if result.isCrewMember {
                             Image(systemName: "checkmark.seal.fill")
-                                .font(.system(size: 12))
+                                .font(.satoshi(12))
                                 .foregroundColor(ColorTokens.success)
                         }
                     }
 
                     if let sessions = result.totalSessions7d {
                         Label("\(sessions) \("crew.sessions".localized) \("crew.this_week".localized)", systemImage: "flame.fill")
-                            .font(.system(size: 11))
+                            .font(.satoshi(11))
                             .foregroundColor(ColorTokens.textMuted)
                     }
                 }
@@ -989,6 +1166,29 @@ struct SearchResultRow: View {
 struct MemberDayDetailView: View {
     @ObservedObject var viewModel: CrewViewModel
     @Environment(\.dismiss) var dismiss
+    @State private var selectedTab: MemberDetailTab = .calendar
+
+    enum MemberDetailTab: String, CaseIterable {
+        case calendar = "calendar"
+        case routines = "routines"
+        case stats = "stats"
+
+        var title: String {
+            switch self {
+            case .calendar: return "crew.member.calendar".localized
+            case .routines: return "crew.member.routines".localized
+            case .stats: return "stats.title".localized
+            }
+        }
+
+        var icon: String {
+            switch self {
+            case .calendar: return "calendar"
+            case .routines: return "checkmark.circle"
+            case .stats: return "chart.bar"
+            }
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -1000,49 +1200,41 @@ struct MemberDayDetailView: View {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: ColorTokens.primaryStart))
                 } else if let day = viewModel.selectedMemberDay {
-                    ScrollView {
-                        VStack(spacing: SpacingTokens.lg) {
-                            // Date navigation
-                            dateNavigation
+                    VStack(spacing: 0) {
+                        // User header compact
+                        compactUserHeader(day.user)
+                            .padding(.horizontal, SpacingTokens.lg)
+                            .padding(.top, SpacingTokens.sm)
 
-                            // User header
-                            userHeader(day.user)
+                        // Week calendar strip
+                        weekCalendarStrip
+                            .padding(.top, SpacingTokens.md)
 
-                            // Stats graphs section
-                            if let stats = day.stats {
-                                statsSection(stats)
+                        // Tab selector
+                        memberTabSelector
+                            .padding(.horizontal, SpacingTokens.lg)
+                            .padding(.top, SpacingTokens.md)
+
+                        // Content based on selected tab
+                        ScrollView {
+                            VStack(spacing: SpacingTokens.lg) {
+                                switch selectedTab {
+                                case .calendar:
+                                    calendarTabContent(day)
+                                case .routines:
+                                    routinesTabContent(day)
+                                case .stats:
+                                    statsTabContent(day)
+                                }
                             }
-
-                            // Intentions
-                            if let intentions = day.intentions, !intentions.isEmpty {
-                                intentionsSection(intentions)
-                            }
-
-                            // Focus sessions (limited to 3 with "See more")
-                            if let sessions = day.focusSessions, !sessions.isEmpty {
-                                focusSessionsSection(sessions)
-                            }
-
-                            // All routines (completed and not completed)
-                            if let routines = day.routines, !routines.isEmpty {
-                                allRoutinesSection(routines)
-                            }
-
-                            // Empty state
-                            if (day.intentions ?? []).isEmpty &&
-                               (day.focusSessions ?? []).isEmpty &&
-                               (day.routines ?? []).isEmpty &&
-                               day.stats == nil {
-                                emptyDayState
-                            }
+                            .padding(SpacingTokens.lg)
                         }
-                        .padding(SpacingTokens.lg)
                     }
                 } else {
                     // Private or no permission
                     VStack(spacing: SpacingTokens.lg) {
                         Image(systemName: "lock.fill")
-                            .font(.system(size: 60))
+                            .font(.satoshi(60))
                             .foregroundColor(ColorTokens.textMuted)
 
                         Text("crew.day_not_visible".localized)
@@ -1072,84 +1264,379 @@ struct MemberDayDetailView: View {
         }
     }
 
-    private var dateNavigation: some View {
-        HStack {
-            Button {
-                viewModel.changeSelectedDate(by: -1)
-            } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 16, weight: .medium))
+    // MARK: - Compact User Header
+    private func compactUserHeader(_ user: CrewUserInfo) -> some View {
+        HStack(spacing: SpacingTokens.md) {
+            AvatarView(
+                name: user.displayName,
+                avatarURL: user.avatarUrl,
+                size: 40,
+                allowZoom: true
+            )
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(user.displayName)
+                    .bodyText()
+                    .fontWeight(.semibold)
                     .foregroundColor(ColorTokens.textPrimary)
-                    .frame(width: 36, height: 36)
-                    .background(ColorTokens.surface)
-                    .cornerRadius(RadiusTokens.sm)
+
+                Text("crew.crew_member".localized)
+                    .caption()
+                    .foregroundColor(ColorTokens.textMuted)
             }
 
             Spacer()
-
-            Text(formattedDate)
-                .bodyText()
-                .fontWeight(.medium)
-                .foregroundColor(ColorTokens.textPrimary)
-
-            Spacer()
-
-            Button {
-                viewModel.changeSelectedDate(by: 1)
-            } label: {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(Calendar.current.isDateInToday(viewModel.selectedDate) ? ColorTokens.textMuted : ColorTokens.textPrimary)
-                    .frame(width: 36, height: 36)
-                    .background(ColorTokens.surface)
-                    .cornerRadius(RadiusTokens.sm)
-            }
-            .disabled(Calendar.current.isDateInToday(viewModel.selectedDate))
         }
     }
 
-    private var formattedDate: String {
-        if Calendar.current.isDateInToday(viewModel.selectedDate) {
-            return "time.today".localized
-        } else if Calendar.current.isDateInYesterday(viewModel.selectedDate) {
-            return "time.yesterday".localized
-        } else {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "EEEE, MMM d"
-            return formatter.string(from: viewModel.selectedDate)
-        }
-    }
+    // MARK: - Week Calendar Strip
+    private var weekCalendarStrip: some View {
+        let calendar = Calendar.current
+        let today = Date()
+        let weekDays = getWeekDays(for: viewModel.selectedDate)
 
-    private func userHeader(_ user: CrewUserInfo) -> some View {
-        Card {
-            HStack(spacing: SpacingTokens.md) {
-                AvatarView(
-                    name: user.displayName,
-                    avatarURL: user.avatarUrl,
-                    size: 50
-                )
-
-                VStack(alignment: .leading, spacing: SpacingTokens.xs) {
-                    Text(user.displayName)
-                        .subtitle()
-                        .fontWeight(.semibold)
+        return VStack(spacing: SpacingTokens.sm) {
+            HStack {
+                Button {
+                    viewModel.changeSelectedDate(by: -7)
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.satoshi(14, weight: .medium))
                         .foregroundColor(ColorTokens.textPrimary)
-
-                    Text("crew.crew_member".localized)
-                        .caption()
-                        .foregroundColor(ColorTokens.textMuted)
+                        .frame(width: 32, height: 32)
+                        .background(ColorTokens.surface)
+                        .cornerRadius(RadiusTokens.sm)
                 }
 
                 Spacer()
+
+                Text(monthYearString(from: viewModel.selectedDate))
+                    .bodyText()
+                    .fontWeight(.semibold)
+                    .foregroundColor(ColorTokens.textPrimary)
+
+                Spacer()
+
+                Button {
+                    // Only allow going forward if not already at current week
+                    if !calendar.isDate(viewModel.selectedDate, equalTo: today, toGranularity: .weekOfYear) {
+                        viewModel.changeSelectedDate(by: 7)
+                    }
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .font(.satoshi(14, weight: .medium))
+                        .foregroundColor(calendar.isDate(viewModel.selectedDate, equalTo: today, toGranularity: .weekOfYear) ? ColorTokens.textMuted : ColorTokens.textPrimary)
+                        .frame(width: 32, height: 32)
+                        .background(ColorTokens.surface)
+                        .cornerRadius(RadiusTokens.sm)
+                }
+                .disabled(calendar.isDate(viewModel.selectedDate, equalTo: today, toGranularity: .weekOfYear))
+            }
+            .padding(.horizontal, SpacingTokens.lg)
+
+            // Week days
+            HStack(spacing: SpacingTokens.xs) {
+                ForEach(weekDays, id: \.self) { date in
+                    let isSelected = calendar.isDate(date, inSameDayAs: viewModel.selectedDate)
+                    let isToday = calendar.isDateInToday(date)
+                    let isFuture = date > today
+
+                    Button {
+                        if !isFuture {
+                            viewModel.selectedDate = date
+                            Task {
+                                await viewModel.loadMemberDay()
+                            }
+                        }
+                    } label: {
+                        VStack(spacing: 4) {
+                            Text(dayOfWeekLetter(from: date))
+                                .font(.satoshi(10, weight: .medium))
+                                .foregroundColor(isSelected ? .white : ColorTokens.textMuted)
+
+                            Text("\(calendar.component(.day, from: date))")
+                                .font(.satoshi(14, weight: isSelected ? .bold : .medium))
+                                .foregroundColor(isSelected ? .white : (isFuture ? ColorTokens.textMuted.opacity(0.5) : ColorTokens.textPrimary))
+
+                            // Indicator dot for today
+                            if isToday && !isSelected {
+                                Circle()
+                                    .fill(ColorTokens.primaryStart)
+                                    .frame(width: 4, height: 4)
+                            } else {
+                                Circle()
+                                    .fill(Color.clear)
+                                    .frame(width: 4, height: 4)
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, SpacingTokens.sm)
+                        .background(isSelected ? ColorTokens.primaryStart : Color.clear)
+                        .cornerRadius(RadiusTokens.md)
+                    }
+                    .disabled(isFuture)
+                }
+            }
+            .padding(.horizontal, SpacingTokens.md)
+        }
+        .padding(.vertical, SpacingTokens.sm)
+        .background(ColorTokens.surface)
+    }
+
+    // MARK: - Tab Selector
+    private var memberTabSelector: some View {
+        HStack(spacing: SpacingTokens.xs) {
+            ForEach(MemberDetailTab.allCases, id: \.rawValue) { tab in
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        selectedTab = tab
+                    }
+                } label: {
+                    HStack(spacing: SpacingTokens.xs) {
+                        Image(systemName: tab.icon)
+                            .font(.satoshi(12))
+                        Text(tab.title)
+                            .font(.satoshi(12, weight: .medium))
+                    }
+                    .foregroundColor(selectedTab == tab ? .white : ColorTokens.textMuted)
+                    .padding(.horizontal, SpacingTokens.md)
+                    .padding(.vertical, SpacingTokens.sm)
+                    .background(selectedTab == tab ? ColorTokens.primaryStart : ColorTokens.surface)
+                    .cornerRadius(RadiusTokens.md)
+                }
             }
         }
+    }
+
+    // MARK: - Calendar Tab Content
+    private func calendarTabContent(_ day: CrewMemberDayResponse) -> some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.lg) {
+            // Daily schedule header
+            HStack {
+                Text("📅")
+                    .font(.satoshi(18))
+                Text("crew.member.daily_schedule".localized)
+                    .subtitle()
+                    .fontWeight(.semibold)
+                    .foregroundColor(ColorTokens.textPrimary)
+                Spacer()
+            }
+
+            // Intentions for the day
+            if let intentions = day.intentions, !intentions.isEmpty {
+                intentionsSection(intentions)
+            }
+
+            // Focus sessions timeline
+            if let sessions = day.focusSessions, !sessions.isEmpty {
+                focusSessionsSection(sessions)
+            }
+
+            // Scheduled routines
+            if let routines = day.routines, !routines.isEmpty {
+                scheduledRoutinesSection(routines)
+            }
+
+            // Empty state for calendar
+            if (day.intentions ?? []).isEmpty &&
+               (day.focusSessions ?? []).isEmpty &&
+               (day.routines ?? []).isEmpty {
+                emptyDayState
+            }
+        }
+    }
+
+    // MARK: - Routines Tab Content
+    private func routinesTabContent(_ day: CrewMemberDayResponse) -> some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.lg) {
+            if let routines = day.routines, !routines.isEmpty {
+                allRoutinesSection(routines)
+            } else {
+                Card {
+                    VStack(spacing: SpacingTokens.md) {
+                        Image(systemName: "checkmark.circle")
+                            .font(.satoshi(40))
+                            .foregroundColor(ColorTokens.textMuted)
+
+                        Text("crew.member.no_routines_scheduled".localized)
+                            .bodyText()
+                            .foregroundColor(ColorTokens.textMuted)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(SpacingTokens.lg)
+                }
+            }
+        }
+    }
+
+    // MARK: - Stats Tab Content
+    private func statsTabContent(_ day: CrewMemberDayResponse) -> some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.lg) {
+            if let stats = day.stats {
+                // Weekly stats card
+                Card {
+                    VStack(alignment: .leading, spacing: SpacingTokens.md) {
+                        Text("stats.this_week".localized)
+                            .bodyText()
+                            .fontWeight(.semibold)
+                            .foregroundColor(ColorTokens.textPrimary)
+
+                        HStack(spacing: SpacingTokens.lg) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(formatMinutes(stats.weeklyTotalFocus ?? 0))
+                                    .font(.satoshi(24, weight: .bold))
+                                    .foregroundColor(ColorTokens.primaryStart)
+                                Text("stats.focus_time".localized)
+                                    .caption()
+                                    .foregroundColor(ColorTokens.textMuted)
+                            }
+
+                            Spacer()
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                let routineRate = (stats.weeklyTotalRoutines ?? 0) > 0 ? (stats.weeklyRoutineRate ?? 0) : 0
+                                Text("\(routineRate)%")
+                                    .font(.satoshi(24, weight: .bold))
+                                    .foregroundColor(ColorTokens.success)
+                                Text("stats.routines".localized)
+                                    .caption()
+                                    .foregroundColor(ColorTokens.textMuted)
+                            }
+                        }
+                    }
+                }
+
+                // Weekly focus chart
+                if let focusData = stats.weeklyFocusMinutes, !focusData.isEmpty {
+                    weeklyGraphSection(
+                        title: "stats.focus_sessions".localized,
+                        subtitle: "stats.last_7_days".localized,
+                        data: focusData,
+                        color: ColorTokens.primaryStart
+                    )
+                }
+
+                // Weekly routines chart
+                if let routinesData = stats.weeklyRoutinesDone, !routinesData.isEmpty {
+                    weeklyGraphSection(
+                        title: "stats.daily_routines".localized,
+                        subtitle: "stats.last_7_days".localized,
+                        data: routinesData,
+                        color: ColorTokens.success
+                    )
+                }
+            } else {
+                Card {
+                    VStack(spacing: SpacingTokens.md) {
+                        Image(systemName: "chart.bar")
+                            .font(.satoshi(40))
+                            .foregroundColor(ColorTokens.textMuted)
+
+                        Text("stats.no_sessions".localized)
+                            .bodyText()
+                            .foregroundColor(ColorTokens.textMuted)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(SpacingTokens.lg)
+                }
+            }
+        }
+    }
+
+    // MARK: - Scheduled Routines Section
+    private func scheduledRoutinesSection(_ routines: [CrewRoutine]) -> some View {
+        let completedCount = routines.filter { $0.completed }.count
+        let totalCount = routines.count
+
+        return VStack(alignment: .leading, spacing: SpacingTokens.md) {
+            HStack {
+                Text("✨")
+                    .font(.satoshi(18))
+                Text("crew.member.routines".localized)
+                    .subtitle()
+                    .fontWeight(.semibold)
+                    .foregroundColor(ColorTokens.textPrimary)
+
+                Spacer()
+
+                // Progress pill
+                Text("\(completedCount)/\(totalCount)")
+                    .font(.satoshi(12, weight: .semibold))
+                    .foregroundColor(completedCount == totalCount ? .white : ColorTokens.textPrimary)
+                    .padding(.horizontal, SpacingTokens.sm)
+                    .padding(.vertical, 4)
+                    .background(completedCount == totalCount ? ColorTokens.success : ColorTokens.surface)
+                    .cornerRadius(RadiusTokens.full)
+            }
+
+            VStack(spacing: SpacingTokens.sm) {
+                ForEach(routines) { routine in
+                    Card {
+                        HStack(spacing: SpacingTokens.sm) {
+                            // Completion indicator
+                            Image(systemName: routine.completed ? "checkmark.circle.fill" : "circle")
+                                .font(.satoshi(20))
+                                .foregroundColor(routine.completed ? ColorTokens.success : ColorTokens.textMuted)
+
+                            // Icon
+                            Text(routine.icon ?? "✨")
+                                .font(.satoshi(18))
+
+                            // Title
+                            Text(routine.title)
+                                .bodyText()
+                                .foregroundColor(routine.completed ? ColorTokens.textPrimary : ColorTokens.textMuted)
+
+                            Spacer()
+
+                            // Like button for completed routines
+                            if routine.completed {
+                                RoutineLikeButton(
+                                    isLiked: routine.isLikedByMe ?? false,
+                                    likeCount: routine.likeCount ?? 0
+                                ) {
+                                    Task {
+                                        await viewModel.toggleRoutineLike(
+                                            completionId: routine.id,
+                                            isCurrentlyLiked: routine.isLikedByMe ?? false
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .opacity(routine.completed ? 1.0 : 0.7)
+                }
+            }
+        }
+    }
+
+    // MARK: - Helper Functions
+    private func getWeekDays(for date: Date) -> [Date] {
+        let calendar = Calendar.current
+        guard let weekStart = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: date)) else {
+            return []
+        }
+        return (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: weekStart) }
+    }
+
+    private func dayOfWeekLetter(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "E"
+        return String(formatter.string(from: date).prefix(1)).uppercased()
+    }
+
+    private func monthYearString(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM yyyy"
+        return formatter.string(from: date)
     }
 
     private func intentionsSection(_ intentions: [CrewIntention]) -> some View {
         VStack(alignment: .leading, spacing: SpacingTokens.md) {
             HStack {
                 Text("🎯")
-                    .font(.system(size: 18))
+                    .font(.satoshi(18))
                 Text("crew.intentions".localized)
                     .subtitle()
                     .fontWeight(.semibold)
@@ -1181,7 +1668,7 @@ struct MemberDayDetailView: View {
         return VStack(alignment: .leading, spacing: SpacingTokens.md) {
             HStack {
                 Text("🔥")
-                    .font(.system(size: 18))
+                    .font(.satoshi(18))
                 Text("crew.focus_sessions".localized)
                     .subtitle()
                     .fontWeight(.semibold)
@@ -1229,7 +1716,7 @@ struct MemberDayDetailView: View {
                                 .caption()
                                 .fontWeight(.medium)
                             Image(systemName: showAllSessions ? "chevron.up" : "chevron.down")
-                                .font(.system(size: 10))
+                                .font(.satoshi(10))
                         }
                         .foregroundColor(ColorTokens.primaryStart)
                         .frame(maxWidth: .infinity)
@@ -1257,7 +1744,7 @@ struct MemberDayDetailView: View {
                                 .fontWeight(.semibold)
                                 .foregroundColor(ColorTokens.textPrimary)
                             Text("crew.focus_this_week".localized)
-                                .font(.system(size: 10))
+                                .font(.satoshi(10))
                                 .foregroundColor(ColorTokens.textMuted)
                         }
 
@@ -1269,7 +1756,7 @@ struct MemberDayDetailView: View {
                                 .fontWeight(.semibold)
                                 .foregroundColor(ColorTokens.textPrimary)
                             Text("crew.routines_done".localized)
-                                .font(.system(size: 10))
+                                .font(.satoshi(10))
                                 .foregroundColor(ColorTokens.textMuted)
                         }
                     }
@@ -1281,7 +1768,7 @@ struct MemberDayDetailView: View {
                             .caption()
                             .foregroundColor(ColorTokens.primaryStart)
                         Image(systemName: "chart.bar.fill")
-                            .font(.system(size: 12))
+                            .font(.satoshi(12))
                             .foregroundColor(ColorTokens.primaryStart)
                     }
                 }
@@ -1328,7 +1815,7 @@ struct MemberDayDetailView: View {
         VStack(alignment: .leading, spacing: SpacingTokens.md) {
             HStack {
                 Text("✅")
-                    .font(.system(size: 18))
+                    .font(.satoshi(18))
                 Text("crew.completed_routines".localized)
                     .subtitle()
                     .fontWeight(.semibold)
@@ -1346,7 +1833,7 @@ struct MemberDayDetailView: View {
                     ForEach(routines) { routine in
                         HStack(spacing: SpacingTokens.sm) {
                             Text(routine.icon ?? "✓")
-                                .font(.system(size: 16))
+                                .font(.satoshi(16))
 
                             Text(routine.title)
                                 .bodyText()
@@ -1380,7 +1867,7 @@ struct MemberDayDetailView: View {
         return VStack(alignment: .leading, spacing: SpacingTokens.md) {
             HStack {
                 Text("📋")
-                    .font(.system(size: 18))
+                    .font(.satoshi(18))
                 Text("stats.routines".localized)
                     .subtitle()
                     .fontWeight(.semibold)
@@ -1399,12 +1886,12 @@ struct MemberDayDetailView: View {
                         HStack(spacing: SpacingTokens.sm) {
                             // Completion indicator
                             Image(systemName: routine.completed ? "checkmark.circle.fill" : "circle")
-                                .font(.system(size: 18))
+                                .font(.satoshi(18))
                                 .foregroundColor(routine.completed ? ColorTokens.success : ColorTokens.textMuted)
 
                             // Icon
                             Text(routine.icon ?? "✨")
-                                .font(.system(size: 16))
+                                .font(.satoshi(16))
 
                             // Title
                             Text(routine.title)
@@ -1440,7 +1927,7 @@ struct MemberDayDetailView: View {
         Card {
             VStack(spacing: SpacingTokens.md) {
                 Image(systemName: "moon.zzz")
-                    .font(.system(size: 40))
+                    .font(.satoshi(40))
                     .foregroundColor(ColorTokens.textMuted)
 
                 Text("crew.no_activity".localized)
@@ -1472,13 +1959,13 @@ struct StatSummaryCard: View {
             VStack(alignment: .leading, spacing: SpacingTokens.sm) {
                 HStack {
                     Image(systemName: icon)
-                        .font(.system(size: 14))
+                        .font(.satoshi(14))
                         .foregroundColor(color)
                     Spacer()
                 }
 
                 Text(value)
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.satoshi(22, weight: .bold))
                     .foregroundColor(ColorTokens.textPrimary)
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -1487,7 +1974,7 @@ struct StatSummaryCard: View {
                         .fontWeight(.medium)
                         .foregroundColor(ColorTokens.textPrimary)
                     Text(subtitle)
-                        .font(.system(size: 10))
+                        .font(.satoshi(10))
                         .foregroundColor(ColorTokens.textMuted)
                 }
             }
@@ -1517,7 +2004,7 @@ struct WeeklyBarChart: View {
 
                     // Day label
                     Text(dayLabel(from: stat.date))
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.satoshi(10, weight: .medium))
                         .foregroundColor(ColorTokens.textMuted)
                 }
             }
@@ -1744,6 +2231,942 @@ struct MemberStatsDetailView: View {
     }
 }
 
+// MARK: - Groups Section Extension
+extension CrewView {
+    var groupsSection: some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.md) {
+            HStack {
+                Text("👥")
+                    .font(.satoshi(20))
+                Text("crew.groups.title".localized)
+                    .subtitle()
+                    .fontWeight(.semibold)
+                    .foregroundColor(ColorTokens.textPrimary)
+                Spacer()
+
+                // Create group button
+                Button {
+                    viewModel.selectedMembersForGroup.removeAll()
+                    viewModel.showingCreateGroup = true
+                } label: {
+                    HStack(spacing: SpacingTokens.xs) {
+                        Image(systemName: "plus")
+                            .font(.satoshi(14, weight: .semibold))
+                        Text("crew.groups.create".localized)
+                            .caption()
+                            .fontWeight(.medium)
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, SpacingTokens.md)
+                    .padding(.vertical, SpacingTokens.sm)
+                    .background(ColorTokens.primaryStart)
+                    .cornerRadius(RadiusTokens.md)
+                }
+            }
+
+            if viewModel.isLoadingGroups {
+                loadingView
+            } else if viewModel.crewGroups.isEmpty {
+                emptyStateCard(
+                    icon: "person.3",
+                    title: "crew.groups.empty".localized,
+                    subtitle: "crew.groups.empty_hint".localized
+                )
+            } else {
+                VStack(spacing: SpacingTokens.sm) {
+                    ForEach(viewModel.crewGroups) { group in
+                        CrewGroupRow(
+                            group: group,
+                            onTap: {
+                                viewModel.selectGroup(group)
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Crew Group Row
+struct CrewGroupRow: View {
+    let group: CrewGroup
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            Card {
+                HStack(spacing: SpacingTokens.md) {
+                    // Group icon
+                    Text(group.icon)
+                        .font(.satoshi(24))
+                        .frame(width: 44, height: 44)
+                        .background(Color(hex: group.color).opacity(0.2))
+                        .cornerRadius(RadiusTokens.md)
+
+                    VStack(alignment: .leading, spacing: SpacingTokens.xs) {
+                        Text(group.name)
+                            .bodyText()
+                            .fontWeight(.medium)
+                            .foregroundColor(ColorTokens.textPrimary)
+
+                        Text("\(group.memberCount) \("crew.members".localized)")
+                            .caption()
+                            .foregroundColor(ColorTokens.textMuted)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .font(.satoshi(14))
+                        .foregroundColor(ColorTokens.textMuted)
+                }
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - Create Group View
+struct CreateGroupView: View {
+    @ObservedObject var viewModel: CrewViewModel
+    @Environment(\.dismiss) var dismiss
+
+    @State private var groupName = ""
+    @State private var groupDescription = ""
+    @State private var selectedIcon = "👥"
+    @State private var selectedColor = "#6366F1"
+    @State private var isCreating = false
+
+    private let icons = ["👥", "💪", "🏃", "📚", "💼", "🎯", "⭐️", "🔥", "🎮", "🏋️"]
+    private let colors = ["#6366F1", "#EC4899", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#06B6D4", "#84CC16"]
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                ColorTokens.background
+                    .ignoresSafeArea()
+
+                ScrollView {
+                    VStack(spacing: SpacingTokens.lg) {
+                        // Group Name
+                        VStack(alignment: .leading, spacing: SpacingTokens.sm) {
+                            Text("crew.groups.name".localized)
+                                .bodyText()
+                                .fontWeight(.medium)
+                                .foregroundColor(ColorTokens.textPrimary)
+
+                            TextField("crew.groups.name_placeholder".localized, text: $groupName)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .padding(SpacingTokens.sm)
+                                .background(ColorTokens.surface)
+                                .cornerRadius(RadiusTokens.md)
+                        }
+
+                        // Icon Selection
+                        VStack(alignment: .leading, spacing: SpacingTokens.sm) {
+                            Text("crew.groups.icon".localized)
+                                .bodyText()
+                                .fontWeight(.medium)
+                                .foregroundColor(ColorTokens.textPrimary)
+
+                            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: SpacingTokens.sm) {
+                                ForEach(icons, id: \.self) { icon in
+                                    Button {
+                                        selectedIcon = icon
+                                    } label: {
+                                        Text(icon)
+                                            .font(.satoshi(24))
+                                            .frame(width: 50, height: 50)
+                                            .background(selectedIcon == icon ? ColorTokens.primarySoft : ColorTokens.surface)
+                                            .cornerRadius(RadiusTokens.md)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: RadiusTokens.md)
+                                                    .stroke(selectedIcon == icon ? ColorTokens.primaryStart : Color.clear, lineWidth: 2)
+                                            )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Color Selection
+                        VStack(alignment: .leading, spacing: SpacingTokens.sm) {
+                            Text("crew.groups.color".localized)
+                                .bodyText()
+                                .fontWeight(.medium)
+                                .foregroundColor(ColorTokens.textPrimary)
+
+                            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: SpacingTokens.sm) {
+                                ForEach(colors, id: \.self) { color in
+                                    Button {
+                                        selectedColor = color
+                                    } label: {
+                                        Circle()
+                                            .fill(Color(hex: color))
+                                            .frame(width: 36, height: 36)
+                                            .overlay(
+                                                Circle()
+                                                    .stroke(selectedColor == color ? ColorTokens.textPrimary : Color.clear, lineWidth: 3)
+                                            )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Members Selection
+                        VStack(alignment: .leading, spacing: SpacingTokens.sm) {
+                            HStack {
+                                Text("crew.groups.select_members".localized)
+                                    .bodyText()
+                                    .fontWeight(.medium)
+                                    .foregroundColor(ColorTokens.textPrimary)
+
+                                Spacer()
+
+                                Text("\(viewModel.selectedMembersForGroup.count) \("common.selected".localized)")
+                                    .caption()
+                                    .foregroundColor(ColorTokens.primaryStart)
+                            }
+
+                            if viewModel.crewMembers.isEmpty {
+                                Card {
+                                    VStack(spacing: SpacingTokens.md) {
+                                        Image(systemName: "person.2")
+                                            .font(.satoshi(30))
+                                            .foregroundColor(ColorTokens.textMuted)
+                                        Text("crew.groups.no_friends".localized)
+                                            .caption()
+                                            .foregroundColor(ColorTokens.textMuted)
+                                            .multilineTextAlignment(.center)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(SpacingTokens.lg)
+                                }
+                            } else {
+                                VStack(spacing: SpacingTokens.sm) {
+                                    ForEach(viewModel.crewMembers) { member in
+                                        SelectableMemberRow(
+                                            member: member,
+                                            isSelected: viewModel.selectedMembersForGroup.contains(member.memberId),
+                                            onToggle: {
+                                                viewModel.toggleMemberSelection(member.memberId)
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .padding(SpacingTokens.lg)
+                }
+            }
+            .navigationTitle("crew.groups.create_title".localized)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("common.cancel".localized) {
+                        dismiss()
+                    }
+                    .foregroundColor(ColorTokens.textSecondary)
+                }
+
+                ToolbarItem(placement: .confirmationAction) {
+                    Button {
+                        createGroup()
+                    } label: {
+                        if isCreating {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                        } else {
+                            Text("common.create".localized)
+                                .fontWeight(.semibold)
+                        }
+                    }
+                    .foregroundColor(ColorTokens.primaryStart)
+                    .disabled(groupName.isEmpty || viewModel.selectedMembersForGroup.isEmpty || isCreating)
+                }
+            }
+        }
+    }
+
+    private func createGroup() {
+        isCreating = true
+        Task {
+            let success = await viewModel.createGroup(
+                name: groupName,
+                description: groupDescription.isEmpty ? nil : groupDescription,
+                icon: selectedIcon,
+                color: selectedColor
+            )
+            isCreating = false
+            if success {
+                dismiss()
+            }
+        }
+    }
+}
+
+// MARK: - Selectable Member Row
+struct SelectableMemberRow: View {
+    let member: CrewMemberResponse
+    let isSelected: Bool
+    let onToggle: () -> Void
+
+    var body: some View {
+        Button(action: onToggle) {
+            Card {
+                HStack(spacing: SpacingTokens.md) {
+                    AvatarView(
+                        name: member.displayName,
+                        avatarURL: member.avatarUrl,
+                        size: 40
+                    )
+
+                    Text(member.displayName)
+                        .bodyText()
+                        .foregroundColor(ColorTokens.textPrimary)
+
+                    Spacer()
+
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .font(.satoshi(22))
+                        .foregroundColor(isSelected ? ColorTokens.primaryStart : ColorTokens.textMuted)
+                }
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - Group Detail View
+struct GroupDetailView: View {
+    @ObservedObject var viewModel: CrewViewModel
+    @Environment(\.dismiss) var dismiss
+
+    @State private var showingDeleteAlert = false
+    @State private var showingLeaveAlert = false
+    @State private var showingAddMembers = false
+    @State private var showingInviteMembers = false
+    @State private var showingEditGroup = false
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                ColorTokens.background
+                    .ignoresSafeArea()
+
+                if let group = viewModel.selectedGroup {
+                    ScrollView {
+                        VStack(spacing: SpacingTokens.lg) {
+                            // Group Header
+                            groupHeader(group)
+
+                            // Members List
+                            membersSection(group)
+                        }
+                        .padding(SpacingTokens.lg)
+                    }
+                } else {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: ColorTokens.primaryStart))
+                }
+            }
+            .navigationTitle(viewModel.selectedGroup?.name ?? "crew.groups.detail".localized)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("common.done".localized) {
+                        dismiss()
+                        viewModel.closeGroupDetail()
+                    }
+                    .foregroundColor(ColorTokens.primaryStart)
+                }
+
+                ToolbarItem(placement: .primaryAction) {
+                    Menu {
+                        Button {
+                            showingInviteMembers = true
+                        } label: {
+                            Label("crew.groups.invite".localized, systemImage: "person.badge.plus")
+                        }
+
+                        Button {
+                            showingAddMembers = true
+                        } label: {
+                            Label("crew.groups.add_members".localized, systemImage: "person.2.badge.gearshape")
+                        }
+
+                        Divider()
+
+                        Button(role: .destructive) {
+                            showingLeaveAlert = true
+                        } label: {
+                            Label("crew.groups.leave".localized, systemImage: "rectangle.portrait.and.arrow.right")
+                        }
+
+                        Button(role: .destructive) {
+                            showingDeleteAlert = true
+                        } label: {
+                            Label("crew.groups.delete".localized, systemImage: "trash")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .foregroundColor(ColorTokens.textPrimary)
+                    }
+                }
+            }
+            .alert("crew.groups.delete_title".localized, isPresented: $showingDeleteAlert) {
+                Button("common.cancel".localized, role: .cancel) {}
+                Button("common.delete".localized, role: .destructive) {
+                    if let group = viewModel.selectedGroup {
+                        Task {
+                            _ = await viewModel.deleteGroup(group)
+                            dismiss()
+                        }
+                    }
+                }
+            } message: {
+                Text("crew.groups.delete_confirm".localized)
+            }
+            .alert("crew.groups.leave_title".localized, isPresented: $showingLeaveAlert) {
+                Button("common.cancel".localized, role: .cancel) {}
+                Button("crew.groups.leave".localized, role: .destructive) {
+                    if let group = viewModel.selectedGroup {
+                        Task {
+                            _ = await viewModel.leaveGroup(group)
+                            dismiss()
+                        }
+                    }
+                }
+            } message: {
+                Text("crew.groups.leave_confirm".localized)
+            }
+            .sheet(isPresented: $showingAddMembers) {
+                AddMembersToGroupView(viewModel: viewModel)
+            }
+            .sheet(isPresented: $showingInviteMembers) {
+                InviteToGroupView(viewModel: viewModel)
+            }
+        }
+    }
+
+    private func groupHeader(_ group: CrewGroup) -> some View {
+        Card {
+            VStack(spacing: SpacingTokens.md) {
+                Text(group.icon)
+                    .font(.satoshi(50))
+                    .frame(width: 80, height: 80)
+                    .background(Color(hex: group.color).opacity(0.2))
+                    .cornerRadius(RadiusTokens.lg)
+
+                Text(group.name)
+                    .font(.satoshi(22, weight: .bold))
+                    .foregroundColor(ColorTokens.textPrimary)
+
+                if let description = group.description, !description.isEmpty {
+                    Text(description)
+                        .bodyText()
+                        .foregroundColor(ColorTokens.textSecondary)
+                        .multilineTextAlignment(.center)
+                }
+
+                Text("\(group.memberCount) \("crew.members".localized)")
+                    .caption()
+                    .foregroundColor(ColorTokens.textMuted)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(SpacingTokens.md)
+        }
+    }
+
+    private func membersSection(_ group: CrewGroup) -> some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.md) {
+            HStack {
+                Text("crew.members".localized)
+                    .subtitle()
+                    .fontWeight(.semibold)
+                    .foregroundColor(ColorTokens.textPrimary)
+                Spacer()
+            }
+
+            if let members = group.members, !members.isEmpty {
+                VStack(spacing: SpacingTokens.sm) {
+                    ForEach(members) { member in
+                        GroupMemberRow(
+                            member: member,
+                            onViewDay: {
+                                // Convert to CrewMemberResponse and view day
+                                let crewMember = CrewMemberResponse(
+                                    id: member.id,
+                                    memberId: member.memberId,
+                                    pseudo: member.pseudo,
+                                    firstName: member.firstName,
+                                    lastName: member.lastName,
+                                    avatarUrl: member.avatarUrl,
+                                    dayVisibility: nil,
+                                    totalSessions7d: nil,
+                                    totalMinutes7d: nil,
+                                    activityScore: nil,
+                                    createdAt: nil,
+                                    email: nil
+                                )
+                                dismiss()
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                    viewModel.selectMember(crewMember)
+                                }
+                            },
+                            onRemove: {
+                                Task {
+                                    _ = await viewModel.removeMemberFromGroup(
+                                        groupId: group.id,
+                                        memberId: member.memberId
+                                    )
+                                }
+                            }
+                        )
+                    }
+                }
+            } else {
+                Card {
+                    VStack(spacing: SpacingTokens.md) {
+                        Image(systemName: "person.2.slash")
+                            .font(.satoshi(30))
+                            .foregroundColor(ColorTokens.textMuted)
+                        Text("crew.groups.no_members".localized)
+                            .caption()
+                            .foregroundColor(ColorTokens.textMuted)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(SpacingTokens.lg)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Group Member Row
+struct GroupMemberRow: View {
+    let member: CrewGroupMember
+    let onViewDay: () -> Void
+    let onRemove: () -> Void
+
+    @State private var showingRemoveAlert = false
+
+    var body: some View {
+        Card {
+            HStack(spacing: SpacingTokens.md) {
+                AvatarView(
+                    name: member.displayName,
+                    avatarURL: member.avatarUrl,
+                    size: 44
+                )
+
+                Text(member.displayName)
+                    .bodyText()
+                    .fontWeight(.medium)
+                    .foregroundColor(ColorTokens.textPrimary)
+
+                Spacer()
+
+                // View day button
+                Button(action: onViewDay) {
+                    Image(systemName: "calendar")
+                        .font(.satoshi(16))
+                        .foregroundColor(ColorTokens.primaryStart)
+                        .frame(width: 36, height: 36)
+                        .background(ColorTokens.primarySoft)
+                        .cornerRadius(RadiusTokens.sm)
+                }
+
+                // Remove button
+                Button {
+                    showingRemoveAlert = true
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.satoshi(14))
+                        .foregroundColor(ColorTokens.textMuted)
+                        .frame(width: 30, height: 30)
+                }
+            }
+        }
+        .alert("crew.groups.remove_member".localized, isPresented: $showingRemoveAlert) {
+            Button("common.cancel".localized, role: .cancel) {}
+            Button("crew.remove".localized, role: .destructive) {
+                onRemove()
+            }
+        } message: {
+            Text("crew.groups.remove_member_confirm".localized(with: member.displayName))
+        }
+    }
+}
+
+// MARK: - Add Members to Group View
+struct AddMembersToGroupView: View {
+    @ObservedObject var viewModel: CrewViewModel
+    @Environment(\.dismiss) var dismiss
+
+    @State private var selectedMembers: Set<String> = []
+    @State private var isAdding = false
+
+    // Get members not already in the group
+    private var availableMembers: [CrewMemberResponse] {
+        let existingMemberIds = Set(viewModel.selectedGroup?.members?.map { $0.memberId } ?? [])
+        return viewModel.crewMembers.filter { !existingMemberIds.contains($0.memberId) }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                ColorTokens.background
+                    .ignoresSafeArea()
+
+                if availableMembers.isEmpty {
+                    VStack(spacing: SpacingTokens.lg) {
+                        Image(systemName: "person.badge.plus")
+                            .font(.satoshi(50))
+                            .foregroundColor(ColorTokens.textMuted)
+
+                        Text("crew.groups.all_members_added".localized)
+                            .bodyText()
+                            .foregroundColor(ColorTokens.textMuted)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding()
+                } else {
+                    ScrollView {
+                        VStack(spacing: SpacingTokens.sm) {
+                            ForEach(availableMembers) { member in
+                                SelectableMemberRow(
+                                    member: member,
+                                    isSelected: selectedMembers.contains(member.memberId),
+                                    onToggle: {
+                                        if selectedMembers.contains(member.memberId) {
+                                            selectedMembers.remove(member.memberId)
+                                        } else {
+                                            selectedMembers.insert(member.memberId)
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                        .padding(SpacingTokens.lg)
+                    }
+                }
+            }
+            .navigationTitle("crew.groups.add_members".localized)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("common.cancel".localized) {
+                        dismiss()
+                    }
+                    .foregroundColor(ColorTokens.textSecondary)
+                }
+
+                ToolbarItem(placement: .confirmationAction) {
+                    Button {
+                        addMembers()
+                    } label: {
+                        if isAdding {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                        } else {
+                            Text("common.add".localized)
+                                .fontWeight(.semibold)
+                        }
+                    }
+                    .foregroundColor(ColorTokens.primaryStart)
+                    .disabled(selectedMembers.isEmpty || isAdding)
+                }
+            }
+        }
+    }
+
+    private func addMembers() {
+        guard let groupId = viewModel.selectedGroup?.id else { return }
+
+        isAdding = true
+        Task {
+            let success = await viewModel.addMembersToGroup(
+                groupId: groupId,
+                memberIds: Array(selectedMembers)
+            )
+            isAdding = false
+            if success {
+                dismiss()
+            }
+        }
+    }
+}
+
+// MARK: - Invite To Group View
+struct InviteToGroupView: View {
+    @ObservedObject var viewModel: CrewViewModel
+    @Environment(\.dismiss) var dismiss
+
+    @State private var searchQuery = ""
+    @State private var selectedUserId: String?
+    @State private var isInviting = false
+    @State private var searchResults: [SearchUserResult] = []
+    @State private var isSearching = false
+
+    private let crewService = CrewService()
+
+    // Get members who are not already in the group and can be invited
+    private var availableMembers: [CrewMemberResponse] {
+        let existingMemberIds = Set(viewModel.selectedGroup?.members?.map { $0.memberId } ?? [])
+        return viewModel.crewMembers.filter { !existingMemberIds.contains($0.memberId) }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                ColorTokens.background
+                    .ignoresSafeArea()
+
+                VStack(spacing: SpacingTokens.md) {
+                    // Search bar
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(ColorTokens.textMuted)
+
+                        TextField("crew.search_placeholder".localized, text: $searchQuery)
+                            .foregroundColor(ColorTokens.textPrimary)
+                            .onChange(of: searchQuery) { _, newValue in
+                                searchUsers(query: newValue)
+                            }
+
+                        if !searchQuery.isEmpty {
+                            Button {
+                                searchQuery = ""
+                                searchResults = []
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(ColorTokens.textMuted)
+                            }
+                        }
+                    }
+                    .padding(SpacingTokens.md)
+                    .background(ColorTokens.surface)
+                    .cornerRadius(RadiusTokens.md)
+                    .padding(.horizontal, SpacingTokens.lg)
+
+                    if isSearching {
+                        Spacer()
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: ColorTokens.primaryStart))
+                        Spacer()
+                    } else if !searchResults.isEmpty {
+                        // Show search results
+                        ScrollView {
+                            VStack(spacing: SpacingTokens.sm) {
+                                ForEach(searchResults) { user in
+                                    InviteUserRow(
+                                        user: user,
+                                        isSelected: selectedUserId == user.id,
+                                        onSelect: {
+                                            selectedUserId = user.id
+                                        }
+                                    )
+                                }
+                            }
+                            .padding(.horizontal, SpacingTokens.lg)
+                        }
+                    } else if searchQuery.isEmpty {
+                        // Show crew members who can be invited
+                        if availableMembers.isEmpty {
+                            Spacer()
+                            VStack(spacing: SpacingTokens.lg) {
+                                Image(systemName: "person.badge.plus")
+                                    .font(.satoshi(50))
+                                    .foregroundColor(ColorTokens.textMuted)
+
+                                Text("crew.groups.no_members_to_invite".localized)
+                                    .bodyText()
+                                    .foregroundColor(ColorTokens.textMuted)
+                                    .multilineTextAlignment(.center)
+                            }
+                            .padding()
+                            Spacer()
+                        } else {
+                            VStack(alignment: .leading, spacing: SpacingTokens.sm) {
+                                Text("crew.groups.invite_from_crew".localized)
+                                    .caption()
+                                    .foregroundColor(ColorTokens.textMuted)
+                                    .padding(.horizontal, SpacingTokens.lg)
+
+                                ScrollView {
+                                    VStack(spacing: SpacingTokens.sm) {
+                                        ForEach(availableMembers) { member in
+                                            InviteCrewMemberRow(
+                                                member: member,
+                                                isSelected: selectedUserId == member.memberId,
+                                                onSelect: {
+                                                    selectedUserId = member.memberId
+                                                }
+                                            )
+                                        }
+                                    }
+                                    .padding(.horizontal, SpacingTokens.lg)
+                                }
+                            }
+                        }
+                    } else {
+                        Spacer()
+                        Text("crew.no_users_found".localized)
+                            .bodyText()
+                            .foregroundColor(ColorTokens.textMuted)
+                        Spacer()
+                    }
+                }
+                .padding(.top, SpacingTokens.md)
+            }
+            .navigationTitle("crew.groups.invite".localized)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("common.cancel".localized) {
+                        dismiss()
+                    }
+                    .foregroundColor(ColorTokens.textSecondary)
+                }
+
+                ToolbarItem(placement: .confirmationAction) {
+                    Button {
+                        inviteUser()
+                    } label: {
+                        if isInviting {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                        } else {
+                            Text("crew.groups.send_invite".localized)
+                                .fontWeight(.semibold)
+                        }
+                    }
+                    .foregroundColor(ColorTokens.primaryStart)
+                    .disabled(selectedUserId == nil || isInviting)
+                }
+            }
+        }
+    }
+
+    private func searchUsers(query: String) {
+        guard !query.trimmingCharacters(in: .whitespaces).isEmpty else {
+            searchResults = []
+            return
+        }
+
+        isSearching = true
+        Task {
+            do {
+                try await Task.sleep(nanoseconds: 300_000_000) // Debounce
+                let results = try await crewService.searchUsers(query: query, limit: 20)
+                searchResults = results
+            } catch {
+                print("Search error: \(error)")
+                searchResults = []
+            }
+            isSearching = false
+        }
+    }
+
+    private func inviteUser() {
+        guard let groupId = viewModel.selectedGroup?.id,
+              let userId = selectedUserId else { return }
+
+        isInviting = true
+        Task {
+            let success = await viewModel.inviteToGroup(groupId: groupId, userId: userId)
+            isInviting = false
+            if success {
+                dismiss()
+            }
+        }
+    }
+}
+
+// MARK: - Invite User Row
+struct InviteUserRow: View {
+    let user: SearchUserResult
+    let isSelected: Bool
+    let onSelect: () -> Void
+
+    var body: some View {
+        Button(action: onSelect) {
+            Card {
+                HStack(spacing: SpacingTokens.md) {
+                    AvatarView(
+                        name: user.displayName,
+                        avatarURL: user.avatarUrl,
+                        size: 44
+                    )
+
+                    VStack(alignment: .leading, spacing: SpacingTokens.xs) {
+                        Text(user.displayName)
+                            .bodyText()
+                            .fontWeight(.medium)
+                            .foregroundColor(ColorTokens.textPrimary)
+
+                        if user.isCrewMember {
+                            Text("crew.in_crew".localized)
+                                .caption()
+                                .foregroundColor(ColorTokens.success)
+                        }
+                    }
+
+                    Spacer()
+
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .font(.satoshi(22))
+                        .foregroundColor(isSelected ? ColorTokens.primaryStart : ColorTokens.textMuted)
+                }
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - Invite Crew Member Row
+struct InviteCrewMemberRow: View {
+    let member: CrewMemberResponse
+    let isSelected: Bool
+    let onSelect: () -> Void
+
+    var body: some View {
+        Button(action: onSelect) {
+            Card {
+                HStack(spacing: SpacingTokens.md) {
+                    AvatarView(
+                        name: member.displayName,
+                        avatarURL: member.avatarUrl,
+                        size: 44
+                    )
+
+                    VStack(alignment: .leading, spacing: SpacingTokens.xs) {
+                        Text(member.displayName)
+                            .bodyText()
+                            .fontWeight(.medium)
+                            .foregroundColor(ColorTokens.textPrimary)
+
+                        if let sessions = member.totalSessions7d {
+                            Text("\(sessions) \("crew.sessions".localized)")
+                                .caption()
+                                .foregroundColor(ColorTokens.textMuted)
+                        }
+                    }
+
+                    Spacer()
+
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .font(.satoshi(22))
+                        .foregroundColor(isSelected ? ColorTokens.primaryStart : ColorTokens.textMuted)
+                }
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
 // MARK: - Preview
 // MARK: - Routine Like Button
 struct RoutineLikeButton: View {
@@ -1760,13 +3183,13 @@ struct RoutineLikeButton: View {
         }) {
             HStack(spacing: 4) {
                 Text(isLiked ? "❤️" : "🤍")
-                    .font(.system(size: 16))
+                    .font(.satoshi(16))
                     .scaleEffect(isLiked ? 1.1 : 1.0)
                     .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isLiked)
 
                 if likeCount > 0 {
                     Text("\(likeCount)")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.satoshi(12, weight: .medium))
                         .foregroundColor(isLiked ? ColorTokens.primaryStart : ColorTokens.textMuted)
                 }
             }

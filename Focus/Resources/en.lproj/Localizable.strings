@@ -109,6 +109,10 @@
 "fire.launch_session" = "Launch a focus session now";
 "fire.delete_session" = "Delete Session?";
 "fire.delete_session_confirm" = "This will permanently delete this focus session.";
+"fire.task_completed_question" = "Did you finish your task?";
+"fire.task_validation_message" = "Your focus session is complete! Would you like to mark your task as done?";
+"fire.yes_validate" = "Yes, validate ✓";
+"fire.not_yet" = "Not yet";
 
 // MARK: - Quests
 "quests.title" = "QUESTS";
@@ -218,6 +222,56 @@
 "crew.routines_done" = "routines done";
 "crew.suggested" = "Suggested Users";
 "crew.suggested_hint" = "Active users you might want to connect with";
+
+// Crew Groups
+"crew.groups" = "Groups";
+"crew.groups.title" = "Your Groups";
+"crew.groups.create" = "Create";
+"crew.groups.create_title" = "Create Group";
+"crew.groups.empty" = "No groups yet";
+"crew.groups.empty_hint" = "Create a group to organize your crew members";
+"crew.groups.name" = "Group Name";
+"crew.groups.name_placeholder" = "e.g., Gym Buddies";
+"crew.groups.icon" = "Icon";
+"crew.groups.color" = "Color";
+"crew.groups.select_members" = "Select Members";
+"crew.groups.no_friends" = "Add friends to your crew first";
+"crew.groups.detail" = "Group Details";
+"crew.groups.add_members" = "Add Members";
+"crew.groups.delete" = "Delete Group";
+"crew.groups.delete_title" = "Delete Group?";
+"crew.groups.delete_confirm" = "This action cannot be undone. All members will be removed from this group.";
+"crew.groups.remove_member" = "Remove from Group?";
+"crew.groups.remove_member_confirm" = "Remove %@ from this group?";
+"crew.groups.no_members" = "No members in this group";
+"crew.groups.all_members_added" = "All your crew members are already in this group";
+"crew.groups.invite" = "Invite to Group";
+"crew.groups.send_invite" = "Send Invite";
+"crew.groups.leave" = "Leave Group";
+"crew.groups.leave_title" = "Leave Group?";
+"crew.groups.leave_confirm" = "You will no longer have access to this group.";
+"crew.groups.no_members_to_invite" = "No friends available to invite";
+"crew.groups.invite_from_crew" = "Invite from your crew";
+"crew.group" = "Group";
+"crew.group_invitations" = "Group Invitations";
+"crew.no_group_invitations" = "No group invitations";
+"crew.group_invitations_hint" = "Invitations to join groups will appear here";
+"crew.invited_by" = "Invited by %@";
+"crew.invited_user" = "Invited %@";
+"crew.sent_group_invitations" = "Sent Invitations";
+"common.selected" = "selected";
+"common.create" = "Create";
+
+// Crew Member Calendar
+"crew.member.calendar" = "Calendar";
+"crew.member.view_calendar" = "View Calendar";
+"crew.member.daily_schedule" = "Daily Schedule";
+"crew.member.tasks" = "Tasks";
+"crew.member.routines" = "Daily Rituals";
+"crew.member.no_tasks" = "No tasks scheduled";
+"crew.member.no_routines_scheduled" = "No rituals for this day";
+"crew.member.scheduled_for" = "Scheduled for";
+"crew.member.all_day" = "All Day";
 
 // MARK: - Visibility
 "visibility.public" = "Public";
@@ -512,6 +566,7 @@
 "calendar.priority_high" = "High";
 "calendar.quick_create" = "Add Task";
 "calendar.quick_create_placeholder" = "What do you want to do?";
+"calendar.new_task" = "New Task";
 "common.completed" = "Completed";
 "common.creating" = "Creating...";
 
@@ -524,3 +579,67 @@
 "voice.processing" = "Processing...";
 "voice.send" = "Send";
 "voice.error" = "An error occurred. Please try again.";
+
+// MARK: - Dashboard (New)
+"dashboard.start_day_title" = "Plan your day";
+"dashboard.start_day_subtitle" = "Tell me what you want to do, AI adds it to your calendar.";
+"dashboard.start_the_day" = "Add events";
+"dashboard.coming_next" = "Coming next";
+"dashboard.start_focus" = "Start Focus";
+"dashboard.no_tasks_title" = "No tasks planned";
+"dashboard.no_tasks_subtitle" = "Go to the calendar to plan your day.";
+"dashboard.plan_day" = "Plan my day";
+"dashboard.all_done_title" = "All done!";
+"dashboard.all_done_subtitle" = "You've completed all your tasks. Great job!";
+"dashboard.upcoming_tasks" = "Upcoming tasks";
+"dashboard.upcoming_task" = "Upcoming task";
+"dashboard.see_all_tasks" = "See all %d tasks";
+
+// MARK: - Settings
+"settings.title" = "Settings";
+"settings.quests_areas" = "Quests & Areas";
+"settings.quests_areas_subtitle" = "Your long-term goals. Quests represent your vision and life objectives. Compare your calendar to your quests to see if you're aligned with your ambitions.";
+"settings.daily_rituals" = "Daily Rituals";
+"settings.daily_rituals_subtitle" = "Your daily habits. Rituals automatically appear in your calendar at the scheduled time to help you build solid routines.";
+"settings.areas" = "Life Areas";
+"settings.areas_subtitle" = "Areas organize your quests and rituals by category (Health, Work, etc.). They help you see the balance between different spheres of your life.";
+"settings.statistics" = "Statistics";
+"settings.statistics_subtitle" = "See your progress this week";
+"settings.watch_tutorial" = "Watch Tutorial";
+"settings.watch_tutorial_subtitle" = "Learn how to use the app effectively";
+"settings.edit_profile" = "Edit profile";
+"settings.day_streak" = "day streak";
+"settings.sign_out" = "Sign out";
+
+// MARK: - Tutorial
+"tutorial.title" = "How to use Volta";
+"tutorial.description" = "Discover the main features of the app to optimize your productivity and achieve your goals.";
+"tutorial.welcome" = "Welcome to Volta!";
+"tutorial.onboarding_desc" = "Watch this short video to discover how to get the most out of the app.";
+"tutorial.watch_later" = "Watch later";
+"tutorial.feature_calendar" = "Smart Calendar";
+"tutorial.feature_calendar_desc" = "Plan your day with tasks and see your rituals appear automatically.";
+"tutorial.feature_focus" = "Focus Sessions";
+"tutorial.feature_focus_desc" = "Launch focus sessions to make progress on your important projects.";
+"tutorial.feature_rituals" = "Daily Rituals";
+"tutorial.feature_rituals_desc" = "Create habits that naturally integrate into your schedule.";
+"tutorial.feature_quests" = "Quests and Goals";
+"tutorial.feature_quests_desc" = "Define your life goals and track your progress.";
+"tutorial.video_error" = "Unable to load video";
+"tutorial.open_youtube" = "Open on YouTube";
+
+// MARK: - Statistics (New)
+"stats.sessions" = "Sessions";
+"stats.focused" = "Focused";
+"stats.recent_sessions" = "Recent sessions";
+"stats.today" = "Today";
+"stats.yesterday" = "Yesterday";
+
+// MARK: - Streak (New)
+"streak.motivational" = "Keep it up!";
+"streak.requirements" = "Today's requirements";
+"streak.requirement_completion" = "%d%% of tasks completed";
+"streak.requirement_sessions" = "%d focus sessions";
+"streak.requirement_tasks" = "%d tasks minimum";
+"streak.days_to_next" = "%d days to next level";
+"streak.days_needed" = "days needed";

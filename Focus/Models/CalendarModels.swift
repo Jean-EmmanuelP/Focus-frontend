@@ -74,6 +74,13 @@ struct CalendarTask: Codable, Identifiable {
         }
         return "\(start) - \(end)"
     }
+
+    /// Convert date string (YYYY-MM-DD) to Date object
+    var dateAsDate: Date? {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.date(from: date)
+    }
 }
 
 enum TaskStatus: String, Codable {

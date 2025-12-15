@@ -23,6 +23,17 @@ class VoiceService {
             body: request
         )
     }
+
+    // MARK: - Analyze Voice (STT -> AI -> Proposals, NO DB write)
+    // Used for Start My Day flow: user validates before creating tasks
+    func analyzeVoice(text: String, date: String? = nil) async throws -> AnalyzeVoiceResponse {
+        let request = AnalyzeVoiceRequest(text: text, date: date)
+        return try await apiClient.request(
+            endpoint: .voiceAnalyze,
+            method: .post,
+            body: request
+        )
+    }
 }
 
 // MARK: - Request Types
@@ -80,6 +91,7 @@ struct VoiceProcessResponse: Codable {
 struct VoiceAssistantResponse: Codable {
     let intentLog: IntentLog
     let tasks: [CalendarTask]?
+    let goals: [VoiceDailyGoal]?
     let replyText: String
     let audioFormat: String
     let audioBase64: String?
@@ -95,6 +107,19 @@ struct VoiceAssistantResponse: Codable {
     }
 }
 
+// MARK: - Voice Daily Goal (from backend)
+struct VoiceDailyGoal: Codable, Identifiable {
+    let id: String
+    let title: String
+    let date: String
+    let priority: String
+    let timeBlock: String
+    let scheduledStart: String?
+    let scheduledEnd: String?
+    let status: String
+    let isAiScheduled: Bool?
+}
+
 struct IntentLog: Codable, Identifiable {
     let id: String
     let userId: String
@@ -104,4 +129,38 @@ struct IntentLog: Codable, Identifiable {
     let followUpQuestion: String?
     let processedAt: Date?
     let createdAt: Date
+}
+
+// MARK: - Analyze Voice Request/Response (STT -> AI -> Proposals)
+struct AnalyzeVoiceRequest: Codable {
+    let text: String
+    let date: String?
+}
+
+struct AnalyzeVoiceResponse: Codable {
+    let success: Bool
+    let intentType: String
+    let proposedGoals: [ProposedGoal]
+    let summary: String
+    let rawUserText: String
+}
+
+// ProposedGoal represents an AI-suggested goal (not yet saved to DB)
+struct ProposedGoal: Codable, Identifiable {
+    var id: String { title + (scheduledStart ?? "") } // Computed ID
+    let title: String
+    let date: String
+    let priority: String
+    let timeBlock: String
+    let scheduledStart: String?
+    let scheduledEnd: String?
+    let estimatedMinutes: Int?
+    let status: String
+    let questId: String?
+
+    enum CodingKeys: String, CodingKey {
+        case title, date, priority, timeBlock, scheduledStart, scheduledEnd
+        case estimatedMinutes = "estimated_minutes"
+        case status, questId = "quest_id"
+    }
 }

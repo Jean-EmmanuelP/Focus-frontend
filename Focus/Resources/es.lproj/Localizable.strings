@@ -108,6 +108,10 @@
 "fire.launch_session" = "Lanza una sesión de enfoque ahora";
 "fire.delete_session" = "¿Eliminar Sesión?";
 "fire.delete_session_confirm" = "Esto eliminará permanentemente esta sesión de enfoque.";
+"fire.task_completed_question" = "¿Terminaste tu tarea?";
+"fire.task_validation_message" = "¡Tu sesión de enfoque ha terminado! ¿Quieres marcar tu tarea como completada?";
+"fire.yes_validate" = "Sí, validar ✓";
+"fire.not_yet" = "Todavía no";
 
 // MARK: - Quests
 "quests.title" = "METAS";
@@ -217,6 +221,56 @@
 "crew.routines_done" = "rutinas hechas";
 "crew.suggested" = "Usuarios Sugeridos";
 "crew.suggested_hint" = "Usuarios activos que podrías querer agregar";
+
+// Crew Groups
+"crew.groups" = "Grupos";
+"crew.groups.title" = "Tus Grupos";
+"crew.groups.create" = "Crear";
+"crew.groups.create_title" = "Crear Grupo";
+"crew.groups.empty" = "Sin grupos aún";
+"crew.groups.empty_hint" = "Crea un grupo para organizar a los miembros de tu crew";
+"crew.groups.name" = "Nombre del Grupo";
+"crew.groups.name_placeholder" = "ej., Amigos del Gym";
+"crew.groups.icon" = "Icono";
+"crew.groups.color" = "Color";
+"crew.groups.select_members" = "Seleccionar Miembros";
+"crew.groups.no_friends" = "Primero agrega amigos a tu crew";
+"crew.groups.detail" = "Detalles del Grupo";
+"crew.groups.add_members" = "Agregar Miembros";
+"crew.groups.delete" = "Eliminar Grupo";
+"crew.groups.delete_title" = "¿Eliminar Grupo?";
+"crew.groups.delete_confirm" = "Esta acción no se puede deshacer. Todos los miembros serán removidos de este grupo.";
+"crew.groups.remove_member" = "¿Remover del Grupo?";
+"crew.groups.remove_member_confirm" = "¿Remover a %@ de este grupo?";
+"crew.groups.no_members" = "Sin miembros en este grupo";
+"crew.groups.all_members_added" = "Todos los miembros de tu crew ya están en este grupo";
+"crew.groups.invite" = "Invitar al Grupo";
+"crew.groups.send_invite" = "Enviar Invitación";
+"crew.groups.leave" = "Salir del Grupo";
+"crew.groups.leave_title" = "¿Salir del Grupo?";
+"crew.groups.leave_confirm" = "Ya no tendrás acceso a este grupo.";
+"crew.groups.no_members_to_invite" = "No hay amigos disponibles para invitar";
+"crew.groups.invite_from_crew" = "Invitar desde tu crew";
+"crew.group" = "Grupo";
+"crew.group_invitations" = "Invitaciones de Grupo";
+"crew.no_group_invitations" = "Sin invitaciones de grupo";
+"crew.group_invitations_hint" = "Las invitaciones a grupos aparecerán aquí";
+"crew.invited_by" = "Invitado por %@";
+"crew.invited_user" = "Invitaste a %@";
+"crew.sent_group_invitations" = "Invitaciones Enviadas";
+"common.selected" = "seleccionados";
+"common.create" = "Crear";
+
+// Crew Member Calendar
+"crew.member.calendar" = "Calendario";
+"crew.member.view_calendar" = "Ver Calendario";
+"crew.member.daily_schedule" = "Horario del Día";
+"crew.member.tasks" = "Tareas";
+"crew.member.routines" = "Rituales Diarios";
+"crew.member.no_tasks" = "Sin tareas programadas";
+"crew.member.no_routines_scheduled" = "Sin rituales para este día";
+"crew.member.scheduled_for" = "Programado para";
+"crew.member.all_day" = "Todo el día";
 
 // MARK: - Visibility
 "visibility.public" = "Público";
@@ -511,6 +565,7 @@
 "calendar.priority_high" = "Alta";
 "calendar.quick_create" = "Agregar tarea";
 "calendar.quick_create_placeholder" = "¿Qué quieres hacer?";
+"calendar.new_task" = "Nueva tarea";
 "common.completed" = "Completado";
 "common.creating" = "Creando...";
 
@@ -523,3 +578,67 @@
 "voice.processing" = "Procesando...";
 "voice.send" = "Enviar";
 "voice.error" = "Ocurrió un error. Inténtalo de nuevo.";
+
+// MARK: - Dashboard (New)
+"dashboard.start_day_title" = "Planifica tu día";
+"dashboard.start_day_subtitle" = "Dime qué quieres hacer, la IA lo añade a tu calendario.";
+"dashboard.start_the_day" = "Añadir eventos";
+"dashboard.coming_next" = "A continuación";
+"dashboard.start_focus" = "Iniciar Focus";
+"dashboard.no_tasks_title" = "Sin tareas planificadas";
+"dashboard.no_tasks_subtitle" = "Ve al calendario para planificar tu día.";
+"dashboard.plan_day" = "Planificar mi día";
+"dashboard.all_done_title" = "¡Todo terminado!";
+"dashboard.all_done_subtitle" = "Has completado todas tus tareas. ¡Buen trabajo!";
+"dashboard.upcoming_tasks" = "Próximas tareas";
+"dashboard.upcoming_task" = "Próxima tarea";
+"dashboard.see_all_tasks" = "Ver las %d tareas";
+
+// MARK: - Settings
+"settings.title" = "Configuración";
+"settings.quests_areas" = "Misiones y Áreas";
+"settings.quests_areas_subtitle" = "Tus objetivos a largo plazo. Las misiones representan tu visión y tus grandes metas de vida. Compara tu calendario con tus misiones para ver si estás alineado con tus ambiciones.";
+"settings.daily_rituals" = "Rituales Diarios";
+"settings.daily_rituals_subtitle" = "Tus hábitos diarios. Los rituales aparecen automáticamente en tu calendario a la hora definida para ayudarte a construir rutinas sólidas.";
+"settings.areas" = "Áreas de vida";
+"settings.areas_subtitle" = "Las áreas organizan tus misiones y rituales por categoría (Salud, Trabajo, etc.). Te permiten ver el equilibrio entre las diferentes esferas de tu vida.";
+"settings.statistics" = "Estadísticas";
+"settings.statistics_subtitle" = "Ve tu progreso esta semana";
+"settings.watch_tutorial" = "Ver tutorial";
+"settings.watch_tutorial_subtitle" = "Descubre cómo usar la aplicación eficientemente";
+"settings.edit_profile" = "Editar perfil";
+"settings.day_streak" = "días de racha";
+"settings.sign_out" = "Cerrar sesión";
+
+// MARK: - Tutorial
+"tutorial.title" = "Cómo usar Volta";
+"tutorial.description" = "Descubre las funciones principales de la aplicación para optimizar tu productividad y alcanzar tus objetivos.";
+"tutorial.welcome" = "¡Bienvenido a Volta!";
+"tutorial.onboarding_desc" = "Mira este corto video para descubrir cómo sacar el máximo provecho de la aplicación.";
+"tutorial.watch_later" = "Ver más tarde";
+"tutorial.feature_calendar" = "Calendario inteligente";
+"tutorial.feature_calendar_desc" = "Planifica tu día con tareas y ve tus rituales aparecer automáticamente.";
+"tutorial.feature_focus" = "Sesiones Focus";
+"tutorial.feature_focus_desc" = "Lanza sesiones de concentración para avanzar en tus proyectos importantes.";
+"tutorial.feature_rituals" = "Rituales diarios";
+"tutorial.feature_rituals_desc" = "Crea hábitos que se integren naturalmente en tu horario.";
+"tutorial.feature_quests" = "Misiones y objetivos";
+"tutorial.feature_quests_desc" = "Define tus grandes objetivos de vida y sigue tu progreso.";
+"tutorial.video_error" = "No se puede cargar el video";
+"tutorial.open_youtube" = "Abrir en YouTube";
+
+// MARK: - Statistics (New)
+"stats.sessions" = "Sesiones";
+"stats.focused" = "Enfocado";
+"stats.recent_sessions" = "Sesiones recientes";
+"stats.today" = "Hoy";
+"stats.yesterday" = "Ayer";
+
+// MARK: - Streak (New)
+"streak.motivational" = "¡Sigue así!";
+"streak.requirements" = "Objetivos del día";
+"streak.requirement_completion" = "%d%% de tareas completadas";
+"streak.requirement_sessions" = "%d sesiones focus";
+"streak.requirement_tasks" = "%d tareas mínimo";
+"streak.days_to_next" = "%d días para el siguiente nivel";
+"streak.days_needed" = "días necesarios";

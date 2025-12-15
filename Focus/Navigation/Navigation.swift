@@ -5,14 +5,12 @@ import Combine
 enum AppTab: Int, CaseIterable {
     case dashboard = 0
     case calendar = 1
-    case quests = 2
-    case crew = 3
+    case crew = 2
 
     var title: String {
         switch self {
         case .dashboard: return "tab.dashboard".localized
         case .calendar: return "tab.calendar".localized
-        case .quests: return "tab.quests".localized
         case .crew: return "tab.crew".localized
         }
     }
@@ -21,7 +19,6 @@ enum AppTab: Int, CaseIterable {
         switch self {
         case .dashboard: return "house.fill"
         case .calendar: return "calendar"
-        case .quests: return "target"
         case .crew: return "person.3.fill"
         }
     }
@@ -59,9 +56,14 @@ class AppRouter: ObservableObject {
     @Published var fireModePresetDuration: Int?
     @Published var fireModePresetQuestId: String?
     @Published var fireModePresetDescription: String?
+    @Published var fireModePresetTaskId: String?  // Task ID from calendar for post-session validation
+    @Published var fireModePresetRitualId: String?  // Ritual ID from calendar for post-session validation
 
     // Dashboard scroll target
     @Published var dashboardScrollTarget: DashboardSection?
+
+    // Calendar navigation target date
+    @Published var calendarTargetDate: Date?
 
     private init() {}
 
@@ -73,11 +75,13 @@ class AppRouter: ObservableObject {
         showEndOfDay = true
     }
 
-    func navigateToFireMode(duration: Int? = nil, questId: String? = nil, description: String? = nil) {
+    func navigateToFireMode(duration: Int? = nil, questId: String? = nil, description: String? = nil, taskId: String? = nil, ritualId: String? = nil) {
         // Set preset values if provided
         fireModePresetDuration = duration
         fireModePresetQuestId = questId
         fireModePresetDescription = description
+        fireModePresetTaskId = taskId
+        fireModePresetRitualId = ritualId
         // Show FireModeView as fullscreen modal
         showFireModeSession = true
     }
@@ -91,15 +95,18 @@ class AppRouter: ObservableObject {
         fireModePresetDuration = nil
         fireModePresetQuestId = nil
         fireModePresetDescription = nil
-    }
-
-    func navigateToQuests() {
-        selectedTab = .quests
+        fireModePresetTaskId = nil
+        fireModePresetRitualId = nil
     }
 
     func navigateToDashboard(scrollTo section: DashboardSection? = nil) {
         selectedTab = .dashboard
         dashboardScrollTarget = section
+    }
+
+    func navigateToCalendar(date: Date? = nil) {
+        calendarTargetDate = date
+        selectedTab = .calendar
     }
 
     func dismissSheets() {
@@ -112,124 +119,51 @@ class AppRouter: ObservableObject {
 struct MainTabView: View {
     @StateObject private var router = AppRouter.shared
     @EnvironmentObject var store: FocusAppStore
-    @State private var showFireModeModal = false
+    @State private var showOnboardingTutorial = false
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            TabView(selection: $router.selectedTab) {
-                // Dashboard
-                NavigationStack(path: $router.dashboardPath) {
-                    DashboardView()
-                        .navigationDestination(for: NavigationDestination.self) { destination in
-                            destinationView(for: destination)
-                        }
-                }
-                .tabItem {
-                    Label(AppTab.dashboard.title, systemImage: AppTab.dashboard.icon)
-                }
-                .tag(AppTab.dashboard)
-
-                // Calendar
-                NavigationStack {
-                    WeekCalendarView()
-                        .navigationDestination(for: NavigationDestination.self) { destination in
-                            destinationView(for: destination)
-                        }
-                }
-                .tabItem {
-                    Label(AppTab.calendar.title, systemImage: AppTab.calendar.icon)
-                }
-                .tag(AppTab.calendar)
-
-                // Quests
-                NavigationStack {
-                    QuestsView()
-                        .navigationDestination(for: NavigationDestination.self) { destination in
-                            destinationView(for: destination)
-                        }
-                }
-                .tabItem {
-                    Label(AppTab.quests.title, systemImage: AppTab.quests.icon)
-                }
-                .tag(AppTab.quests)
-
-                // Crew
-                NavigationStack {
-                    CrewView()
-                }
-                .tabItem {
-                    Label(AppTab.crew.title, systemImage: AppTab.crew.icon)
-                }
-                .tag(AppTab.crew)
-            }
-            .accentColor(ColorTokens.primaryStart)
-
-            // Start Focus button above tab bar (only show on dashboard)
-            if router.selectedTab == .dashboard {
-                VStack(spacing: 0) {
-                    Spacer()
-                    Button(action: {
-                        HapticFeedback.selection()
-                        Task {
-                            await FocusAppStore.shared.loadQuestsIfNeeded()
-                        }
-                        showFireModeModal = true
-                    }) {
-                        HStack(spacing: SpacingTokens.sm) {
-                            Image(systemName: "play.fill")
-                                .font(.system(size: 12, weight: .semibold))
-                            Text("Start Focus")
-                                .font(.system(size: 15, weight: .semibold))
-                        }
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(
-                            LinearGradient(
-                                colors: [
-                                    ColorTokens.primaryStart.opacity(0.9),
-                                    ColorTokens.primaryEnd.opacity(0.7),
-                                    Color.clear.opacity(0.1)
-                                ],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .background(Color(white: 0.12))
-                        .cornerRadius(RadiusTokens.xl)
+        TabView(selection: $router.selectedTab) {
+            // Dashboard
+            NavigationStack(path: $router.dashboardPath) {
+                DashboardView()
+                    .navigationDestination(for: NavigationDestination.self) { destination in
+                        destinationView(for: destination)
                     }
-                    .padding(.horizontal, SpacingTokens.md)
-                    .padding(.bottom, 85) // Above tab bar
-                }
             }
+            .tabItem {
+                Label(AppTab.dashboard.title, systemImage: AppTab.dashboard.icon)
+            }
+            .tag(AppTab.dashboard)
+
+            // Calendar
+            NavigationStack {
+                WeekCalendarView()
+                    .navigationDestination(for: NavigationDestination.self) { destination in
+                        destinationView(for: destination)
+                    }
+            }
+            .tabItem {
+                Label(AppTab.calendar.title, systemImage: AppTab.calendar.icon)
+            }
+            .tag(AppTab.calendar)
+
+            // Crew
+            NavigationStack {
+                CrewView()
+            }
+            .tabItem {
+                Label(AppTab.crew.title, systemImage: AppTab.crew.icon)
+            }
+            .tag(AppTab.crew)
         }
+        .accentColor(ColorTokens.primaryStart)
         .fullScreenCover(isPresented: $router.showStartTheDay) {
-            VoiceAssistantView()
+            StartTheDayVoiceView()
         }
         .sheet(isPresented: $router.showEndOfDay) {
             NavigationStack {
                 EndOfDayView()
             }
-        }
-        .sheet(isPresented: $showFireModeModal, onDismiss: {
-            // Clear presets when modal is dismissed (only if not starting a session)
-            if !router.showFireModeSession {
-                router.fireModePresetDuration = nil
-                router.fireModePresetDescription = nil
-            }
-        }) {
-            StartFireModeSheet(
-                quests: store.quests,
-                onStart: { duration, questId, description in
-                    showFireModeModal = false
-                    // Navigate to FireMode with selected parameters (shows fullscreen modal)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        router.navigateToFireMode(duration: duration, questId: questId, description: description)
-                    }
-                },
-                presetDuration: router.fireModePresetDuration,
-                presetDescription: router.fireModePresetDescription
-            )
         }
         .fullScreenCover(isPresented: $router.showFireModeSession, onDismiss: {
             router.clearFireModePresets()
@@ -238,13 +172,28 @@ struct MainTabView: View {
                 .environmentObject(router)
         }
         .environmentObject(router)
+        .overlay {
+            if showOnboardingTutorial {
+                OnboardingTutorialModal(isPresented: $showOnboardingTutorial)
+            }
+        }
+        .onAppear {
+            // Show onboarding tutorial on first launch
+            if !UserDefaults.standard.bool(forKey: "hasSeenOnboardingTutorial") {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showOnboardingTutorial = true
+                    }
+                }
+            }
+        }
     }
 
     @ViewBuilder
     private func destinationView(for destination: NavigationDestination) -> some View {
         switch destination {
         case .startTheDay:
-            VoiceAssistantView()
+            StartTheDayVoiceView()
         case .endOfDay:
             EndOfDayView()
         case .focusSession:

@@ -8,20 +8,11 @@ struct DashboardView: View {
     @State private var showCelebration = false
     @State private var celebrationCount = 0
     @State private var showProfileSheet = false
-    @State private var showEditProfile = false
     @State private var showImageEditor = false
     @State private var showCamera = false
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var selectedImage: UIImage?
     @State private var isUploadingPhoto = false
-    @State private var showFireModeModal = false
-    @State private var showEditSession = false
-    @State private var sessionToEdit: FocusSession?
-    @State private var showDeleteSessionConfirm = false
-    @State private var sessionToDelete: FocusSession?
-    @State private var showAllTodaySessions = false
-    @State private var showYesterdaySessions = false
-    @State private var showAllYesterdaySessions = false
 
     var body: some View {
         ZStack {
@@ -38,69 +29,17 @@ struct DashboardView: View {
                             headerSection
                                 .padding(.horizontal, SpacingTokens.lg)
                                 .padding(.top, SpacingTokens.lg)
-                                .padding(.bottom, SpacingTokens.xl)
+                                .padding(.bottom, SpacingTokens.md)
 
-                            // Streak Card (Hero)
+                            // Streak Card with Progress Bar (Hero)
                             streakCardSection
                                 .padding(.horizontal, SpacingTokens.lg)
                                 .padding(.bottom, SpacingTokens.xl)
 
-                            // Daily Progress Bar
-                            dailyProgressSection
+                            // Main CTA: Start the Day OR Next Task with Focus
+                            mainCTASection
                                 .padding(.horizontal, SpacingTokens.lg)
                                 .padding(.bottom, SpacingTokens.xl)
-
-                            // Adaptive CTA - Most important action
-                            adaptiveCTASection
-                                .padding(.horizontal, SpacingTokens.lg)
-                                .padding(.bottom, SpacingTokens.xl)
-
-                            // Timer Section (Replaces Quick Stats and FireMode Button)
-                            timerSection
-                                .padding(.horizontal, SpacingTokens.lg)
-                                .padding(.bottom, SpacingTokens.xl)
-
-                            // Section Divider for Morning Intentions
-                            if viewModel.hasMorningCheckIn {
-                                sectionDivider(title: "dashboard.todays_intentions".localized, icon: "🎯")
-                                    .id(DashboardSection.intentions)
-
-                                // Morning Intentions
-                                morningIntentionsSection
-                                    .padding(.horizontal, SpacingTokens.lg)
-                                    .padding(.bottom, SpacingTokens.xl)
-                            }
-
-                            // Section Divider
-                            sectionDivider(title: "dashboard.daily_habits".localized, icon: "✅")
-                                .id(DashboardSection.rituals)
-
-                            // Daily Rituals
-                            ritualsSection
-                                .padding(.horizontal, SpacingTokens.lg)
-                                .padding(.bottom, SpacingTokens.xl)
-
-                            // Section Divider for Reflections
-                            if viewModel.hasReflection {
-                                sectionDivider(title: "dashboard.evening_reflection".localized, icon: "🌙")
-                                    .id(DashboardSection.reflection)
-
-                                // Daily Reflection
-                                reflectionSection
-                                    .padding(.horizontal, SpacingTokens.lg)
-                                    .padding(.bottom, SpacingTokens.xl)
-                            }
-
-                            // Section Divider for Week Sessions
-                            if !viewModel.thisWeekSessions.isEmpty {
-                                sectionDivider(title: "\("dashboard.sessions_this_week".localized) (\(viewModel.weekRangeString))", icon: "🔥")
-                                    .id(DashboardSection.sessions)
-
-                                // Week Sessions grouped by day
-                                weekSessionsSection
-                                    .padding(.horizontal, SpacingTokens.lg)
-                                    .padding(.bottom, SpacingTokens.xl)
-                            }
 
                             // Motivational Message
                             motivationalSection
@@ -135,27 +74,6 @@ struct DashboardView: View {
             }
         }
         .navigationBarHidden(true)
-        .sheet(isPresented: $showFireModeModal, onDismiss: {
-            // Clear presets when modal is dismissed (only if not starting a session)
-            if !router.showFireModeSession {
-                router.fireModePresetDuration = nil
-                router.fireModePresetDescription = nil
-            }
-        }) {
-            StartFireModeSheet(
-                quests: viewModel.quests,
-                onStart: { duration, questId, description in
-                    showFireModeModal = false
-                    // Navigate to FireMode (shows fullscreen modal via MainTabView)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        router.navigateToFireMode(duration: duration, questId: questId, description: description)
-                    }
-                },
-                presetDuration: router.fireModePresetDuration,
-                presetDescription: router.fireModePresetDescription
-            )
-            .presentationDetents([.large])
-        }
     }
 
     // MARK: - Section Divider
@@ -163,11 +81,11 @@ struct DashboardView: View {
         HStack(spacing: SpacingTokens.md) {
             if let icon = icon {
                 Text(icon)
-                    .font(.system(size: 18))
+                    .font(.satoshi(18))
             }
 
             Text(title)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.satoshi(14, weight: .semibold))
                 .foregroundColor(ColorTokens.textSecondary)
 
             Spacer()
@@ -186,11 +104,11 @@ struct DashboardView: View {
         VStack(alignment: .leading, spacing: SpacingTokens.xs) {
             HStack {
                 Text("🔥")
-                    .font(.system(size: 28))
+                    .font(.satoshi(28))
 
                 Text("dashboard.title".localized)
                     .label()
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.satoshi(20, weight: .bold))
                     .foregroundColor(ColorTokens.textPrimary)
 
                 Spacer()
@@ -209,7 +127,7 @@ struct DashboardView: View {
                 .foregroundColor(ColorTokens.textSecondary)
         }
         .sheet(isPresented: $showProfileSheet) {
-            ProfilePhotoSheet(
+            SettingsView(
                 user: viewModel.user,
                 selectedPhotoItem: $selectedPhotoItem,
                 isUploading: $isUploadingPhoto,
@@ -225,9 +143,6 @@ struct DashboardView: View {
                         await viewModel.deleteAvatar()
                     }
                 },
-                onEditProfile: {
-                    showEditProfile = true
-                },
                 onTakeSelfie: {
                     showProfileSheet = false
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
@@ -239,25 +154,6 @@ struct DashboardView: View {
                 }
             )
             .presentationDetents([.large])
-        }
-        .sheet(isPresented: $showEditProfile) {
-            EditProfileSheet(
-                user: viewModel.user,
-                onSave: { pseudo, firstName, lastName, gender, age, description, hobbies, lifeGoal in
-                    Task {
-                        await viewModel.updateProfile(
-                            pseudo: pseudo,
-                            firstName: firstName,
-                            lastName: lastName,
-                            gender: gender,
-                            age: age,
-                            description: description,
-                            hobbies: hobbies,
-                            lifeGoal: lifeGoal
-                        )
-                    }
-                }
-            )
         }
         .fullScreenCover(isPresented: $showCamera) {
             ZStack {
@@ -340,803 +236,579 @@ struct DashboardView: View {
         }
     }
 
-    // MARK: - Streak Card Section (Circular design)
+    // MARK: - Streak Card Section with Progress Bar
     @State private var isStreakCardPressed = false
     @State private var flameScale: CGFloat = 1.0
+    @State private var showValidationDetails = false
+
+    // Current and next flame level helpers
+    private var currentLevel: FlameLevel? {
+        viewModel.flameLevels.first(where: { $0.isCurrent })
+    }
+
+    private var nextLevel: FlameLevel? {
+        guard let current = currentLevel else { return viewModel.flameLevels.first }
+        return viewModel.flameLevels.first(where: { $0.level == current.level + 1 })
+    }
+
+    private var progressToNextLevel: Double {
+        guard let current = currentLevel, let next = nextLevel else { return 0 }
+        let daysInRange = next.daysRequired - current.daysRequired
+        guard daysInRange > 0 else { return 1.0 }
+        let progress = viewModel.currentStreak - current.daysRequired
+        return min(1.0, max(0, Double(progress) / Double(daysInRange)))
+    }
 
     private var streakCardSection: some View {
-        VStack(spacing: SpacingTokens.md) {
-            // Flame with subtle glow
-            Text("🔥")
-                .font(.system(size: 80))
-                .scaleEffect(flameScale)
-                .shadow(color: ColorTokens.primaryStart.opacity(0.6), radius: 20, x: 0, y: 0)
+        VStack(spacing: SpacingTokens.lg) {
+            // Main streak display with current level
+            VStack(spacing: SpacingTokens.sm) {
+                // Current flame icon with glow
+                Text(currentLevel?.icon ?? "🔥")
+                    .font(.system(size: 64))
+                    .scaleEffect(flameScale)
+                    .shadow(color: ColorTokens.primaryStart.opacity(0.6), radius: 20, x: 0, y: 0)
 
-            // Streak text - "Jour 1" / "Day 1" format
-            Text("streak.day_count".localized(with: viewModel.currentStreak))
-                .font(.system(size: 48, weight: .bold))
-                .foregroundColor(.white)
+                // Streak text - "Jour 0" / "Day 0" format
+                Text("streak.day_count".localized(with: viewModel.currentStreak))
+                    .font(.satoshi(42, weight: .bold))
+                    .foregroundColor(.white)
 
-            // Motivational text
-            Text("streak.motivational".localized)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.white.opacity(0.6))
+                // Current flame level name badge
+                if let level = currentLevel {
+                    Text(level.name.uppercased())
+                        .font(.satoshi(12, weight: .bold))
+                        .foregroundColor(ColorTokens.primaryStart)
+                        .tracking(2)
+                        .padding(.horizontal, SpacingTokens.md)
+                        .padding(.vertical, SpacingTokens.xs)
+                        .background(ColorTokens.primaryStart.opacity(0.15))
+                        .cornerRadius(RadiusTokens.sm)
+                }
+            }
+            .onAppear {
+                withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+                    flameScale = 1.08
+                }
+            }
+
+            // Level progression bar (current -> next)
+            levelProgressionBar
+
+            // Today's validation requirements (collapsible)
+            todayValidationSection
+
+            // Daily task/ritual progress
+            dailyProgressBar
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, SpacingTokens.xxl)
-        .onAppear {
-            // Subtle pulsing animation for the flame
-            withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
-                flameScale = 1.1
+        .padding(.vertical, SpacingTokens.lg)
+    }
+
+    // MARK: - Level Progression Bar
+    private var levelProgressionBar: some View {
+        VStack(spacing: SpacingTokens.sm) {
+            // Level names on each side
+            HStack {
+                // Current level (left side - majority)
+                HStack(spacing: SpacingTokens.xs) {
+                    Text(currentLevel?.icon ?? "🔥")
+                        .font(.system(size: 20))
+                    Text(currentLevel?.name ?? "Spark")
+                        .font(.satoshi(14, weight: .bold))
+                        .foregroundColor(.white)
+                }
+
+                Spacer()
+
+                // Next level (right side - small preview)
+                if let next = nextLevel {
+                    HStack(spacing: SpacingTokens.xs) {
+                        Text(next.name)
+                            .font(.satoshi(12, weight: .medium))
+                            .foregroundColor(.white.opacity(0.5))
+                        Text(next.icon)
+                            .font(.system(size: 16))
+                            .opacity(0.5)
+                    }
+                }
+            }
+            .padding(.horizontal, SpacingTokens.lg)
+
+            // Progress bar showing current level fill + progress to next
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    // Background (next level territory)
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(ColorTokens.surface.opacity(0.2))
+                        .frame(height: 12)
+
+                    // Current level territory (filled)
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(ColorTokens.fireGradient)
+                        .frame(width: calculateLevelBarWidth(geometry: geometry), height: 12)
+                        .animation(.spring(response: 0.6, dampingFraction: 0.8), value: progressToNextLevel)
+
+                    // Divider line between current and next level at ~90%
+                    if nextLevel != nil {
+                        Rectangle()
+                            .fill(Color.white.opacity(0.3))
+                            .frame(width: 2, height: 16)
+                            .offset(x: geometry.size.width * 0.85 - 1)
+                    }
+                }
+            }
+            .frame(height: 16)
+            .padding(.horizontal, SpacingTokens.lg)
+
+            // Days info
+            HStack {
+                if let next = nextLevel {
+                    let daysToNext = next.daysRequired - viewModel.currentStreak
+                    Text("streak.days_to_next".localized(with: daysToNext))
+                        .font(.satoshi(11))
+                        .foregroundColor(.white.opacity(0.4))
+                }
+
+                Spacer()
+
+                if let next = nextLevel {
+                    Text("\(next.daysRequired) " + "streak.days_needed".localized)
+                        .font(.satoshi(11))
+                        .foregroundColor(.white.opacity(0.4))
+                }
+            }
+            .padding(.horizontal, SpacingTokens.lg)
+        }
+    }
+
+    private func calculateLevelBarWidth(geometry: GeometryProxy) -> CGFloat {
+        // Base width is 85% (current level territory)
+        // Plus progress within the remaining 15% towards next level
+        let baseWidth = geometry.size.width * 0.85
+        let progressWidth = geometry.size.width * 0.15 * CGFloat(progressToNextLevel)
+        return baseWidth + progressWidth
+    }
+
+    // MARK: - Today Validation Section
+    private var todayValidationSection: some View {
+        VStack(spacing: SpacingTokens.sm) {
+            // Toggle button
+            Button(action: {
+                withAnimation(.spring(response: 0.3)) {
+                    showValidationDetails.toggle()
+                }
+            }) {
+                HStack {
+                    // Quick status indicators
+                    if let validation = viewModel.todayValidation {
+                        HStack(spacing: SpacingTokens.xs) {
+                            Circle()
+                                .fill(validation.meetsCompletionRate ? ColorTokens.success : ColorTokens.warning)
+                                .frame(width: 6, height: 6)
+                            Circle()
+                                .fill(validation.meetsFocusSessions ? ColorTokens.success : ColorTokens.warning)
+                                .frame(width: 6, height: 6)
+                            Circle()
+                                .fill(validation.meetsMinTasks ? ColorTokens.success : ColorTokens.warning)
+                                .frame(width: 6, height: 6)
+                        }
+                    }
+
+                    Text("streak.requirements".localized)
+                        .font(.satoshi(12, weight: .medium))
+                        .foregroundColor(.white.opacity(0.6))
+
+                    Spacer()
+
+                    Image(systemName: showValidationDetails ? "chevron.up" : "chevron.down")
+                        .font(.satoshi(10))
+                        .foregroundColor(.white.opacity(0.4))
+                }
+                .padding(.horizontal, SpacingTokens.lg)
+            }
+
+            if showValidationDetails {
+                if let validation = viewModel.todayValidation {
+                    VStack(spacing: SpacingTokens.xs) {
+                        ValidationRequirementRow(
+                            icon: "checkmark.circle.fill",
+                            text: "streak.requirement_completion".localized(with: validation.requiredCompletionRate),
+                            current: "\(validation.overallRate)%",
+                            isMet: validation.meetsCompletionRate
+                        )
+
+                        ValidationRequirementRow(
+                            icon: "flame.fill",
+                            text: "streak.requirement_sessions".localized(with: validation.requiredFocusSessions),
+                            current: "\(validation.focusSessions)",
+                            isMet: validation.meetsFocusSessions
+                        )
+
+                        ValidationRequirementRow(
+                            icon: "calendar",
+                            text: "streak.requirement_tasks".localized(with: validation.requiredMinTasks),
+                            current: "\(validation.totalTasks)",
+                            isMet: validation.meetsMinTasks
+                        )
+                    }
+                    .padding(.horizontal, SpacingTokens.lg)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                }
             }
         }
     }
 
-    // MARK: - Daily Progress Section
-    private var dailyProgressSection: some View {
-        VStack(spacing: SpacingTokens.md) {
-            // Header
-            HStack {
-                Text("📊")
-                    .font(.system(size: 18))
-                Text("dashboard.daily_progress".localized)
-                    .subtitle()
-                    .fontWeight(.semibold)
-                    .foregroundColor(ColorTokens.textPrimary)
-                Spacer()
-                Text(viewModel.dailyProgressDisplay)
-                    .bodyText()
-                    .foregroundColor(ColorTokens.textSecondary)
-            }
-
-            // Progress bar
+    // MARK: - Daily Progress Bar
+    private var dailyProgressBar: some View {
+        VStack(spacing: SpacingTokens.sm) {
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     // Background
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(ColorTokens.surface)
-                        .frame(height: 12)
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(ColorTokens.surface.opacity(0.2))
+                        .frame(height: 8)
 
-                    // Progress fill with gradient
-                    RoundedRectangle(cornerRadius: 8)
+                    // Progress fill
+                    RoundedRectangle(cornerRadius: 5)
                         .fill(
-                            viewModel.dailyProgressPercentage >= 1.0
+                            viewModel.dailyProgressPercentage >= 0.6
                                 ? ColorTokens.successGradient
                                 : ColorTokens.fireGradient
                         )
-                        .frame(width: max(0, geometry.size.width * CGFloat(viewModel.dailyProgressPercentage)), height: 12)
+                        .frame(width: max(0, geometry.size.width * CGFloat(viewModel.dailyProgressPercentage)), height: 8)
                         .animation(.spring(response: 0.6, dampingFraction: 0.8), value: viewModel.dailyProgressPercentage)
+
+                    // 60% marker
+                    Rectangle()
+                        .fill(Color.white.opacity(0.4))
+                        .frame(width: 1.5, height: 12)
+                        .offset(x: geometry.size.width * 0.6 - 0.75)
                 }
             }
             .frame(height: 12)
+            .padding(.horizontal, SpacingTokens.lg)
 
-            // Details breakdown
-            HStack(spacing: SpacingTokens.lg) {
-                // Tasks
-                HStack(spacing: SpacingTokens.xs) {
-                    Text("📋")
-                        .font(.system(size: 14))
-                    Text("\(viewModel.completedTasksCount)/\(viewModel.totalTasksCount)")
-                        .caption()
-                        .foregroundColor(ColorTokens.textSecondary)
-                    Text("tasks".localized)
-                        .caption()
-                        .foregroundColor(ColorTokens.textMuted)
-                }
+            // Progress details
+            HStack(spacing: SpacingTokens.sm) {
+                Text("\(viewModel.completedTasksCount)/\(viewModel.totalTasksCount) " + "tasks".localized)
+                    .font(.satoshi(11))
+                    .foregroundColor(.white.opacity(0.4))
 
-                // Rituals
-                HStack(spacing: SpacingTokens.xs) {
-                    Text("✅")
-                        .font(.system(size: 14))
-                    Text("\(viewModel.completedRitualsCount)/\(viewModel.totalRitualsCount)")
-                        .caption()
-                        .foregroundColor(ColorTokens.textSecondary)
-                    Text("rituals".localized)
-                        .caption()
-                        .foregroundColor(ColorTokens.textMuted)
-                }
+                Text("•")
+                    .foregroundColor(.white.opacity(0.2))
+
+                Text("\(viewModel.completedRitualsCount)/\(viewModel.totalRitualsCount) " + "rituals".localized)
+                    .font(.satoshi(11))
+                    .foregroundColor(.white.opacity(0.4))
 
                 Spacer()
 
-                // Percentage
-                if viewModel.totalDailyItems > 0 {
-                    Text("\(Int(viewModel.dailyProgressPercentage * 100))%")
-                        .bodyText()
-                        .fontWeight(.semibold)
-                        .foregroundColor(
-                            viewModel.dailyProgressPercentage >= 1.0
-                                ? ColorTokens.success
-                                : ColorTokens.primaryStart
-                        )
-                }
+                Text("\(Int(viewModel.dailyProgressPercentage * 100))%")
+                    .font(.satoshi(13, weight: .bold))
+                    .foregroundColor(
+                        viewModel.dailyProgressPercentage >= 0.6
+                            ? ColorTokens.success
+                            : ColorTokens.primaryStart
+                    )
             }
-        }
-        .padding(SpacingTokens.lg)
-        .background(ColorTokens.surface)
-        .cornerRadius(RadiusTokens.lg)
-    }
-
-    // MARK: - Adaptive CTA Section
-    private var adaptiveCTASection: some View {
-        let cta = viewModel.adaptiveCTA
-
-        return ActionCard(
-            title: cta.title,
-            subtitle: cta.subtitle,
-            icon: cta.icon,
-            buttonTitle: cta.buttonTitle,
-            isCompleted: cta.isCompleted,
-            action: {
-                handleCTAAction(cta)
-            }
-        )
-    }
-
-    // MARK: - Quick Stats Section
-    private var quickStatsSection: some View {
-        HStack(spacing: SpacingTokens.md) {
-            // Streak
-            QuickStatCard(
-                icon: "🔥",
-                value: "\(viewModel.currentStreak)",
-                label: "dashboard.day_streak".localized,
-                color: ColorTokens.primaryStart
-            )
-
-            // Today's Focus
-            QuickStatCard(
-                icon: "⏱️",
-                value: "\(viewModel.focusedMinutesToday)m",
-                label: "dashboard.focused_today".localized,
-                color: Color.blue
-            )
-
-            // Rituals Done
-            QuickStatCard(
-                icon: "✅",
-                value: "\(viewModel.completedRitualsCount)/\(viewModel.totalRitualsCount)",
-                label: "stats.routines".localized,
-                color: ColorTokens.success
-            )
+            .padding(.horizontal, SpacingTokens.lg)
         }
     }
 
-    // MARK: - Timer Section (New)
-    private var timerSection: some View {
+    // MARK: - Main CTA Section (Add Events + Upcoming Task)
+    private var mainCTASection: some View {
         VStack(spacing: SpacingTokens.lg) {
-            // Timer header with "+ New" button
-            HStack {
-                Text("Focus Timer")
-                    .subtitle()
-                    .fontWeight(.semibold)
-                    .foregroundColor(ColorTokens.textPrimary)
+            // Always show add events button
+            addEventsButton
 
-                Spacer()
-
-                Button(action: {
-                    Task {
-                        await FocusAppStore.shared.loadQuestsIfNeeded()
-                    }
-                    showFireModeModal = true
-                }) {
-                    HStack(spacing: SpacingTokens.xs) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 14, weight: .medium))
-                        Text("New")
-                            .bodyText()
-                            .fontWeight(.medium)
-                    }
-                    .foregroundColor(ColorTokens.textSecondary)
-                }
-            }
-
-            // Focus preset cards - horizontal scroll
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: SpacingTokens.md) {
-                    // Preset 1: Get it done
-                    FocusPresetCard(
-                        emoji: "🎯",
-                        title: "Get it done",
-                        duration: 20,
-                        imageName: "focus_city"
-                    ) {
-                        router.fireModePresetDuration = 20
-                        router.fireModePresetDescription = "Get it done"
-                        showFireModeModal = true
-                    }
-
-                    // Preset 2: Work Sprint
-                    FocusPresetCard(
-                        emoji: "👨‍💼",
-                        title: "Work Sprint",
-                        duration: 25,
-                        imageName: "focus_meditation"
-                    ) {
-                        router.fireModePresetDuration = 25
-                        router.fireModePresetDescription = "Work Sprint"
-                        showFireModeModal = true
-                    }
-
-                    // Preset 3: Deep Focus
-                    FocusPresetCard(
-                        emoji: "🧘",
-                        title: "Deep Focus",
-                        duration: 45,
-                        imageName: "focus_night"
-                    ) {
-                        router.fireModePresetDuration = 45
-                        router.fireModePresetDescription = "Deep Focus"
-                        showFireModeModal = true
-                    }
-
-                    // Preset 4: Power Hour
-                    FocusPresetCard(
-                        emoji: "⚡",
-                        title: "Power Hour",
-                        duration: 60,
-                        imageName: "focus_sunrise"
-                    ) {
-                        router.fireModePresetDuration = 60
-                        router.fireModePresetDescription = "Power Hour"
-                        showFireModeModal = true
-                    }
-                }
-                .padding(.horizontal, 1) // Small padding for shadow visibility
+            // Show next upcoming task if any
+            if let nextTask = viewModel.nextTask {
+                upcomingTaskSection(task: nextTask)
+            } else if viewModel.totalTasksCount > 0 && viewModel.completedTasksCount == viewModel.totalTasksCount {
+                // All tasks completed
+                allTasksCompletedCard
             }
         }
     }
 
-    // MARK: - Focus Preset Card
-    struct FocusPresetCard: View {
-        let emoji: String
-        let title: String
-        let duration: Int
-        let imageName: String
-        let action: () -> Void
+    // MARK: - Add Events Button (Compact)
+    private var addEventsButton: some View {
+        Button(action: {
+            HapticFeedback.medium()
+            router.navigateToStartTheDay()
+        }) {
+            HStack(spacing: SpacingTokens.md) {
+                Image(systemName: "mic.fill")
+                    .font(.satoshi(18, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(width: 40, height: 40)
+                    .background(ColorTokens.fireGradient)
+                    .cornerRadius(RadiusTokens.md)
 
-        var body: some View {
-            Button(action: action) {
-                ZStack(alignment: .bottom) {
-                    // Background image placeholder (gradient fallback)
-                    RoundedRectangle(cornerRadius: RadiusTokens.lg)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color(white: 0.2),
-                                    Color(white: 0.1)
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-
-                    // Content overlay
-                    VStack(alignment: .leading, spacing: SpacingTokens.xs) {
-                        Spacer()
-
-                        // Title with emoji
-                        HStack(spacing: SpacingTokens.xs) {
-                            Text(emoji)
-                                .font(.system(size: 16))
-                            Text(title)
-                                .bodyText()
-                                .fontWeight(.semibold)
-                                .foregroundColor(.white)
-                        }
-
-                        // Duration
-                        Text("\(duration)m")
-                            .caption()
-                            .foregroundColor(ColorTokens.textSecondary)
-
-                        // Start button
-                        HStack(spacing: SpacingTokens.xs) {
-                            Image(systemName: "play.fill")
-                                .font(.system(size: 10))
-                            Text("Start")
-                                .caption()
-                                .fontWeight(.medium)
-                        }
-                        .foregroundColor(.white)
-                        .padding(.top, SpacingTokens.sm)
-                    }
-                    .padding(SpacingTokens.md)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("dashboard.start_day_title".localized)
+                        .font(.satoshi(16, weight: .semibold))
+                        .foregroundColor(ColorTokens.textPrimary)
+                    Text("dashboard.start_day_subtitle".localized)
+                        .font(.satoshi(12))
+                        .foregroundColor(ColorTokens.textSecondary)
                 }
-                .frame(width: 160, height: 140)
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.satoshi(14, weight: .semibold))
+                    .foregroundColor(ColorTokens.textMuted)
+            }
+            .padding(SpacingTokens.md)
+            .background(ColorTokens.surface)
+            .cornerRadius(RadiusTokens.lg)
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
+    // MARK: - Upcoming Task Section (Single Task)
+    private func upcomingTaskSection(task: CalendarTask) -> some View {
+        let isToday = isTaskToday(task)
+
+        return VStack(alignment: .leading, spacing: SpacingTokens.sm) {
+            // Section header
+            HStack {
+                Text("dashboard.upcoming_task".localized)
+                    .font(.satoshi(12, weight: .semibold))
+                    .foregroundColor(ColorTokens.textSecondary)
+                    .textCase(.uppercase)
+
+                Spacer()
+
+                // Day badge for future tasks
+                if !isToday, let taskDate = task.dateAsDate {
+                    Text(formatDayName(taskDate))
+                        .font(.satoshi(11, weight: .bold))
+                        .foregroundColor(ColorTokens.primaryEnd)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(ColorTokens.primaryEnd.opacity(0.15))
+                        .cornerRadius(RadiusTokens.sm)
+                }
+            }
+
+            // Task card
+            Button(action: {
+                HapticFeedback.light()
+                if let taskDate = task.dateAsDate {
+                    router.navigateToCalendar(date: taskDate)
+                } else {
+                    router.selectedTab = .calendar
+                }
+            }) {
+                HStack(spacing: SpacingTokens.md) {
+                    // Time badge
+                    if let startTime = task.scheduledStart {
+                        Text(startTime)
+                            .font(.satoshi(16, weight: .bold))
+                            .foregroundColor(ColorTokens.primaryStart)
+                            .frame(width: 55)
+                    }
+
+                    // Task info
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(task.title)
+                            .font(.satoshi(16, weight: .semibold))
+                            .foregroundColor(ColorTokens.textPrimary)
+                            .lineLimit(1)
+
+                        if let end = task.scheduledEnd, let start = task.scheduledStart {
+                            Text("\(start) - \(end)")
+                                .font(.satoshi(12))
+                                .foregroundColor(ColorTokens.textMuted)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    // Focus button (only for today's tasks)
+                    if isToday {
+                        Button(action: {
+                            HapticFeedback.medium()
+                            var duration = 25
+                            if let start = task.scheduledStart, let end = task.scheduledEnd {
+                                let formatter = DateFormatter()
+                                formatter.dateFormat = "HH:mm"
+                                if let startDate = formatter.date(from: start),
+                                   let endDate = formatter.date(from: end) {
+                                    let minutes = Int(endDate.timeIntervalSince(startDate) / 60)
+                                    if minutes > 0 { duration = minutes }
+                                }
+                            }
+                            router.navigateToFireMode(duration: duration, questId: task.questId, description: task.title, taskId: task.id)
+                        }) {
+                            Image(systemName: "flame.fill")
+                                .font(.satoshi(16))
+                                .foregroundColor(.white)
+                                .frame(width: 40, height: 40)
+                                .background(ColorTokens.fireGradient)
+                                .cornerRadius(RadiusTokens.md)
+                        }
+                    } else {
+                        Image(systemName: "chevron.right")
+                            .font(.satoshi(14, weight: .semibold))
+                            .foregroundColor(ColorTokens.textMuted)
+                    }
+                }
+                .padding(SpacingTokens.md)
+                .background(ColorTokens.surface)
                 .cornerRadius(RadiusTokens.lg)
             }
             .buttonStyle(PlainButtonStyle())
         }
     }
-    
-    // MARK: - Focus Time Encouragement Section (New)
-    private var focusTimeEncouragementSection: some View {
-        VStack(alignment: .leading, spacing: SpacingTokens.lg) {
-            // Header with icon
-            HStack(alignment: .top, spacing: SpacingTokens.md) {
-                // Icon in circle
-                Circle()
-                    .fill(ColorTokens.primarySoft)
-                    .frame(width: 40, height: 40)
-                    .overlay(
-                        Text("🎯")
-                            .font(.system(size: 20))
-                    )
-                
-                VStack(alignment: .leading, spacing: SpacingTokens.xs) {
-                    Text("dashboard.focus_encouragement".localized)
-                        .subtitle()
-                        .fontWeight(.semibold)
-                        .foregroundColor(ColorTokens.textPrimary)
-                    
-                    Text("dashboard.focus_benefits".localized)
-                        .caption()
-                        .foregroundColor(ColorTokens.textSecondary)
-                }
-                
-                Spacer()
-            }
-            
-            // Main encouragement card
-            VStack(alignment: .leading, spacing: SpacingTokens.md) {
-                // Motivational message
-                if viewModel.focusedMinutesToday == 0 {
-                    HStack(spacing: SpacingTokens.sm) {
-                        Text("🚀")
-                            .font(.system(size: 16))
-                        Text("dashboard.start_first_session".localized)
-                            .bodyText()
-                            .fontWeight(.medium)
-                    }
-                    .foregroundColor(ColorTokens.textPrimary)
-                } else {
-                    HStack(spacing: SpacingTokens.sm) {
-                        Text("🔥")
-                            .font(.system(size: 16))
-                        Text("dashboard.keep_momentum".localized)
-                            .bodyText()
-                            .fontWeight(.medium)
-                    }
-                    .foregroundColor(ColorTokens.success)
-                }
-                
-                // Progress stats
-                if viewModel.focusedMinutesToday > 0 {
-                    Divider()
-                        .background(ColorTokens.border)
-                    
-                    HStack(spacing: SpacingTokens.lg) {
-                        // Daily progress
-                        VStack(alignment: .leading, spacing: SpacingTokens.xs) {
-                            Text("dashboard.daily_goal".localized)
-                                .caption()
-                                .foregroundColor(ColorTokens.textMuted)
-                            
-                            Text("dashboard.minutes_today".localized(with: viewModel.focusedMinutesToday))
-                                .bodyText()
-                                .fontWeight(.medium)
-                                .foregroundColor(ColorTokens.textPrimary)
-                        }
-                        
-                        Divider()
-                            .frame(height: 30)
-                            .background(ColorTokens.border)
-                        
-                        // Weekly progress
-                        VStack(alignment: .leading, spacing: SpacingTokens.xs) {
-                            Text("dashboard.weekly_progress".localized)
-                                .caption()
-                                .foregroundColor(ColorTokens.textMuted)
-                            
-                            HStack(spacing: SpacingTokens.md) {
-                                VStack(alignment: .leading, spacing: SpacingTokens.xs) {
-                                    Text("dashboard.sessions_week".localized(with: viewModel.totalSessionsThisWeek))
-                                        .caption()
-                                        .foregroundColor(ColorTokens.textSecondary)
-                                    
-                                    Text("dashboard.minutes_week".localized(with: viewModel.totalActualMinutesThisWeek))
-                                        .caption()
-                                        .foregroundColor(ColorTokens.textSecondary)
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                // Action button
-                Button(action: {
-                    showFireModeModal = true
-                }) {
-                    HStack {
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 14, weight: .semibold))
-                        Text("fire.start_session".localized)
-                            .caption()
-                            .fontWeight(.medium)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, SpacingTokens.md)
-                    .background(ColorTokens.primaryStart)
-                    .foregroundColor(.white)
-                    .cornerRadius(RadiusTokens.md)
-                }
-                .buttonStyle(PlainButtonStyle())
-            }
-            .padding(SpacingTokens.lg)
-            .frame(maxWidth: .infinity)
-            .background(ColorTokens.surface)
-            .cornerRadius(RadiusTokens.lg)
-            .overlay(
-                RoundedRectangle(cornerRadius: RadiusTokens.lg)
-                    .stroke(ColorTokens.border, lineWidth: 1)
-            )
-        }
+
+    // Helper: Check if task is for today
+    private func isTaskToday(_ task: CalendarTask) -> Bool {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let todayStr = dateFormatter.string(from: Date())
+        return task.date == todayStr
     }
 
-    // MARK: - Rituals Section
-    private var ritualsSection: some View {
-        VStack(alignment: .leading, spacing: SpacingTokens.md) {
-            // Header with progress
-            HStack {
-                Text("routines.title".localized)
-                    .subtitle()
-                    .fontWeight(.semibold)
-                    .foregroundColor(ColorTokens.textPrimary)
-
-                Spacer()
-
-                // Progress indicator
-                if !viewModel.todaysRituals.isEmpty {
-                    Text("\(viewModel.completedRitualsCount)/\(viewModel.totalRitualsCount)")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(ColorTokens.primaryStart)
-                        .padding(.horizontal, SpacingTokens.sm)
-                        .padding(.vertical, SpacingTokens.xs)
-                        .background(ColorTokens.primarySoft)
-                        .cornerRadius(RadiusTokens.full)
-                }
-
-                Button(action: {
-                    router.dashboardPath.append(NavigationDestination.manageRituals)
-                }) {
-                    Text("common.manage".localized)
-                        .bodyText()
-                        .foregroundColor(ColorTokens.primaryStart)
-                }
-            }
-
-            if viewModel.todaysRituals.isEmpty {
-                EmptyStateView(
-                    icon: "✨",
-                    title: "routines.no_routines".localized,
-                    subtitle: "routines.no_routines_hint".localized,
-                    actionTitle: "routines.add_routine".localized,
-                    action: {
-                        router.dashboardPath.append(NavigationDestination.manageRituals)
-                    }
-                )
-            } else {
-                VStack(spacing: SpacingTokens.sm) {
-                    ForEach(viewModel.todaysRituals) { ritual in
-                        SwipeableRitualCard(
-                            ritual: ritual,
-                            completedCount: viewModel.completedRitualsCount,
-                            totalCount: viewModel.totalRitualsCount,
-                            onComplete: {
-                                Task {
-                                    await viewModel.toggleRitual(ritual)
-                                }
-                            },
-                            onUndo: {
-                                Task {
-                                    await viewModel.toggleRitual(ritual)
-                                }
-                            },
-                            onCelebrate: {
-                                // Calculate count at the moment of celebration
-                                let newCount = viewModel.todaysRituals.filter { $0.isCompleted }.count + 1
-                                celebrationCount = newCount
-                                showCelebration = true
-                            }
-                        )
-                    }
-                }
-
-                // Swipe hint for first-time users
-                if viewModel.completedRitualsCount == 0 {
-                    HStack(spacing: SpacingTokens.xs) {
-                        Image(systemName: "hand.draw")
-                            .font(.system(size: 12))
-                        Text("routines.swipe_hint".localized)
-                            .font(.system(size: 12))
-                    }
-                    .foregroundColor(ColorTokens.textMuted)
-                    .padding(.top, SpacingTokens.xs)
-                }
-            }
-        }
-    }
-
-    // MARK: - Morning Intentions Section
-    private var morningIntentionsSection: some View {
-        VStack(alignment: .leading, spacing: SpacingTokens.md) {
-            // Header with feeling
-            HStack {
-                if let feeling = viewModel.morningFeeling {
-                    Text(feeling.rawValue)
-                        .font(.system(size: 28))
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("start_day.feeling".localized + " \(feeling.label.lowercased())")
-                            .subtitle()
-                            .foregroundColor(ColorTokens.textPrimary)
-                        Text("start_day.focus_areas".localized)
-                            .caption()
-                            .foregroundColor(ColorTokens.textMuted)
-                    }
-                } else {
-                    Text("🎯")
-                        .font(.system(size: 28))
-                    Text("dashboard.todays_intentions".localized)
-                        .subtitle()
-                        .foregroundColor(ColorTokens.textPrimary)
-                }
-                Spacer()
-
-                Button(action: {
-                    router.navigateToStartTheDay()
-                }) {
-                    Text("common.edit".localized)
-                        .caption()
-                        .foregroundColor(ColorTokens.primaryStart)
-                }
-            }
-
-            // Intentions list
-            VStack(spacing: SpacingTokens.sm) {
-                ForEach(viewModel.morningIntentions) { intention in
-                    IntentionCard(intention: intention)
-                }
-            }
-        }
-    }
-
-    // MARK: - Reflection Section
-    private var reflectionSection: some View {
-        VStack(alignment: .leading, spacing: SpacingTokens.md) {
-            // Header with edit action
-            SectionHeader(
-                title: "end_day.daily_rituals".localized,
-                action: {
-                    router.navigateToEndOfDay()
-                },
-                actionTitle: "common.edit".localized
-            )
-
-            // Reflection cards
-            VStack(spacing: SpacingTokens.sm) {
-                if let biggestWin = viewModel.reflectionBiggestWin, !biggestWin.isEmpty {
-                    ReflectionCard(emoji: "🏆", title: "end_day.biggest_win".localized, content: biggestWin)
-                }
-
-                if let bestMoment = viewModel.reflectionBestMoment, !bestMoment.isEmpty {
-                    ReflectionCard(emoji: "✨", title: "end_day.best_moment".localized, content: bestMoment)
-                }
-
-                if let tomorrowGoal = viewModel.reflectionTomorrowGoal, !tomorrowGoal.isEmpty {
-                    ReflectionCard(emoji: "🎯", title: "end_day.tomorrow_goal".localized, content: tomorrowGoal, highlighted: true)
-                }
-            }
-        }
-    }
-
-    // MARK: - Week Sessions Section
-    private var weekSessionsSection: some View {
-        VStack(alignment: .leading, spacing: SpacingTokens.md) {
-            // Header with stats
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("stats.focus_sessions".localized)
-                        .subtitle()
-                        .fontWeight(.semibold)
-                        .foregroundColor(ColorTokens.textPrimary)
-                    Text("\(viewModel.totalSessionsThisWeek) \("crew.sessions".localized) · \(viewModel.totalActualMinutesThisWeek)m total")
-                        .caption()
-                        .foregroundColor(ColorTokens.textMuted)
-                }
-
-                Spacer()
-
-                Button(action: {
-                    router.navigateToFireMode()
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "plus.circle.fill")
-                        Text("common.new".localized)
-                    }
-                    .caption()
-                    .foregroundColor(ColorTokens.primaryStart)
-                }
-            }
-
-            // Sessions grouped by day with collapsible sections
-            VStack(spacing: SpacingTokens.lg) {
-                ForEach(viewModel.sessionsByDay, id: \.date) { dayGroup in
-                    let isToday = Calendar.current.isDateInToday(dayGroup.date)
-                    let isYesterday = Calendar.current.isDateInYesterday(dayGroup.date)
-
-                    VStack(alignment: .leading, spacing: SpacingTokens.sm) {
-                        // Day header (clickable for Yesterday and older)
-                        if isToday {
-                            // Today: always visible header
-                            Text(formatDayHeader(dayGroup.date))
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(ColorTokens.textMuted)
-                                .textCase(.uppercase)
-                        } else {
-                            // Yesterday & older: collapsible header
-                            Button(action: {
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    if isYesterday {
-                                        showYesterdaySessions.toggle()
-                                    }
-                                }
-                            }) {
-                                HStack {
-                                    Text(formatDayHeader(dayGroup.date))
-                                        .font(.system(size: 12, weight: .semibold))
-                                        .foregroundColor(ColorTokens.textMuted)
-                                        .textCase(.uppercase)
-
-                                    Text("(\(dayGroup.sessions.count))")
-                                        .font(.system(size: 12))
-                                        .foregroundColor(ColorTokens.textMuted)
-
-                                    Spacer()
-
-                                    Image(systemName: (isYesterday && showYesterdaySessions) ? "chevron.up" : "chevron.down")
-                                        .font(.system(size: 12))
-                                        .foregroundColor(ColorTokens.textMuted)
-                                }
-                            }
-                        }
-
-                        // Sessions for this day
-                        if isToday {
-                            // Today: show first 3, then "See more"
-                            let sessionsToShow = showAllTodaySessions ? dayGroup.sessions : Array(dayGroup.sessions.prefix(3))
-
-                            ForEach(sessionsToShow) { session in
-                                SwipeableSessionCard(
-                                    session: session,
-                                    onEdit: {
-                                        sessionToEdit = session
-                                        showEditSession = true
-                                    },
-                                    onDelete: {
-                                        sessionToDelete = session
-                                        showDeleteSessionConfirm = true
-                                    }
-                                )
-                            }
-
-                            // "See more" button if more than 3 sessions
-                            if dayGroup.sessions.count > 3 {
-                                Button(action: {
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        showAllTodaySessions.toggle()
-                                    }
-                                }) {
-                                    HStack {
-                                        Text(showAllTodaySessions ? "common.show_less".localized : "common.see_more".localized(with: dayGroup.sessions.count - 3))
-                                            .font(.system(size: 13, weight: .medium))
-                                        Image(systemName: showAllTodaySessions ? "chevron.up" : "chevron.down")
-                                            .font(.system(size: 11))
-                                    }
-                                    .foregroundColor(ColorTokens.primaryStart)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, SpacingTokens.sm)
-                                }
-                            }
-                        } else if isYesterday && showYesterdaySessions {
-                            // Yesterday: collapsible, show first 3, then "See more"
-                            let sessionsToShow = showAllYesterdaySessions ? dayGroup.sessions : Array(dayGroup.sessions.prefix(3))
-
-                            ForEach(sessionsToShow) { session in
-                                SwipeableSessionCard(
-                                    session: session,
-                                    onEdit: {
-                                        sessionToEdit = session
-                                        showEditSession = true
-                                    },
-                                    onDelete: {
-                                        sessionToDelete = session
-                                        showDeleteSessionConfirm = true
-                                    }
-                                )
-                            }
-
-                            // "See more" button if more than 3 sessions
-                            if dayGroup.sessions.count > 3 {
-                                Button(action: {
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        showAllYesterdaySessions.toggle()
-                                    }
-                                }) {
-                                    HStack {
-                                        Text(showAllYesterdaySessions ? "common.show_less".localized : "common.see_more".localized(with: dayGroup.sessions.count - 3))
-                                            .font(.system(size: 13, weight: .medium))
-                                        Image(systemName: showAllYesterdaySessions ? "chevron.up" : "chevron.down")
-                                            .font(.system(size: 11))
-                                    }
-                                    .foregroundColor(ColorTokens.primaryStart)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, SpacingTokens.sm)
-                                }
-                            }
-                        }
-                        // Older days are hidden (only Today and Yesterday shown)
-                    }
-                }
-            }
-
-            // Swipe hint for first-time users
-            if viewModel.thisWeekSessions.count > 0 && viewModel.thisWeekSessions.count <= 3 {
-                HStack(spacing: SpacingTokens.xs) {
-                    Image(systemName: "hand.draw")
-                        .font(.system(size: 12))
-                    Text("dashboard.swipe_hint".localized)
-                        .font(.system(size: 12))
-                }
-                .foregroundColor(ColorTokens.textMuted)
-                .padding(.top, SpacingTokens.xs)
-            }
-        }
-        .sheet(isPresented: $showEditSession) {
-            if let session = sessionToEdit {
-                EditSessionSheet(
-                    session: session,
-                    onSave: { description, duration in
-                        Task {
-                            await viewModel.editSession(id: session.id, description: description, durationMinutes: duration)
-                        }
-                    },
-                    onDelete: {
-                        Task {
-                            await viewModel.deleteSession(id: session.id)
-                        }
-                    }
-                )
-            }
-        }
-        .alert("fire.delete_session".localized, isPresented: $showDeleteSessionConfirm) {
-            Button("common.cancel".localized, role: .cancel) {
-                sessionToDelete = nil
-            }
-            Button("common.delete".localized, role: .destructive) {
-                if let session = sessionToDelete {
-                    Task {
-                        await viewModel.deleteSession(id: session.id)
-                    }
-                }
-                sessionToDelete = nil
-            }
-        } message: {
-            Text("fire.delete_session_confirm".localized)
-        }
-    }
-
-    private func formatDayHeader(_ date: Date) -> String {
+    // Helper: Format day name (Lun, Mar, Mer, etc.)
+    private func formatDayName(_ date: Date) -> String {
         let calendar = Calendar.current
-        if calendar.isDateInToday(date) {
-            return "time.today".localized
-        } else if calendar.isDateInYesterday(date) {
-            return "time.yesterday".localized
-        } else {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "EEEE, d MMM"
-            return formatter.string(from: date)
+        if calendar.isDateInTomorrow(date) {
+            return "Demain"
         }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "fr_FR")
+        formatter.dateFormat = "EEE"
+        return formatter.string(from: date).capitalized
+    }
+
+    // MARK: - Next Task Card
+    private func nextTaskCard(task: CalendarTask) -> some View {
+        VStack(spacing: SpacingTokens.md) {
+            // Header
+            HStack {
+                Text("⏭️")
+                    .font(.satoshi(16))
+                Text("dashboard.coming_next".localized)
+                    .font(.satoshi(12, weight: .semibold))
+                    .foregroundColor(ColorTokens.textSecondary)
+                    .textCase(.uppercase)
+
+                Spacer()
+
+                if let startTime = task.scheduledStart {
+                    Text(startTime)
+                        .font(.satoshi(14, weight: .medium))
+                        .foregroundColor(ColorTokens.primaryStart)
+                }
+            }
+
+            // Task info
+            VStack(alignment: .leading, spacing: SpacingTokens.xs) {
+                Text(task.title)
+                    .font(.satoshi(18, weight: .bold))
+                    .foregroundColor(ColorTokens.textPrimary)
+                    .lineLimit(2)
+
+                if let start = task.scheduledStart, let end = task.scheduledEnd {
+                    HStack(spacing: SpacingTokens.sm) {
+                        Image(systemName: "clock")
+                            .font(.satoshi(12))
+                        Text("\(start) - \(end)")
+                            .font(.satoshi(13))
+                    }
+                    .foregroundColor(ColorTokens.textSecondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            // Focus button
+            Button(action: {
+                HapticFeedback.medium()
+                // Calculate duration from task times
+                var duration = 25 // Default
+                if let start = task.scheduledStart, let end = task.scheduledEnd {
+                    let formatter = DateFormatter()
+                    formatter.dateFormat = "HH:mm"
+                    if let startDate = formatter.date(from: start),
+                       let endDate = formatter.date(from: end) {
+                        let minutes = Int(endDate.timeIntervalSince(startDate) / 60)
+                        if minutes > 0 { duration = minutes }
+                    }
+                }
+                router.navigateToFireMode(duration: duration, questId: task.questId, description: task.title)
+            }) {
+                HStack(spacing: SpacingTokens.sm) {
+                    Image(systemName: "flame.fill")
+                        .font(.satoshi(14, weight: .semibold))
+                    Text("dashboard.start_focus".localized)
+                        .font(.satoshi(16, weight: .bold))
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, SpacingTokens.md)
+                .background(ColorTokens.fireGradient)
+                .cornerRadius(RadiusTokens.lg)
+            }
+        }
+        .padding(SpacingTokens.lg)
+        .background(ColorTokens.surface)
+        .cornerRadius(RadiusTokens.xl)
+    }
+
+    // MARK: - No Tasks Card
+    private var noTasksCard: some View {
+        VStack(spacing: SpacingTokens.md) {
+            Text("📅")
+                .font(.satoshi(40))
+
+            Text("dashboard.no_tasks_title".localized)
+                .font(.satoshi(16, weight: .semibold))
+                .foregroundColor(ColorTokens.textPrimary)
+
+            Text("dashboard.no_tasks_subtitle".localized)
+                .font(.satoshi(14))
+                .foregroundColor(ColorTokens.textSecondary)
+                .multilineTextAlignment(.center)
+
+            Button(action: {
+                router.selectedTab = .calendar
+            }) {
+                HStack(spacing: SpacingTokens.xs) {
+                    Image(systemName: "calendar.badge.plus")
+                    Text("dashboard.plan_day".localized)
+                }
+                .font(.satoshi(14, weight: .semibold))
+                .foregroundColor(ColorTokens.primaryStart)
+            }
+        }
+        .padding(SpacingTokens.xl)
+        .frame(maxWidth: .infinity)
+        .background(ColorTokens.surface)
+        .cornerRadius(RadiusTokens.xl)
+    }
+
+    // MARK: - All Tasks Completed Card
+    private var allTasksCompletedCard: some View {
+        VStack(spacing: SpacingTokens.md) {
+            Text("🎉")
+                .font(.satoshi(48))
+
+            Text("dashboard.all_done_title".localized)
+                .font(.satoshi(18, weight: .bold))
+                .foregroundColor(ColorTokens.textPrimary)
+
+            Text("dashboard.all_done_subtitle".localized)
+                .font(.satoshi(14))
+                .foregroundColor(ColorTokens.textSecondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(SpacingTokens.xl)
+        .frame(maxWidth: .infinity)
+        .background(ColorTokens.surface)
+        .cornerRadius(RadiusTokens.xl)
     }
 
     // MARK: - Motivational Section
@@ -1173,7 +845,7 @@ struct IntentionCard: View {
         HStack(spacing: SpacingTokens.md) {
             // Area emoji
             Text(intention.area.emoji)
-                .font(.system(size: 24))
+                .font(.satoshi(24))
                 .frame(width: 36, height: 36)
                 .background(Color(hex: intention.area.color).opacity(0.15))
                 .cornerRadius(RadiusTokens.sm)
@@ -1197,7 +869,7 @@ struct IntentionCard: View {
             if intention.isCompleted {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundColor(ColorTokens.success)
-                    .font(.system(size: 20))
+                    .font(.satoshi(20))
             }
         }
         .padding(SpacingTokens.md)
@@ -1220,7 +892,7 @@ struct ReflectionCard: View {
     var body: some View {
         HStack(alignment: .top, spacing: SpacingTokens.md) {
             Text(emoji)
-                .font(.system(size: 24))
+                .font(.satoshi(24))
 
             VStack(alignment: .leading, spacing: SpacingTokens.xs) {
                 Text(title)
@@ -1260,7 +932,7 @@ struct SessionCard: View {
             // Time indicator
             VStack(alignment: .center, spacing: 2) {
                 Text(timeFormatter.string(from: session.startTime))
-                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .font(.satoshi(12, weight: .medium))
                     .foregroundColor(ColorTokens.textSecondary)
 
                 Rectangle()
@@ -1269,7 +941,7 @@ struct SessionCard: View {
                     .cornerRadius(1)
 
                 Text(session.formattedActualDuration)
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.satoshi(11, weight: .bold))
                     .foregroundColor(ColorTokens.primaryStart)
             }
             .frame(width: 44)
@@ -1292,9 +964,9 @@ struct SessionCard: View {
                     // Duration badge - shows actual duration
                     HStack(spacing: 4) {
                         Image(systemName: "flame.fill")
-                            .font(.system(size: 10))
+                            .font(.satoshi(10))
                         Text(session.formattedActualDuration)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.satoshi(11, weight: .medium))
                     }
                     .foregroundColor(ColorTokens.primaryStart)
                     .padding(.horizontal, SpacingTokens.sm)
@@ -1304,7 +976,7 @@ struct SessionCard: View {
 
                     if session.isManuallyLogged {
                         Text("Manual")
-                            .font(.system(size: 10))
+                            .font(.satoshi(10))
                             .foregroundColor(ColorTokens.textMuted)
                             .padding(.horizontal, SpacingTokens.xs)
                             .padding(.vertical, 2)
@@ -1344,13 +1016,13 @@ struct DayTimelineView: View {
             // Day header
             HStack {
                 Text(formatDayLabel(date))
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.satoshi(12, weight: .semibold))
                     .foregroundColor(ColorTokens.textPrimary)
 
                 Spacer()
 
                 Text("\(totalMinutes)m")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.satoshi(11, weight: .medium))
                     .foregroundColor(ColorTokens.primaryStart)
             }
 
@@ -1387,25 +1059,25 @@ struct DayTimelineView: View {
             // Time labels
             HStack {
                 Text("\(startHour):00")
-                    .font(.system(size: 9, design: .monospaced))
+                    .font(.satoshi(9))
                     .foregroundColor(ColorTokens.textMuted)
 
                 Spacer()
 
                 Text("12:00")
-                    .font(.system(size: 9, design: .monospaced))
+                    .font(.satoshi(9))
                     .foregroundColor(ColorTokens.textMuted)
 
                 Spacer()
 
                 Text("18:00")
-                    .font(.system(size: 9, design: .monospaced))
+                    .font(.satoshi(9))
                     .foregroundColor(ColorTokens.textMuted)
 
                 Spacer()
 
                 Text("24:00")
-                    .font(.system(size: 9, design: .monospaced))
+                    .font(.satoshi(9))
                     .foregroundColor(ColorTokens.textMuted)
             }
         }
@@ -1602,7 +1274,7 @@ struct StartFireModeSheet: View {
             Spacer()
 
             Text("🔥")
-                .font(.system(size: 64))
+                .font(.satoshi(64))
 
             Text("How long will you focus?")
                 .heading2()
@@ -1620,9 +1292,9 @@ struct StartFireModeSheet: View {
                     }) {
                         VStack(spacing: SpacingTokens.xs) {
                             Text("\(duration)")
-                                .font(.system(size: 24, weight: .bold))
+                                .font(.satoshi(24, weight: .bold))
                             Text("min")
-                                .font(.system(size: 12))
+                                .font(.satoshi(12))
                         }
                         .frame(width: 60, height: 70)
                         .background(
@@ -1651,7 +1323,7 @@ struct StartFireModeSheet: View {
             Spacer()
 
             Text("🎯")
-                .font(.system(size: 64))
+                .font(.satoshi(64))
 
             Text("Link to a Quest")
                 .heading2()
@@ -1753,9 +1425,9 @@ struct StartFireModeSheet: View {
                 // Duration badge
                 HStack(spacing: SpacingTokens.xs) {
                     Text("🔥")
-                        .font(.system(size: 14))
+                        .font(.satoshi(14))
                     Text("\(selectedDuration)min")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.satoshi(14, weight: .medium))
                         .foregroundColor(ColorTokens.textPrimary)
                 }
                 .padding(.horizontal, SpacingTokens.sm)
@@ -1768,9 +1440,9 @@ struct StartFireModeSheet: View {
                    let quest = quests.first(where: { $0.id == questId }) {
                     HStack(spacing: SpacingTokens.xs) {
                         Text(quest.area.emoji)
-                            .font(.system(size: 14))
+                            .font(.satoshi(14))
                         Text(quest.title)
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.satoshi(14, weight: .medium))
                             .foregroundColor(ColorTokens.textPrimary)
                             .lineLimit(1)
                     }
@@ -1937,7 +1609,7 @@ struct ProfilePhotoSheet: View {
                 VStack(alignment: .leading, spacing: SpacingTokens.md) {
                     HStack {
                         Text("🌐")
-                            .font(.system(size: 20))
+                            .font(.satoshi(20))
                         Text("profile.language".localized)
                             .bodyText()
                             .fontWeight(.medium)
@@ -1956,7 +1628,7 @@ struct ProfilePhotoSheet: View {
                             } label: {
                                 HStack {
                                     Text(language.flag)
-                                        .font(.system(size: 20))
+                                        .font(.satoshi(20))
 
                                     Text(language.displayName)
                                         .bodyText()
@@ -1989,7 +1661,7 @@ struct ProfilePhotoSheet: View {
                 }) {
                     HStack {
                         Image(systemName: "rectangle.portrait.and.arrow.right")
-                            .font(.system(size: 14))
+                            .font(.satoshi(14))
                         Text("profile.sign_out".localized)
                             .bodyText()
                     }
@@ -2659,9 +2331,9 @@ struct SwipeableSessionCard: View {
                             ColorTokens.primaryStart
                             VStack(spacing: 4) {
                                 Image(systemName: "pencil")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.satoshi(16, weight: .semibold))
                                 Text("Edit")
-                                    .font(.system(size: 10, weight: .medium))
+                                    .font(.satoshi(10, weight: .medium))
                             }
                             .foregroundColor(.white)
                             .scaleEffect(swipeProgress > 0.5 ? 1.0 : 0.5)
@@ -2680,9 +2352,9 @@ struct SwipeableSessionCard: View {
                             ColorTokens.error
                             VStack(spacing: 4) {
                                 Image(systemName: "trash")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.satoshi(16, weight: .semibold))
                                 Text("Delete")
-                                    .font(.system(size: 10, weight: .medium))
+                                    .font(.satoshi(10, weight: .medium))
                             }
                             .foregroundColor(.white)
                             .scaleEffect(swipeProgress > 0.5 ? 1.0 : 0.5)
@@ -2706,7 +2378,7 @@ struct SwipeableSessionCard: View {
                 // Time indicator
                 VStack(alignment: .center, spacing: 2) {
                     Text(timeFormatter.string(from: session.startTime))
-                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .font(.satoshi(12, weight: .medium))
                         .foregroundColor(ColorTokens.textSecondary)
 
                     Rectangle()
@@ -2715,7 +2387,7 @@ struct SwipeableSessionCard: View {
                         .cornerRadius(1)
 
                     Text(session.formattedActualDuration)
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.satoshi(11, weight: .bold))
                         .foregroundColor(ColorTokens.primaryStart)
                 }
                 .frame(width: 44)
@@ -2738,9 +2410,9 @@ struct SwipeableSessionCard: View {
                         // Duration badge
                         HStack(spacing: 4) {
                             Image(systemName: "flame.fill")
-                                .font(.system(size: 10))
+                                .font(.satoshi(10))
                             Text(session.formattedActualDuration)
-                                .font(.system(size: 11, weight: .medium))
+                                .font(.satoshi(11, weight: .medium))
                         }
                         .foregroundColor(ColorTokens.primaryStart)
                         .padding(.horizontal, SpacingTokens.sm)
@@ -2750,7 +2422,7 @@ struct SwipeableSessionCard: View {
 
                         if session.isManuallyLogged {
                             Text("Manual")
-                                .font(.system(size: 10))
+                                .font(.satoshi(10))
                                 .foregroundColor(ColorTokens.textMuted)
                                 .padding(.horizontal, SpacingTokens.xs)
                                 .padding(.vertical, 2)
@@ -2766,10 +2438,10 @@ struct SwipeableSessionCard: View {
                 if !isAnimating && offset == 0 {
                     HStack(spacing: 2) {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.satoshi(10, weight: .medium))
                             .opacity(0.3)
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.satoshi(10, weight: .medium))
                             .opacity(0.5)
                     }
                     .foregroundColor(ColorTokens.textMuted)
@@ -2915,12 +2587,12 @@ struct EditSessionSheet: View {
                                 }
                             }) {
                                 Image(systemName: "minus.circle.fill")
-                                    .font(.system(size: 28))
+                                    .font(.satoshi(28))
                                     .foregroundColor(ColorTokens.textMuted)
                             }
 
                             Text("\(durationMinutes) minutes")
-                                .font(.system(size: 18, weight: .semibold))
+                                .font(.satoshi(18, weight: .semibold))
                                 .foregroundColor(ColorTokens.textPrimary)
                                 .frame(width: 120)
 
@@ -2930,7 +2602,7 @@ struct EditSessionSheet: View {
                                 }
                             }) {
                                 Image(systemName: "plus.circle.fill")
-                                    .font(.system(size: 28))
+                                    .font(.satoshi(28))
                                     .foregroundColor(ColorTokens.primaryStart)
                             }
                         }
@@ -3029,6 +2701,38 @@ struct EditSessionSheet: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMM d, HH:mm"
         return formatter.string(from: date)
+    }
+}
+
+// MARK: - Validation Requirement Row
+struct ValidationRequirementRow: View {
+    let icon: String
+    let text: String
+    let current: String
+    let isMet: Bool
+
+    var body: some View {
+        HStack(spacing: SpacingTokens.sm) {
+            Image(systemName: icon)
+                .font(.satoshi(14))
+                .foregroundColor(isMet ? ColorTokens.success : ColorTokens.warning)
+                .frame(width: 20)
+
+            Text(text)
+                .font(.satoshi(12))
+                .foregroundColor(.white.opacity(0.7))
+
+            Spacer()
+
+            Text(current)
+                .font(.satoshi(12, weight: .semibold))
+                .foregroundColor(isMet ? ColorTokens.success : ColorTokens.warning)
+
+            Image(systemName: isMet ? "checkmark.circle.fill" : "circle")
+                .font(.satoshi(14))
+                .foregroundColor(isMet ? ColorTokens.success : .white.opacity(0.3))
+        }
+        .padding(.vertical, SpacingTokens.xs)
     }
 }
 

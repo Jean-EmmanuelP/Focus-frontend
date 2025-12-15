@@ -222,20 +222,20 @@ struct TermsOfServiceView: View {
 // MARK: - Shared Components
 private func sectionHeader(_ text: String) -> some View {
     Text(text)
-        .font(.system(size: 28, weight: .bold))
+        .font(.satoshi(28, weight: .bold))
         .foregroundColor(ColorTokens.textPrimary)
 }
 
 private func sectionTitle(_ text: String) -> some View {
     Text(text)
-        .font(.system(size: 18, weight: .semibold))
+        .font(.satoshi(18, weight: .semibold))
         .foregroundColor(ColorTokens.textPrimary)
         .padding(.top, SpacingTokens.sm)
 }
 
 private func subsectionTitle(_ text: String) -> some View {
     Text(text)
-        .font(.system(size: 15, weight: .medium))
+        .font(.satoshi(15, weight: .medium))
         .foregroundColor(ColorTokens.textPrimary)
         .padding(.top, SpacingTokens.xs)
 }

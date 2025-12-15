@@ -6,6 +6,7 @@ class CalendarViewModel: ObservableObject {
     private var store: FocusAppStore { FocusAppStore.shared }
     private let calendarService = CalendarService()
     private let voiceService = VoiceService()
+    private let completionsService = CompletionsService()
     private var cancellables = Set<AnyCancellable>()
 
     // MARK: - Published State
@@ -15,6 +16,9 @@ class CalendarViewModel: ObservableObject {
     @Published var tasks: [CalendarTask] = []
     @Published var weekTasks: [CalendarTask] = []
     @Published var dayProgress: Int = 0
+
+    /// Ritual completions for the current week: [routineId: [completedDates]]
+    @Published var ritualCompletionsByDate: [String: Set<String>] = [:]
 
     @Published var isLoading = false
     @Published var isGeneratingPlan = false
@@ -82,9 +86,29 @@ class CalendarViewModel: ObservableObject {
         store.quests.filter { $0.status == .active }
     }
 
+    /// All rituals (for week view indicators)
+    var allRituals: [DailyRitual] {
+        store.rituals
+    }
+
     /// Rituals with scheduled time for calendar display
     var scheduledRituals: [DailyRitual] {
-        store.rituals.filter { $0.scheduledTime != nil }
+        let ritualsWithTime = store.rituals.filter { $0.scheduledTime != nil }
+        print("📅 Calendar - All rituals: \(store.rituals.count), with scheduledTime: \(ritualsWithTime.count)")
+        for ritual in store.rituals {
+            print("  - \(ritual.title): scheduledTime=\(ritual.scheduledTime ?? "nil"), frequency=\(ritual.frequency.rawValue)")
+        }
+        return ritualsWithTime
+    }
+
+    /// Check if a ritual is completed on a specific date
+    func isRitualCompleted(_ ritualId: String, on date: Date) -> Bool {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        dateFormatter.timeZone = TimeZone.current  // Use local timezone consistently
+        let dateStr = dateFormatter.string(from: date)
+
+        return ritualCompletionsByDate[ritualId]?.contains(dateStr) ?? false
     }
 
     /// Load quests from store if needed
@@ -92,9 +116,29 @@ class CalendarViewModel: ObservableObject {
         await store.loadQuestsIfNeeded()
     }
 
-    /// Toggle ritual completion
+    /// Toggle ritual completion for the selected date
     func toggleRitual(_ ritual: DailyRitual) async {
-        await store.toggleRitual(ritual)
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        dateFormatter.timeZone = TimeZone.current  // Use local timezone consistently
+        let dateStr = dateFormatter.string(from: selectedDate)
+
+        // Check current completion status for this date
+        let wasCompleted = ritualCompletionsByDate[ritual.id]?.contains(dateStr) ?? false
+        let isCompleting = !wasCompleted // We want to mark as completed if it wasn't
+
+        // Optimistic update of local completion map
+        if wasCompleted {
+            ritualCompletionsByDate[ritual.id]?.remove(dateStr)
+        } else {
+            if ritualCompletionsByDate[ritual.id] == nil {
+                ritualCompletionsByDate[ritual.id] = []
+            }
+            ritualCompletionsByDate[ritual.id]?.insert(dateStr)
+        }
+
+        // Sync with server via store (handles API call) - pass the selected date and action!
+        await store.toggleRitual(ritual, forDate: dateStr, isCompleting: isCompleting)
     }
 
     // Group tasks by hour for display
@@ -138,6 +182,25 @@ class CalendarViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
+        store.$rituals
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
+        // Listen for task updates from the store (e.g., after task completion from FireMode)
+        store.$todaysTasks
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] updatedTasks in
+                guard let self = self else { return }
+                // Refresh week data if today's tasks changed
+                Task {
+                    await self.loadWeekData()
+                }
             }
             .store(in: &cancellables)
     }
@@ -242,21 +305,47 @@ class CalendarViewModel: ObservableObject {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
         let startDateStr = dateFormatter.string(from: weekStartDate)
+        let endDate = Calendar.current.date(byAdding: .day, value: 6, to: weekStartDate) ?? weekStartDate
+        let endDateStr = dateFormatter.string(from: endDate)
 
         print("[CalendarViewModel] Loading week data for start: \(startDateStr)")
 
         do {
-            let response = try await calendarService.getWeekView(startDate: startDateStr)
+            // Load tasks and completions in parallel
+            async let tasksResponse = calendarService.getWeekView(startDate: startDateStr)
+            async let completionsResponse = completionsService.fetchCompletions(routineId: nil, from: startDateStr, to: endDateStr)
+
+            let response = try await tasksResponse
             print("[CalendarViewModel] Got \(response.tasks.count) tasks from API")
             weekTasks = response.tasks
+
             // Filter tasks for current day separately
             let selectedDateStr = dateFormatter.string(from: selectedDate)
             tasks = weekTasks.filter { $0.date == selectedDateStr }
             print("[CalendarViewModel] Filtered to \(tasks.count) tasks for \(selectedDateStr)")
+
+            // Process ritual completions for the week
+            let completions = try await completionsResponse
+            var completionMap: [String: Set<String>] = [:]
+            let completionDateFormatter = DateFormatter()
+            completionDateFormatter.dateFormat = "yyyy-MM-dd"
+            completionDateFormatter.timeZone = TimeZone.current  // Use local timezone consistently
+
+            for completion in completions {
+                let completedDateStr = completionDateFormatter.string(from: completion.completedAt)
+                if completionMap[completion.routineId] == nil {
+                    completionMap[completion.routineId] = []
+                }
+                completionMap[completion.routineId]?.insert(completedDateStr)
+            }
+            ritualCompletionsByDate = completionMap
+            print("[CalendarViewModel] Loaded \(completions.count) ritual completions for the week")
+
         } catch {
             print("[CalendarViewModel] ERROR loading week data: \(error)")
             weekTasks = []
             tasks = []
+            ritualCompletionsByDate = [:]
         }
 
         // Wait for quests to load
@@ -425,6 +514,18 @@ class CalendarViewModel: ObservableObject {
                 priority: priority
             )
             print("[CalendarViewModel] Task created successfully: id=\(createdTask.id)")
+
+            // Add to AppStore for Dashboard sync
+            store.upcomingWeekTasks.append(createdTask)
+
+            // Check if it's today's task
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd"
+            let todayStr = dateFormatter.string(from: Date())
+            if createdTask.date == todayStr {
+                store.todaysTasks.append(createdTask)
+            }
+
             // Reload week data to get proper task with all fields from server
             await loadWeekData()
         } catch {
@@ -435,28 +536,38 @@ class CalendarViewModel: ObservableObject {
 
     func toggleTask(_ taskId: String) async {
         // Try to find task in both arrays
-        let task = tasks.first(where: { $0.id == taskId }) ?? weekTasks.first(where: { $0.id == taskId })
-        guard let task = task else { return }
+        guard let task = tasks.first(where: { $0.id == taskId }) ?? weekTasks.first(where: { $0.id == taskId }) else { return }
 
-        do {
-            let updated: CalendarTask
-            if task.isCompleted {
-                updated = try await calendarService.uncompleteTask(id: taskId)
-            } else {
-                updated = try await calendarService.completeTask(id: taskId)
-            }
+        let wasCompleted = task.isCompleted
+        let newStatus = wasCompleted ? "pending" : "completed"
+        let newCompletedAt: Date? = wasCompleted ? nil : Date()
 
-            if let index = tasks.firstIndex(where: { $0.id == taskId }) {
-                tasks[index] = updated
-            }
-            if let index = weekTasks.firstIndex(where: { $0.id == taskId }) {
-                weekTasks[index] = updated
-            }
+        // Optimistic update - change UI immediately (local CalendarViewModel)
+        if let index = tasks.firstIndex(where: { $0.id == taskId }) {
+            tasks[index].status = newStatus
+            tasks[index].completedAt = newCompletedAt
+        }
+        if let index = weekTasks.firstIndex(where: { $0.id == taskId }) {
+            weekTasks[index].status = newStatus
+            weekTasks[index].completedAt = newCompletedAt
+        }
+        updateDayProgress()
 
-            updateDayProgress()
+        // Optimistic update - sync with AppStore for Dashboard
+        if let index = store.todaysTasks.firstIndex(where: { $0.id == taskId }) {
+            store.todaysTasks[index].status = newStatus
+            store.todaysTasks[index].completedAt = newCompletedAt
+        }
+        if let index = store.upcomingWeekTasks.firstIndex(where: { $0.id == taskId }) {
+            store.upcomingWeekTasks[index].status = newStatus
+            store.upcomingWeekTasks[index].completedAt = newCompletedAt
+        }
 
-        } catch {
-            handleError(error, context: "updating task")
+        // Sync with server via SyncManager (handles offline queue and retry)
+        if wasCompleted {
+            await SyncManager.shared.uncompleteTask(id: taskId)
+        } else {
+            await SyncManager.shared.completeTask(id: taskId)
         }
     }
 
@@ -469,11 +580,33 @@ class CalendarViewModel: ObservableObject {
                 scheduledEnd: scheduledEnd
             )
 
+            // Update local CalendarViewModel
             if let index = tasks.firstIndex(where: { $0.id == taskId }) {
                 tasks[index] = updated
             }
             if let index = weekTasks.firstIndex(where: { $0.id == taskId }) {
                 weekTasks[index] = updated
+            }
+
+            // Update AppStore for Dashboard sync
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd"
+            let todayStr = dateFormatter.string(from: Date())
+
+            // Update or remove from todaysTasks based on new date
+            if updated.date == todayStr {
+                if let index = store.todaysTasks.firstIndex(where: { $0.id == taskId }) {
+                    store.todaysTasks[index] = updated
+                } else {
+                    store.todaysTasks.append(updated)
+                }
+            } else {
+                store.todaysTasks.removeAll { $0.id == taskId }
+            }
+
+            // Update upcomingWeekTasks
+            if let index = store.upcomingWeekTasks.firstIndex(where: { $0.id == taskId }) {
+                store.upcomingWeekTasks[index] = updated
             }
         } catch {
             handleError(error, context: "rescheduling task")
@@ -483,9 +616,15 @@ class CalendarViewModel: ObservableObject {
     func deleteTask(_ taskId: String) async {
         do {
             try await calendarService.deleteTask(id: taskId)
+
+            // Remove from local CalendarViewModel
             tasks.removeAll { $0.id == taskId }
             weekTasks.removeAll { $0.id == taskId }
             updateDayProgress()
+
+            // Remove from AppStore for Dashboard sync
+            store.todaysTasks.removeAll { $0.id == taskId }
+            store.upcomingWeekTasks.removeAll { $0.id == taskId }
         } catch {
             handleError(error, context: "deleting task")
         }

@@ -22,6 +22,10 @@ class FireModeViewModel: ObservableObject {
     @Published var timeRemaining: Int = 0 // in seconds
     @Published var sessionStartTime: Date?
     @Published var currentSessionId: String? // Track current session for completion
+    @Published var linkedTaskId: String? // Track linked task for post-session validation
+    @Published var linkedRitualId: String? // Track linked ritual for post-session validation
+    @Published var showTaskValidationPrompt = false // Show validation prompt after focus completion (task or ritual)
+    @Published var shouldDismissModal = false // Signal to dismiss the modal after task validation
     private var timer: Timer?
 
     // MARK: - Published UI State
@@ -74,7 +78,7 @@ class FireModeViewModel: ObservableObject {
     }
 
     /// Apply preset values from router and auto-start if all required fields are set
-    func applyPresets(duration: Int?, questId: String?, description: String?) {
+    func applyPresets(duration: Int?, questId: String?, description: String?, taskId: String? = nil, ritualId: String? = nil) {
         if let duration = duration {
             selectedDuration = duration
             customDuration = Double(duration)
@@ -84,6 +88,12 @@ class FireModeViewModel: ObservableObject {
         }
         if let description = description {
             sessionDescription = description
+        }
+        if let taskId = taskId {
+            linkedTaskId = taskId
+        }
+        if let ritualId = ritualId {
+            linkedRitualId = ritualId
         }
 
         // If duration is set, auto-start the session
@@ -268,6 +278,7 @@ class FireModeViewModel: ObservableObject {
     func stopTimer() {
         timer?.invalidate()
         timer = nil
+        timerState = .completed // Mark as completed to show validation prompt
 
         // End Live Activity
         LiveActivityManager.shared.endLiveActivity(completed: false)
@@ -283,10 +294,16 @@ class FireModeViewModel: ObservableObject {
             }
         }
 
-        resetTimerState()
-
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.warning)
+
+        // If a task or ritual was linked, show validation prompt
+        // Otherwise just reset
+        if linkedTaskId != nil || linkedRitualId != nil {
+            showTaskValidationPrompt = true
+        } else {
+            resetTimerState()
+        }
     }
 
     private func cancelSessionInBackend(sessionId: String) async {
@@ -318,10 +335,54 @@ class FireModeViewModel: ObservableObject {
                 await completeSessionInBackend(sessionId: sessionId)
             }
             store.syncWidgetData()
-            // Keep completed state briefly before resetting
-            try? await Task.sleep(nanoseconds: 2_000_000_000)
-            resetTimerState()
+
+            // If a task or ritual was linked, show validation prompt
+            // Otherwise just reset after a delay
+            if linkedTaskId != nil || linkedRitualId != nil {
+                // Show task/ritual validation prompt
+                showTaskValidationPrompt = true
+            } else {
+                // No task/ritual linked - keep completed state briefly before resetting
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                resetTimerState()
+            }
         }
+    }
+
+    /// Validate the linked task or ritual (mark as completed)
+    func validateLinkedTask() async {
+        // Validate task if linked
+        if let taskId = linkedTaskId {
+            do {
+                try await store.toggleTask(taskId: taskId, completed: true)
+                print("✅ Task validated: \(taskId)")
+            } catch {
+                print("❌ Failed to validate task: \(error)")
+            }
+        }
+
+        // Validate ritual if linked
+        if let ritualId = linkedRitualId {
+            do {
+                try await store.toggleRitualById(ritualId: ritualId)
+                print("✅ Ritual validated: \(ritualId)")
+            } catch {
+                print("❌ Failed to validate ritual: \(error)")
+            }
+        }
+
+        showTaskValidationPrompt = false
+        resetTimerState()
+        // Signal to close the modal
+        shouldDismissModal = true
+    }
+
+    /// Skip task/ritual validation (don't mark as completed)
+    func skipTaskValidation() {
+        showTaskValidationPrompt = false
+        resetTimerState()
+        // Signal to close the modal
+        shouldDismissModal = true
     }
 
     private func startTimerLoop() {
@@ -360,6 +421,10 @@ class FireModeViewModel: ObservableObject {
         timeRemaining = 0
         sessionStartTime = nil
         currentSessionId = nil
+        linkedTaskId = nil
+        linkedRitualId = nil
+        showTaskValidationPrompt = false
+        // Note: Don't reset shouldDismissModal here - it's handled by the view
         resetForm()
     }
 

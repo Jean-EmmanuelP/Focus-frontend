@@ -17,15 +17,15 @@ struct AIGenerateDaySheet: View {
                         // Hero section
                         VStack(spacing: SpacingTokens.md) {
                             Text("✨")
-                                .font(.system(size: 64))
+                                .font(.satoshi(64))
 
                             Text("calendar.ai_plan_title".localized)
-                                .font(.system(size: 24, weight: .bold))
+                                .font(.satoshi(24, weight: .bold))
                                 .foregroundColor(ColorTokens.textPrimary)
                                 .multilineTextAlignment(.center)
 
                             Text("calendar.ai_plan_subtitle".localized)
-                                .font(.system(size: 14))
+                                .font(.satoshi(14))
                                 .foregroundColor(ColorTokens.textSecondary)
                                 .multilineTextAlignment(.center)
                         }
@@ -34,7 +34,7 @@ struct AIGenerateDaySheet: View {
                         // Prompt input
                         VStack(alignment: .leading, spacing: SpacingTokens.sm) {
                             Text("calendar.describe_your_day".localized)
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.satoshi(14, weight: .semibold))
                                 .foregroundColor(ColorTokens.textSecondary)
 
                             TextEditor(text: $viewModel.idealDayPrompt)
@@ -51,7 +51,7 @@ struct AIGenerateDaySheet: View {
                             // Examples
                             VStack(alignment: .leading, spacing: SpacingTokens.sm) {
                                 Text("calendar.examples".localized)
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.satoshi(12, weight: .semibold))
                                     .foregroundColor(ColorTokens.textMuted)
 
                                 exampleChip("De 8h à 12h, je travaille sur le marketing")
@@ -101,7 +101,7 @@ struct AIGenerateDaySheet: View {
             }
         }) {
             Text(text)
-                .font(.system(size: 12))
+                .font(.satoshi(12))
                 .foregroundColor(ColorTokens.textSecondary)
                 .padding(.horizontal, SpacingTokens.sm)
                 .padding(.vertical, SpacingTokens.xs)
@@ -134,7 +134,7 @@ struct CreateScheduledTaskSheet: View {
                         // Title
                         VStack(alignment: .leading, spacing: SpacingTokens.sm) {
                             Text("calendar.task_title".localized)
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.satoshi(14, weight: .semibold))
                                 .foregroundColor(ColorTokens.textSecondary)
 
                             TextField("calendar.task_title_placeholder".localized, text: $title)
@@ -147,7 +147,7 @@ struct CreateScheduledTaskSheet: View {
                         // Description
                         VStack(alignment: .leading, spacing: SpacingTokens.sm) {
                             Text("calendar.task_description".localized)
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.satoshi(14, weight: .semibold))
                                 .foregroundColor(ColorTokens.textSecondary)
 
                             TextField("calendar.task_description_placeholder".localized, text: $description, axis: .vertical)
@@ -162,7 +162,7 @@ struct CreateScheduledTaskSheet: View {
                         HStack(spacing: SpacingTokens.md) {
                             VStack(alignment: .leading, spacing: SpacingTokens.sm) {
                                 Text("calendar.start_time".localized)
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.satoshi(14, weight: .semibold))
                                     .foregroundColor(ColorTokens.textSecondary)
 
                                 DatePicker("", selection: $startTime, displayedComponents: .hourAndMinute)
@@ -175,7 +175,7 @@ struct CreateScheduledTaskSheet: View {
 
                             VStack(alignment: .leading, spacing: SpacingTokens.sm) {
                                 Text("calendar.end_time".localized)
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.satoshi(14, weight: .semibold))
                                     .foregroundColor(ColorTokens.textSecondary)
 
                                 DatePicker("", selection: $endTime, displayedComponents: .hourAndMinute)
@@ -190,7 +190,7 @@ struct CreateScheduledTaskSheet: View {
                         // Priority
                         VStack(alignment: .leading, spacing: SpacingTokens.sm) {
                             Text("calendar.priority".localized)
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.satoshi(14, weight: .semibold))
                                 .foregroundColor(ColorTokens.textSecondary)
 
                             HStack(spacing: SpacingTokens.sm) {
@@ -212,7 +212,7 @@ struct CreateScheduledTaskSheet: View {
                         if !viewModel.quests.isEmpty {
                             VStack(alignment: .leading, spacing: SpacingTokens.sm) {
                                 Text("calendar.link_quest".localized)
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.satoshi(14, weight: .semibold))
                                     .foregroundColor(ColorTokens.textSecondary)
 
                                 Menu {
@@ -237,7 +237,7 @@ struct CreateScheduledTaskSheet: View {
                                         }
                                         Spacer()
                                         Image(systemName: "chevron.up.chevron.down")
-                                            .font(.system(size: 12))
+                                            .font(.satoshi(12))
                                             .foregroundColor(ColorTokens.textMuted)
                                     }
                                     .padding(SpacingTokens.md)
@@ -344,7 +344,7 @@ struct CreateTaskSheet: View {
                         // Title
                         VStack(alignment: .leading, spacing: SpacingTokens.sm) {
                             Text("calendar.task_title".localized)
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.satoshi(14, weight: .semibold))
                                 .foregroundColor(ColorTokens.textSecondary)
 
                             TextField("calendar.task_title_placeholder".localized, text: $title)
@@ -357,7 +357,7 @@ struct CreateTaskSheet: View {
                         // Description
                         VStack(alignment: .leading, spacing: SpacingTokens.sm) {
                             Text("calendar.task_description".localized)
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.satoshi(14, weight: .semibold))
                                 .foregroundColor(ColorTokens.textSecondary)
 
                             TextField("calendar.task_description_placeholder".localized, text: $description, axis: .vertical)
@@ -371,7 +371,7 @@ struct CreateTaskSheet: View {
                         // Estimated time
                         VStack(alignment: .leading, spacing: SpacingTokens.sm) {
                             Text("calendar.estimated_time".localized)
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.satoshi(14, weight: .semibold))
                                 .foregroundColor(ColorTokens.textSecondary)
 
                             HStack(spacing: SpacingTokens.sm) {
@@ -396,7 +396,7 @@ struct CreateTaskSheet: View {
                         // Priority
                         VStack(alignment: .leading, spacing: SpacingTokens.sm) {
                             Text("calendar.priority".localized)
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.satoshi(14, weight: .semibold))
                                 .foregroundColor(ColorTokens.textSecondary)
 
                             HStack(spacing: SpacingTokens.sm) {
@@ -418,7 +418,7 @@ struct CreateTaskSheet: View {
                         if !viewModel.quests.isEmpty {
                             VStack(alignment: .leading, spacing: SpacingTokens.sm) {
                                 Text("calendar.link_quest".localized)
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.satoshi(14, weight: .semibold))
                                     .foregroundColor(ColorTokens.textSecondary)
 
                                 Menu {
@@ -443,7 +443,7 @@ struct CreateTaskSheet: View {
                                         }
                                         Spacer()
                                         Image(systemName: "chevron.up.chevron.down")
-                                            .font(.system(size: 12))
+                                            .font(.satoshi(12))
                                             .foregroundColor(ColorTokens.textMuted)
                                     }
                                     .padding(SpacingTokens.md)

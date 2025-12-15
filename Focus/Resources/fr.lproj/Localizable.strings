@@ -29,13 +29,14 @@
 "common.manage" = "Gérer";
 "common.new" = "Nouveau";
 "common.done" = "Terminé";
+"common.create" = "Créer";
 
 // MARK: - Tabs
 "tab.dashboard" = "Accueil";
 "tab.calendar" = "Calendrier";
 "tab.fire" = "Focus";
 "tab.quests" = "Quêtes";
-"tab.crew" = "Équipe";
+"tab.crew" = "Amis";
 
 // MARK: - Dashboard
 "dashboard.title" = "VOLTA";
@@ -118,6 +119,10 @@
 "fire.launch_session" = "Lance une session focus maintenant";
 "fire.delete_session" = "Supprimer la session ?";
 "fire.delete_session_confirm" = "Cette action supprimera définitivement cette session focus.";
+"fire.task_completed_question" = "As-tu terminé ta tâche ?";
+"fire.task_validation_message" = "Ta session focus est terminée ! Veux-tu valider ta tâche comme complétée ?";
+"fire.yes_validate" = "Oui, valider ✓";
+"fire.not_yet" = "Pas encore";
 
 // MARK: - Quests
 "quests.title" = "QUÊTES";
@@ -183,15 +188,15 @@
 "routines.no_scheduled" = "Aucun rituel prévu aujourd'hui";
 
 // MARK: - Crew
-"crew.title" = "ÉQUIPE";
+"crew.title" = "AMIS";
 "crew.subtitle" = "Construis ensemble. Grandis ensemble.";
 "crew.leaderboard" = "Classement";
-"crew.my_crew" = "Mon équipe";
+"crew.my_crew" = "Mes amis";
 "crew.requests" = "Demandes";
 "crew.account" = "Compte";
 "crew.top_builders" = "Top Builders cette semaine";
-"crew.your_crew" = "Ton équipe";
-"crew.members" = "membres";
+"crew.your_crew" = "Tes amis";
+"crew.members" = "amis";
 "crew.this_week" = "cette semaine";
 "crew.search" = "Rechercher";
 "crew.search_placeholder" = "Rechercher des utilisateurs...";
@@ -200,21 +205,21 @@
 "crew.respond" = "Répondre";
 "crew.accept" = "Accepter";
 "crew.reject" = "Refuser";
-"crew.in_crew" = "Dans l'équipe";
+"crew.in_crew" = "Ami";
 "crew.remove" = "Retirer";
-"crew.no_members" = "Pas encore de membres";
+"crew.no_members" = "Pas encore d'amis";
 "crew.no_requests" = "Aucune demande en attente";
 "crew.received_requests" = "Demandes reçues";
 "crew.sent_requests" = "Demandes envoyées";
 "crew.incoming" = "Reçues";
 "crew.outgoing" = "Envoyées";
-"crew.remove_confirm" = "Es-tu sûr de vouloir retirer %@ de ton équipe ?";
+"crew.remove_confirm" = "Es-tu sûr de vouloir retirer %@ de tes amis ?";
 "crew.search_hint" = "Recherche des utilisateurs et envoie-leur une demande";
 "crew.start_session_hint" = "Lance une session focus pour apparaître au classement";
-"crew.requests_hint" = "Quand quelqu'un veut rejoindre ton équipe, ça apparaîtra ici";
+"crew.requests_hint" = "Quand quelqu'un veut t'ajouter, ça apparaîtra ici";
 "crew.no_sent_requests" = "Aucune demande envoyée";
 "crew.search_to_send" = "Recherche des utilisateurs pour envoyer des demandes";
-"crew.crew_member" = "Membre de l'équipe";
+"crew.crew_member" = "Ami";
 "crew.day_not_visible" = "Journée non visible";
 "crew.day_private" = "Cet utilisateur a mis sa journée en privé";
 "crew.no_activity" = "Aucune activité ce jour";
@@ -228,12 +233,61 @@
 "crew.suggested" = "Utilisateurs Suggérés";
 "crew.suggested_hint" = "Des utilisateurs actifs que tu pourrais vouloir ajouter";
 
+// Crew Groups
+"crew.groups" = "Groupes";
+"crew.groups.title" = "Tes Groupes";
+"crew.groups.create" = "Créer";
+"crew.groups.create_title" = "Créer un Groupe";
+"crew.groups.empty" = "Pas encore de groupes";
+"crew.groups.empty_hint" = "Crée un groupe pour organiser tes amis";
+"crew.groups.name" = "Nom du Groupe";
+"crew.groups.name_placeholder" = "ex: Amis de la salle";
+"crew.groups.icon" = "Icône";
+"crew.groups.color" = "Couleur";
+"crew.groups.select_members" = "Sélectionner les membres";
+"crew.groups.no_friends" = "Ajoute d'abord des amis";
+"crew.groups.detail" = "Détails du Groupe";
+"crew.groups.add_members" = "Ajouter des membres";
+"crew.groups.delete" = "Supprimer le Groupe";
+"crew.groups.delete_title" = "Supprimer le Groupe ?";
+"crew.groups.delete_confirm" = "Cette action est irréversible. Tous les membres seront retirés de ce groupe.";
+"crew.groups.remove_member" = "Retirer du Groupe ?";
+"crew.groups.remove_member_confirm" = "Retirer %@ de ce groupe ?";
+"crew.groups.no_members" = "Aucun membre dans ce groupe";
+"crew.groups.all_members_added" = "Tous tes amis sont déjà dans ce groupe";
+"crew.groups.invite" = "Inviter dans le groupe";
+"crew.groups.send_invite" = "Envoyer";
+"crew.groups.leave" = "Quitter le groupe";
+"crew.groups.leave_title" = "Quitter le groupe ?";
+"crew.groups.leave_confirm" = "Tu n'auras plus accès à ce groupe.";
+"crew.groups.no_members_to_invite" = "Aucun ami à inviter";
+"crew.groups.invite_from_crew" = "Inviter depuis tes amis";
+"crew.group" = "Groupe";
+"crew.group_invitations" = "Invitations de groupe";
+"crew.no_group_invitations" = "Aucune invitation de groupe";
+"crew.group_invitations_hint" = "Les invitations à rejoindre des groupes apparaîtront ici";
+"crew.invited_by" = "Invité par %@";
+"crew.invited_user" = "%@ invité";
+"crew.sent_group_invitations" = "Invitations envoyées";
+"common.selected" = "sélectionnés";
+
+// Crew Member Calendar
+"crew.member.calendar" = "Calendrier";
+"crew.member.view_calendar" = "Voir Calendrier";
+"crew.member.daily_schedule" = "Planning du Jour";
+"crew.member.tasks" = "Tâches";
+"crew.member.routines" = "Rituels Quotidiens";
+"crew.member.no_tasks" = "Aucune tâche programmée";
+"crew.member.no_routines_scheduled" = "Aucun rituel pour ce jour";
+"crew.member.scheduled_for" = "Programmé pour";
+"crew.member.all_day" = "Toute la journée";
+
 // MARK: - Visibility
 "visibility.public" = "Public";
-"visibility.crew" = "Équipe Seulement";
+"visibility.crew" = "Amis seulement";
 "visibility.private" = "Privé";
 "visibility.public_desc" = "Tout le monde peut voir ta journée";
-"visibility.crew_desc" = "Seuls les membres de l'équipe peuvent voir";
+"visibility.crew_desc" = "Seuls tes amis peuvent voir";
 "visibility.private_desc" = "Ta journée est cachée de tout le monde";
 
 // MARK: - Profile / Account
@@ -244,8 +298,8 @@
 "profile.visibility_description" = "Contrôle qui peut voir ton activité quotidienne";
 "profile.public" = "Public";
 "profile.public_desc" = "Tout le monde peut voir ta journée";
-"profile.crew_only" = "Équipe uniquement";
-"profile.crew_only_desc" = "Seuls les membres de ton équipe peuvent voir";
+"profile.crew_only" = "Amis uniquement";
+"profile.crew_only_desc" = "Seuls tes amis peuvent voir";
 "profile.private" = "Privé";
 "profile.private_desc" = "Personne ne peut voir ta journée";
 "profile.language" = "Langue";
@@ -521,6 +575,7 @@
 "calendar.priority_high" = "Haute";
 "calendar.quick_create" = "Ajouter une tâche";
 "calendar.quick_create_placeholder" = "Que veux-tu faire ?";
+"calendar.new_task" = "Nouvelle tâche";
 "common.completed" = "Terminé";
 "common.creating" = "Création...";
 
@@ -533,3 +588,67 @@
 "voice.processing" = "En cours...";
 "voice.send" = "Envoyer";
 "voice.error" = "Une erreur s'est produite. Réessaie.";
+
+// MARK: - Dashboard (New)
+"dashboard.start_day_title" = "Planifie ta journée";
+"dashboard.start_day_subtitle" = "Dis ce que tu veux faire, l'IA l'ajoute à ton calendrier.";
+"dashboard.start_the_day" = "Ajouter des événements";
+"dashboard.coming_next" = "À venir";
+"dashboard.start_focus" = "Démarrer le Focus";
+"dashboard.no_tasks_title" = "Pas de tâches prévues";
+"dashboard.no_tasks_subtitle" = "Va dans le calendrier pour planifier ta journée.";
+"dashboard.plan_day" = "Planifier ma journée";
+"dashboard.all_done_title" = "Tout est terminé !";
+"dashboard.all_done_subtitle" = "Tu as accompli toutes tes tâches. Bravo !";
+"dashboard.upcoming_tasks" = "Prochaines tâches";
+"dashboard.upcoming_task" = "Prochaine tâche";
+"dashboard.see_all_tasks" = "Voir les %d tâches";
+
+// MARK: - Settings
+"settings.title" = "Paramètres";
+"settings.quests_areas" = "Quêtes & Domaines";
+"settings.quests_areas_subtitle" = "Tes objectifs long terme. Les quêtes représentent ta vision et tes grands objectifs de vie. Compare ton calendrier à tes quêtes pour voir si tu es aligné avec tes ambitions.";
+"settings.daily_rituals" = "Rituels Quotidiens";
+"settings.daily_rituals_subtitle" = "Tes habitudes quotidiennes. Les rituels s'affichent automatiquement dans ton calendrier à l'heure définie pour t'aider à construire des routines solides.";
+"settings.areas" = "Domaines de vie";
+"settings.areas_subtitle" = "Les domaines organisent tes quêtes et rituels par catégorie (Santé, Travail, etc.). Ils te permettent de voir l'équilibre entre les différentes sphères de ta vie.";
+"settings.statistics" = "Statistiques";
+"settings.statistics_subtitle" = "Vois ta progression cette semaine";
+"settings.watch_tutorial" = "Voir le tutoriel";
+"settings.watch_tutorial_subtitle" = "Découvre comment utiliser l'application efficacement";
+"settings.edit_profile" = "Modifier le profil";
+"settings.day_streak" = "jours de série";
+"settings.sign_out" = "Déconnexion";
+
+// MARK: - Tutorial
+"tutorial.title" = "Comment utiliser Volta";
+"tutorial.description" = "Découvre les fonctionnalités principales de l'application pour optimiser ta productivité et atteindre tes objectifs.";
+"tutorial.welcome" = "Bienvenue sur Volta !";
+"tutorial.onboarding_desc" = "Regarde cette courte vidéo pour découvrir comment tirer le meilleur parti de l'application.";
+"tutorial.watch_later" = "Regarder plus tard";
+"tutorial.feature_calendar" = "Calendrier intelligent";
+"tutorial.feature_calendar_desc" = "Planifie ta journée avec des tâches et vois tes rituels s'afficher automatiquement.";
+"tutorial.feature_focus" = "Sessions Focus";
+"tutorial.feature_focus_desc" = "Lance des sessions de concentration pour avancer sur tes projets importants.";
+"tutorial.feature_rituals" = "Rituels quotidiens";
+"tutorial.feature_rituals_desc" = "Crée des habitudes qui s'intègrent naturellement dans ton emploi du temps.";
+"tutorial.feature_quests" = "Quêtes et objectifs";
+"tutorial.feature_quests_desc" = "Définis tes grands objectifs de vie et suis ta progression.";
+"tutorial.video_error" = "Impossible de charger la vidéo";
+"tutorial.open_youtube" = "Ouvrir sur YouTube";
+
+// MARK: - Statistics (New)
+"stats.sessions" = "Sessions";
+"stats.focused" = "Focalisé";
+"stats.recent_sessions" = "Sessions récentes";
+"stats.today" = "Aujourd'hui";
+"stats.yesterday" = "Hier";
+
+// MARK: - Streak (New)
+"streak.motivational" = "Continue comme ça !";
+"streak.requirements" = "Objectifs du jour";
+"streak.requirement_completion" = "%d%% des tâches complétées";
+"streak.requirement_sessions" = "%d sessions focus";
+"streak.requirement_tasks" = "%d tâches minimum";
+"streak.days_to_next" = "%d jours avant le prochain niveau";
+"streak.days_needed" = "jours requis";

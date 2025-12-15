@@ -26,6 +26,7 @@ final class FocusAppStore: ObservableObject {
     @Published var rituals: [DailyRitual] = []
     @Published var quests: [Quest] = []
     @Published var todaysTasks: [CalendarTask] = []
+    @Published var upcomingWeekTasks: [CalendarTask] = []  // Tasks for the next 7 days
     @Published var morningCheckIn: MorningCheckIn?
     @Published var eveningReview: EveningReview?
     @Published var isLoading = false
@@ -367,13 +368,15 @@ final class FocusAppStore: ObservableObject {
                 print("🎯 Quests loaded: \(self.quests.count)")
             }
 
-            // Convert routines to rituals
+            // Convert routines to rituals from dashboard first
             print("📋 Dashboard todaysRoutines count: \(dashboardData.todaysRoutines.count)")
             for routine in dashboardData.todaysRoutines {
-                print("  - Routine: \(routine.title), frequency: \(routine.frequency), completed: \(routine.completed ?? false)")
+                print("  - Routine from dashboard: \(routine.title), frequency: \(routine.frequency), scheduledTime: \(routine.scheduledTime ?? "nil"), completed: \(routine.completed ?? false)")
             }
-            self.rituals = dashboardData.todaysRoutines.map { DailyRitual(from: $0) }
-            print("📋 Rituals array count after mapping: \(self.rituals.count)")
+
+            // Dashboard might not include scheduledTime, so load full routines from /routines endpoint
+            // to get complete data including scheduledTime
+            await loadRitualsWithScheduledTime(dashboardRoutines: dashboardData.todaysRoutines)
 
             // Convert weekly progress from week_sessions.days
             self.weeklyProgress = dashboardData.weekSessions.days.map { DayProgress(from: $0) }
@@ -435,16 +438,22 @@ final class FocusAppStore: ObservableObject {
                 self.morningCheckIn = nil
             }
 
-            // Load today's tasks for progress calculation
+            // Load today's tasks for progress calculation AND upcoming week tasks
             do {
                 let dateFormatter = DateFormatter()
                 dateFormatter.dateFormat = "yyyy-MM-dd"
                 let todayStr = dateFormatter.string(from: Date())
                 self.todaysTasks = try await calendarService.getTasks(date: todayStr)
                 print("📋 Today's tasks loaded: \(self.todaysTasks.count)")
+
+                // Load week tasks for upcoming tasks display (starting from today)
+                let weekResponse = try await calendarService.getWeekView(startDate: todayStr)
+                self.upcomingWeekTasks = weekResponse.tasks
+                print("📋 Upcoming week tasks loaded: \(self.upcomingWeekTasks.count)")
             } catch {
-                print("⚠️ Failed to load today's tasks: \(error)")
+                print("⚠️ Failed to load tasks: \(error)")
                 self.todaysTasks = []
+                self.upcomingWeekTasks = []
             }
 
             // Note: All data now comes from dashboard - no separate calls needed
@@ -535,32 +544,81 @@ final class FocusAppStore: ObservableObject {
     }
 
     // MARK: - Rituals
-    func toggleRitual(_ ritual: DailyRitual) async {
-        print("🔄 toggleRitual called for: \(ritual.title)")
+
+    /// Toggle ritual completion for a specific date (from Calendar view)
+    /// The `isCompleting` parameter tells us whether we're marking as complete (true) or uncomplete (false)
+    /// This is determined by the CalendarViewModel which tracks per-date completions
+    /// - Parameters:
+    ///   - ritual: The ritual to toggle
+    ///   - date: The date in YYYY-MM-DD format (optional, defaults to today)
+    ///   - isCompleting: Whether we're completing (true) or uncompleting (false). If nil, will toggle based on current state.
+    func toggleRitual(_ ritual: DailyRitual, forDate date: String? = nil, isCompleting: Bool? = nil) async {
+        print("🔄 AppStore.toggleRitual called for: \(ritual.title) (id: \(ritual.id)), date: \(date ?? "today"), isCompleting: \(String(describing: isCompleting))")
 
         guard let index = rituals.firstIndex(where: { $0.id == ritual.id }) else {
             print("❌ Ritual not found in array!")
             return
         }
 
-        // Optimistic update - no full refresh needed
+        // For today's completions, update the global isCompleted flag for UI
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let todayStr = dateFormatter.string(from: Date())
+        let isToday = (date == nil || date == todayStr)
+
+        // Determine what action to take
+        let shouldComplete: Bool
+        if let completing = isCompleting {
+            shouldComplete = completing
+        } else {
+            // Fallback to toggling based on current global state (for backwards compatibility)
+            shouldComplete = !rituals[index].isCompleted
+        }
+
+        // For today, update the global isCompleted flag
+        if isToday {
+            rituals[index].isCompleted = shouldComplete
+            // Sync widget data immediately for optimistic UI
+            syncWidgetData()
+        }
+
+        print("🔄 AppStore: isToday=\(isToday), action: \(shouldComplete ? "COMPLETE" : "UNCOMPLETE")")
+
+        // Sync with server via SyncManager (handles offline queue and retry)
+        if shouldComplete {
+            print("🔄 AppStore: Calling SyncManager.completeRitual for date: \(date ?? todayStr)...")
+            await SyncManager.shared.completeRitual(id: ritual.id, date: date)
+            print("✅ AppStore: Ritual completed: \(ritual.title) for \(date ?? todayStr)")
+        } else {
+            print("🔄 AppStore: Calling SyncManager.uncompleteRitual for date: \(date ?? todayStr)...")
+            await SyncManager.shared.uncompleteRitual(id: ritual.id, date: date)
+            print("✅ AppStore: Ritual uncompleted: \(ritual.title) for \(date ?? todayStr)")
+        }
+    }
+
+    /// Toggle ritual completion by ID (for FireMode validation)
+    func toggleRitualById(ritualId: String) async throws {
+        print("🔄 toggleRitualById called for: \(ritualId)")
+
+        guard let index = rituals.firstIndex(where: { $0.id == ritualId }) else {
+            print("❌ Ritual not found in array!")
+            throw NSError(domain: "FocusApp", code: 404, userInfo: [NSLocalizedDescriptionKey: "Ritual not found"])
+        }
+
+        // Optimistic update
         let wasCompleted = rituals[index].isCompleted
-        rituals[index].isCompleted.toggle()
+        rituals[index].isCompleted = true // Always mark as completed from FireMode
 
         do {
-            if rituals[index].isCompleted {
-                try await routineService.completeRoutine(id: ritual.id)
-                print("✅ Ritual completed: \(ritual.title)")
-            } else {
-                try await routineService.uncompleteRoutine(id: ritual.id)
-                print("✅ Ritual uncompleted: \(ritual.title)")
-            }
+            try await routineService.completeRoutine(id: ritualId)
+            print("✅ Ritual validated: \(rituals[index].title)")
             // Sync widget data after ritual toggle
             syncWidgetData()
         } catch {
             // Revert on error
             rituals[index].isCompleted = wasCompleted
-            print("❌ Error toggling ritual: \(error)")
+            print("❌ Error validating ritual: \(error)")
+            throw error
         }
     }
 
@@ -587,13 +645,15 @@ final class FocusAppStore: ObservableObject {
         await refresh()
     }
 
-    func updateRitual(id: String, title: String?, frequency: String?, icon: String?, scheduledTime: String? = nil) async throws {
+    func updateRitual(id: String, title: String?, frequency: String?, icon: String?, scheduledTime: String? = nil, durationMinutes: Int? = nil) async throws {
+        print("📝 AppStore.updateRitual: id=\(id), scheduledTime=\(scheduledTime ?? "nil"), durationMinutes=\(durationMinutes ?? 0)")
         _ = try await routineService.updateRoutine(
             id: id,
             title: title,
             frequency: frequency,
             icon: icon,
-            scheduledTime: scheduledTime
+            scheduledTime: scheduledTime,
+            durationMinutes: durationMinutes
         )
 
         // Refresh dashboard to sync all data after mutation
@@ -604,6 +664,39 @@ final class FocusAppStore: ObservableObject {
         try await routineService.deleteRoutine(id: id)
         // Refresh dashboard to sync all data after mutation
         await refresh()
+    }
+
+    /// Load rituals from /routines endpoint to get complete data including scheduledTime
+    /// Merges with dashboard completion status
+    private func loadRitualsWithScheduledTime(dashboardRoutines: [RoutineResponse]) async {
+        do {
+            print("📋 Loading full routines from /routines to get scheduledTime...")
+            let fullRoutines = try await routineService.fetchRoutines()
+            print("📋 Loaded \(fullRoutines.count) full routines")
+
+            // Create a map of completion status from dashboard
+            var completionMap: [String: Bool] = [:]
+            for routine in dashboardRoutines {
+                completionMap[routine.id] = routine.completed ?? false
+            }
+
+            // Convert full routines to rituals, keeping completion status from dashboard
+            self.rituals = fullRoutines.map { routine in
+                var ritual = DailyRitual(from: routine)
+                // Use completion status from dashboard if available
+                ritual.isCompleted = completionMap[routine.id] ?? false
+                return ritual
+            }
+
+            print("📋 Rituals with scheduledTime:")
+            for ritual in self.rituals {
+                print("  - \(ritual.title): scheduledTime=\(ritual.scheduledTime ?? "nil"), frequency=\(ritual.frequency.rawValue), completed=\(ritual.isCompleted)")
+            }
+        } catch {
+            print("⚠️ Failed to load full routines, using dashboard data: \(error)")
+            // Fallback to dashboard routines
+            self.rituals = dashboardRoutines.map { DailyRitual(from: $0) }
+        }
     }
 
     func loadRituals() async {
@@ -729,6 +822,32 @@ final class FocusAppStore: ObservableObject {
         _ = try await sessionService.cancelSession(sessionId: sessionId)
         // Refresh dashboard to sync all data after mutation
         await refresh()
+    }
+
+    // MARK: - Calendar Tasks
+
+    /// Complete or uncomplete a task by ID
+    func toggleTask(taskId: String, completed: Bool) async throws {
+        if completed {
+            _ = try await calendarService.completeTask(id: taskId)
+        } else {
+            _ = try await calendarService.uncompleteTask(id: taskId)
+        }
+        // Refresh to sync task state
+        await refresh()
+    }
+
+    /// Refresh today's tasks (called after voice assistant creates tasks)
+    func refreshTodaysTasks() async {
+        do {
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd"
+            let todayStr = dateFormatter.string(from: Date())
+            self.todaysTasks = try await calendarService.getTasks(date: todayStr)
+            print("📋 Today's tasks refreshed: \(self.todaysTasks.count)")
+        } catch {
+            print("⚠️ Failed to refresh today's tasks: \(error)")
+        }
     }
 
     // MARK: - Reflections (Check-ins)

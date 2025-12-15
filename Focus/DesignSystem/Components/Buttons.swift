@@ -30,7 +30,13 @@ struct PrimaryButton: View {
                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
                 } else {
                     if let icon = icon {
-                        Text(icon)
+                        // Check if it's a SF Symbol (no emoji characters) or emoji
+                        if icon.unicodeScalars.allSatisfy({ $0.isASCII }) {
+                            Image(systemName: icon)
+                                .font(.satoshi(16, weight: .semibold))
+                        } else {
+                            Text(icon)
+                        }
                     }
                     Text(title)
                         .subtitle()
@@ -136,7 +142,7 @@ struct IconButton: View {
     var body: some View {
         Button(action: action) {
             Text(icon)
-                .font(.system(size: 20))
+                .font(.satoshi(20))
                 .frame(width: size, height: size)
                 .background(ColorTokens.surface)
                 .cornerRadius(style == .circular ? size / 2 : RadiusTokens.sm)

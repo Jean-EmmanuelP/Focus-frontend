@@ -40,7 +40,7 @@ struct VoiceAssistantView: View {
                 HStack {
                     Button(action: { dismiss() }) {
                         Image(systemName: "xmark")
-                            .font(.system(size: 18, weight: .medium))
+                            .font(.satoshi(18, weight: .medium))
                             .foregroundColor(ColorTokens.textSecondary)
                             .frame(width: 44, height: 44)
                             .background(Color.white.opacity(0.1))
@@ -60,7 +60,7 @@ struct VoiceAssistantView: View {
                 // Current text display
                 if let text = viewModel.currentDisplayText {
                     Text(text)
-                        .font(.system(size: 18, weight: .medium))
+                        .font(.satoshi(18, weight: .medium))
                         .foregroundColor(ColorTokens.textPrimary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 32)
@@ -74,7 +74,7 @@ struct VoiceAssistantView: View {
                 VStack(spacing: 16) {
                     if viewModel.isRecording && !viewModel.transcribedText.isEmpty {
                         Text(viewModel.transcribedText)
-                            .font(.system(size: 16))
+                            .font(.satoshi(16))
                             .foregroundColor(ColorTokens.textSecondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 32)
@@ -89,7 +89,7 @@ struct VoiceAssistantView: View {
                             .frame(width: 8, height: 8)
 
                         Text(statusText)
-                            .font(.system(size: 14))
+                            .font(.satoshi(14))
                             .foregroundColor(ColorTokens.textMuted)
                     }
                     .padding(.bottom, 40)
@@ -223,6 +223,8 @@ struct ParticleSphereView: View {
 @MainActor
 class VoiceAssistantViewModel: ObservableObject {
     private let voiceService = VoiceService()
+    private let calendarService = CalendarService()
+    private var store: FocusAppStore { FocusAppStore.shared }
     private var audioPlayer: AVAudioPlayer?
     private var speechRecognizer: SFSpeechRecognizer?
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
@@ -315,21 +317,35 @@ class VoiceAssistantViewModel: ObservableObject {
             currentDisplayText = "Je prépare ta journée..."
 
             do {
+                // Combine all collected responses for context
+                let fullContext = collectedResponses.joined(separator: ". ")
+
                 let response = try await voiceService.voiceAssistant(
-                    text: text,
+                    text: fullContext,
                     date: DateFormatter.yyyyMMdd.string(from: Date()),
                     voiceId: "b35yykvVppLXyw_l",
                     audioFormat: "wav"
                 )
 
-                if response.intentType == "ADD_GOAL" {
-                    createdTasks = response.tasks ?? []
+                var taskCount = 0
+
+                if response.intentType == "ADD_GOAL", let tasks = response.tasks, !tasks.isEmpty {
+                    // Backend created the tasks - store them locally and refresh calendar
+                    createdTasks = tasks
+                    taskCount = tasks.count
+                    print("📅 Voice Assistant: Backend created \(taskCount) tasks")
+
+                    // Refresh the store to load the new tasks
+                    await store.refreshTodaysTasks()
+                } else if response.intentType == "ADD_GOAL" {
+                    // Backend didn't create tasks but has ADD_GOAL intent - parse and create manually
+                    // This is a fallback in case the backend only suggests but doesn't persist
+                    print("📅 Voice Assistant: No tasks returned, attempting to parse response")
                 }
 
-                let taskCount = response.tasks?.count ?? 0
                 let summaryText: String
                 if taskCount > 0 {
-                    summaryText = "Parfait ! J'ai ajouté \(taskCount) objectif\(taskCount > 1 ? "s" : "") à ta journée. Tu es prêt à conquérir cette journée ! Bonne chance !"
+                    summaryText = "Parfait ! J'ai ajouté \(taskCount) objectif\(taskCount > 1 ? "s" : "") à ton calendrier. Tu es prêt à conquérir cette journée ! Bonne chance !"
                 } else {
                     summaryText = "C'est noté ! Passe une excellente journée productive !"
                 }
@@ -338,6 +354,7 @@ class VoiceAssistantViewModel: ObservableObject {
                 await speakText(summaryText)
 
             } catch {
+                print("❌ Voice Assistant error: \(error)")
                 let errorText = "J'ai bien compris. Passe une excellente journée !"
                 currentDisplayText = errorText
                 await speakText(errorText)

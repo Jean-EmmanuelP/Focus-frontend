@@ -512,7 +512,7 @@ struct SignInStepView: View {
     private func featureRow(icon: String, text: String) -> some View {
         HStack(spacing: SpacingTokens.md) {
             Text(icon)
-                .font(.system(size: 24))
+                .font(.satoshi(24))
 
             Text(text)
                 .bodyText()
@@ -966,7 +966,7 @@ struct ReviewCard: View {
                 HStack(spacing: 2) {
                     ForEach(0..<review.rating, id: \.self) { _ in
                         Text("⭐")
-                            .font(.system(size: 12))
+                            .font(.satoshi(12))
                     }
                 }
             }
@@ -998,7 +998,7 @@ struct CommitmentStepView: View {
                         viewModel.previousStep()
                     }) {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 20, weight: .semibold))
+                            .font(.satoshi(20, weight: .semibold))
                             .foregroundColor(ColorTokens.textSecondary)
                     }
                     Spacer()
@@ -1284,7 +1284,7 @@ struct QuickSelectCard: View {
         Button(action: action) {
             HStack(spacing: SpacingTokens.md) {
                 Text(icon)
-                    .font(.system(size: 28))
+                    .font(.satoshi(28))
 
                 Text(label)
                     .bodyText()
@@ -1295,7 +1295,7 @@ struct QuickSelectCard: View {
 
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 24))
+                        .font(.satoshi(24))
                         .foregroundColor(ColorTokens.primaryStart)
                 }
             }
@@ -1320,7 +1320,7 @@ struct QuickSelectGridCard: View {
         Button(action: action) {
             VStack(spacing: SpacingTokens.sm) {
                 Text(icon)
-                    .font(.system(size: 36))
+                    .font(.satoshi(36))
 
                 Text(label)
                     .subtitle()
@@ -1349,7 +1349,7 @@ struct GoalSelectCard: View {
         Button(action: action) {
             VStack(spacing: SpacingTokens.xs) {
                 Text(icon)
-                    .font(.system(size: 28))
+                    .font(.satoshi(28))
 
                 Text(label)
                     .caption()
