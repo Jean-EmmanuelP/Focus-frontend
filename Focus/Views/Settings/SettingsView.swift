@@ -19,6 +19,7 @@ struct SettingsView: View {
     @State private var showRitualsSection = false
     @State private var showStatsSection = false
     @State private var showTutorial = false
+    @State private var showGoogleCalendar = false
 
     private let userService = UserService()
 
@@ -56,6 +57,15 @@ struct SettingsView: View {
                             subtitle: "settings.statistics_subtitle".localized
                         ) {
                             showStatsSection = true
+                        }
+
+                        // Google Calendar
+                        SettingsMenuItem(
+                            icon: "📅",
+                            title: "Google Calendar",
+                            subtitle: "Synchroniser avec ton calendrier"
+                        ) {
+                            showGoogleCalendar = true
                         }
 
                         // Tutorial
@@ -134,6 +144,9 @@ struct SettingsView: View {
             }
             .navigationDestination(isPresented: $showStatsSection) {
                 StatisticsView()
+            }
+            .navigationDestination(isPresented: $showGoogleCalendar) {
+                GoogleCalendarSettingsView()
             }
             .sheet(isPresented: $showTutorial) {
                 TutorialVideoView()

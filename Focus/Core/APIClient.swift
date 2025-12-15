@@ -339,6 +339,13 @@ enum APIConfiguration {
         case voiceAnalyze    // New: analyze only, return proposals (no DB write)
         case voiceIntentions
 
+        // Google Calendar
+        case googleCalendarConfig
+        case googleCalendarSaveTokens
+        case googleCalendarUpdateConfig
+        case googleCalendarDisconnect
+        case googleCalendarSync
+
         var path: String {
             switch self {
             // Health
@@ -581,6 +588,14 @@ enum APIConfiguration {
                 return "/assistant/analyze"
             case .voiceIntentions:
                 return "/voice/intentions"
+
+            // Google Calendar
+            case .googleCalendarConfig, .googleCalendarUpdateConfig, .googleCalendarDisconnect:
+                return "/google-calendar/config"
+            case .googleCalendarSaveTokens:
+                return "/google-calendar/tokens"
+            case .googleCalendarSync:
+                return "/google-calendar/sync"
             }
         }
 

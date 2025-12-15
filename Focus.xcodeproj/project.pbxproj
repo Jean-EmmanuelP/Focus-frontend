@@ -11,6 +11,7 @@
 		623E95782EE4AC3100356DD7 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 623E95772EE4AC3100356DD7 /* WidgetKit.framework */; };
 		623E957A2EE4AC3100356DD7 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 623E95792EE4AC3100356DD7 /* SwiftUI.framework */; };
 		623E958B2EE4AC3200356DD7 /* FocusWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 623E95752EE4AC3100356DD7 /* FocusWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		629D63C22EF0BFD20023C568 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 629D63C12EF0BFD20023C568 /* GoogleSignIn */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -51,6 +52,7 @@
 		6297A8512EE9B60300BF5326 /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
 		6297A9692EE9C02200BF5326 /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
 		629B56972EED9D2D00CF0149 /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
+		629D62F02EF0B0890023C568 /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -95,6 +97,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				623E8A152EE22FF000356DD7 /* Supabase in Frameworks */,
+				629D63C22EF0BFD20023C568 /* GoogleSignIn in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -195,6 +198,13 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		629D632F2EF0B0890023C568 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -218,6 +228,7 @@
 			name = Focus;
 			packageProductDependencies = (
 				623E8A142EE22FF000356DD7 /* Supabase */,
+				629D63C12EF0BFD20023C568 /* GoogleSignIn */,
 			);
 			productName = Focus;
 			productReference = 623E894A2EE1F65300356DD7 /* Focus.app */;
@@ -276,6 +287,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				623E8A132EE22FF000356DD7 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+				629D63C02EF0BDA00023C568 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 623E894B2EE1F65300356DD7 /* Products */;
@@ -290,10 +302,6 @@
 					ProjectRef = 629B56972EED9D2D00CF0149 /* TextParticle.xcodeproj */;
 				},
 				{
-					ProductGroup = 6297A4A52EE91E7600BF5326 /* Products */;
-					ProjectRef = 6297A4A12EE91E7600BF5326 /* TextParticle.xcodeproj */;
-				},
-				{
 					ProductGroup = 628C5D0A2EEB93BF00E2D165 /* Products */;
 					ProjectRef = 628C5CCF2EEB93BF00E2D165 /* TextParticle.xcodeproj */;
 				},
@@ -302,12 +310,20 @@
 					ProjectRef = 6297A73A2EE9B4DC00BF5326 /* TextParticle.xcodeproj */;
 				},
 				{
-					ProductGroup = 628C5AD42EEB8EA900E2D165 /* Products */;
-					ProjectRef = 628C5A992EEB8EA900E2D165 /* TextParticle.xcodeproj */;
+					ProductGroup = 629D632F2EF0B0890023C568 /* Products */;
+					ProjectRef = 629D62F02EF0B0890023C568 /* TextParticle.xcodeproj */;
 				},
 				{
 					ProductGroup = 6297A88C2EE9B60300BF5326 /* Products */;
 					ProjectRef = 6297A8512EE9B60300BF5326 /* TextParticle.xcodeproj */;
+				},
+				{
+					ProductGroup = 6297A4A52EE91E7600BF5326 /* Products */;
+					ProjectRef = 6297A4A12EE91E7600BF5326 /* TextParticle.xcodeproj */;
+				},
+				{
+					ProductGroup = 628C5AD42EEB8EA900E2D165 /* Products */;
+					ProjectRef = 628C5A992EEB8EA900E2D165 /* TextParticle.xcodeproj */;
 				},
 				{
 					ProductGroup = 6272BAEA2EE9D2C8002693DF /* Products */;
@@ -699,6 +715,14 @@
 				minimumVersion = 2.5.1;
 			};
 		};
+		629D63C02EF0BDA00023C568 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -706,6 +730,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 623E8A132EE22FF000356DD7 /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = Supabase;
+		};
+		629D63C12EF0BFD20023C568 /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 629D63C02EF0BDA00023C568 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

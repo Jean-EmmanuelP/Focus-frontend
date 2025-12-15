@@ -526,6 +526,11 @@ class CalendarViewModel: ObservableObject {
                 store.todaysTasks.append(createdTask)
             }
 
+            // Sync to Google Calendar (async, non-blocking)
+            Task {
+                await syncTaskToGoogleCalendar(createdTask)
+            }
+
             // Reload week data to get proper task with all fields from server
             await loadWeekData()
         } catch {
@@ -627,6 +632,50 @@ class CalendarViewModel: ObservableObject {
             store.upcomingWeekTasks.removeAll { $0.id == taskId }
         } catch {
             handleError(error, context: "deleting task")
+        }
+    }
+
+    // MARK: - Google Calendar Sync
+
+    /// Sync a single task to Google Calendar (after create/update)
+    func syncTaskToGoogleCalendar(_ task: CalendarTask) async {
+        let googleService = GoogleCalendarService.shared
+        guard googleService.config?.isConnected == true,
+              googleService.config?.isEnabled == true else {
+            return
+        }
+
+        let syncDirection = googleService.config?.syncDirection ?? "bidirectional"
+        guard syncDirection == "bidirectional" || syncDirection == "to_google" else {
+            return
+        }
+
+        do {
+            try await googleService.syncTask(task.id)
+            print("[CalendarViewModel] Task synced to Google Calendar: \(task.title)")
+        } catch {
+            print("[CalendarViewModel] Google Calendar sync error: \(error)")
+        }
+    }
+
+    /// Full sync with Google Calendar
+    func syncWithGoogleCalendar() async {
+        let googleService = GoogleCalendarService.shared
+        guard googleService.config?.isConnected == true,
+              googleService.config?.isEnabled == true else {
+            return
+        }
+
+        do {
+            let result = try await googleService.syncNow()
+            print("[CalendarViewModel] Google sync completed: \(result.tasksSynced) tasks synced, \(result.eventsImported) events imported")
+
+            // Reload data if events were imported
+            if result.eventsImported > 0 {
+                await loadWeekData()
+            }
+        } catch {
+            print("[CalendarViewModel] Google Calendar sync error: \(error)")
         }
     }
 

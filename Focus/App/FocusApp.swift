@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import GoogleSignIn
 
 @main
 struct FocusApp: App {
@@ -100,6 +101,11 @@ struct FocusApp: App {
     /// - focus://starttheday
     /// - focus://endofday
     private func handleDeepLink(_ url: URL) {
+        // Handle Google Sign-In callback
+        if GIDSignIn.sharedInstance.handle(url) {
+            return
+        }
+
         guard url.scheme == "focus" else { return }
 
         switch url.host {

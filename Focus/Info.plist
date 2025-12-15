@@ -14,7 +14,19 @@
 				<string>focus</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>Google Sign-In</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.613349634589-1d8mmjai794ia29pluv97t21mj2349ej</string>
+			</array>
+		</dict>
 	</array>
+	<key>GIDClientID</key>
+	<string>613349634589-1d8mmjai794ia29pluv97t21mj2349ej.apps.googleusercontent.com</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>Satoshi-Regular.otf</string>
