@@ -526,10 +526,7 @@ class CalendarViewModel: ObservableObject {
                 store.todaysTasks.append(createdTask)
             }
 
-            // Sync to Google Calendar (async, non-blocking)
-            Task {
-                await syncTaskToGoogleCalendar(createdTask)
-            }
+            // Note: Google Calendar sync is now handled automatically by the backend
 
             // Reload week data to get proper task with all fields from server
             await loadWeekData()
@@ -636,27 +633,6 @@ class CalendarViewModel: ObservableObject {
     }
 
     // MARK: - Google Calendar Sync
-
-    /// Sync a single task to Google Calendar (after create/update)
-    func syncTaskToGoogleCalendar(_ task: CalendarTask) async {
-        let googleService = GoogleCalendarService.shared
-        guard googleService.config?.isConnected == true,
-              googleService.config?.isEnabled == true else {
-            return
-        }
-
-        let syncDirection = googleService.config?.syncDirection ?? "bidirectional"
-        guard syncDirection == "bidirectional" || syncDirection == "to_google" else {
-            return
-        }
-
-        do {
-            try await googleService.syncTask(task.id)
-            print("[CalendarViewModel] Task synced to Google Calendar: \(task.title)")
-        } catch {
-            print("[CalendarViewModel] Google Calendar sync error: \(error)")
-        }
-    }
 
     /// Full sync with Google Calendar
     func syncWithGoogleCalendar() async {
