@@ -18,6 +18,13 @@ struct SaveGoogleTokensRequest: Codable {
     let refreshToken: String
     let expiresIn: Int
     let googleEmail: String
+
+    enum CodingKeys: String, CodingKey {
+        case accessToken = "accessToken"
+        case refreshToken = "refreshToken"
+        case expiresIn = "expiresIn"
+        case googleEmail = "googleEmail"
+    }
 }
 
 // MARK: - Update Config Request

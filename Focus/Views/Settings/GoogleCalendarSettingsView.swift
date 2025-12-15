@@ -60,17 +60,18 @@ struct GoogleCalendarSettingsView: View {
         VStack(spacing: SpacingTokens.lg) {
             // Icon and Status
             HStack(spacing: SpacingTokens.md) {
-                Image("google_calendar_icon")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 40, height: 40)
-                    .background(Color.white)
-                    .cornerRadius(8)
-                    .overlay(
-                        // Fallback if image doesn't exist
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(ColorTokens.border, lineWidth: 1)
-                    )
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.white)
+                        .frame(width: 40, height: 40)
+                    Image(systemName: "calendar")
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundColor(Color(hex: "#4285F4") ?? .blue)
+                }
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(ColorTokens.border, lineWidth: 1)
+                )
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Google Calendar")
