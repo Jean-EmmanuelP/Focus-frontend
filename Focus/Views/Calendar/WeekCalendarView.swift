@@ -420,8 +420,8 @@ struct WeekCalendarView: View {
                             questTitle: task.questTitle
                         )
                     },
-                    onComplete: { Task { await viewModel.toggleTask(task, completed: true) } },
-                    onUncomplete: { Task { await viewModel.toggleTask(task, completed: false) } }
+                    onComplete: { Task { await viewModel.toggleTask(task.id) } },
+                    onUncomplete: { Task { await viewModel.toggleTask(task.id) } }
                 )
                 .frame(width: dayWidth - 8, height: calculateTaskHeight(startTime: times.start, endTime: times.end))
                 .offset(x: timeColumnWidth + 4, y: calculateYOffset(startTime: times.start))
@@ -436,18 +436,18 @@ struct WeekCalendarView: View {
 
             // Rituals overlay
             ForEach(viewModel.scheduledRituals.filter { shouldShowRitual($0, on: viewModel.selectedDate) }) { ritual in
-                let times = getRitualDisplayTimes(for: ritual)
-
-                DayRitualBlockView(
-                    ritual: ritual,
-                    isCompletedOnDate: viewModel.isRitualCompleted(ritual.id, on: viewModel.selectedDate),
-                    onToggle: { Task { await viewModel.toggleRitual(ritual) } },
-                    onStartFocus: {
-                        router.navigate(to: .fire)
-                    }
-                )
-                .frame(width: dayWidth - 8, height: calculateTaskHeight(startTime: times.start, endTime: times.end))
-                .offset(x: timeColumnWidth + 4, y: calculateYOffset(startTime: times.start))
+                if let times = getRitualDisplayTimes(for: ritual) {
+                    DayRitualBlockView(
+                        ritual: ritual,
+                        isCompletedOnDate: viewModel.isRitualCompleted(ritual.id, on: viewModel.selectedDate),
+                        onToggle: { Task { await viewModel.toggleRitual(ritual) } },
+                        onStartFocus: {
+                            router.navigate(to: .fire)
+                        }
+                    )
+                    .frame(width: dayWidth - 8, height: calculateTaskHeight(startTime: times.start, endTime: times.end))
+                    .offset(x: timeColumnWidth + 4, y: calculateYOffset(startTime: times.start))
+                }
             }
         }
     }

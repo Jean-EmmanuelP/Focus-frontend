@@ -2792,7 +2792,7 @@ struct GroupDetailView: View {
                     ForEach(viewModel.groupRoutines) { routine in
                         GroupRoutineRow(
                             routine: routine,
-                            currentUserId: AuthManager.shared.userId ?? "",
+                            currentUserId: AuthService.shared.userId ?? "",
                             onComplete: {
                                 // Complete using the routine's original routineId
                                 Task {
@@ -3491,7 +3491,7 @@ struct GroupRoutineRow: View {
                                 Button(action: onRemove) {
                                     Text("common.remove".localized)
                                         .font(.satoshi(11))
-                                        .foregroundColor(ColorTokens.destructive)
+                                        .foregroundColor(ColorTokens.error)
                                 }
                             }
                         }
