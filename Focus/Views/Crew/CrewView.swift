@@ -184,14 +184,20 @@ struct CrewView: View {
     // MARK: - Leaderboard Section
     private var leaderboardSection: some View {
         VStack(alignment: .leading, spacing: SpacingTokens.md) {
-            HStack {
-                Text("🏆")
-                    .font(.satoshi(20))
-                Text("crew.top_builders".localized)
-                    .subtitle()
-                    .fontWeight(.semibold)
-                    .foregroundColor(ColorTokens.textPrimary)
-                Spacer()
+            VStack(alignment: .leading, spacing: SpacingTokens.xs) {
+                HStack {
+                    Text("🏆")
+                        .font(.satoshi(20))
+                    Text("crew.top_builders".localized)
+                        .subtitle()
+                        .fontWeight(.semibold)
+                        .foregroundColor(ColorTokens.textPrimary)
+                    Spacer()
+                }
+
+                Text("crew.ranking_hint".localized)
+                    .font(.satoshi(12))
+                    .foregroundColor(ColorTokens.textSecondary)
             }
 
             if viewModel.isLoadingLeaderboard {
@@ -282,64 +288,24 @@ struct CrewView: View {
         }
     }
 
-    // MARK: - Requests Section
+    // MARK: - Requests Section (Simplified)
+    @State private var showSentRequests = false
+
     private var requestsSection: some View {
         VStack(alignment: .leading, spacing: SpacingTokens.lg) {
-            // Received friend requests
+            // Inbox: Received Requests & Invitations (combined)
             VStack(alignment: .leading, spacing: SpacingTokens.md) {
                 HStack {
                     Text("📥")
                         .font(.satoshi(20))
-                    Text("crew.received_requests".localized)
-                        .subtitle()
-                        .fontWeight(.semibold)
-                        .foregroundColor(ColorTokens.textPrimary)
-                    Spacer()
-                }
-
-                if viewModel.isLoadingRequests {
-                    loadingView
-                } else if viewModel.receivedRequests.isEmpty {
-                    emptyStateCard(
-                        icon: "envelope",
-                        title: "crew.no_requests".localized,
-                        subtitle: "crew.requests_hint".localized
-                    )
-                } else {
-                    VStack(spacing: SpacingTokens.sm) {
-                        ForEach(viewModel.receivedRequests) { request in
-                            CrewRequestRow(
-                                request: request,
-                                isReceived: true,
-                                onAccept: {
-                                    Task {
-                                        _ = await viewModel.acceptRequest(request)
-                                    }
-                                },
-                                onReject: {
-                                    Task {
-                                        _ = await viewModel.rejectRequest(request)
-                                    }
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Received group invitations
-            VStack(alignment: .leading, spacing: SpacingTokens.md) {
-                HStack {
-                    Text("👥")
-                        .font(.satoshi(20))
-                    Text("crew.group_invitations".localized)
+                    Text("crew.inbox".localized)
                         .subtitle()
                         .fontWeight(.semibold)
                         .foregroundColor(ColorTokens.textPrimary)
                     Spacer()
 
-                    if viewModel.pendingGroupInvitationsCount > 0 {
-                        Text("\(viewModel.pendingGroupInvitationsCount)")
+                    if viewModel.totalReceivedCount > 0 {
+                        Text("\(viewModel.totalReceivedCount)")
                             .font(.satoshi(12, weight: .bold))
                             .foregroundColor(.white)
                             .padding(.horizontal, 8)
@@ -349,26 +315,45 @@ struct CrewView: View {
                     }
                 }
 
-                if viewModel.isLoadingGroupInvitations {
+                if viewModel.isLoadingRequests || viewModel.isLoadingGroupInvitations {
                     loadingView
-                } else if viewModel.receivedGroupInvitations.isEmpty {
-                    emptyStateCard(
-                        icon: "person.3",
-                        title: "crew.no_group_invitations".localized,
-                        subtitle: "crew.group_invitations_hint".localized
-                    )
+                } else if viewModel.receivedRequests.isEmpty && viewModel.receivedGroupInvitations.isEmpty {
+                    emptyInboxCard
                 } else {
                     VStack(spacing: SpacingTokens.sm) {
+                        // Friend requests first
+                        ForEach(viewModel.receivedRequests) { request in
+                            CrewRequestRow(
+                                request: request,
+                                isReceived: true,
+                                onAccept: {
+                                    HapticFeedback.success()
+                                    Task {
+                                        _ = await viewModel.acceptRequest(request)
+                                    }
+                                },
+                                onReject: {
+                                    HapticFeedback.light()
+                                    Task {
+                                        _ = await viewModel.rejectRequest(request)
+                                    }
+                                }
+                            )
+                        }
+
+                        // Then group invitations
                         ForEach(viewModel.receivedGroupInvitations) { invitation in
                             GroupInvitationRow(
                                 invitation: invitation,
                                 isReceived: true,
                                 onAccept: {
+                                    HapticFeedback.success()
                                     Task {
                                         _ = await viewModel.acceptGroupInvitation(invitation)
                                     }
                                 },
                                 onReject: {
+                                    HapticFeedback.light()
                                     Task {
                                         _ = await viewModel.rejectGroupInvitation(invitation)
                                     }
@@ -379,64 +364,60 @@ struct CrewView: View {
                 }
             }
 
-            // Sent friend requests
-            VStack(alignment: .leading, spacing: SpacingTokens.md) {
-                HStack {
-                    Text("📤")
-                        .font(.satoshi(20))
-                    Text("crew.sent_requests".localized)
-                        .subtitle()
-                        .fontWeight(.semibold)
-                        .foregroundColor(ColorTokens.textPrimary)
-                    Spacer()
-                }
-
-                if viewModel.sentRequests.isEmpty {
-                    emptyStateCard(
-                        icon: "paperplane",
-                        title: "crew.no_sent_requests".localized,
-                        subtitle: "crew.search_to_send".localized
-                    )
-                } else {
-                    VStack(spacing: SpacingTokens.sm) {
-                        ForEach(viewModel.sentRequests) { request in
-                            CrewRequestRow(
-                                request: request,
-                                isReceived: false,
-                                onAccept: {},
-                                onReject: {}
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Sent group invitations
-            if !viewModel.sentGroupInvitations.isEmpty {
+            // Sent Requests (collapsible)
+            if !viewModel.sentRequests.isEmpty || !viewModel.sentGroupInvitations.isEmpty {
                 VStack(alignment: .leading, spacing: SpacingTokens.md) {
-                    HStack {
-                        Text("📨")
-                            .font(.satoshi(20))
-                        Text("crew.sent_group_invitations".localized)
-                            .subtitle()
-                            .fontWeight(.semibold)
-                            .foregroundColor(ColorTokens.textPrimary)
-                        Spacer()
-                    }
-
-                    VStack(spacing: SpacingTokens.sm) {
-                        ForEach(viewModel.sentGroupInvitations) { invitation in
-                            GroupInvitationRow(
-                                invitation: invitation,
-                                isReceived: false,
-                                onAccept: {},
-                                onReject: {
-                                    Task {
-                                        _ = await viewModel.cancelGroupInvitation(invitation)
-                                    }
-                                }
-                            )
+                    Button(action: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            showSentRequests.toggle()
                         }
+                    }) {
+                        HStack {
+                            Text("📤")
+                                .font(.satoshi(20))
+                            Text("crew.sent".localized)
+                                .subtitle()
+                                .fontWeight(.semibold)
+                                .foregroundColor(ColorTokens.textPrimary)
+
+                            Text("\(viewModel.sentRequests.count + viewModel.sentGroupInvitations.count)")
+                                .font(.satoshi(12))
+                                .foregroundColor(ColorTokens.textMuted)
+
+                            Spacer()
+
+                            Image(systemName: showSentRequests ? "chevron.up" : "chevron.down")
+                                .font(.satoshi(14))
+                                .foregroundColor(ColorTokens.textMuted)
+                        }
+                    }
+                    .buttonStyle(PlainButtonStyle())
+
+                    if showSentRequests {
+                        VStack(spacing: SpacingTokens.sm) {
+                            ForEach(viewModel.sentRequests) { request in
+                                CrewRequestRow(
+                                    request: request,
+                                    isReceived: false,
+                                    onAccept: {},
+                                    onReject: {}
+                                )
+                            }
+
+                            ForEach(viewModel.sentGroupInvitations) { invitation in
+                                GroupInvitationRow(
+                                    invitation: invitation,
+                                    isReceived: false,
+                                    onAccept: {},
+                                    onReject: {
+                                        Task {
+                                            _ = await viewModel.cancelGroupInvitation(invitation)
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                        .transition(.opacity.combined(with: .move(edge: .top)))
                     }
                 }
             }
@@ -445,6 +426,30 @@ struct CrewView: View {
             await viewModel.loadSentRequests()
             await viewModel.loadSentGroupInvitations()
         }
+    }
+
+    // MARK: - Empty Inbox Card (Friendlier)
+    private var emptyInboxCard: some View {
+        VStack(spacing: SpacingTokens.md) {
+            Image(systemName: "tray")
+                .font(.system(size: 40))
+                .foregroundColor(ColorTokens.textMuted.opacity(0.5))
+
+            VStack(spacing: SpacingTokens.xs) {
+                Text("crew.inbox_empty".localized)
+                    .font(.satoshi(16, weight: .semibold))
+                    .foregroundColor(ColorTokens.textPrimary)
+
+                Text("crew.inbox_empty_hint".localized)
+                    .font(.satoshi(13))
+                    .foregroundColor(ColorTokens.textMuted)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, SpacingTokens.xl)
+        .background(ColorTokens.surface)
+        .cornerRadius(RadiusTokens.lg)
     }
 
     // MARK: - Search Overlay
@@ -845,6 +850,15 @@ struct LeaderboardEntryRow: View {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.satoshi(16))
                             .foregroundColor(ColorTokens.success)
+                    } else if entry.safeIsSelf {
+                        // This is the current user
+                        Text("common.you".localized)
+                            .caption()
+                            .foregroundColor(ColorTokens.primaryStart)
+                            .padding(.horizontal, SpacingTokens.sm)
+                            .padding(.vertical, SpacingTokens.xs)
+                            .background(ColorTokens.primarySoft)
+                            .cornerRadius(RadiusTokens.sm)
                     } else if entry.safeHasPendingRequest {
                         // Pending request
                         Text(entry.requestDirection == "outgoing" ? "crew.pending".localized : "crew.respond".localized)
@@ -2629,10 +2643,16 @@ struct GroupDetailView: View {
                             // Group Header
                             groupHeader(group)
 
+                            // Shared Routines
+                            groupRoutinesSection(group)
+
                             // Members List
                             membersSection(group)
                         }
                         .padding(SpacingTokens.lg)
+                    }
+                    .task {
+                        await viewModel.loadGroupRoutines(groupId: group.id)
                     }
                 } else {
                     ProgressView()
@@ -2714,6 +2734,84 @@ struct GroupDetailView: View {
             }
             .sheet(isPresented: $showingInviteMembers) {
                 InviteToGroupView(viewModel: viewModel)
+            }
+            .sheet(isPresented: $viewModel.showingShareRoutine) {
+                ShareRoutineSheet(viewModel: viewModel)
+            }
+        }
+    }
+
+    // MARK: - Group Routines Section
+
+    private func groupRoutinesSection(_ group: CrewGroup) -> some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.md) {
+            HStack {
+                Text("crew.groups.shared_routines".localized)
+                    .subtitle()
+                    .fontWeight(.semibold)
+                    .foregroundColor(ColorTokens.textPrimary)
+                Spacer()
+                Button {
+                    viewModel.startShareRoutine()
+                } label: {
+                    HStack(spacing: SpacingTokens.xs) {
+                        Image(systemName: "plus.circle.fill")
+                        Text("crew.groups.share_routine".localized)
+                    }
+                    .font(.satoshi(14, weight: .medium))
+                    .foregroundColor(ColorTokens.primaryStart)
+                }
+            }
+
+            if viewModel.isLoadingGroupRoutines {
+                HStack {
+                    Spacer()
+                    ProgressView()
+                    Spacer()
+                }
+                .padding(.vertical, SpacingTokens.lg)
+            } else if viewModel.groupRoutines.isEmpty {
+                Card {
+                    VStack(spacing: SpacingTokens.md) {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.satoshi(30))
+                            .foregroundColor(ColorTokens.textMuted)
+                        Text("crew.groups.no_shared_routines".localized)
+                            .caption()
+                            .foregroundColor(ColorTokens.textMuted)
+                        Text("crew.groups.share_routine_hint".localized)
+                            .font(.satoshi(12))
+                            .foregroundColor(ColorTokens.textMuted)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(SpacingTokens.lg)
+                }
+            } else {
+                VStack(spacing: SpacingTokens.sm) {
+                    ForEach(viewModel.groupRoutines) { routine in
+                        GroupRoutineRow(
+                            routine: routine,
+                            currentUserId: AuthManager.shared.userId ?? "",
+                            onComplete: {
+                                // Complete using the routine's original routineId
+                                Task {
+                                    let routineService = RoutineService()
+                                    try? await routineService.completeRoutine(id: routine.routineId)
+                                    await viewModel.loadGroupRoutines(groupId: group.id)
+                                }
+                            },
+                            onRemove: {
+                                Task {
+                                    _ = await viewModel.removeRoutineFromGroup(
+                                        groupId: group.id,
+                                        groupRoutineId: routine.id
+                                    )
+                                }
+                            }
+                        )
+                    }
+                }
             }
         }
     }
@@ -3265,6 +3363,282 @@ struct RoutineLikeButton: View {
         .buttonStyle(PlainButtonStyle())
         .onAppear {
             hapticGenerator.prepare()
+        }
+    }
+}
+
+// MARK: - Group Routine Row
+
+struct GroupRoutineRow: View {
+    let routine: GroupRoutine
+    let currentUserId: String
+    let onComplete: () -> Void
+    let onRemove: () -> Void
+
+    @State private var isExpanded = false
+
+    private var currentUserCompletion: GroupRoutineMemberCompletion? {
+        routine.safeCompletions.first { $0.userId == currentUserId }
+    }
+
+    private var isCompletedByMe: Bool {
+        currentUserCompletion?.completed ?? false
+    }
+
+    var body: some View {
+        Card {
+            VStack(spacing: SpacingTokens.sm) {
+                // Main row
+                HStack(spacing: SpacingTokens.md) {
+                    // Icon
+                    Text(routine.icon ?? "🔄")
+                        .font(.satoshi(24))
+                        .frame(width: 40, height: 40)
+                        .background(ColorTokens.primarySoft)
+                        .cornerRadius(RadiusTokens.sm)
+
+                    // Title and time
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(routine.title)
+                            .font(.satoshi(14, weight: .semibold))
+                            .foregroundColor(ColorTokens.textPrimary)
+
+                        if let time = routine.scheduledTime {
+                            Text(time)
+                                .font(.satoshi(12))
+                                .foregroundColor(ColorTokens.textMuted)
+                        }
+                    }
+
+                    Spacer()
+
+                    // Completion status
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("\(routine.safeCompletionCount)/\(routine.safeTotalMembers)")
+                            .font(.satoshi(14, weight: .semibold))
+                            .foregroundColor(routine.safeCompletionCount == routine.safeTotalMembers ? ColorTokens.success : ColorTokens.textSecondary)
+
+                        Text("crew.groups.completed".localized)
+                            .font(.satoshi(10))
+                            .foregroundColor(ColorTokens.textMuted)
+                    }
+
+                    // My completion button
+                    Button(action: {
+                        HapticFeedback.light()
+                        onComplete()
+                    }) {
+                        Image(systemName: isCompletedByMe ? "checkmark.circle.fill" : "circle")
+                            .font(.satoshi(26))
+                            .foregroundColor(isCompletedByMe ? ColorTokens.success : ColorTokens.textMuted)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isExpanded.toggle()
+                    }
+                }
+
+                // Expanded: Show all members
+                if isExpanded {
+                    Divider()
+
+                    // Members completion list
+                    VStack(spacing: SpacingTokens.xs) {
+                        ForEach(routine.safeCompletions) { member in
+                            HStack(spacing: SpacingTokens.sm) {
+                                AvatarView(
+                                    name: member.displayName,
+                                    avatarURL: member.avatarUrl,
+                                    size: 28
+                                )
+
+                                Text(member.displayName)
+                                    .font(.satoshi(13))
+                                    .foregroundColor(ColorTokens.textPrimary)
+
+                                Spacer()
+
+                                if member.completed {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.satoshi(18))
+                                        .foregroundColor(ColorTokens.success)
+                                } else {
+                                    Image(systemName: "circle")
+                                        .font(.satoshi(18))
+                                        .foregroundColor(ColorTokens.textMuted)
+                                }
+                            }
+                            .padding(.vertical, SpacingTokens.xs)
+                        }
+                    }
+
+                    // Shared by info
+                    if let sharer = routine.sharedBy {
+                        HStack {
+                            Text("crew.groups.shared_by".localized)
+                                .font(.satoshi(11))
+                                .foregroundColor(ColorTokens.textMuted)
+                            Text(sharer.displayName)
+                                .font(.satoshi(11, weight: .medium))
+                                .foregroundColor(ColorTokens.textSecondary)
+                            Spacer()
+
+                            // Remove button (only for sharer)
+                            if sharer.id == currentUserId {
+                                Button(action: onRemove) {
+                                    Text("common.remove".localized)
+                                        .font(.satoshi(11))
+                                        .foregroundColor(ColorTokens.destructive)
+                                }
+                            }
+                        }
+                        .padding(.top, SpacingTokens.xs)
+                    }
+                }
+            }
+            .padding(SpacingTokens.md)
+        }
+    }
+}
+
+// MARK: - Share Routine Sheet
+
+struct ShareRoutineSheet: View {
+    @ObservedObject var viewModel: CrewViewModel
+    @Environment(\.dismiss) var dismiss
+
+    @State private var selectedRoutineId: String?
+    @State private var isSharing = false
+
+    // Filter out routines already shared with this group
+    private var availableRoutines: [RoutineResponse] {
+        let sharedRoutineIds = Set(viewModel.groupRoutines.map { $0.routineId })
+        return viewModel.userRoutines.filter { !sharedRoutineIds.contains($0.id) }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                ColorTokens.background
+                    .ignoresSafeArea()
+
+                if viewModel.userRoutines.isEmpty {
+                    VStack(spacing: SpacingTokens.lg) {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.satoshi(50))
+                            .foregroundColor(ColorTokens.textMuted)
+
+                        Text("crew.groups.no_routines".localized)
+                            .subtitle()
+                            .foregroundColor(ColorTokens.textSecondary)
+
+                        Text("crew.groups.no_routines_hint".localized)
+                            .bodyText()
+                            .foregroundColor(ColorTokens.textMuted)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, SpacingTokens.xl)
+                    }
+                } else if availableRoutines.isEmpty {
+                    VStack(spacing: SpacingTokens.lg) {
+                        Image(systemName: "checkmark.circle")
+                            .font(.satoshi(50))
+                            .foregroundColor(ColorTokens.success)
+
+                        Text("crew.groups.all_shared".localized)
+                            .subtitle()
+                            .foregroundColor(ColorTokens.textSecondary)
+                            .multilineTextAlignment(.center)
+                    }
+                } else {
+                    ScrollView {
+                        VStack(spacing: SpacingTokens.sm) {
+                            ForEach(availableRoutines) { routine in
+                                Button {
+                                    selectedRoutineId = routine.id
+                                } label: {
+                                    Card {
+                                        HStack(spacing: SpacingTokens.md) {
+                                            Text(routine.icon ?? "🔄")
+                                                .font(.satoshi(24))
+                                                .frame(width: 44, height: 44)
+                                                .background(ColorTokens.primarySoft)
+                                                .cornerRadius(RadiusTokens.sm)
+
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text(routine.title)
+                                                    .font(.satoshi(14, weight: .semibold))
+                                                    .foregroundColor(ColorTokens.textPrimary)
+
+                                                Text(routine.frequency)
+                                                    .font(.satoshi(12))
+                                                    .foregroundColor(ColorTokens.textMuted)
+                                            }
+
+                                            Spacer()
+
+                                            Image(systemName: selectedRoutineId == routine.id ? "checkmark.circle.fill" : "circle")
+                                                .font(.satoshi(22))
+                                                .foregroundColor(selectedRoutineId == routine.id ? ColorTokens.primaryStart : ColorTokens.textMuted)
+                                        }
+                                        .padding(SpacingTokens.sm)
+                                    }
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                            }
+                        }
+                        .padding(SpacingTokens.md)
+                    }
+                }
+            }
+            .navigationTitle("crew.groups.share_routine_title".localized)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("common.cancel".localized) {
+                        viewModel.closeShareRoutine()
+                        dismiss()
+                    }
+                    .foregroundColor(ColorTokens.textSecondary)
+                }
+
+                ToolbarItem(placement: .primaryAction) {
+                    Button("crew.groups.share".localized) {
+                        shareRoutine()
+                    }
+                    .fontWeight(.semibold)
+                    .foregroundColor(ColorTokens.primaryStart)
+                    .disabled(selectedRoutineId == nil || isSharing)
+                    .opacity(selectedRoutineId == nil ? 0.5 : 1)
+                }
+            }
+            .overlay {
+                if isSharing {
+                    ZStack {
+                        Color.black.opacity(0.3)
+                            .ignoresSafeArea()
+                        ProgressView()
+                            .tint(.white)
+                    }
+                }
+            }
+        }
+    }
+
+    private func shareRoutine() {
+        guard let routineId = selectedRoutineId,
+              let groupId = viewModel.selectedGroup?.id else { return }
+
+        isSharing = true
+        Task {
+            let success = await viewModel.shareRoutineWithGroup(groupId: groupId, routineId: routineId)
+            isSharing = false
+            if success {
+                viewModel.closeShareRoutine()
+                dismiss()
+            }
         }
     }
 }

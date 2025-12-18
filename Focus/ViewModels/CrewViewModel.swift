@@ -41,6 +41,12 @@ class CrewViewModel: ObservableObject {
     @Published var showingInviteToGroup = false
     @Published var groupToInviteTo: CrewGroup?
 
+    // Group Routines (shared routines)
+    @Published var groupRoutines: [GroupRoutine] = []
+    @Published var isLoadingGroupRoutines = false
+    @Published var showingShareRoutine = false
+    @Published var userRoutines: [RoutineResponse] = []  // User's own routines for sharing
+
     // Selected member's day
     @Published var selectedMember: CrewMemberResponse?
     @Published var selectedMemberDay: CrewMemberDayResponse?
@@ -78,6 +84,10 @@ class CrewViewModel: ObservableObject {
 
     var totalPendingCount: Int {
         pendingRequestsCount + pendingGroupInvitationsCount
+    }
+
+    var totalReceivedCount: Int {
+        receivedRequests.count + receivedGroupInvitations.count
     }
 
     // MARK: - Initialization
@@ -580,9 +590,72 @@ class CrewViewModel: ObservableObject {
         groupToInviteTo = nil
     }
 
+    // MARK: - Group Routines (Shared Routines)
+
+    func loadGroupRoutines(groupId: String) async {
+        isLoadingGroupRoutines = true
+        defer { isLoadingGroupRoutines = false }
+
+        do {
+            groupRoutines = try await crewService.fetchGroupRoutines(groupId: groupId)
+        } catch {
+            handleError(error, context: "loading group routines", silent: true)
+        }
+    }
+
+    func loadUserRoutinesForSharing() async {
+        do {
+            let routineService = RoutineService()
+            userRoutines = try await routineService.fetchRoutines()
+        } catch {
+            handleError(error, context: "loading routines", silent: true)
+        }
+    }
+
+    func shareRoutineWithGroup(groupId: String, routineId: String) async -> Bool {
+        do {
+            let newRoutine = try await crewService.shareRoutineWithGroup(groupId: groupId, routineId: routineId)
+            groupRoutines.append(newRoutine)
+            return true
+        } catch {
+            handleError(error, context: "sharing routine with group")
+            return false
+        }
+    }
+
+    func removeRoutineFromGroup(groupId: String, groupRoutineId: String) async -> Bool {
+        do {
+            try await crewService.removeRoutineFromGroup(groupId: groupId, groupRoutineId: groupRoutineId)
+            groupRoutines.removeAll { $0.id == groupRoutineId }
+            return true
+        } catch {
+            handleError(error, context: "removing routine from group")
+            return false
+        }
+    }
+
+    func startShareRoutine() {
+        showingShareRoutine = true
+        Task {
+            await loadUserRoutinesForSharing()
+        }
+    }
+
+    func closeShareRoutine() {
+        showingShareRoutine = false
+    }
+
     // MARK: - Error Handling
 
     private func handleError(_ error: Error, context: String, silent: Bool = false) {
+        // Ignore cancelled requests (happens when navigating away quickly)
+        let errorString = error.localizedDescription.lowercased()
+        let isCancelled = (error as? URLError)?.code == .cancelled || errorString.contains("cancel") || errorString.contains("annul")
+
+        if isCancelled {
+            return // Silently ignore cancelled requests
+        }
+
         print("❌ Crew error (\(context)): \(error.localizedDescription)")
 
         // Don't show error alert for silent errors (like refresh failures)

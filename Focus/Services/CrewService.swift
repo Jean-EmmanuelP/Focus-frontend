@@ -168,6 +168,7 @@ struct LeaderboardEntry: Codable, Identifiable {
     let hasPendingRequest: Bool?
     let requestDirection: String?  // "outgoing" or "incoming"
     let email: String?
+    let isSelf: Bool?
 
     var displayName: String {
         if let pseudo = pseudo, !pseudo.isEmpty {
@@ -201,6 +202,7 @@ struct LeaderboardEntry: Codable, Identifiable {
     var safeCurrentStreak: Int { currentStreak ?? 0 }
     var safeIsCrewMember: Bool { isCrewMember ?? false }
     var safeHasPendingRequest: Bool { hasPendingRequest ?? false }
+    var safeIsSelf: Bool { isSelf ?? false }
 }
 
 /// Crew member's day data
@@ -317,6 +319,7 @@ struct CrewGroupMember: Codable, Identifiable {
     let lastName: String?
     let avatarUrl: String?
     let addedAt: Date?
+    let isOwner: Bool?
 
     var displayName: String {
         if let pseudo = pseudo, !pseudo.isEmpty {
@@ -330,6 +333,8 @@ struct CrewGroupMember: Codable, Identifiable {
         }
         return "User"
     }
+
+    var safeIsOwner: Bool { isOwner ?? false }
 }
 
 /// DTO for creating a new crew group
@@ -352,6 +357,56 @@ struct UpdateCrewGroupDTO: Encodable {
 /// DTO for adding members to a crew group
 struct AddCrewGroupMembersDTO: Encodable {
     let memberIds: [String]
+}
+
+// MARK: - Group Routine Models (Shared Routines)
+
+/// A routine shared with a group for accountability
+struct GroupRoutine: Codable, Identifiable {
+    let id: String
+    let groupId: String
+    let routineId: String
+    let title: String
+    let icon: String?
+    let frequency: String
+    let scheduledTime: String?
+    let sharedBy: CrewUserInfo?
+    let memberCompletions: [GroupRoutineMemberCompletion]?
+    let completionCount: Int?
+    let totalMembers: Int?
+    let createdAt: Date
+
+    var safeCompletionCount: Int { completionCount ?? 0 }
+    var safeTotalMembers: Int { totalMembers ?? 0 }
+    var safeCompletions: [GroupRoutineMemberCompletion] { memberCompletions ?? [] }
+}
+
+/// Completion status for a group member on a shared routine
+struct GroupRoutineMemberCompletion: Codable, Identifiable {
+    let userId: String
+    let pseudo: String?
+    let firstName: String?
+    let avatarUrl: String?
+    let completed: Bool
+    let completedAt: Date?
+
+    var id: String { userId }
+
+    var displayName: String {
+        if let pseudo = pseudo, !pseudo.isEmpty { return pseudo }
+        if let first = firstName, !first.isEmpty { return first }
+        return "User"
+    }
+}
+
+/// Response wrapper for group routines list
+struct GroupRoutinesResponse: Codable {
+    let routines: [GroupRoutine]
+}
+
+/// DTO for sharing a routine with a group
+struct ShareRoutineWithGroupDTO: Encodable {
+    let routineId: String
 }
 
 // MARK: - Group Invitation Models
@@ -635,6 +690,39 @@ class CrewService {
         try await apiClient.request(
             endpoint: .leaveGroup(groupId),
             method: .post
+        )
+    }
+
+    // MARK: - Group Routines (Shared Routines)
+
+    /// Fetch routines shared with a group, including member completion status
+    func fetchGroupRoutines(groupId: String, date: Date = Date()) async throws -> [GroupRoutine] {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let dateString = dateFormatter.string(from: date)
+
+        let response: GroupRoutinesResponse = try await apiClient.request(
+            endpoint: .groupRoutines(groupId: groupId, date: dateString),
+            method: .get
+        )
+        return response.routines
+    }
+
+    /// Share an existing routine with a group
+    func shareRoutineWithGroup(groupId: String, routineId: String) async throws -> GroupRoutine {
+        let body = ShareRoutineWithGroupDTO(routineId: routineId)
+        return try await apiClient.request(
+            endpoint: .shareRoutineWithGroup(groupId: groupId),
+            method: .post,
+            body: body
+        )
+    }
+
+    /// Remove a routine from a group
+    func removeRoutineFromGroup(groupId: String, groupRoutineId: String) async throws {
+        try await apiClient.request(
+            endpoint: .removeGroupRoutine(groupId: groupId, groupRoutineId: groupRoutineId),
+            method: .delete
         )
     }
 

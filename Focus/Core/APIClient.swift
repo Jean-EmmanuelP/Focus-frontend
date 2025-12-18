@@ -300,6 +300,11 @@ enum APIConfiguration {
         case inviteToGroup(String)
         case leaveGroup(String)
 
+        // Group Routines (shared routines for accountability)
+        case groupRoutines(groupId: String, date: String?)
+        case shareRoutineWithGroup(groupId: String)
+        case removeGroupRoutine(groupId: String, groupRoutineId: String)
+
         // Group Invitations
         case groupInvitationsReceived
         case groupInvitationsSent
@@ -345,6 +350,31 @@ enum APIConfiguration {
         case googleCalendarUpdateConfig
         case googleCalendarDisconnect
         case googleCalendarSync
+        case googleCalendarCheckWeekly
+
+        // Community Feed
+        case communityFeed(limit: Int?, offset: Int?)
+        case communityMyPosts(limit: Int?, offset: Int?)
+        case createCommunityPost
+        case communityPost(String)
+        case deleteCommunityPost(String)
+        case likeCommunityPost(String)
+        case unlikeCommunityPost(String)
+        case reportCommunityPost(String)
+        case taskPosts(taskId: String)
+        case routinePosts(routineId: String)
+
+        // Journal - Audio/Video Progress Journal
+        case journalEntries(limit: Int?, offset: Int?, dateFrom: String?, dateTo: String?)
+        case journalEntryToday
+        case journalEntry(String)
+        case createJournalEntry
+        case deleteJournalEntry(String)
+        case journalStreak
+        case journalStats(days: Int?)
+        case journalBilans
+        case generateWeeklyBilan
+        case generateMonthlyBilan
 
         var path: String {
             switch self {
@@ -522,6 +552,17 @@ enum APIConfiguration {
             case .leaveGroup(let id):
                 return "/friend-groups/\(id)/leave"
 
+            // Group Routines
+            case .groupRoutines(let groupId, let date):
+                if let date = date {
+                    return "/friend-groups/\(groupId)/routines?date=\(date)"
+                }
+                return "/friend-groups/\(groupId)/routines"
+            case .shareRoutineWithGroup(let groupId):
+                return "/friend-groups/\(groupId)/routines"
+            case .removeGroupRoutine(let groupId, let groupRoutineId):
+                return "/friend-groups/\(groupId)/routines/\(groupRoutineId)"
+
             // Group Invitations
             case .groupInvitationsReceived:
                 return "/group-invitations/received"
@@ -596,6 +637,63 @@ enum APIConfiguration {
                 return "/google-calendar/tokens"
             case .googleCalendarSync:
                 return "/google-calendar/sync"
+            case .googleCalendarCheckWeekly:
+                return "/google-calendar/check-weekly"
+
+            // Community Feed
+            case .communityFeed(let limit, let offset):
+                var query: [String] = []
+                if let limit = limit { query.append("limit=\(limit)") }
+                if let offset = offset { query.append("offset=\(offset)") }
+                let queryString = query.isEmpty ? "" : "?\(query.joined(separator: "&"))"
+                return "/community/feed\(queryString)"
+            case .communityMyPosts(let limit, let offset):
+                var query: [String] = []
+                if let limit = limit { query.append("limit=\(limit)") }
+                if let offset = offset { query.append("offset=\(offset)") }
+                let queryString = query.isEmpty ? "" : "?\(query.joined(separator: "&"))"
+                return "/community/my-posts\(queryString)"
+            case .createCommunityPost:
+                return "/community/posts"
+            case .communityPost(let id), .deleteCommunityPost(let id):
+                return "/community/posts/\(id)"
+            case .likeCommunityPost(let id), .unlikeCommunityPost(let id):
+                return "/community/posts/\(id)/like"
+            case .reportCommunityPost(let id):
+                return "/community/posts/\(id)/report"
+            case .taskPosts(let taskId):
+                return "/tasks/\(taskId)/posts"
+            case .routinePosts(let routineId):
+                return "/routines/\(routineId)/posts"
+
+            // Journal
+            case .journalEntries(let limit, let offset, let dateFrom, let dateTo):
+                var query: [String] = []
+                if let limit = limit { query.append("limit=\(limit)") }
+                if let offset = offset { query.append("offset=\(offset)") }
+                if let dateFrom = dateFrom { query.append("date_from=\(dateFrom)") }
+                if let dateTo = dateTo { query.append("date_to=\(dateTo)") }
+                let queryString = query.isEmpty ? "" : "?\(query.joined(separator: "&"))"
+                return "/journal/entries\(queryString)"
+            case .journalEntryToday:
+                return "/journal/entries/today"
+            case .journalEntry(let id), .deleteJournalEntry(let id):
+                return "/journal/entries/\(id)"
+            case .createJournalEntry:
+                return "/journal/entries"
+            case .journalStreak:
+                return "/journal/entries/streak"
+            case .journalStats(let days):
+                if let days = days {
+                    return "/journal/stats?days=\(days)"
+                }
+                return "/journal/stats"
+            case .journalBilans:
+                return "/journal/bilans"
+            case .generateWeeklyBilan:
+                return "/journal/bilans/weekly"
+            case .generateMonthlyBilan:
+                return "/journal/bilans/monthly"
             }
         }
 
@@ -662,7 +760,38 @@ class APIClient {
         self.session = URLSession(configuration: configuration)
 
         self.decoder = JSONDecoder()
-        self.decoder.dateDecodingStrategy = .iso8601
+        // Custom date decoding to handle ISO8601 with and without fractional seconds
+        self.decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let dateString = try container.decode(String.self)
+
+            // Try ISO8601 with fractional seconds first
+            let isoWithFractional = ISO8601DateFormatter()
+            isoWithFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = isoWithFractional.date(from: dateString) {
+                return date
+            }
+
+            // Try standard ISO8601 without fractional seconds
+            let isoStandard = ISO8601DateFormatter()
+            isoStandard.formatOptions = [.withInternetDateTime]
+            if let date = isoStandard.date(from: dateString) {
+                return date
+            }
+
+            // Fallback: try RFC3339 style with timezone offset
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
+            if let date = formatter.date(from: dateString) {
+                return date
+            }
+
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Cannot decode date from: \(dateString)"
+            )
+        }
         self.decoder.keyDecodingStrategy = .convertFromSnakeCase
 
         self.encoder = JSONEncoder()
