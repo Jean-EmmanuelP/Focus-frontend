@@ -3,10 +3,14 @@ import SwiftUI
 // MARK: - Week Calendar View (Modern Design)
 struct WeekCalendarView: View {
     @StateObject private var viewModel = CalendarViewModel()
+    @StateObject private var questsViewModel = QuestsViewModel()
     @EnvironmentObject var router: AppRouter
     @State private var showVoiceInput = false
     @State private var showCreateTaskSheet = false
     @State private var showQuickCreateSheet = false
+    @State private var showAddRitualSheet = false
+    @State private var showAddQuestSheet = false
+    @State private var showAddMenu = false
     @State private var selectedTask: CalendarTask?
     @State private var draggedTask: CalendarTask?
 
@@ -14,6 +18,13 @@ struct WeekCalendarView: View {
     @State private var quickCreateDate: Date = Date()
     @State private var quickCreateStartHour: Int = 9
     @State private var quickCreateEndHour: Int = 10
+
+    // Scroll state
+    @State private var scrollPosition: Int?
+
+    // Ellie-style sidebar state
+    @State private var showSidebar = true
+    @State private var draggedTaskId: String?
 
     // Hours to display (6am to 11pm)
     private let hours = Array(6...23)
@@ -26,26 +37,23 @@ struct WeekCalendarView: View {
 
             VStack(spacing: 0) {
                 // Compact header with week navigation + day selector
-                modernHeader
+                ellieHeader
 
-                // Calendar grid - Day view only
-                ScrollView {
-                    ZStack(alignment: .topLeading) {
-                        dayViewTappableGrid
-                        hourGrid
-                        dayTasksOverlay
-
-                        // Current time indicator only for today
-                        if Calendar.current.isDateInToday(viewModel.selectedDate) {
-                            dayViewCurrentTimeIndicator
+                // Main content: Sidebar + Calendar (Ellie-style split)
+                GeometryReader { geometry in
+                    HStack(spacing: 0) {
+                        // Left: Task sidebar (unscheduled tasks)
+                        if showSidebar {
+                            taskSidebar
+                                .frame(width: min(geometry.size.width * 0.35, 160))
+                                .transition(.move(edge: .leading).combined(with: .opacity))
                         }
-                    }
-                    .frame(height: CGFloat(hours.count) * hourHeight)
 
-                    // Reduced bottom padding for tab bar
-                    Spacer().frame(height: 60)
+                        // Right: Time blocking calendar
+                        timeBlockingCalendar
+                            .frame(maxWidth: .infinity)
+                    }
                 }
-                .scrollIndicators(.hidden)
             }
 
             // Floating action button
@@ -78,6 +86,16 @@ struct WeekCalendarView: View {
             TaskDetailSheet(task: task, viewModel: viewModel)
                 .environmentObject(router)
         }
+        .sheet(isPresented: $showAddRitualSheet) {
+            AddRitualFromCalendarSheet(
+                questsViewModel: questsViewModel,
+                areas: questsViewModel.areas,
+                selectedDate: viewModel.selectedDate
+            )
+        }
+        .sheet(isPresented: $showAddQuestSheet) {
+            AddQuestSheet(viewModel: questsViewModel, areas: questsViewModel.areas)
+        }
         .onAppear {
             Task {
                 await viewModel.loadWeekData()
@@ -104,14 +122,10 @@ struct WeekCalendarView: View {
     // MARK: - Tappable Grid for Quick Create
     // MARK: - Floating Action Button
     private var floatingActionButton: some View {
-        Menu {
-            Button(action: { showCreateTaskSheet = true }) {
-                Label("calendar.add_task".localized, systemImage: "plus.circle")
-            }
-            Button(action: { showVoiceInput = true }) {
-                Label("calendar.voice_input".localized, systemImage: "mic.fill")
-            }
-        } label: {
+        Button(action: {
+            HapticFeedback.medium()
+            showAddMenu = true
+        }) {
             ZStack {
                 Circle()
                     .fill(
@@ -127,11 +141,318 @@ struct WeekCalendarView: View {
                 Image(systemName: "plus")
                     .font(.satoshi(24, weight: .semibold))
                     .foregroundColor(.white)
+                    .rotationEffect(.degrees(showAddMenu ? 45 : 0))
+                    .animation(.spring(response: 0.3), value: showAddMenu)
+            }
+        }
+        .confirmationDialog("calendar.add_new".localized, isPresented: $showAddMenu, titleVisibility: .visible) {
+            Button(action: {
+                showCreateTaskSheet = true
+            }) {
+                Label("calendar.add_task".localized, systemImage: "checkmark.circle")
+            }
+
+            Button(action: {
+                showAddRitualSheet = true
+            }) {
+                Label("calendar.add_routine".localized, systemImage: "arrow.triangle.2.circlepath")
+            }
+
+            Button(action: {
+                showAddQuestSheet = true
+            }) {
+                Label("calendar.add_quest".localized, systemImage: "target")
+            }
+
+            Button("common.cancel".localized, role: .cancel) { }
+        } message: {
+            Text("calendar.add_new_description".localized)
+        }
+    }
+
+    // MARK: - Ellie-Style Header
+    private var ellieHeader: some View {
+        VStack(spacing: 0) {
+            // Top row: Sidebar toggle + Date info + Actions
+            HStack(spacing: 12) {
+                // Sidebar toggle button
+                Button(action: {
+                    withAnimation(.spring(response: 0.3)) {
+                        showSidebar.toggle()
+                    }
+                }) {
+                    Image(systemName: showSidebar ? "sidebar.left" : "sidebar.leading")
+                        .font(.satoshi(18))
+                        .foregroundColor(ColorTokens.textSecondary)
+                        .frame(width: 36, height: 36)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(viewModel.formattedSelectedDate)
+                        .font(.satoshi(16, weight: .bold))
+                        .foregroundColor(ColorTokens.textPrimary)
+
+                    // Task count summary
+                    let scheduled = viewModel.scheduledTasks.count
+                    let unscheduled = viewModel.unscheduledTasks.count
+                    Text("\(scheduled) scheduled • \(unscheduled) to plan")
+                        .font(.satoshi(12))
+                        .foregroundColor(ColorTokens.textMuted)
+                }
+
+                Spacer()
+
+                // Today button
+                if !Calendar.current.isDateInToday(viewModel.selectedDate) {
+                    Button(action: { viewModel.goToCurrentWeek(); viewModel.selectDate(Date()) }) {
+                        Text("Today")
+                            .font(.satoshi(13, weight: .semibold))
+                            .foregroundColor(ColorTokens.primaryStart)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(ColorTokens.primaryStart.opacity(0.15))
+                            .cornerRadius(RadiusTokens.full)
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
+
+            // Week days row
+            HStack(spacing: 0) {
+                // Previous week button
+                Button(action: { viewModel.goToPreviousWeek() }) {
+                    Image(systemName: "chevron.left")
+                        .font(.satoshi(12, weight: .semibold))
+                        .foregroundColor(ColorTokens.textMuted)
+                        .frame(width: 28, height: 40)
+                }
+
+                // Week days
+                HStack(spacing: 0) {
+                    ForEach(viewModel.weekDays, id: \.self) { date in
+                        let isToday = Calendar.current.isDateInToday(date)
+                        let isSelected = Calendar.current.isDate(date, inSameDayAs: viewModel.selectedDate)
+                        let itemCounts = totalItemsForDate(date)
+                        let totalCount = itemCounts.total
+                        let completedCount = itemCounts.completed
+
+                        Button(action: { viewModel.selectDate(date) }) {
+                            VStack(spacing: 2) {
+                                Text(date.formatted(.dateTime.weekday(.narrow)).uppercased())
+                                    .font(.satoshi(10, weight: .medium))
+                                    .foregroundColor(isToday ? ColorTokens.primaryStart : ColorTokens.textMuted)
+
+                                ZStack {
+                                    if isToday {
+                                        Circle()
+                                            .fill(LinearGradient(colors: [ColorTokens.primaryStart, ColorTokens.primaryEnd], startPoint: .topLeading, endPoint: .bottomTrailing))
+                                            .frame(width: 28, height: 28)
+                                    } else if isSelected {
+                                        Circle()
+                                            .fill(ColorTokens.primaryStart.opacity(0.2))
+                                            .frame(width: 28, height: 28)
+                                    }
+
+                                    Text("\(Calendar.current.component(.day, from: date))")
+                                        .font(.system(size: 13, weight: isToday ? .bold : .medium))
+                                        .foregroundColor(isToday ? .white : ColorTokens.textPrimary)
+                                }
+
+                                // Progress dot
+                                if totalCount > 0 {
+                                    Circle()
+                                        .fill(completedCount == totalCount ? Color.green : ColorTokens.primaryStart.opacity(0.5))
+                                        .frame(width: 4, height: 4)
+                                } else {
+                                    Spacer().frame(height: 4)
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                }
+
+                // Next week button
+                Button(action: { viewModel.goToNextWeek() }) {
+                    Image(systemName: "chevron.right")
+                        .font(.satoshi(12, weight: .semibold))
+                        .foregroundColor(ColorTokens.textMuted)
+                        .frame(width: 28, height: 40)
+                }
+            }
+            .padding(.horizontal, 4)
+            .padding(.bottom, 8)
+
+            // Divider
+            Rectangle()
+                .fill(ColorTokens.border.opacity(0.3))
+                .frame(height: 0.5)
+        }
+        .background(ColorTokens.background)
+    }
+
+    // MARK: - Task Sidebar (Unscheduled Tasks)
+    private var taskSidebar: some View {
+        VStack(spacing: 0) {
+            // Sidebar header
+            HStack {
+                Text("Tasks")
+                    .font(.satoshi(14, weight: .bold))
+                    .foregroundColor(ColorTokens.textPrimary)
+
+                Spacer()
+
+                Button(action: { showCreateTaskSheet = true }) {
+                    Image(systemName: "plus")
+                        .font(.satoshi(14, weight: .semibold))
+                        .foregroundColor(ColorTokens.primaryStart)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+
+            Divider().opacity(0.3)
+
+            // Unscheduled tasks list
+            ScrollView {
+                LazyVStack(spacing: 8) {
+                    if viewModel.unscheduledTasks.isEmpty {
+                        // Empty state
+                        VStack(spacing: 8) {
+                            Image(systemName: "checkmark.circle")
+                                .font(.satoshi(24))
+                                .foregroundColor(ColorTokens.textMuted)
+                            Text("All planned!")
+                                .font(.satoshi(12, weight: .medium))
+                                .foregroundColor(ColorTokens.textMuted)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 40)
+                    } else {
+                        ForEach(viewModel.unscheduledTasks) { task in
+                            SidebarTaskCard(
+                                task: task,
+                                onTap: { selectedTask = task },
+                                onSchedule: { hour in
+                                    Task {
+                                        await viewModel.scheduleTaskAtHour(task, hour: hour)
+                                    }
+                                }
+                            )
+                            .draggable(task.id) {
+                                // Drag preview
+                                SidebarTaskCard(task: task, onTap: {}, onSchedule: { _ in })
+                                    .frame(width: 140)
+                                    .opacity(0.8)
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 8)
+            }
+        }
+        .background(ColorTokens.surface)
+        .overlay(
+            Rectangle()
+                .fill(ColorTokens.border.opacity(0.3))
+                .frame(width: 0.5),
+            alignment: .trailing
+        )
+    }
+
+    // MARK: - Time Blocking Calendar
+    private var timeBlockingCalendar: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                ZStack(alignment: .topLeading) {
+                    dayViewTappableGrid
+                    hourGrid
+                    scheduledTasksOverlay
+
+                    // Current time indicator only for today
+                    if Calendar.current.isDateInToday(viewModel.selectedDate) {
+                        dayViewCurrentTimeIndicator
+                    }
+                }
+                .frame(height: CGFloat(hours.count) * hourHeight)
+                .dropDestination(for: String.self) { items, location in
+                    guard let taskId = items.first else { return false }
+                    // Calculate hour from drop location
+                    let hour = Int(location.y / hourHeight) + hours.first!
+                    if let task = viewModel.weekTasks.first(where: { $0.id == taskId }) {
+                        Task {
+                            await viewModel.scheduleTaskAtHour(task, hour: max(hours.first!, min(hour, hours.last! - 1)))
+                        }
+                    }
+                    return true
+                }
+
+                Spacer().frame(height: 80)
+            }
+        }
+        .scrollIndicators(.hidden)
+        .scrollPosition(id: $scrollPosition, anchor: .top)
+        .onAppear { scrollToCurrentHour() }
+        .onChange(of: viewModel.selectedDate) { _, _ in scrollToCurrentHour() }
+    }
+
+    // MARK: - Scheduled Tasks Overlay (for time blocking view)
+    private var scheduledTasksOverlay: some View {
+        let timeColumnWidth: CGFloat = 28
+
+        return GeometryReader { geometry in
+            let dayWidth = geometry.size.width - timeColumnWidth
+
+            ForEach(viewModel.scheduledTasks) { task in
+                let times = getDisplayTimes(for: task)
+
+                DayTaskBlockView(
+                    task: task,
+                    onTap: { selectedTask = task },
+                    onStartFocus: {
+                        router.startFocusSession(
+                            task: task,
+                            questId: task.questId,
+                            questTitle: task.questTitle
+                        )
+                    },
+                    onComplete: { Task { await viewModel.toggleTask(task, completed: true) } },
+                    onUncomplete: { Task { await viewModel.toggleTask(task, completed: false) } }
+                )
+                .frame(width: dayWidth - 8, height: calculateTaskHeight(startTime: times.start, endTime: times.end))
+                .offset(x: timeColumnWidth + 4, y: calculateYOffset(startTime: times.start))
+                .contextMenu {
+                    Button(role: .destructive) {
+                        Task { await viewModel.unscheduleTask(task) }
+                    } label: {
+                        Label("Remove from calendar", systemImage: "calendar.badge.minus")
+                    }
+                }
+            }
+
+            // Rituals overlay
+            ForEach(viewModel.scheduledRituals.filter { shouldShowRitual($0, on: viewModel.selectedDate) }) { ritual in
+                let times = getRitualDisplayTimes(for: ritual)
+
+                DayRitualBlockView(
+                    ritual: ritual,
+                    isCompletedOnDate: viewModel.isRitualCompleted(ritual.id, on: viewModel.selectedDate),
+                    onToggle: { Task { await viewModel.toggleRitual(ritual) } },
+                    onStartFocus: {
+                        router.navigate(to: .fire)
+                    }
+                )
+                .frame(width: dayWidth - 8, height: calculateTaskHeight(startTime: times.start, endTime: times.end))
+                .offset(x: timeColumnWidth + 4, y: calculateYOffset(startTime: times.start))
             }
         }
     }
 
-    // MARK: - Modern Compact Header
+    // MARK: - Modern Compact Header (Legacy - kept for reference)
     private var modernHeader: some View {
         VStack(spacing: 0) {
             // Combined: Navigation arrows + Week days in one row
@@ -279,7 +600,29 @@ struct WeekCalendarView: View {
                     Spacer()
                 }
                 .frame(height: hourHeight)
+                .id(hour) // ID for ScrollViewReader
             }
+        }
+    }
+
+    // MARK: - Scroll to Current Time
+    private func scrollToCurrentHour() {
+        let currentHour = Calendar.current.component(.hour, from: Date())
+
+        // Determine target hour
+        let targetHour: Int
+        if Calendar.current.isDateInToday(viewModel.selectedDate) {
+            // For today: scroll to 2 hours before current hour to center the current time indicator
+            // Clamp to our visible range (6-23)
+            targetHour = max(hours.first!, min(hours.last!, currentHour - 2))
+        } else {
+            // For other days: scroll to 8am (typical start of day)
+            targetHour = 8
+        }
+
+        // Set scroll position after a small delay to ensure view is ready
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            scrollPosition = targetHour
         }
     }
 
@@ -308,6 +651,8 @@ struct WeekCalendarView: View {
     private func getDisplayTimes(for task: CalendarTask) -> (start: Date, end: Date) {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        formatter.timeZone = TimeZone.current
+        formatter.locale = Locale(identifier: "en_US_POSIX")
 
         // If task has scheduled times, use them
         if let startDate = task.startDate, let endDate = task.endDate {
@@ -625,6 +970,91 @@ struct WeekCalendarView: View {
     }
 }
 
+// MARK: - Sidebar Task Card (for unscheduled tasks in Ellie-style sidebar)
+struct SidebarTaskCard: View {
+    let task: CalendarTask
+    let onTap: () -> Void
+    let onSchedule: (Int) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            // Task title
+            Text(task.title)
+                .font(.satoshi(13, weight: .medium))
+                .foregroundColor(task.isCompleted ? ColorTokens.textMuted : ColorTokens.textPrimary)
+                .strikethrough(task.isCompleted)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+
+            // Quest tag if available
+            if let questTitle = task.questTitle {
+                Text(questTitle)
+                    .font(.satoshi(10, weight: .medium))
+                    .foregroundColor(taskColor.opacity(0.8))
+                    .lineLimit(1)
+            }
+
+            // Time block indicator
+            HStack(spacing: 4) {
+                Image(systemName: timeBlockIcon)
+                    .font(.satoshi(9))
+                Text(task.timeBlock.capitalized)
+                    .font(.satoshi(10))
+            }
+            .foregroundColor(ColorTokens.textMuted)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(taskColor.opacity(0.15))
+        .cornerRadius(10)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(taskColor.opacity(0.3), lineWidth: 1)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            HapticFeedback.light()
+            onTap()
+        }
+        .contextMenu {
+            // Quick schedule options
+            Menu {
+                ForEach([9, 10, 11, 12, 14, 15, 16, 17, 18, 19], id: \.self) { hour in
+                    Button(action: { onSchedule(hour) }) {
+                        Label(String(format: "%02d:00", hour), systemImage: "clock")
+                    }
+                }
+            } label: {
+                Label("Schedule at...", systemImage: "calendar.badge.clock")
+            }
+        }
+    }
+
+    private var timeBlockIcon: String {
+        switch task.timeBlock {
+        case "morning": return "sunrise.fill"
+        case "afternoon": return "sun.max.fill"
+        case "evening": return "moon.fill"
+        default: return "clock"
+        }
+    }
+
+    private var taskColor: Color {
+        if task.isCompleted { return .green }
+        if let areaName = task.areaName?.lowercased() {
+            switch areaName {
+            case "health", "santé": return Color(hex: "#4CAF50") ?? .green
+            case "learning", "apprentissage": return Color(hex: "#2196F3") ?? .blue
+            case "career", "carrière": return Color(hex: "#FF9800") ?? .orange
+            case "relationships", "relations": return Color(hex: "#E91E63") ?? .pink
+            case "creativity", "créativité": return Color(hex: "#9C27B0") ?? .purple
+            default: return Color(hex: "#607D8B") ?? .gray
+            }
+        }
+        return ColorTokens.primaryStart
+    }
+}
+
 // MARK: - Day Task Block View (with checkbox to complete/uncomplete)
 struct DayTaskBlockView: View {
     let task: CalendarTask
@@ -648,36 +1078,50 @@ struct DayTaskBlockView: View {
                 Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
                     .font(.satoshi(24))
                     .foregroundColor(task.isCompleted ? .white : .white.opacity(0.7))
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(PlainButtonStyle())
 
-            // Center: Task info (tappable for details)
-            Button(action: onTap) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(task.title)
-                        .font(.satoshi(15, weight: .semibold))
-                        .foregroundColor(.white)
-                        .strikethrough(task.isCompleted)
-                        .lineLimit(2)
+            // Center: Task info
+            VStack(alignment: .leading, spacing: 2) {
+                Text(task.title)
+                    .font(.satoshi(15, weight: .semibold))
+                    .foregroundColor(.white)
+                    .strikethrough(task.isCompleted)
+                    .lineLimit(2)
 
-                    HStack(spacing: 8) {
-                        // Time range
-                        Text(task.formattedTimeRange)
+                HStack(spacing: 8) {
+                    // Time range
+                    Text(task.formattedTimeRange)
+                        .font(.satoshi(12, weight: .medium))
+                        .foregroundColor(.white.opacity(0.8))
+
+                    // Quest name if available
+                    if let questTitle = task.questTitle {
+                        Text("• \(questTitle)")
                             .font(.satoshi(12, weight: .medium))
-                            .foregroundColor(.white.opacity(0.8))
+                            .foregroundColor(.white.opacity(0.7))
+                            .lineLimit(1)
+                    }
 
-                        // Quest name if available
-                        if let questTitle = task.questTitle {
-                            Text("• \(questTitle)")
-                                .font(.satoshi(12, weight: .medium))
-                                .foregroundColor(.white.opacity(0.7))
-                                .lineLimit(1)
+                    // Photo indicator if task has photos
+                    if let photosCount = task.photosCount, photosCount > 0 {
+                        HStack(spacing: 2) {
+                            Image(systemName: "camera.fill")
+                                .font(.satoshi(10))
+                            Text("\(photosCount)")
+                                .font(.satoshi(10, weight: .medium))
                         }
+                        .foregroundColor(.white.opacity(0.8))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.white.opacity(0.2))
+                        .cornerRadius(RadiusTokens.full)
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .buttonStyle(PlainButtonStyle())
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             // Right: Focus button (only if not completed)
             if !task.isCompleted {
@@ -696,6 +1140,7 @@ struct DayTaskBlockView: View {
                     .padding(.vertical, 8)
                     .background(Color.white.opacity(0.25))
                     .cornerRadius(RadiusTokens.full)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(PlainButtonStyle())
             }
@@ -705,6 +1150,11 @@ struct DayTaskBlockView: View {
         .frame(maxWidth: .infinity)
         .background(taskColor)
         .cornerRadius(12)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            HapticFeedback.light()
+            onTap()
+        }
     }
 
     // Task color based on area or green if completed
@@ -743,6 +1193,7 @@ struct DayRitualBlockView: View {
     let isCompletedOnDate: Bool  // Per-date completion status
     let onToggle: () -> Void
     var onStartFocus: (() -> Void)? = nil
+    var onTap: (() -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 10) {
@@ -758,6 +1209,8 @@ struct DayRitualBlockView: View {
                 Image(systemName: isCompletedOnDate ? "checkmark.circle.fill" : "circle")
                     .font(.satoshi(22))
                     .foregroundColor(isCompletedOnDate ? .white : .white.opacity(0.7))
+                    .frame(width: 40, height: 40)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(PlainButtonStyle())
 
@@ -805,6 +1258,7 @@ struct DayRitualBlockView: View {
                     .padding(.vertical, 6)
                     .background(Color.white.opacity(0.25))
                     .cornerRadius(RadiusTokens.full)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(PlainButtonStyle())
             }
@@ -814,6 +1268,13 @@ struct DayRitualBlockView: View {
         .frame(maxWidth: .infinity)
         .background(ritualColor)
         .cornerRadius(12)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if let onTap = onTap {
+                HapticFeedback.light()
+                onTap()
+            }
+        }
     }
 
     private var ritualColor: Color {
@@ -831,82 +1292,180 @@ struct TaskDetailSheet: View {
     @ObservedObject var viewModel: CalendarViewModel
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var router: AppRouter
+    @State private var showPhotosSheet = false
+    @State private var taskPhotos: [CommunityPostResponse] = []
+    @State private var isLoadingPhotos = false
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: SpacingTokens.lg) {
-                // Task info
-                VStack(alignment: .leading, spacing: SpacingTokens.md) {
-                    HStack {
-                        if let areaIcon = task.areaIcon {
-                            Text(areaIcon)
-                                .font(.satoshi(32))
-                        }
-
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(task.title)
-                                .font(.satoshi(24, weight: .bold))
-                                .foregroundColor(ColorTokens.textPrimary)
-
-                            if let questTitle = task.questTitle {
-                                Text(questTitle)
-                                    .font(.satoshi(14))
-                                    .foregroundColor(ColorTokens.textMuted)
+            ScrollView {
+                VStack(spacing: SpacingTokens.lg) {
+                    // Task header
+                    VStack(alignment: .leading, spacing: SpacingTokens.md) {
+                        HStack(alignment: .top, spacing: SpacingTokens.md) {
+                            if let areaIcon = task.areaIcon {
+                                Text(areaIcon)
+                                    .font(.satoshi(40))
+                                    .frame(width: 56, height: 56)
+                                    .background(ColorTokens.surface)
+                                    .cornerRadius(RadiusTokens.md)
                             }
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(task.title)
+                                    .font(.satoshi(22, weight: .bold))
+                                    .foregroundColor(ColorTokens.textPrimary)
+
+                                // Time
+                                HStack(spacing: 6) {
+                                    Image(systemName: "clock")
+                                        .font(.satoshi(12))
+                                    Text(task.formattedTimeRange)
+                                        .font(.satoshi(14))
+                                }
+                                .foregroundColor(ColorTokens.textSecondary)
+                            }
+
+                            Spacer()
                         }
-                    }
 
-                    HStack {
-                        Image(systemName: "clock")
-                            .foregroundColor(ColorTokens.textMuted)
-                        Text(task.formattedTimeRange)
-                            .foregroundColor(ColorTokens.textSecondary)
-                    }
+                        // Priority & Status badges
+                        HStack(spacing: SpacingTokens.sm) {
+                            Text(priorityLabel)
+                                .font(.satoshi(12, weight: .medium))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(priorityColor)
+                                .cornerRadius(12)
 
-                    if let description = task.description {
-                        Text(description)
-                            .font(.satoshi(14))
-                            .foregroundColor(ColorTokens.textSecondary)
-                    }
-
-                    // Priority badge
-                    HStack {
-                        Text(task.priority.capitalized)
-                            .font(.satoshi(12, weight: .medium))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
-                            .background(priorityColor)
-                            .cornerRadius(12)
-
-                        if task.isCompleted {
-                            Text("common.completed".localized)
+                            if task.isCompleted {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.satoshi(10))
+                                    Text("common.completed".localized)
+                                }
                                 .font(.satoshi(12, weight: .medium))
                                 .foregroundColor(.white)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 4)
                                 .background(Color.green)
                                 .cornerRadius(12)
+                            }
                         }
                     }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding()
-                .background(ColorTokens.surface)
-                .cornerRadius(RadiusTokens.lg)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+                    .background(ColorTokens.surface)
+                    .cornerRadius(RadiusTokens.lg)
 
-                Spacer()
+                    // Description (if any)
+                    if let description = task.description, !description.isEmpty {
+                        VStack(alignment: .leading, spacing: SpacingTokens.sm) {
+                            Text("task.description".localized)
+                                .font(.satoshi(12, weight: .semibold))
+                                .foregroundColor(ColorTokens.textMuted)
+                                .textCase(.uppercase)
 
-                // Actions
-                VStack(spacing: SpacingTokens.md) {
-                    // Start Focus button
-                    PrimaryButton("calendar.start_focus".localized, icon: "flame.fill") {
-                        dismiss()
-                        router.navigateToFireMode(questId: task.questId, description: task.title)
+                            Text(description)
+                                .font(.satoshi(14))
+                                .foregroundColor(ColorTokens.textPrimary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding()
+                        .background(ColorTokens.surface)
+                        .cornerRadius(RadiusTokens.lg)
                     }
 
-                    // Complete button
-                    if !task.isCompleted {
+                    // Associated Quest (if any)
+                    if let questTitle = task.questTitle {
+                        VStack(alignment: .leading, spacing: SpacingTokens.sm) {
+                            Text("task.linked_quest".localized)
+                                .font(.satoshi(12, weight: .semibold))
+                                .foregroundColor(ColorTokens.textMuted)
+                                .textCase(.uppercase)
+
+                            HStack(spacing: SpacingTokens.md) {
+                                Image(systemName: "target")
+                                    .font(.satoshi(18))
+                                    .foregroundColor(ColorTokens.primaryStart)
+                                    .frame(width: 36, height: 36)
+                                    .background(ColorTokens.primarySoft)
+                                    .cornerRadius(RadiusTokens.sm)
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(questTitle)
+                                        .font(.satoshi(15, weight: .semibold))
+                                        .foregroundColor(ColorTokens.textPrimary)
+
+                                    if let areaName = task.areaName {
+                                        Text(areaName)
+                                            .font(.satoshi(12))
+                                            .foregroundColor(ColorTokens.textMuted)
+                                    }
+                                }
+
+                                Spacer()
+
+                                Image(systemName: "chevron.right")
+                                    .font(.satoshi(12))
+                                    .foregroundColor(ColorTokens.textMuted)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding()
+                        .background(ColorTokens.surface)
+                        .cornerRadius(RadiusTokens.lg)
+                    }
+
+                    // Community Photos section
+                    if let photosCount = task.photosCount, photosCount > 0 {
+                        Button(action: { showPhotosSheet = true }) {
+                            HStack(spacing: SpacingTokens.md) {
+                                Image(systemName: "photo.stack.fill")
+                                    .font(.satoshi(18))
+                                    .foregroundColor(ColorTokens.primaryStart)
+                                    .frame(width: 36, height: 36)
+                                    .background(ColorTokens.primarySoft)
+                                    .cornerRadius(RadiusTokens.sm)
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("community.view_photos".localized)
+                                        .font(.satoshi(15, weight: .semibold))
+                                        .foregroundColor(ColorTokens.textPrimary)
+
+                                    Text(String(format: "community.photos_count".localized, photosCount))
+                                        .font(.satoshi(12))
+                                        .foregroundColor(ColorTokens.textMuted)
+                                }
+
+                                Spacer()
+
+                                Image(systemName: "chevron.right")
+                                    .font(.satoshi(12))
+                                    .foregroundColor(ColorTokens.textMuted)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding()
+                            .background(ColorTokens.surface)
+                            .cornerRadius(RadiusTokens.lg)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+
+                    Spacer(minLength: SpacingTokens.xl)
+
+                    // Actions
+                    VStack(spacing: SpacingTokens.md) {
+                        // Start Focus button
+                        if !task.isCompleted {
+                            PrimaryButton("calendar.start_focus".localized, icon: "flame.fill") {
+                                dismiss()
+                                router.navigateToFireMode(questId: task.questId, description: task.title, taskId: task.id)
+                            }
+                        }
+
+                        // Complete/Uncomplete button
                         Button(action: {
                             Task {
                                 await viewModel.toggleTask(task.id)
@@ -914,37 +1473,37 @@ struct TaskDetailSheet: View {
                             }
                         }) {
                             HStack {
-                                Image(systemName: "checkmark.circle")
-                                Text("calendar.mark_complete".localized)
+                                Image(systemName: task.isCompleted ? "arrow.uturn.backward.circle" : "checkmark.circle")
+                                Text(task.isCompleted ? "task.mark_incomplete".localized : "calendar.mark_complete".localized)
                             }
-                            .foregroundColor(Color.green)
+                            .foregroundColor(task.isCompleted ? ColorTokens.textSecondary : Color.green)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Color.green.opacity(0.1))
+                            .background(task.isCompleted ? ColorTokens.surface : Color.green.opacity(0.1))
+                            .cornerRadius(RadiusTokens.md)
+                        }
+
+                        // Delete button
+                        Button(action: {
+                            Task {
+                                await viewModel.deleteTask(task.id)
+                                dismiss()
+                            }
+                        }) {
+                            HStack {
+                                Image(systemName: "trash")
+                                Text("common.delete".localized)
+                            }
+                            .foregroundColor(.red)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.red.opacity(0.1))
                             .cornerRadius(RadiusTokens.md)
                         }
                     }
-
-                    // Delete button
-                    Button(action: {
-                        Task {
-                            await viewModel.deleteTask(task.id)
-                            dismiss()
-                        }
-                    }) {
-                        HStack {
-                            Image(systemName: "trash")
-                            Text("common.delete".localized)
-                        }
-                        .foregroundColor(.red)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.red.opacity(0.1))
-                        .cornerRadius(RadiusTokens.md)
-                    }
                 }
+                .padding()
             }
-            .padding()
             .background(ColorTokens.background)
             .navigationTitle("calendar.task_detail".localized)
             .navigationBarTitleDisplayMode(.inline)
@@ -957,6 +1516,9 @@ struct TaskDetailSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
+        .sheet(isPresented: $showPhotosSheet) {
+            TaskPhotosSheet(taskId: task.id)
+        }
     }
 
     private var priorityColor: Color {
@@ -966,6 +1528,176 @@ struct TaskDetailSheet: View {
         case .medium: return Color.orange
         case .low: return Color.blue
         }
+    }
+
+    private var priorityLabel: String {
+        switch task.priorityEnum {
+        case .urgent: return "calendar.priority.urgent".localized
+        case .high: return "calendar.priority.high".localized
+        case .medium: return "calendar.priority.medium".localized
+        case .low: return "calendar.priority.low".localized
+        }
+    }
+}
+
+// MARK: - Task Photos Sheet
+struct TaskPhotosSheet: View {
+    let taskId: String
+    @Environment(\.dismiss) private var dismiss
+    @State private var photos: [CommunityPostResponse] = []
+    @State private var isLoading = true
+    @State private var errorMessage: String?
+
+    private let communityService = CommunityService()
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                ColorTokens.background
+                    .ignoresSafeArea()
+
+                if isLoading {
+                    ProgressView()
+                } else if let error = errorMessage {
+                    VStack(spacing: SpacingTokens.md) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.largeTitle)
+                            .foregroundColor(ColorTokens.textSecondary)
+                        Text(error)
+                            .font(.subheadline)
+                            .foregroundColor(ColorTokens.textSecondary)
+                    }
+                } else if photos.isEmpty {
+                    VStack(spacing: SpacingTokens.md) {
+                        Image(systemName: "photo.stack")
+                            .font(.largeTitle)
+                            .foregroundColor(ColorTokens.textSecondary)
+                        Text("community.empty_feed".localized)
+                            .font(.subheadline)
+                            .foregroundColor(ColorTokens.textSecondary)
+                    }
+                } else {
+                    ScrollView {
+                        LazyVStack(spacing: SpacingTokens.md) {
+                            ForEach(photos) { post in
+                                TaskPhotoCard(post: post)
+                            }
+                        }
+                        .padding()
+                    }
+                }
+            }
+            .navigationTitle("community.view_photos".localized)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("common.done".localized) {
+                        dismiss()
+                    }
+                }
+            }
+            .task {
+                await loadPhotos()
+            }
+        }
+    }
+
+    private func loadPhotos() async {
+        isLoading = true
+        do {
+            photos = try await communityService.getTaskPosts(taskId: taskId)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isLoading = false
+    }
+}
+
+// MARK: - Task Photo Card
+struct TaskPhotoCard: View {
+    let post: CommunityPostResponse
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.sm) {
+            // Header
+            HStack(spacing: SpacingTokens.sm) {
+                AsyncImage(url: URL(string: post.authorAvatarUrl ?? "")) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image.resizable().scaledToFill()
+                    default:
+                        Image(systemName: "person.circle.fill")
+                            .resizable()
+                            .foregroundColor(ColorTokens.textSecondary)
+                    }
+                }
+                .frame(width: 32, height: 32)
+                .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(post.authorPseudo ?? "User")
+                        .font(.satoshi(14, weight: .semibold))
+                        .foregroundColor(ColorTokens.textPrimary)
+                    Text(post.createdAt.timeAgoDisplay())
+                        .font(.satoshi(12))
+                        .foregroundColor(ColorTokens.textSecondary)
+                }
+
+                Spacer()
+            }
+
+            // Image
+            AsyncImage(url: URL(string: post.imageUrl)) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .scaledToFill()
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 250)
+                        .clipped()
+                        .cornerRadius(RadiusTokens.md)
+                case .failure:
+                    Rectangle()
+                        .fill(ColorTokens.surface)
+                        .frame(height: 250)
+                        .cornerRadius(RadiusTokens.md)
+                        .overlay(
+                            Image(systemName: "photo")
+                                .foregroundColor(ColorTokens.textSecondary)
+                        )
+                default:
+                    Rectangle()
+                        .fill(ColorTokens.surface)
+                        .frame(height: 250)
+                        .cornerRadius(RadiusTokens.md)
+                        .overlay(ProgressView())
+                }
+            }
+
+            // Caption
+            if let caption = post.caption, !caption.isEmpty {
+                Text(caption)
+                    .font(.satoshi(14))
+                    .foregroundColor(ColorTokens.textPrimary)
+                    .lineLimit(3)
+            }
+
+            // Likes
+            if post.likesCount > 0 {
+                HStack(spacing: 4) {
+                    Image(systemName: "heart.fill")
+                        .font(.satoshi(12))
+                        .foregroundColor(.red)
+                    Text(String(format: "community.liked_by".localized, post.likesCount))
+                        .font(.satoshi(12))
+                        .foregroundColor(ColorTokens.textSecondary)
+                }
+            }
+        }
+        .padding()
+        .background(ColorTokens.surface)
+        .cornerRadius(RadiusTokens.lg)
     }
 }
 
@@ -1550,3 +2282,292 @@ struct QuestPickerSheet: View {
     }
 }
 
+// MARK: - Add Ritual From Calendar Sheet
+struct AddRitualFromCalendarSheet: View {
+    let questsViewModel: QuestsViewModel
+    let areas: [Area]
+    let selectedDate: Date
+    @Environment(\.dismiss) var dismiss
+
+    @State private var title = ""
+    @State private var selectedIcon = "🌟"
+    @State private var selectedAreaId: String?
+    @State private var selectedFrequency = "daily"
+    @State private var hasScheduledTime = true  // Default to true since we're in calendar
+    @State private var scheduledTime: Date
+    @State private var isLoading = false
+    @State private var errorMessage: String?
+
+    let frequencies = ["daily", "weekdays", "weekends", "weekly"]
+    var frequencyLabels: [String] {
+        ["routines.frequency.daily".localized, "routines.frequency.weekdays".localized, "routines.frequency.weekends".localized, "routines.frequency.weekly".localized]
+    }
+    let iconOptions = ["🌟", "💪", "📚", "🧘", "🏃", "💧", "🍎", "😴", "📝", "🎯", "💡", "🔥"]
+
+    private let hapticGenerator = UIImpactFeedbackGenerator(style: .light)
+
+    /// Convert Date to "HH:mm" string for API
+    private var scheduledTimeString: String? {
+        guard hasScheduledTime else { return nil }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: scheduledTime)
+    }
+
+    init(questsViewModel: QuestsViewModel, areas: [Area], selectedDate: Date) {
+        self.questsViewModel = questsViewModel
+        self.areas = areas
+        self.selectedDate = selectedDate
+        // Default time based on current hour or 9 AM
+        let now = Date()
+        let calendar = Calendar.current
+        let currentHour = calendar.component(.hour, from: now)
+        let defaultHour = currentHour >= 6 && currentHour < 22 ? currentHour + 1 : 9
+        var components = calendar.dateComponents([.year, .month, .day], from: selectedDate)
+        components.hour = defaultHour
+        components.minute = 0
+        _scheduledTime = State(initialValue: calendar.date(from: components) ?? now)
+    }
+
+    // Filter out placeholder areas
+    private var validAreas: [Area] {
+        areas.filter { !$0.id.hasPrefix("placeholder-") }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                ColorTokens.background
+                    .ignoresSafeArea()
+
+                ScrollView {
+                    VStack(spacing: SpacingTokens.xl) {
+                        // Icon selector - Compact
+                        iconSection
+
+                        // Title input
+                        titleSection
+
+                        // Area selector
+                        areaSection
+
+                        // Frequency selector
+                        frequencySection
+
+                        // Scheduled time picker (important for calendar)
+                        scheduledTimeSection
+
+                        // Error message
+                        if let error = errorMessage {
+                            Text(error)
+                                .caption()
+                                .foregroundColor(ColorTokens.error)
+                        }
+
+                        // Save button
+                        PrimaryButton(
+                            "routines.create".localized,
+                            isLoading: isLoading,
+                            isDisabled: title.isEmpty || selectedAreaId == nil
+                        ) {
+                            Task {
+                                guard let areaId = selectedAreaId else { return }
+                                isLoading = true
+                                errorMessage = nil
+                                let success = await questsViewModel.createRitual(
+                                    areaId: areaId,
+                                    title: title,
+                                    frequency: selectedFrequency,
+                                    icon: selectedIcon,
+                                    scheduledTime: scheduledTimeString
+                                )
+                                isLoading = false
+                                if success {
+                                    HapticFeedback.success()
+                                    dismiss()
+                                } else {
+                                    errorMessage = questsViewModel.errorMessage
+                                }
+                            }
+                        }
+                    }
+                    .padding(SpacingTokens.lg)
+                }
+                .scrollDismissesKeyboard(.interactively)
+            }
+            .navigationTitle("calendar.new_routine".localized)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("common.cancel".localized) {
+                        dismiss()
+                    }
+                    .foregroundColor(ColorTokens.primaryStart)
+                }
+            }
+            .onAppear {
+                hapticGenerator.prepare()
+            }
+        }
+    }
+
+    private func triggerHaptic() {
+        hapticGenerator.impactOccurred()
+        hapticGenerator.prepare()
+    }
+
+    private var iconSection: some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.md) {
+            HStack {
+                Text("routines.choose_icon".localized)
+                    .subtitle()
+                    .foregroundColor(ColorTokens.textPrimary)
+
+                Spacer()
+
+                Text(selectedIcon)
+                    .font(.satoshi(32))
+            }
+
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: SpacingTokens.sm) {
+                ForEach(iconOptions, id: \.self) { icon in
+                    Button(action: {
+                        selectedIcon = icon
+                        triggerHaptic()
+                    }) {
+                        Text(icon)
+                            .font(.satoshi(24))
+                            .frame(width: 44, height: 44)
+                            .background(selectedIcon == icon ? ColorTokens.primarySoft : ColorTokens.surface)
+                            .cornerRadius(RadiusTokens.md)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: RadiusTokens.md)
+                                    .stroke(selectedIcon == icon ? ColorTokens.primaryStart : Color.clear, lineWidth: 2)
+                            )
+                    }
+                }
+            }
+        }
+    }
+
+    private var titleSection: some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.md) {
+            Text("routines.ritual_name".localized)
+                .subtitle()
+                .foregroundColor(ColorTokens.textPrimary)
+
+            CustomTextField(
+                placeholder: "routines.ritual_placeholder".localized,
+                text: $title
+            )
+        }
+    }
+
+    private var areaSection: some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.md) {
+            Text("routines.life_area".localized)
+                .subtitle()
+                .foregroundColor(ColorTokens.textPrimary)
+
+            if validAreas.isEmpty {
+                HStack {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    Text("routines.loading_areas".localized)
+                        .caption()
+                        .foregroundColor(ColorTokens.textMuted)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(SpacingTokens.md)
+                .background(ColorTokens.surface)
+                .cornerRadius(RadiusTokens.md)
+            } else {
+                FlowLayout(spacing: SpacingTokens.sm) {
+                    ForEach(validAreas) { area in
+                        Button(action: {
+                            selectedAreaId = area.id
+                            triggerHaptic()
+                        }) {
+                            HStack(spacing: SpacingTokens.xs) {
+                                Text(area.icon)
+                                    .font(.satoshi(14))
+                                Text(area.name)
+                                    .font(.satoshi(13))
+                            }
+                            .padding(.horizontal, SpacingTokens.md)
+                            .padding(.vertical, SpacingTokens.sm)
+                            .background(selectedAreaId == area.id ? ColorTokens.primarySoft : ColorTokens.surface)
+                            .foregroundColor(selectedAreaId == area.id ? ColorTokens.primaryStart : ColorTokens.textSecondary)
+                            .cornerRadius(RadiusTokens.full)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: RadiusTokens.full)
+                                    .stroke(selectedAreaId == area.id ? ColorTokens.primaryStart : ColorTokens.border, lineWidth: 1)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var frequencySection: some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.md) {
+            Text("routines.frequency".localized)
+                .subtitle()
+                .foregroundColor(ColorTokens.textPrimary)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: SpacingTokens.sm) {
+                    ForEach(Array(zip(frequencies, frequencyLabels)), id: \.0) { freq, label in
+                        Button(action: {
+                            selectedFrequency = freq
+                            triggerHaptic()
+                        }) {
+                            Text(label)
+                                .font(.satoshi(13, weight: selectedFrequency == freq ? .semibold : .regular))
+                                .padding(.horizontal, SpacingTokens.md)
+                                .padding(.vertical, SpacingTokens.sm)
+                                .background(selectedFrequency == freq ? ColorTokens.primarySoft : ColorTokens.surface)
+                                .foregroundColor(selectedFrequency == freq ? ColorTokens.primaryStart : ColorTokens.textSecondary)
+                                .cornerRadius(RadiusTokens.sm)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var scheduledTimeSection: some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.md) {
+            HStack {
+                Text("routines.scheduled_time".localized)
+                    .subtitle()
+                    .foregroundColor(ColorTokens.textPrimary)
+
+                Spacer()
+
+                Toggle("", isOn: $hasScheduledTime)
+                    .toggleStyle(SwitchToggleStyle(tint: ColorTokens.primaryStart))
+                    .labelsHidden()
+            }
+
+            if hasScheduledTime {
+                DatePicker(
+                    "",
+                    selection: $scheduledTime,
+                    displayedComponents: .hourAndMinute
+                )
+                .datePickerStyle(.wheel)
+                .labelsHidden()
+                .frame(maxHeight: 100)
+                .padding(SpacingTokens.sm)
+                .background(ColorTokens.surface)
+                .cornerRadius(RadiusTokens.md)
+            }
+
+            Text("calendar.routine_time_hint".localized)
+                .font(.satoshi(12))
+                .foregroundColor(ColorTokens.textMuted)
+        }
+    }
+}

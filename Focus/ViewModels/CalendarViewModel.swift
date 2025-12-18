@@ -163,6 +163,33 @@ class CalendarViewModel: ObservableObject {
         return tasks.filter { $0.date == selectedDateStr }
     }
 
+    // MARK: - Ellie-style Task Separation
+
+    /// Unscheduled tasks (no time set) - for the sidebar "brain dump"
+    var unscheduledTasks: [CalendarTask] {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let selectedDateStr = dateFormatter.string(from: selectedDate)
+        return weekTasks.filter { task in
+            task.date == selectedDateStr && task.scheduledStart == nil
+        }
+    }
+
+    /// Scheduled tasks (have a time) - for the time blocking grid
+    var scheduledTasks: [CalendarTask] {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let selectedDateStr = dateFormatter.string(from: selectedDate)
+        return weekTasks.filter { task in
+            task.date == selectedDateStr && task.scheduledStart != nil
+        }
+    }
+
+    /// All unscheduled tasks across the week (for quick reference)
+    var allUnscheduledTasks: [CalendarTask] {
+        weekTasks.filter { $0.scheduledStart == nil }
+    }
+
     // MARK: - Init
     init() {
         setupBindings()
@@ -297,6 +324,14 @@ class CalendarViewModel: ObservableObject {
     func loadWeekData() async {
         isLoading = true
         defer { isLoading = false }
+
+        // Sync with Google Calendar first (if connected) - this imports new events from Google
+        // Uses throttling to avoid syncing too often (max once per minute)
+        let googleService = GoogleCalendarService.shared
+        if googleService.config == nil {
+            await googleService.fetchConfig()
+        }
+        await googleService.syncIfNeeded()
 
         // Load quests in parallel for quick access
         async let questsLoad: () = store.loadQuestsIfNeeded()
@@ -571,6 +606,21 @@ class CalendarViewModel: ObservableObject {
         } else {
             await SyncManager.shared.completeTask(id: taskId)
         }
+    }
+
+    /// Schedule an unscheduled task at a specific hour (for drag & drop from sidebar to calendar)
+    func scheduleTaskAtHour(_ task: CalendarTask, hour: Int, duration: Int = 60) async {
+        let startTime = String(format: "%02d:00", hour)
+        let endHour = hour + (duration / 60)
+        let endMinutes = duration % 60
+        let endTime = String(format: "%02d:%02d", endHour, endMinutes)
+
+        await rescheduleTask(task.id, date: task.date, scheduledStart: startTime, scheduledEnd: endTime)
+    }
+
+    /// Unschedule a task (move it back to sidebar)
+    func unscheduleTask(_ task: CalendarTask) async {
+        await rescheduleTask(task.id, date: task.date, scheduledStart: nil, scheduledEnd: nil)
     }
 
     func rescheduleTask(_ taskId: String, date: String, scheduledStart: String?, scheduledEnd: String?) async {
