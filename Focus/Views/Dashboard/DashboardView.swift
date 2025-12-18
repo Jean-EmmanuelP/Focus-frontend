@@ -13,6 +13,15 @@ struct DashboardView: View {
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var selectedImage: UIImage?
     @State private var isUploadingPhoto = false
+    @State private var showFlameInfoSheet = false
+
+    // Journal state
+    @State private var showJournalRecorder = false
+    @State private var showJournalEntry = false
+    @State private var showJournalHistory = false
+
+    // Intentions edit state
+    @State private var showEditIntentions = false
 
     var body: some View {
         ZStack {
@@ -25,19 +34,38 @@ struct DashboardView: View {
                 ScrollViewReader { scrollProxy in
                     ScrollView {
                         VStack(spacing: 0) {
-                            // Header
+                            // Header (compact with flame level)
                             headerSection
                                 .padding(.horizontal, SpacingTokens.lg)
                                 .padding(.top, SpacingTokens.lg)
                                 .padding(.bottom, SpacingTokens.md)
 
-                            // Streak Card with Progress Bar (Hero)
-                            streakCardSection
+                            // Daily Progress Bar
+                            dailyProgressBar
                                 .padding(.horizontal, SpacingTokens.lg)
-                                .padding(.bottom, SpacingTokens.xl)
+                                .padding(.bottom, SpacingTokens.lg)
+
+                            // Today's Intentions (if set)
+                            if !viewModel.todaysIntentions.isEmpty {
+                                todaysIntentionsSection
+                                    .padding(.horizontal, SpacingTokens.lg)
+                                    .padding(.bottom, SpacingTokens.lg)
+                            }
 
                             // Main CTA: Start the Day OR Next Task with Focus
                             mainCTASection
+                                .padding(.horizontal, SpacingTokens.lg)
+                                .padding(.bottom, SpacingTokens.xl)
+
+                            // Active Quests Section
+                            if !viewModel.activeQuests.isEmpty {
+                                activeQuestsSection
+                                    .padding(.horizontal, SpacingTokens.lg)
+                                    .padding(.bottom, SpacingTokens.xl)
+                            }
+
+                            // Journal Section
+                            journalSection
                                 .padding(.horizontal, SpacingTokens.lg)
                                 .padding(.bottom, SpacingTokens.xl)
 
@@ -49,6 +77,10 @@ struct DashboardView: View {
                     }
                     .refreshable {
                         await viewModel.refreshDashboard()
+                        await viewModel.loadJournalData()
+                    }
+                    .task {
+                        await viewModel.loadJournalData()
                     }
                     .onChange(of: router.dashboardScrollTarget) { _, target in
                         if let section = target {
@@ -99,32 +131,45 @@ struct DashboardView: View {
         .padding(.vertical, SpacingTokens.md)
     }
 
-    // MARK: - Header Section
+    // MARK: - Header Section (Compact with Flame Level)
     private var headerSection: some View {
-        VStack(alignment: .leading, spacing: SpacingTokens.xs) {
-            HStack {
-                Text("🔥")
-                    .font(.satoshi(28))
+        HStack(alignment: .center, spacing: SpacingTokens.md) {
+            // Flame level badge (tappable)
+            Button(action: {
+                HapticFeedback.light()
+                showFlameInfoSheet = true
+            }) {
+                HStack(spacing: SpacingTokens.xs) {
+                    Text(currentLevel?.icon ?? "🔥")
+                        .font(.system(size: 24))
 
-                Text("dashboard.title".localized)
-                    .label()
-                    .font(.satoshi(20, weight: .bold))
-                    .foregroundColor(ColorTokens.textPrimary)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("streak.day_count".localized(with: viewModel.currentStreak))
+                            .font(.satoshi(16, weight: .bold))
+                            .foregroundColor(.white)
 
-                Spacer()
-
-                if let user = viewModel.user {
-                    Button(action: {
-                        showProfileSheet = true
-                    }) {
-                        AvatarView(name: user.name, avatarURL: user.avatarURL, size: 40)
+                        Text(currentLevel?.name.uppercased() ?? "SPARK")
+                            .font(.satoshi(10, weight: .semibold))
+                            .foregroundColor(ColorTokens.primaryStart)
+                            .tracking(1)
                     }
                 }
+                .padding(.horizontal, SpacingTokens.md)
+                .padding(.vertical, SpacingTokens.sm)
+                .background(ColorTokens.surface)
+                .cornerRadius(RadiusTokens.lg)
             }
+            .buttonStyle(PlainButtonStyle())
 
-            Text("dashboard.subtitle".localized)
-                .caption()
-                .foregroundColor(ColorTokens.textSecondary)
+            Spacer()
+
+            if let user = viewModel.user {
+                Button(action: {
+                    showProfileSheet = true
+                }) {
+                    AvatarView(name: user.name, avatarURL: user.avatarURL, size: 40)
+                }
+            }
         }
         .sheet(isPresented: $showProfileSheet) {
             SettingsView(
@@ -152,6 +197,14 @@ struct DashboardView: View {
                 onSignOut: {
                     FocusAppStore.shared.signOut()
                 }
+            )
+            .presentationDetents([.large])
+        }
+        .sheet(isPresented: $showFlameInfoSheet) {
+            FlameInfoSheet(
+                currentStreak: viewModel.currentStreak,
+                flameLevels: viewModel.flameLevels,
+                todayValidation: viewModel.todayValidation
             )
             .presentationDetents([.large])
         }
@@ -261,48 +314,129 @@ struct DashboardView: View {
 
     private var streakCardSection: some View {
         VStack(spacing: SpacingTokens.lg) {
-            // Main streak display with current level
-            VStack(spacing: SpacingTokens.sm) {
-                // Current flame icon with glow
-                Text(currentLevel?.icon ?? "🔥")
-                    .font(.system(size: 64))
-                    .scaleEffect(flameScale)
-                    .shadow(color: ColorTokens.primaryStart.opacity(0.6), radius: 20, x: 0, y: 0)
+            // Main streak display with current level + info button
+            ZStack(alignment: .topTrailing) {
+                VStack(spacing: SpacingTokens.sm) {
+                    // Current flame icon with glow
+                    Text(currentLevel?.icon ?? "🔥")
+                        .font(.system(size: 64))
+                        .scaleEffect(flameScale)
+                        .shadow(color: ColorTokens.primaryStart.opacity(0.6), radius: 20, x: 0, y: 0)
 
-                // Streak text - "Jour 0" / "Day 0" format
-                Text("streak.day_count".localized(with: viewModel.currentStreak))
-                    .font(.satoshi(42, weight: .bold))
-                    .foregroundColor(.white)
+                    // Streak text - "Jour 0" / "Day 0" format
+                    Text("streak.day_count".localized(with: viewModel.currentStreak))
+                        .font(.satoshi(42, weight: .bold))
+                        .foregroundColor(.white)
 
-                // Current flame level name badge
-                if let level = currentLevel {
-                    Text(level.name.uppercased())
-                        .font(.satoshi(12, weight: .bold))
-                        .foregroundColor(ColorTokens.primaryStart)
-                        .tracking(2)
-                        .padding(.horizontal, SpacingTokens.md)
-                        .padding(.vertical, SpacingTokens.xs)
-                        .background(ColorTokens.primaryStart.opacity(0.15))
-                        .cornerRadius(RadiusTokens.sm)
+                    // Current flame level name badge
+                    if let level = currentLevel {
+                        Text(level.name.uppercased())
+                            .font(.satoshi(12, weight: .bold))
+                            .foregroundColor(ColorTokens.primaryStart)
+                            .tracking(2)
+                            .padding(.horizontal, SpacingTokens.md)
+                            .padding(.vertical, SpacingTokens.xs)
+                            .background(ColorTokens.primaryStart.opacity(0.15))
+                            .cornerRadius(RadiusTokens.sm)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .onAppear {
+                    withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+                        flameScale = 1.08
+                    }
+                }
+
+                // Info button with requirement status dots
+                Button(action: {
+                    HapticFeedback.light()
+                    showFlameInfoSheet = true
+                }) {
+                    HStack(spacing: 4) {
+                        // Status dots
+                        if let validation = viewModel.todayValidation {
+                            Circle()
+                                .fill(validation.meetsFocusSessions ? ColorTokens.success : ColorTokens.warning)
+                                .frame(width: 6, height: 6)
+                            Circle()
+                                .fill(validation.meetsCompletionRate ? ColorTokens.success : ColorTokens.warning)
+                                .frame(width: 6, height: 6)
+                            Circle()
+                                .fill(validation.meetsMinTasks ? ColorTokens.success : ColorTokens.warning)
+                                .frame(width: 6, height: 6)
+                        }
+                        Image(systemName: "info.circle")
+                            .font(.system(size: 16))
+                            .foregroundColor(ColorTokens.textMuted)
+                    }
+                    .padding(SpacingTokens.sm)
+                    .background(ColorTokens.surface.opacity(0.5))
+                    .cornerRadius(RadiusTokens.md)
                 }
             }
-            .onAppear {
-                withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
-                    flameScale = 1.08
-                }
-            }
 
-            // Level progression bar (current -> next)
-            levelProgressionBar
+            // Simplified level progression (tappable)
+            simplifiedLevelProgress
 
-            // Today's validation requirements (collapsible)
-            todayValidationSection
-
-            // Daily task/ritual progress
+            // Daily task/ritual progress with clear labels
             dailyProgressBar
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, SpacingTokens.lg)
+    }
+
+    // MARK: - Simplified Level Progress (replaces complex levelProgressionBar)
+    private var simplifiedLevelProgress: some View {
+        Button(action: {
+            HapticFeedback.light()
+            showFlameInfoSheet = true
+        }) {
+            HStack(spacing: SpacingTokens.md) {
+                // Current level
+                HStack(spacing: SpacingTokens.xs) {
+                    Text(currentLevel?.icon ?? "🔥")
+                        .font(.system(size: 18))
+                    Text(currentLevel?.name ?? "Spark")
+                        .font(.satoshi(13, weight: .bold))
+                        .foregroundColor(.white)
+                }
+
+                // Progress bar
+                GeometryReader { geometry in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(ColorTokens.surface.opacity(0.3))
+                            .frame(height: 6)
+
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(ColorTokens.fireGradient)
+                            .frame(width: geometry.size.width * CGFloat(progressToNextLevel), height: 6)
+                    }
+                }
+                .frame(height: 6)
+
+                // Next level info
+                if let next = nextLevel {
+                    let daysToNext = next.daysRequired - viewModel.currentStreak
+                    Text("\(daysToNext) " + "days".localized)
+                        .font(.satoshi(11))
+                        .foregroundColor(ColorTokens.textMuted)
+                    Text(next.icon)
+                        .font(.system(size: 14))
+                        .opacity(0.5)
+                }
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10))
+                    .foregroundColor(ColorTokens.textMuted)
+            }
+            .padding(.horizontal, SpacingTokens.lg)
+            .padding(.vertical, SpacingTokens.sm)
+            .background(ColorTokens.surface.opacity(0.3))
+            .cornerRadius(RadiusTokens.md)
+        }
+        .buttonStyle(PlainButtonStyle())
+        .padding(.horizontal, SpacingTokens.lg)
     }
 
     // MARK: - Level Progression Bar
@@ -462,57 +596,139 @@ struct DashboardView: View {
     // MARK: - Daily Progress Bar
     private var dailyProgressBar: some View {
         VStack(spacing: SpacingTokens.sm) {
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    // Background
-                    RoundedRectangle(cornerRadius: 5)
-                        .fill(ColorTokens.surface.opacity(0.2))
-                        .frame(height: 8)
-
-                    // Progress fill
-                    RoundedRectangle(cornerRadius: 5)
-                        .fill(
-                            viewModel.dailyProgressPercentage >= 0.6
-                                ? ColorTokens.successGradient
-                                : ColorTokens.fireGradient
-                        )
-                        .frame(width: max(0, geometry.size.width * CGFloat(viewModel.dailyProgressPercentage)), height: 8)
-                        .animation(.spring(response: 0.6, dampingFraction: 0.8), value: viewModel.dailyProgressPercentage)
-
-                    // 60% marker
-                    Rectangle()
-                        .fill(Color.white.opacity(0.4))
-                        .frame(width: 1.5, height: 12)
-                        .offset(x: geometry.size.width * 0.6 - 0.75)
-                }
-            }
-            .frame(height: 12)
-            .padding(.horizontal, SpacingTokens.lg)
-
-            // Progress details
-            HStack(spacing: SpacingTokens.sm) {
-                Text("\(viewModel.completedTasksCount)/\(viewModel.totalTasksCount) " + "tasks".localized)
-                    .font(.satoshi(11))
-                    .foregroundColor(.white.opacity(0.4))
-
-                Text("•")
-                    .foregroundColor(.white.opacity(0.2))
-
-                Text("\(viewModel.completedRitualsCount)/\(viewModel.totalRitualsCount) " + "rituals".localized)
-                    .font(.satoshi(11))
-                    .foregroundColor(.white.opacity(0.4))
+            // Title with percentage
+            HStack {
+                Text("dashboard.daily_progress".localized)
+                    .font(.satoshi(14, weight: .semibold))
+                    .foregroundColor(ColorTokens.textSecondary)
 
                 Spacer()
 
                 Text("\(Int(viewModel.dailyProgressPercentage * 100))%")
-                    .font(.satoshi(13, weight: .bold))
+                    .font(.satoshi(16, weight: .bold))
                     .foregroundColor(
-                        viewModel.dailyProgressPercentage >= 0.6
+                        viewModel.dailyProgressPercentage >= 1.0
                             ? ColorTokens.success
                             : ColorTokens.primaryStart
                     )
             }
             .padding(.horizontal, SpacingTokens.lg)
+
+            // Progress bar
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    // Background
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(ColorTokens.surface.opacity(0.2))
+                        .frame(height: 10)
+
+                    // Progress fill
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(
+                            viewModel.dailyProgressPercentage >= 1.0
+                                ? ColorTokens.successGradient
+                                : ColorTokens.fireGradient
+                        )
+                        .frame(width: max(0, geometry.size.width * CGFloat(min(1.0, viewModel.dailyProgressPercentage))), height: 10)
+                        .animation(.spring(response: 0.6, dampingFraction: 0.8), value: viewModel.dailyProgressPercentage)
+                }
+            }
+            .frame(height: 10)
+            .padding(.horizontal, SpacingTokens.lg)
+
+            // Progress breakdown
+            HStack(spacing: SpacingTokens.sm) {
+                // Tasks
+                HStack(spacing: 4) {
+                    Image(systemName: "checkmark.square")
+                        .font(.system(size: 10))
+                        .foregroundColor(ColorTokens.textMuted)
+                    Text("\(viewModel.completedTasksCount)/\(viewModel.totalTasksCount) " + "tasks".localized)
+                        .font(.satoshi(11))
+                        .foregroundColor(ColorTokens.textMuted)
+                }
+
+                Text("•")
+                    .foregroundColor(ColorTokens.textMuted.opacity(0.5))
+
+                // Rituals
+                HStack(spacing: 4) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 10))
+                        .foregroundColor(ColorTokens.textMuted)
+                    Text("\(viewModel.completedRitualsCount)/\(viewModel.totalRitualsCount) " + "rituals".localized)
+                        .font(.satoshi(11))
+                        .foregroundColor(ColorTokens.textMuted)
+                }
+
+                Spacer()
+            }
+            .padding(.horizontal, SpacingTokens.lg)
+
+            // Explanation text
+            if viewModel.dailyProgressPercentage < 1.0 {
+                Text("dashboard.progress_hint".localized)
+                    .font(.satoshi(10))
+                    .foregroundColor(ColorTokens.textMuted.opacity(0.7))
+                    .padding(.horizontal, SpacingTokens.lg)
+            }
+        }
+    }
+
+    // MARK: - Today's Intentions Section
+    private var todaysIntentionsSection: some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.sm) {
+            // Section header
+            HStack {
+                Text("dashboard.todays_intentions".localized)
+                    .font(.satoshi(14, weight: .semibold))
+                    .foregroundColor(ColorTokens.textSecondary)
+
+                Spacer()
+
+                if let feeling = viewModel.todaysFeeling {
+                    Text(feeling.rawValue)
+                        .font(.system(size: 16))
+                }
+
+                // Edit button
+                Button(action: {
+                    showEditIntentions = true
+                }) {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 14))
+                        .foregroundColor(ColorTokens.textSecondary)
+                }
+            }
+
+            // Intentions list
+            ForEach(viewModel.todaysIntentions) { intention in
+                HStack(spacing: SpacingTokens.sm) {
+                    Text(intention.area.emoji)
+                        .font(.system(size: 14))
+
+                    Text(intention.intention)
+                        .font(.satoshi(14))
+                        .foregroundColor(ColorTokens.textPrimary)
+                        .lineLimit(1)
+
+                    Spacer()
+
+                    if intention.isCompleted {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 14))
+                            .foregroundColor(ColorTokens.success)
+                    }
+                }
+                .padding(.vertical, SpacingTokens.xs)
+            }
+        }
+        .padding(SpacingTokens.md)
+        .background(ColorTokens.surface)
+        .cornerRadius(RadiusTokens.lg)
+        .sheet(isPresented: $showEditIntentions) {
+            EditIntentionsSheet(viewModel: viewModel)
+                .presentationDetents([.medium, .large])
         }
     }
 
@@ -809,6 +1025,262 @@ struct DashboardView: View {
         .frame(maxWidth: .infinity)
         .background(ColorTokens.surface)
         .cornerRadius(RadiusTokens.xl)
+    }
+
+    // MARK: - Active Quests Section
+    private var activeQuestsSection: some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.md) {
+            // Section header
+            HStack {
+                Text("🎯")
+                    .font(.satoshi(16))
+                Text("dashboard.active_quests".localized)
+                    .font(.satoshi(14, weight: .semibold))
+                    .foregroundColor(ColorTokens.textSecondary)
+
+                Spacer()
+
+                // See all button
+                NavigationLink(destination: QuestsView()) {
+                    HStack(spacing: 4) {
+                        Text("dashboard.see_all_quests".localized)
+                            .font(.satoshi(12, weight: .medium))
+                        Image(systemName: "chevron.right")
+                            .font(.satoshi(10))
+                    }
+                    .foregroundColor(ColorTokens.primaryStart)
+                }
+            }
+
+            // Quest cards
+            VStack(spacing: SpacingTokens.sm) {
+                ForEach(viewModel.activeQuests) { quest in
+                    DashboardQuestCard(quest: quest)
+                }
+            }
+        }
+    }
+
+    // MARK: - Journal Section
+    private var journalSection: some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.md) {
+            // Section header
+            HStack {
+                Text("📓")
+                    .font(.satoshi(16))
+                Text("journal.section_title".localized)
+                    .font(.satoshi(14, weight: .semibold))
+                    .foregroundColor(ColorTokens.textSecondary)
+
+                Spacer()
+
+                // View history button
+                Button(action: { showJournalHistory = true }) {
+                    HStack(spacing: 4) {
+                        Text("dashboard.see_history".localized)
+                            .font(.satoshi(12, weight: .medium))
+                        Image(systemName: "chevron.right")
+                            .font(.satoshi(10))
+                    }
+                    .foregroundColor(ColorTokens.primaryStart)
+                }
+            }
+
+            // Journal card
+            if let entry = viewModel.todayJournalEntry {
+                // Today's entry exists - show summary
+                todayJournalCard(entry: entry)
+            } else {
+                // No entry today - show record CTA
+                recordJournalCTA
+            }
+
+            // Mini mood graph if we have history
+            if !viewModel.recentJournalEntries.isEmpty && viewModel.journalMoodData.count > 1 {
+                VStack(alignment: .leading, spacing: SpacingTokens.xs) {
+                    Text("journal.mood_trend".localized)
+                        .font(.satoshi(12, weight: .medium))
+                        .foregroundColor(ColorTokens.textMuted)
+
+                    MoodGraphView(moodData: viewModel.journalMoodData, height: 60, showLabels: true)
+                }
+                .padding()
+                .background(ColorTokens.surface)
+                .cornerRadius(RadiusTokens.lg)
+            }
+        }
+        .sheet(isPresented: $showJournalRecorder) {
+            JournalRecorderView { entry in
+                viewModel.onJournalEntrySaved(entry)
+            }
+        }
+        .sheet(isPresented: $showJournalEntry) {
+            if let entry = viewModel.todayJournalEntry {
+                NavigationStack {
+                    JournalEntryView(entry: entry) {
+                        Task {
+                            await viewModel.deleteTodayJournalEntry()
+                        }
+                    }
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("close".localized) {
+                                showJournalEntry = false
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showJournalHistory) {
+            JournalListView()
+        }
+    }
+
+    private func todayJournalCard(entry: JournalEntryResponse) -> some View {
+        let hasAnalysis = entry.summary != nil || entry.mood != nil
+
+        return Button(action: { showJournalEntry = true }) {
+            HStack(spacing: SpacingTokens.md) {
+                // Icon: mood emoji if analyzed, mic icon if pending
+                if hasAnalysis {
+                    Text(entry.moodEmoji)
+                        .font(.system(size: 40))
+                        .frame(width: 56, height: 56)
+                        .background(moodColor(for: entry.mood).opacity(0.1))
+                        .cornerRadius(RadiusTokens.md)
+                } else {
+                    ZStack {
+                        Circle()
+                            .fill(ColorTokens.success.opacity(0.1))
+                            .frame(width: 56, height: 56)
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 28))
+                            .foregroundColor(ColorTokens.success)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: SpacingTokens.xs) {
+                    // Title
+                    Text(entry.title ?? "journal.recorded".localized)
+                        .font(.satoshi(16, weight: .semibold))
+                        .foregroundColor(ColorTokens.textPrimary)
+                        .lineLimit(1)
+
+                    // Preview: summary if analyzed, transcript snippet if pending
+                    if let summary = entry.summary, !summary.isEmpty {
+                        Text(summary.replacingOccurrences(of: "\n", with: " "))
+                            .font(.satoshi(13))
+                            .foregroundColor(ColorTokens.textSecondary)
+                            .lineLimit(2)
+                    } else if let transcript = entry.transcript, !transcript.isEmpty {
+                        Text(transcript)
+                            .font(.satoshi(13))
+                            .foregroundColor(ColorTokens.textSecondary)
+                            .lineLimit(2)
+                    } else {
+                        Text("journal.analysis_pending".localized)
+                            .font(.satoshi(13))
+                            .foregroundColor(ColorTokens.textMuted)
+                            .italic()
+                    }
+
+                    // Duration
+                    HStack(spacing: SpacingTokens.xs) {
+                        Image(systemName: "waveform")
+                            .font(.satoshi(10))
+                        Text(entry.formattedDuration)
+                            .font(.satoshi(11))
+                    }
+                    .foregroundColor(ColorTokens.textMuted)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.satoshi(14))
+                    .foregroundColor(ColorTokens.textMuted)
+            }
+            .padding()
+            .background(ColorTokens.surface)
+            .cornerRadius(RadiusTokens.lg)
+            .overlay(
+                RoundedRectangle(cornerRadius: RadiusTokens.lg)
+                    .stroke(ColorTokens.border, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var recordJournalCTA: some View {
+        Button(action: { showJournalRecorder = true }) {
+            HStack(spacing: SpacingTokens.md) {
+                // Microphone icon with gradient background
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [ColorTokens.primaryStart.opacity(0.2), ColorTokens.primaryEnd.opacity(0.2)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 56, height: 56)
+
+                    Image(systemName: "mic.fill")
+                        .font(.system(size: 24))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [ColorTokens.primaryStart, ColorTokens.primaryEnd],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                }
+
+                VStack(alignment: .leading, spacing: SpacingTokens.xs) {
+                    Text("journal.record_today".localized)
+                        .font(.satoshi(16, weight: .semibold))
+                        .foregroundColor(ColorTokens.textPrimary)
+
+                    Text("journal.record_subtitle".localized)
+                        .font(.satoshi(13))
+                        .foregroundColor(ColorTokens.textSecondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.satoshi(14))
+                    .foregroundColor(ColorTokens.textMuted)
+            }
+            .padding()
+            .background(ColorTokens.surface)
+            .cornerRadius(RadiusTokens.lg)
+            .overlay(
+                RoundedRectangle(cornerRadius: RadiusTokens.lg)
+                    .stroke(
+                        LinearGradient(
+                            colors: [ColorTokens.primaryStart.opacity(0.3), ColorTokens.primaryEnd.opacity(0.3)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func moodColor(for mood: String?) -> Color {
+        switch mood {
+        case "great": return .green
+        case "good": return .blue
+        case "neutral": return .gray
+        case "low": return .orange
+        case "bad": return .red
+        default: return .gray
+        }
     }
 
     // MARK: - Motivational Section
@@ -2733,6 +3205,175 @@ struct ValidationRequirementRow: View {
                 .foregroundColor(isMet ? ColorTokens.success : .white.opacity(0.3))
         }
         .padding(.vertical, SpacingTokens.xs)
+    }
+}
+
+// MARK: - Dashboard Quest Card
+struct DashboardQuestCard: View {
+    let quest: Quest
+    @EnvironmentObject var router: AppRouter
+
+    var body: some View {
+        Button(action: {
+            HapticFeedback.light()
+            // Navigate to Fire Mode with quest pre-selected
+            router.navigateToFireMode(questId: quest.id, description: quest.title)
+        }) {
+            HStack(spacing: SpacingTokens.md) {
+                // Area emoji
+                Text(quest.area.emoji)
+                    .font(.satoshi(24))
+                    .frame(width: 40, height: 40)
+                    .background(Color(hex: quest.area.color).opacity(0.15))
+                    .cornerRadius(RadiusTokens.md)
+
+                // Quest info
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(quest.title)
+                        .font(.satoshi(14, weight: .semibold))
+                        .foregroundColor(ColorTokens.textPrimary)
+                        .lineLimit(1)
+
+                    // Progress bar
+                    GeometryReader { geometry in
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(ColorTokens.surface.opacity(0.5))
+                                .frame(height: 6)
+
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(Color(hex: quest.area.color))
+                                .frame(width: max(0, geometry.size.width * CGFloat(quest.progress)), height: 6)
+                        }
+                    }
+                    .frame(height: 6)
+                }
+
+                Spacer()
+
+                // Progress percentage
+                Text("\(Int(quest.progress * 100))%")
+                    .font(.satoshi(14, weight: .bold))
+                    .foregroundColor(Color(hex: quest.area.color))
+
+                // Fire icon to start focus
+                Image(systemName: "flame.fill")
+                    .font(.satoshi(14))
+                    .foregroundColor(ColorTokens.primaryStart)
+            }
+            .padding(SpacingTokens.md)
+            .background(ColorTokens.surface)
+            .cornerRadius(RadiusTokens.lg)
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - Edit Intentions Sheet
+struct EditIntentionsSheet: View {
+    @ObservedObject var viewModel: DashboardViewModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var editedIntentions: [EditableIntention] = []
+    @State private var isSaving = false
+
+    struct EditableIntention: Identifiable {
+        let id: String
+        var text: String
+        var area: QuestArea
+        var isCompleted: Bool
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(spacing: SpacingTokens.md) {
+                        ForEach($editedIntentions) { $intention in
+                            VStack(alignment: .leading, spacing: SpacingTokens.sm) {
+                                TextField("intentions.placeholder".localized, text: $intention.text)
+                                    .font(.satoshi(16))
+                                    .foregroundColor(ColorTokens.textPrimary)
+                                    .padding(SpacingTokens.md)
+                                    .background(ColorTokens.surfaceElevated)
+                                    .cornerRadius(RadiusTokens.md)
+
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: SpacingTokens.sm) {
+                                        ForEach(QuestArea.allCases, id: \.self) { area in
+                                            Button(action: { intention.area = area }) {
+                                                HStack(spacing: 4) {
+                                                    Text(area.emoji)
+                                                        .font(.system(size: 14))
+                                                    Text(area.localizedName)
+                                                        .font(.satoshi(12, weight: .medium))
+                                                }
+                                                .foregroundColor(intention.area == area ? .white : ColorTokens.textSecondary)
+                                                .padding(.horizontal, 12)
+                                                .padding(.vertical, 8)
+                                                .background(intention.area == area ? ColorTokens.primaryStart : ColorTokens.surface)
+                                                .clipShape(Capsule())
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(SpacingTokens.md)
+                            .background(ColorTokens.surface)
+                            .cornerRadius(RadiusTokens.lg)
+                        }
+                    }
+                    .padding(SpacingTokens.lg)
+                }
+
+                Button(action: saveIntentions) {
+                    if isSaving {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    } else {
+                        Text("common.save".localized)
+                            .font(.satoshi(16, weight: .semibold))
+                    }
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, SpacingTokens.md)
+                .background(ColorTokens.fireGradient)
+                .cornerRadius(RadiusTokens.lg)
+                .padding(SpacingTokens.lg)
+                .disabled(isSaving)
+            }
+            .background(ColorTokens.background)
+            .navigationTitle("intentions.edit_title".localized)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("common.cancel".localized) { dismiss() }
+                }
+            }
+        }
+        .onAppear {
+            editedIntentions = viewModel.todaysIntentions.map { intention in
+                EditableIntention(
+                    id: intention.id,
+                    text: intention.intention,
+                    area: intention.area,
+                    isCompleted: intention.isCompleted
+                )
+            }
+        }
+    }
+
+    private func saveIntentions() {
+        isSaving = true
+        Task {
+            await viewModel.updateIntentions(editedIntentions.map { edited in
+                (id: edited.id, text: edited.text, area: edited.area)
+            })
+            await MainActor.run {
+                isSaving = false
+                dismiss()
+            }
+        }
     }
 }
 
