@@ -15,6 +15,15 @@ final class FocusAppStore: ObservableObject {
     private var hasLoadedInitialData = false
     private var isCurrentlyLoadingData = false  // Prevents concurrent loads
 
+    // MARK: - Subscription State
+    var isProUser: Bool {
+        RevenueCatManager.shared.isProUser
+    }
+
+    var subscriptionState: SubscriptionState {
+        RevenueCatManager.shared.subscriptionState
+    }
+
     // MARK: - UserDefaults Keys for Onboarding Cache
     private let onboardingCompletedKey = "volta_onboarding_completed"
     private let onboardingUserIdKey = "volta_onboarding_user_id"
@@ -162,6 +171,11 @@ final class FocusAppStore: ObservableObject {
             longestStreak: 0
         )
 
+        // Sync RevenueCat with user ID
+        if let userId = authService.userId {
+            await RevenueCatManager.shared.configureWithUser(userId: userId)
+        }
+
         // Check onboarding status from cache/API (await - blocks until done)
         await checkOnboardingStatus()
 
@@ -206,6 +220,9 @@ final class FocusAppStore: ObservableObject {
             } catch {
                 print("Error signing out: \(error)")
             }
+
+            // Logout from RevenueCat
+            await RevenueCatManager.shared.logout()
 
             // Clear onboarding cache for this user
             UserDefaults.standard.removeObject(forKey: onboardingCompletedKey)
@@ -359,13 +376,17 @@ final class FocusAppStore: ObservableObject {
                 print("📦 Areas loaded: \(self.areas.count)")
             }
 
-            // Convert quests (optional field)
-            if let activeQuests = dashboardData.activeQuests {
+            // Convert quests (optional field from dashboard)
+            if let activeQuests = dashboardData.activeQuests, !activeQuests.isEmpty {
                 self.quests = activeQuests.map { questResponse in
                     let area = self.areas.first { $0.id == questResponse.areaId }
                     return Quest(from: questResponse, area: area)
                 }
-                print("🎯 Quests loaded: \(self.quests.count)")
+                print("🎯 Quests loaded from dashboard: \(self.quests.count)")
+            } else {
+                // Fallback: load quests from dedicated endpoint if not in dashboard
+                print("🎯 Quests not in dashboard, loading from API...")
+                await loadQuests()
             }
 
             // Convert routines to rituals from dashboard first
@@ -593,6 +614,11 @@ final class FocusAppStore: ObservableObject {
             print("🔄 AppStore: Calling SyncManager.uncompleteRitual for date: \(date ?? todayStr)...")
             await SyncManager.shared.uncompleteRitual(id: ritual.id, date: date)
             print("✅ AppStore: Ritual uncompleted: \(ritual.title) for \(date ?? todayStr)")
+        }
+
+        // Refresh streak after ritual completion (for today only)
+        if isToday {
+            await refreshStreak()
         }
     }
 
@@ -822,6 +848,11 @@ final class FocusAppStore: ObservableObject {
         _ = try await sessionService.cancelSession(sessionId: sessionId)
         // Refresh dashboard to sync all data after mutation
         await refresh()
+    }
+
+    /// Fetch active sessions (to detect stale sessions)
+    func fetchActiveSessions() async throws -> [FocusSessionResponse] {
+        return try await sessionService.fetchSessions(status: "active")
     }
 
     // MARK: - Calendar Tasks
@@ -1076,6 +1107,18 @@ final class FocusAppStore: ObservableObject {
 
     func refreshFiremode() async {
         await loadFiremodeData(force: true)
+    }
+
+    /// Refresh just the streak data (lightweight, called after task/routine completion)
+    func refreshStreak() async {
+        do {
+            let streakResponse = try await streakService.fetchStreak()
+            self.streakData = streakResponse
+            print("🔥 Streak refreshed: current=\(streakResponse.currentStreak)")
+            syncWidgetData()
+        } catch {
+            print("⚠️ Failed to refresh streak: \(error)")
+        }
     }
 
     // MARK: - Widget Data Sync

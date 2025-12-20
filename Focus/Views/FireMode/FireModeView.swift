@@ -50,6 +50,24 @@ struct FireModeView: View {
         } message: {
             Text("fire.task_validation_message".localized)
         }
+        .alert("Session de focus non terminée", isPresented: $viewModel.showingStaleSessionAlert) {
+            Button("Valider la session") {
+                Task {
+                    await viewModel.completeStaleSession()
+                }
+            }
+            Button("Annuler la session", role: .destructive) {
+                Task {
+                    await viewModel.cancelStaleSession()
+                }
+            }
+        } message: {
+            if let session = viewModel.staleSession {
+                Text("Tu avais une session de \(session.durationMinutes) minutes qui n'a pas été terminée. Que veux-tu faire ?")
+            } else {
+                Text("Tu avais une session qui n'a pas été terminée.")
+            }
+        }
         .onChange(of: viewModel.shouldDismissModal) { _, shouldDismiss in
             if shouldDismiss {
                 router.dismissFireMode()

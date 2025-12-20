@@ -7,6 +7,12 @@ class FireModeViewModel: ObservableObject {
     private var store: FocusAppStore { FocusAppStore.shared }
     private var cancellables = Set<AnyCancellable>()
 
+    // App Blocker service
+    private let appBlockerService = ScreenTimeAppBlockerService.shared
+
+    // UserDefaults for blocking toggle (same as in AppBlockerViewModel)
+    @AppStorage("appBlocker.enableDuringFocus") private var enableBlockingDuringFocus: Bool = true
+
     // UserDefaults key for last used quest
     private let lastUsedQuestKey = "firemode.lastUsedQuestId"
 
@@ -43,6 +49,10 @@ class FireModeViewModel: ObservableObject {
     @Published var showingLogManualSession = false
     @Published var isLoading = false
 
+    // Stale session handling
+    @Published var showingStaleSessionAlert = false
+    @Published var staleSession: FocusSessionResponse?
+
     // MARK: - Published Data (from store)
     @Published var quests: [Quest] = []
     @Published var firemodeStats: FiremodeResponse?
@@ -62,6 +72,8 @@ class FireModeViewModel: ObservableObject {
             }
             // Set default quest to last used (after quests are loaded)
             selectLastUsedQuest()
+            // Check for stale sessions
+            await checkForStaleSessions()
         }
     }
 
@@ -196,6 +208,12 @@ class FireModeViewModel: ObservableObject {
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()
 
+        // Start app blocking if enabled
+        if enableBlockingDuringFocus && appBlockerService.isBlockingEnabled {
+            appBlockerService.startBlocking()
+            print("🔒 App blocking started with focus session")
+        }
+
         // Create session in backend (status = active)
         Task {
             await createSessionInBackend()
@@ -280,6 +298,12 @@ class FireModeViewModel: ObservableObject {
         timer = nil
         timerState = .completed // Mark as completed to show validation prompt
 
+        // Stop app blocking
+        if appBlockerService.isBlocking {
+            appBlockerService.stopBlocking()
+            print("🔓 App blocking stopped (session cancelled)")
+        }
+
         // End Live Activity
         LiveActivityManager.shared.endLiveActivity(completed: false)
 
@@ -319,6 +343,12 @@ class FireModeViewModel: ObservableObject {
         timer?.invalidate()
         timer = nil
         timerState = .completed
+
+        // Stop app blocking
+        if appBlockerService.isBlocking {
+            appBlockerService.stopBlocking()
+            print("🔓 App blocking stopped (session completed)")
+        }
 
         // End Live Activity with completed state
         LiveActivityManager.shared.endLiveActivity(completed: true)
@@ -428,9 +458,74 @@ class FireModeViewModel: ObservableObject {
         resetForm()
     }
 
+    // MARK: - Stale Session Handling
+
+    /// Check if there are any active sessions that should have ended (stale)
+    func checkForStaleSessions() async {
+        // Don't check if timer is already running
+        guard timerState == .idle else { return }
+
+        do {
+            let activeSessions = try await store.fetchActiveSessions()
+
+            for session in activeSessions {
+                // Check if session has exceeded its planned duration + 5 min buffer
+                let expectedEndTime = session.startedAt.addingTimeInterval(Double(session.durationMinutes + 5) * 60)
+
+                if Date() > expectedEndTime {
+                    // This is a stale session - show alert to user
+                    staleSession = session
+                    showingStaleSessionAlert = true
+                    print("⚠️ Found stale session: \(session.id), started \(session.startedAt), duration \(session.durationMinutes)min")
+                    break // Handle one at a time
+                }
+            }
+        } catch {
+            print("❌ Failed to check for stale sessions: \(error)")
+        }
+    }
+
+    /// Complete the stale session (count it as finished)
+    func completeStaleSession() async {
+        guard let session = staleSession else { return }
+
+        do {
+            try await store.completeSession(sessionId: session.id)
+            print("✅ Stale session completed: \(session.id)")
+        } catch {
+            print("❌ Failed to complete stale session: \(error)")
+        }
+
+        staleSession = nil
+        showingStaleSessionAlert = false
+
+        // Refresh data
+        await store.refreshFiremode()
+    }
+
+    /// Cancel the stale session (don't count it)
+    func cancelStaleSession() async {
+        guard let session = staleSession else { return }
+
+        do {
+            try await store.cancelSession(sessionId: session.id)
+            print("✅ Stale session cancelled: \(session.id)")
+        } catch {
+            print("❌ Failed to cancel stale session: \(error)")
+        }
+
+        staleSession = nil
+        showingStaleSessionAlert = false
+
+        // Refresh data
+        await store.refreshFiremode()
+    }
+
     // MARK: - Actions
     func refreshData() async {
         await store.refreshFiremode()
+        // Also check for stale sessions on refresh
+        await checkForStaleSessions()
     }
 
     func startFocusSession() async {
