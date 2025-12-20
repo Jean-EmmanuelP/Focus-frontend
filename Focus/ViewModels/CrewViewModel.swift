@@ -68,8 +68,10 @@ class CrewViewModel: ObservableObject {
     private let crewService = CrewService()
     private var searchTask: Task<Void, Never>?
     private var leaderboardRefreshTask: Task<Void, Never>?
+    private var cancellables = Set<AnyCancellable>()
+    private let webSocketManager = WebSocketManager.shared
 
-    /// Interval for auto-refreshing leaderboard (in seconds) to show live focus updates
+    /// Interval for auto-refreshing leaderboard (in seconds) as fallback
     private let leaderboardRefreshInterval: UInt64 = 30 // 30 seconds
 
     // MARK: - Computed Properties
@@ -96,7 +98,53 @@ class CrewViewModel: ObservableObject {
 
     // MARK: - Initialization
 
-    init() {}
+    init() {
+        setupWebSocketSubscription()
+    }
+
+    // MARK: - WebSocket Integration
+
+    /// Subscribe to WebSocket focus updates
+    private func setupWebSocketSubscription() {
+        webSocketManager.focusUpdatePublisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] update in
+                self?.handleFocusUpdate(update)
+            }
+            .store(in: &cancellables)
+    }
+
+    /// Handle incoming focus update from WebSocket
+    private func handleFocusUpdate(_ update: FocusUpdatePayload) {
+        // Find the user in the leaderboard and update their live status
+        if let index = leaderboard.firstIndex(where: { $0.id == update.userId }) {
+            // Create updated entry with new live status
+            var updatedEntry = leaderboard[index]
+
+            // Since LeaderboardEntry uses let, we need to reload from server
+            // For immediate UI feedback, trigger a reload
+            Task {
+                await loadLeaderboard()
+            }
+
+            print("🔄 WebSocket: Updated leaderboard for user \(update.pseudo) - isLive: \(update.isLive)")
+        } else {
+            // User not in current leaderboard, might need to reload
+            Task {
+                await loadLeaderboard()
+            }
+        }
+    }
+
+    /// Connect to WebSocket for real-time updates
+    func connectWebSocket() {
+        webSocketManager.connect()
+    }
+
+    /// Disconnect from WebSocket
+    func disconnectWebSocket() {
+        webSocketManager.disconnect()
+    }
 
     // MARK: - Data Loading
 

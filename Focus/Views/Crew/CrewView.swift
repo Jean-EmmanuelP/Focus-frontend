@@ -77,11 +77,14 @@ struct CrewView: View {
             await viewModel.loadInitialData()
         }
         .onAppear {
-            // Start auto-refresh for live focus updates on leaderboard
+            // Connect to WebSocket for real-time focus updates
+            viewModel.connectWebSocket()
+            // Start auto-refresh as fallback
             viewModel.startLeaderboardAutoRefresh()
         }
         .onDisappear {
             viewModel.stopLeaderboardAutoRefresh()
+            // Keep WebSocket connected for background updates
         }
         .onChange(of: viewModel.activeTab) { _, newTab in
             // Restart auto-refresh when switching to leaderboard tab
