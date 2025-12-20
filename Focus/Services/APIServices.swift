@@ -124,6 +124,22 @@ class UserService {
             method: .delete
         )
     }
+
+    func updateProductivityPeak(_ peak: ProductivityPeak) async throws -> UserResponse {
+        struct UpdateProductivityRequest: Encodable {
+            let productivityPeak: String
+        }
+
+        let request = UpdateProductivityRequest(productivityPeak: peak.rawValue)
+        print("📊 Sending productivity peak update: \(peak.rawValue)")
+        let response: UserResponse = try await apiClient.request(
+            endpoint: .me,
+            method: .patch,
+            body: request
+        )
+        print("📊 Received productivity peak: \(response.productivityPeak ?? "nil")")
+        return response
+    }
 }
 
 // MARK: - Areas Service
@@ -772,6 +788,7 @@ struct UserResponse: Codable {
     let lifeGoal: String?
     let avatarUrl: String?
     let dayVisibility: String?
+    let productivityPeak: String?
 }
 
 struct Area: Codable, Identifiable {
@@ -934,17 +951,14 @@ struct DayValidationResponse: Codable {
     let totalTasks: Int
     let completedTasks: Int
     let taskRate: Int
-    let focusSessions: Int
     let totalItems: Int
     let completedItems: Int
     let overallRate: Int
     let isValid: Bool
-    // Requirements
+    // Requirements (simplified: 60% completion + at least 1 task)
     let requiredCompletionRate: Int
-    let requiredFocusSessions: Int
     let requiredMinTasks: Int
     let meetsCompletionRate: Bool
-    let meetsFocusSessions: Bool
     let meetsMinTasks: Bool
 }
 
@@ -1064,4 +1078,342 @@ struct OnboardingStatusResponse: Codable {
     let timeAvailable: String?
     let goals: [String]?
     let completedAt: Date?
+}
+
+// MARK: - Community Post Models
+
+/// User info embedded in community posts
+struct PostUser: Codable {
+    let id: String
+    let pseudo: String?
+    let avatarUrl: String?
+}
+
+struct CommunityPostResponse: Codable, Identifiable {
+    let id: String
+    let userId: String
+    let taskId: String?
+    let routineId: String?
+    let imageUrl: String
+    let caption: String?
+    let likesCount: Int
+    let createdAt: Date
+
+    // Author info (nested user object from backend)
+    let user: PostUser?
+
+    // Task/Routine info (joined)
+    let taskTitle: String?
+    let routineTitle: String?
+
+    // Current user like status
+    let isLikedByMe: Bool
+
+    // Computed properties for easier access
+    var authorPseudo: String? { user?.pseudo }
+    var authorAvatarUrl: String? { user?.avatarUrl }
+}
+
+struct CommunityFeedResponse: Codable {
+    let posts: [CommunityPostResponse]
+    let hasMore: Bool
+    let nextOffset: Int
+}
+
+// MARK: - Community Service
+@MainActor
+class CommunityService {
+    private let apiClient = APIClient.shared
+
+    /// Fetch public community feed
+    func fetchFeed(limit: Int = 20, offset: Int = 0) async throws -> CommunityFeedResponse {
+        return try await apiClient.request(
+            endpoint: .communityFeed(limit: limit, offset: offset),
+            method: .get
+        )
+    }
+
+    /// Fetch current user's posts
+    func fetchMyPosts(limit: Int = 20, offset: Int = 0) async throws -> CommunityFeedResponse {
+        return try await apiClient.request(
+            endpoint: .communityMyPosts(limit: limit, offset: offset),
+            method: .get
+        )
+    }
+
+    /// Create a new community post
+    func createPost(imageData: Data, caption: String?, taskId: String?, routineId: String?, contentType: String = "image/jpeg") async throws -> CommunityPostResponse {
+        struct CreatePostRequest: Encodable {
+            let imageBase64: String
+            let caption: String?
+            let taskId: String?
+            let routineId: String?
+            let contentType: String
+        }
+
+        let base64String = imageData.base64EncodedString()
+        let request = CreatePostRequest(
+            imageBase64: base64String,
+            caption: caption,
+            taskId: taskId,
+            routineId: routineId,
+            contentType: contentType
+        )
+
+        return try await apiClient.request(
+            endpoint: .createCommunityPost,
+            method: .post,
+            body: request
+        )
+    }
+
+    /// Get a single post by ID
+    func getPost(id: String) async throws -> CommunityPostResponse {
+        return try await apiClient.request(
+            endpoint: .communityPost(id),
+            method: .get
+        )
+    }
+
+    /// Delete a post (own posts only)
+    func deletePost(id: String) async throws {
+        try await apiClient.request(
+            endpoint: .deleteCommunityPost(id),
+            method: .delete
+        )
+    }
+
+    /// Like a post
+    func likePost(id: String) async throws {
+        try await apiClient.request(
+            endpoint: .likeCommunityPost(id),
+            method: .post
+        )
+    }
+
+    /// Unlike a post
+    func unlikePost(id: String) async throws {
+        try await apiClient.request(
+            endpoint: .unlikeCommunityPost(id),
+            method: .delete
+        )
+    }
+
+    /// Report a post
+    func reportPost(id: String, reason: String, details: String?) async throws {
+        struct ReportRequest: Encodable {
+            let reason: String
+            let details: String?
+        }
+
+        let request = ReportRequest(reason: reason, details: details)
+        try await apiClient.request(
+            endpoint: .reportCommunityPost(id),
+            method: .post,
+            body: request
+        )
+    }
+
+    /// Get posts linked to a specific task
+    func getTaskPosts(taskId: String) async throws -> [CommunityPostResponse] {
+        return try await apiClient.request(
+            endpoint: .taskPosts(taskId: taskId),
+            method: .get
+        )
+    }
+
+    /// Get posts linked to a specific routine
+    func getRoutinePosts(routineId: String) async throws -> [CommunityPostResponse] {
+        return try await apiClient.request(
+            endpoint: .routinePosts(routineId: routineId),
+            method: .get
+        )
+    }
+}
+
+// MARK: - Journal Models
+
+/// A daily journal entry with audio/video reflection
+struct JournalEntryResponse: Codable, Identifiable {
+    let id: String
+    let userId: String
+    let mediaType: String          // "audio" or "video"
+    let mediaUrl: String
+    let durationSeconds: Int
+    let transcript: String?
+    let summary: String?
+    let title: String?
+    let mood: String?              // "great", "good", "neutral", "low", "bad"
+    let moodScore: Int?            // 1-10
+    let tags: [String]?
+    let entryDate: String          // YYYY-MM-DD
+    let createdAt: Date
+    let updatedAt: Date
+
+    /// Emoji for mood display
+    var moodEmoji: String {
+        switch mood {
+        case "great": return "😊"
+        case "good": return "🙂"
+        case "neutral": return "😐"
+        case "low": return "😕"
+        case "bad": return "😢"
+        default: return "😐"
+        }
+    }
+
+    /// Formatted duration string
+    var formattedDuration: String {
+        let mins = durationSeconds / 60
+        let secs = durationSeconds % 60
+        if mins > 0 {
+            return "\(mins)m \(secs)s"
+        }
+        return "\(secs)s"
+    }
+}
+
+/// Paginated list of journal entries
+struct JournalEntryListResponse: Codable {
+    let entries: [JournalEntryResponse]
+    let hasMore: Bool
+    let nextOffset: Int
+}
+
+/// Weekly or monthly summary bilan
+struct JournalBilanResponse: Codable, Identifiable {
+    let id: String
+    let userId: String
+    let bilanType: String          // "weekly" or "monthly"
+    let periodStart: String
+    let periodEnd: String
+    let summary: String
+    let wins: [String]?
+    let improvements: [String]?
+    let moodTrend: String?         // "improving", "stable", "declining"
+    let avgMoodScore: Double?
+    let suggestedGoals: [String]?  // For monthly only
+    let createdAt: Date
+}
+
+/// Mood statistics for graphing
+struct JournalMoodStat: Codable {
+    let date: String
+    let moodScore: Int?
+    let mood: String?
+}
+
+struct JournalStatsResponse: Codable {
+    let stats: [JournalMoodStat]
+    let currentStreak: Int
+    let totalEntries: Int
+}
+
+struct JournalStreakResponse: Codable {
+    let streak: Int
+}
+
+// MARK: - Journal Service
+@MainActor
+class JournalService {
+    private let apiClient = APIClient.shared
+
+    /// Fetch journal entries with optional filters
+    func fetchEntries(limit: Int = 20, offset: Int = 0, dateFrom: String? = nil, dateTo: String? = nil) async throws -> JournalEntryListResponse {
+        return try await apiClient.request(
+            endpoint: .journalEntries(limit: limit, offset: offset, dateFrom: dateFrom, dateTo: dateTo),
+            method: .get
+        )
+    }
+
+    /// Get today's journal entry
+    func fetchTodayEntry() async throws -> JournalEntryResponse {
+        return try await apiClient.request(
+            endpoint: .journalEntryToday,
+            method: .get
+        )
+    }
+
+    /// Get a specific journal entry
+    func fetchEntry(id: String) async throws -> JournalEntryResponse {
+        return try await apiClient.request(
+            endpoint: .journalEntry(id),
+            method: .get
+        )
+    }
+
+    /// Create a new journal entry with audio/video
+    func createEntry(mediaData: Data, mediaType: String, contentType: String, durationSeconds: Int, entryDate: String? = nil) async throws -> JournalEntryResponse {
+        struct CreateEntryRequest: Encodable {
+            let mediaBase64: String
+            let mediaType: String
+            let contentType: String
+            let durationSeconds: Int
+            let entryDate: String?
+        }
+
+        let base64String = mediaData.base64EncodedString()
+        let request = CreateEntryRequest(
+            mediaBase64: base64String,
+            mediaType: mediaType,
+            contentType: contentType,
+            durationSeconds: durationSeconds,
+            entryDate: entryDate
+        )
+
+        return try await apiClient.request(
+            endpoint: .createJournalEntry,
+            method: .post,
+            body: request
+        )
+    }
+
+    /// Delete a journal entry
+    func deleteEntry(id: String) async throws {
+        try await apiClient.request(
+            endpoint: .deleteJournalEntry(id),
+            method: .delete
+        )
+    }
+
+    /// Get current journaling streak
+    func fetchStreak() async throws -> Int {
+        let response: JournalStreakResponse = try await apiClient.request(
+            endpoint: .journalStreak,
+            method: .get
+        )
+        return response.streak
+    }
+
+    /// Get mood statistics for graphing
+    func fetchStats(days: Int = 7) async throws -> JournalStatsResponse {
+        return try await apiClient.request(
+            endpoint: .journalStats(days: days),
+            method: .get
+        )
+    }
+
+    /// Fetch all bilans
+    func fetchBilans() async throws -> [JournalBilanResponse] {
+        return try await apiClient.request(
+            endpoint: .journalBilans,
+            method: .get
+        )
+    }
+
+    /// Generate or retrieve weekly bilan
+    func generateWeeklyBilan() async throws -> JournalBilanResponse {
+        return try await apiClient.request(
+            endpoint: .generateWeeklyBilan,
+            method: .post
+        )
+    }
+
+    /// Generate or retrieve monthly bilan
+    func generateMonthlyBilan() async throws -> JournalBilanResponse {
+        return try await apiClient.request(
+            endpoint: .generateMonthlyBilan,
+            method: .post
+        )
+    }
 }
