@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 // MARK: - Crew Response Models
 
@@ -170,6 +171,11 @@ struct LeaderboardEntry: Codable, Identifiable {
     let email: String?
     let isSelf: Bool?
 
+    // Live focus session data
+    let isLive: Bool?
+    let liveSessionStartedAt: String?  // ISO date when live session started
+    let liveSessionDuration: Int?       // Total planned duration in minutes
+
     var displayName: String {
         if let pseudo = pseudo, !pseudo.isEmpty {
             return pseudo
@@ -197,12 +203,44 @@ struct LeaderboardEntry: Codable, Identifiable {
         return "\(mins)m"
     }
 
+    /// Calculate live elapsed time in seconds since session started
+    var liveElapsedSeconds: Int? {
+        guard let startedAt = liveSessionStartedAt else { return nil }
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+        // Try with fractional seconds first, then without
+        if let startDate = formatter.date(from: startedAt) {
+            return Int(Date().timeIntervalSince(startDate))
+        }
+
+        formatter.formatOptions = [.withInternetDateTime]
+        if let startDate = formatter.date(from: startedAt) {
+            return Int(Date().timeIntervalSince(startDate))
+        }
+
+        return nil
+    }
+
+    /// Format live elapsed time as "Xm" or "Xh Ym"
+    var formattedLiveTime: String? {
+        guard let seconds = liveElapsedSeconds else { return nil }
+        let minutes = seconds / 60
+        let hours = minutes / 60
+        let mins = minutes % 60
+        if hours > 0 {
+            return "\(hours)h \(mins)m"
+        }
+        return "\(minutes)m"
+    }
+
     var safeRank: Int { rank ?? 0 }
     var safeActivityScore: Int { activityScore ?? 0 }
     var safeCurrentStreak: Int { currentStreak ?? 0 }
     var safeIsCrewMember: Bool { isCrewMember ?? false }
     var safeHasPendingRequest: Bool { hasPendingRequest ?? false }
     var safeIsSelf: Bool { isSelf ?? false }
+    var safeIsLive: Bool { isLive ?? false }
 }
 
 /// Crew member's day data
@@ -379,6 +417,7 @@ struct GroupRoutine: Codable, Identifiable {
     var safeCompletionCount: Int { completionCount ?? 0 }
     var safeTotalMembers: Int { totalMembers ?? 0 }
     var safeCompletions: [GroupRoutineMemberCompletion] { memberCompletions ?? [] }
+    // Note: APIClient uses .convertFromSnakeCase so no CodingKeys needed
 }
 
 /// Completion status for a group member on a shared routine
@@ -397,6 +436,7 @@ struct GroupRoutineMemberCompletion: Codable, Identifiable {
         if let first = firstName, !first.isEmpty { return first }
         return "User"
     }
+    // Note: APIClient uses .convertFromSnakeCase so no CodingKeys needed
 }
 
 /// Response wrapper for group routines list

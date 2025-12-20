@@ -67,6 +67,10 @@ class CrewViewModel: ObservableObject {
 
     private let crewService = CrewService()
     private var searchTask: Task<Void, Never>?
+    private var leaderboardRefreshTask: Task<Void, Never>?
+
+    /// Interval for auto-refreshing leaderboard (in seconds) to show live focus updates
+    private let leaderboardRefreshInterval: UInt64 = 30 // 30 seconds
 
     // MARK: - Computed Properties
 
@@ -149,6 +153,55 @@ class CrewViewModel: ObservableObject {
             // Silent error - don't show alert for refresh failures
             handleError(error, context: "loading leaderboard", silent: true)
         }
+    }
+
+    /// Start auto-refreshing leaderboard to show live focus updates
+    func startLeaderboardAutoRefresh() {
+        stopLeaderboardAutoRefresh()
+
+        leaderboardRefreshTask = Task {
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: leaderboardRefreshInterval * 1_000_000_000)
+                if !Task.isCancelled && activeTab == .leaderboard {
+                    // Silently refresh without showing loading indicator
+                    do {
+                        let updatedLeaderboard = try await crewService.fetchLeaderboard(limit: 50)
+                        await MainActor.run {
+                            // Only update if there are changes to avoid UI flicker
+                            if self.hasLeaderboardChanges(updatedLeaderboard) {
+                                self.leaderboard = updatedLeaderboard
+                            }
+                        }
+                    } catch {
+                        // Silently ignore refresh errors
+                        print("⚠️ Leaderboard auto-refresh failed: \(error.localizedDescription)")
+                    }
+                }
+            }
+        }
+    }
+
+    /// Stop auto-refreshing leaderboard
+    func stopLeaderboardAutoRefresh() {
+        leaderboardRefreshTask?.cancel()
+        leaderboardRefreshTask = nil
+    }
+
+    /// Check if leaderboard has meaningful changes (live status, rank changes)
+    private func hasLeaderboardChanges(_ newLeaderboard: [LeaderboardEntry]) -> Bool {
+        guard leaderboard.count == newLeaderboard.count else { return true }
+
+        for (old, new) in zip(leaderboard, newLeaderboard) {
+            // Check for live status changes
+            if old.safeIsLive != new.safeIsLive { return true }
+            // Check for rank changes
+            if old.safeRank != new.safeRank { return true }
+            // Check for significant stat changes
+            if old.totalMinutes7d != new.totalMinutes7d { return true }
+            if old.safeCurrentStreak != new.safeCurrentStreak { return true }
+        }
+
+        return false
     }
 
     func loadSuggestedUsers() async {
@@ -600,6 +653,21 @@ class CrewViewModel: ObservableObject {
             groupRoutines = try await crewService.fetchGroupRoutines(groupId: groupId)
         } catch {
             handleError(error, context: "loading group routines", silent: true)
+        }
+    }
+
+    /// Silent refresh - no loading state shown (for background updates after toggle)
+    func refreshGroupRoutinesSilently(groupId: String) async {
+        do {
+            let refreshedRoutines = try await crewService.fetchGroupRoutines(groupId: groupId)
+            print("🔄 Refreshed \(refreshedRoutines.count) group routines")
+            for r in refreshedRoutines {
+                let myCompletion = r.memberCompletions?.first { $0.userId == AuthService.shared.userId }
+                print("   - \(r.title): myCompleted=\(myCompletion?.completed ?? false)")
+            }
+            groupRoutines = refreshedRoutines
+        } catch {
+            print("❌ Silent refresh failed: \(error)")
         }
     }
 

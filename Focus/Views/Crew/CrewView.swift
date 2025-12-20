@@ -5,8 +5,6 @@ struct CrewView: View {
     @StateObject private var viewModel = CrewViewModel()
     @ObservedObject private var localization = LocalizationManager.shared
     @State private var showingShareSheet = false
-    @State private var selectedVisibility: DayVisibility = .crewOnly
-    @State private var isUpdatingVisibility = false
 
     var body: some View {
         ZStack {
@@ -79,12 +77,17 @@ struct CrewView: View {
             await viewModel.loadInitialData()
         }
         .onAppear {
-            // Initialize visibility from user profile
-            updateSelectedVisibilityFromStore()
+            // Start auto-refresh for live focus updates on leaderboard
+            viewModel.startLeaderboardAutoRefresh()
         }
-        .onChange(of: store.user?.dayVisibility) { _, newValue in
-            // Update when user data changes
-            updateSelectedVisibilityFromStore()
+        .onDisappear {
+            viewModel.stopLeaderboardAutoRefresh()
+        }
+        .onChange(of: viewModel.activeTab) { _, newTab in
+            // Restart auto-refresh when switching to leaderboard tab
+            if newTab == .leaderboard {
+                viewModel.startLeaderboardAutoRefresh()
+            }
         }
         .id(localization.currentLanguage) // Force refresh when language changes
     }
@@ -640,122 +643,11 @@ struct CrewView: View {
 
     // MARK: - Account Section
     private var accountSection: some View {
-        VStack(spacing: SpacingTokens.md) {
-            // Day Visibility Setting
-            Card {
-                VStack(alignment: .leading, spacing: SpacingTokens.md) {
-                    HStack {
-                        Image(systemName: "eye")
-                            .foregroundColor(ColorTokens.primaryStart)
-                        Text("profile.day_visibility".localized)
-                            .bodyText()
-                            .fontWeight(.medium)
-                            .foregroundColor(ColorTokens.textPrimary)
-                        Spacer()
-                        if isUpdatingVisibility {
-                            ProgressView()
-                                .scaleEffect(0.8)
-                        }
-                    }
-
-                    Text("profile.visibility_description".localized)
-                        .caption()
-                        .foregroundColor(ColorTokens.textMuted)
-
-                    // Visibility options
-                    VStack(spacing: SpacingTokens.sm) {
-                        ForEach(DayVisibility.allCases, id: \.self) { visibility in
-                            Button {
-                                updateVisibility(visibility)
-                            } label: {
-                                HStack {
-                                    Image(systemName: visibility.icon)
-                                        .font(.satoshi(16))
-                                        .foregroundColor(selectedVisibility == visibility ? ColorTokens.primaryStart : ColorTokens.textMuted)
-                                        .frame(width: 24)
-
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(visibility.displayName)
-                                            .bodyText()
-                                            .foregroundColor(selectedVisibility == visibility ? ColorTokens.textPrimary : ColorTokens.textSecondary)
-
-                                        Text(visibility.description)
-                                            .font(.satoshi(11))
-                                            .foregroundColor(ColorTokens.textMuted)
-                                    }
-
-                                    Spacer()
-
-                                    if selectedVisibility == visibility {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .foregroundColor(ColorTokens.primaryStart)
-                                    } else {
-                                        Image(systemName: "circle")
-                                            .foregroundColor(ColorTokens.textMuted)
-                                    }
-                                }
-                                .padding(SpacingTokens.sm)
-                                .background(selectedVisibility == visibility ? ColorTokens.primarySoft : Color.clear)
-                                .cornerRadius(RadiusTokens.sm)
-                            }
-                            .buttonStyle(PlainButtonStyle())
-                            .disabled(isUpdatingVisibility)
-                        }
-                    }
-                }
-            }
-
-            // Version info
-            Text("profile.version".localized)
-                .font(.satoshi(10))
-                .foregroundColor(ColorTokens.textMuted.opacity(0.6))
-                .padding(.top, SpacingTokens.xs)
-        }
-    }
-
-    // MARK: - Visibility Helpers
-
-    private func updateSelectedVisibilityFromStore() {
-        if let visibility = store.user?.dayVisibility,
-           let dayVis = DayVisibility(rawValue: visibility) {
-            if selectedVisibility != dayVis {
-                selectedVisibility = dayVis
-            }
-        }
-    }
-
-    private func updateVisibility(_ visibility: DayVisibility) {
-        guard visibility != selectedVisibility else { return }
-
-        isUpdatingVisibility = true
-        let previousVisibility = selectedVisibility
-        selectedVisibility = visibility
-
-        Task {
-            do {
-                print("🔄 Updating day visibility to: \(visibility.rawValue)")
-                try await viewModel.updateVisibility(visibility)
-                print("✅ Day visibility updated successfully")
-                // Update the store's user with the new visibility
-                await MainActor.run {
-                    if var user = store.user {
-                        user.dayVisibility = visibility.rawValue
-                        store.user = user
-                    }
-                }
-            } catch {
-                print("❌ Failed to update day visibility: \(error)")
-                // Revert on error
-                await MainActor.run {
-                    selectedVisibility = previousVisibility
-                    viewModel.errorMessage = "error.update_visibility".localized
-                    viewModel.showError = true
-                }
-            }
-            await MainActor.run {
-                isUpdatingVisibility = false
-            }
-        }
+        // Version info
+        Text("profile.version".localized)
+            .font(.satoshi(10))
+            .foregroundColor(ColorTokens.textMuted.opacity(0.6))
+            .padding(.top, SpacingTokens.xs)
     }
 
     // MARK: - Helper Views
@@ -798,85 +690,112 @@ struct LeaderboardEntryRow: View {
     let onTap: () -> Void
     let onSendRequest: () -> Void
 
+    // For live timer animation
+    @State private var liveElapsedSeconds: Int = 0
+    @State private var timerTask: Task<Void, Never>?
+
     var body: some View {
         Button(action: onTap) {
             Card {
                 HStack(spacing: SpacingTokens.md) {
-                    // Rank
-                    Text("#\(entry.safeRank)")
-                        .font(.satoshi(16, weight: .bold))
-                        .foregroundColor(rankColor)
-                        .frame(width: 40)
+                    // Rank with medal for top 3
+                    rankView
 
-                    // Avatar (tap to zoom)
-                    AvatarView(
-                        name: entry.displayName,
-                        avatarURL: entry.avatarUrl,
-                        size: 44,
-                        allowZoom: true
-                    )
+                    // Avatar with live indicator
+                    ZStack(alignment: .bottomTrailing) {
+                        AvatarView(
+                            name: entry.displayName,
+                            avatarURL: entry.avatarUrl,
+                            size: 44,
+                            allowZoom: true
+                        )
+
+                        // Live indicator dot
+                        if entry.safeIsLive {
+                            Circle()
+                                .fill(Color.green)
+                                .frame(width: 12, height: 12)
+                                .overlay(
+                                    Circle()
+                                        .stroke(ColorTokens.surface, lineWidth: 2)
+                                )
+                                .offset(x: 2, y: 2)
+                        }
+                    }
 
                     // Info
                     VStack(alignment: .leading, spacing: SpacingTokens.xs) {
-                        HStack {
+                        HStack(spacing: SpacingTokens.xs) {
                             Text(entry.displayName)
-                                .bodyText()
-                                .fontWeight(.medium)
+                                .font(.satoshi(15, weight: .semibold))
                                 .foregroundColor(ColorTokens.textPrimary)
+                                .lineLimit(1)
 
                             if entry.safeIsCrewMember {
                                 Image(systemName: "checkmark.seal.fill")
-                                    .font(.satoshi(12))
+                                    .font(.system(size: 12))
                                     .foregroundColor(ColorTokens.success)
                             }
                         }
 
-                        HStack(spacing: SpacingTokens.sm) {
-                            Label("\(entry.safeCurrentStreak)", systemImage: "flame.fill")
-                                .font(.satoshi(11))
-                                .foregroundColor(ColorTokens.textMuted)
+                        // Stats row: flames + focus time
+                        HStack(spacing: SpacingTokens.md) {
+                            // Streak flames
+                            HStack(spacing: 3) {
+                                Image(systemName: "flame.fill")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(entry.safeCurrentStreak > 0 ? .orange : ColorTokens.textMuted)
+                                Text("\(entry.safeCurrentStreak)")
+                                    .font(.satoshi(12, weight: .medium))
+                                    .foregroundColor(entry.safeCurrentStreak > 0 ? .orange : ColorTokens.textMuted)
+                            }
 
-                            Label(entry.formattedFocusTime, systemImage: "clock")
-                                .font(.satoshi(11))
-                                .foregroundColor(ColorTokens.textMuted)
+                            // Focus time
+                            HStack(spacing: 3) {
+                                Image(systemName: "clock.fill")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(ColorTokens.textMuted)
+                                Text(entry.formattedFocusTime)
+                                    .font(.satoshi(12))
+                                    .foregroundColor(ColorTokens.textSecondary)
+                            }
                         }
                     }
 
                     Spacer()
 
-                    // Action button
-                    if entry.safeIsCrewMember {
-                        // Already in crew - show checkmark
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.satoshi(16))
-                            .foregroundColor(ColorTokens.success)
+                    // Right side: Live timer or action button
+                    if entry.safeIsLive {
+                        // Live focus indicator with real-time timer
+                        liveTimerView
                     } else if entry.safeIsSelf {
-                        // This is the current user
                         Text("common.you".localized)
-                            .caption()
+                            .font(.satoshi(11, weight: .semibold))
                             .foregroundColor(ColorTokens.primaryStart)
                             .padding(.horizontal, SpacingTokens.sm)
                             .padding(.vertical, SpacingTokens.xs)
                             .background(ColorTokens.primarySoft)
                             .cornerRadius(RadiusTokens.sm)
+                    } else if entry.safeIsCrewMember {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 18))
+                            .foregroundColor(ColorTokens.success)
                     } else if entry.safeHasPendingRequest {
-                        // Pending request
                         Text(entry.requestDirection == "outgoing" ? "crew.pending".localized : "crew.respond".localized)
-                            .caption()
+                            .font(.satoshi(11, weight: .medium))
                             .foregroundColor(entry.requestDirection == "outgoing" ? ColorTokens.warning : ColorTokens.primaryStart)
                             .padding(.horizontal, SpacingTokens.sm)
                             .padding(.vertical, SpacingTokens.xs)
                             .background((entry.requestDirection == "outgoing" ? ColorTokens.warning : ColorTokens.primaryStart).opacity(0.15))
                             .cornerRadius(RadiusTokens.sm)
                     } else {
-                        // Can send request
                         Button {
                             onSendRequest()
                         } label: {
                             Image(systemName: "person.badge.plus")
-                                .font(.satoshi(16))
+                                .font(.system(size: 14))
                                 .foregroundColor(ColorTokens.primaryStart)
-                                .frame(width: 36, height: 36)
+                                .frame(width: 32, height: 32)
                                 .background(ColorTokens.primarySoft)
                                 .cornerRadius(RadiusTokens.sm)
                         }
@@ -885,8 +804,65 @@ struct LeaderboardEntryRow: View {
             }
         }
         .buttonStyle(PlainButtonStyle())
+        .onAppear {
+            if entry.safeIsLive {
+                startLiveTimer()
+            }
+        }
+        .onDisappear {
+            timerTask?.cancel()
+        }
+        .onChange(of: entry.safeIsLive) { _, isLive in
+            if isLive {
+                startLiveTimer()
+            } else {
+                timerTask?.cancel()
+            }
+        }
     }
 
+    // MARK: - Rank View
+    private var rankView: some View {
+        ZStack {
+            if entry.safeRank <= 3 {
+                // Medal for top 3
+                Circle()
+                    .fill(rankColor.opacity(0.2))
+                    .frame(width: 32, height: 32)
+                    .overlay(
+                        Text(rankEmoji)
+                            .font(.system(size: 16))
+                    )
+            } else {
+                Text("#\(entry.safeRank)")
+                    .font(.satoshi(14, weight: .bold))
+                    .foregroundColor(ColorTokens.textMuted)
+                    .frame(width: 32)
+            }
+        }
+    }
+
+    // MARK: - Live Timer View
+    private var liveTimerView: some View {
+        HStack(spacing: 4) {
+            // Pulsing dot
+            Circle()
+                .fill(Color.green)
+                .frame(width: 6, height: 6)
+                .modifier(PulsingAnimation())
+
+            Text(formattedLiveTime)
+                .font(.satoshi(13, weight: .bold))
+                .foregroundColor(.green)
+                .monospacedDigit()
+        }
+        .padding(.horizontal, SpacingTokens.sm)
+        .padding(.vertical, SpacingTokens.xs)
+        .background(Color.green.opacity(0.15))
+        .cornerRadius(RadiusTokens.md)
+    }
+
+    // MARK: - Helpers
     private var rankColor: Color {
         switch entry.safeRank {
         case 1: return Color.yellow
@@ -894,6 +870,60 @@ struct LeaderboardEntryRow: View {
         case 3: return Color.orange
         default: return ColorTokens.textMuted
         }
+    }
+
+    private var rankEmoji: String {
+        switch entry.safeRank {
+        case 1: return "🥇"
+        case 2: return "🥈"
+        case 3: return "🥉"
+        default: return ""
+        }
+    }
+
+    private var formattedLiveTime: String {
+        let minutes = liveElapsedSeconds / 60
+        let seconds = liveElapsedSeconds % 60
+        return String(format: "%d:%02d", minutes, seconds)
+    }
+
+    private func startLiveTimer() {
+        // Initialize with current elapsed time
+        if let elapsed = entry.liveElapsedSeconds {
+            liveElapsedSeconds = elapsed
+        }
+
+        // Start timer to update every second
+        timerTask?.cancel()
+        timerTask = Task {
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+                if !Task.isCancelled {
+                    await MainActor.run {
+                        liveElapsedSeconds += 1
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Pulsing Animation Modifier
+struct PulsingAnimation: ViewModifier {
+    @State private var isPulsing = false
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(isPulsing ? 1.3 : 1.0)
+            .opacity(isPulsing ? 0.7 : 1.0)
+            .animation(
+                .easeInOut(duration: 0.8)
+                .repeatForever(autoreverses: true),
+                value: isPulsing
+            )
+            .onAppear {
+                isPulsing = true
+            }
     }
 }
 
@@ -2793,12 +2823,35 @@ struct GroupDetailView: View {
                         GroupRoutineRow(
                             routine: routine,
                             currentUserId: AuthService.shared.userId ?? "",
-                            onComplete: {
-                                // Complete using the routine's original routineId
+                            onToggle: { isCurrentlyCompleted, onSuccess, onError in
+                                // Toggle in background - no UI blocking
                                 Task {
                                     let routineService = RoutineService()
-                                    try? await routineService.completeRoutine(id: routine.routineId)
-                                    await viewModel.loadGroupRoutines(groupId: group.id)
+                                    // Use today's date explicitly
+                                    let dateFormatter = DateFormatter()
+                                    dateFormatter.dateFormat = "yyyy-MM-dd"
+                                    let todayStr = dateFormatter.string(from: Date())
+
+                                    do {
+                                        if isCurrentlyCompleted {
+                                            print("🔄 Uncompleting routine \(routine.routineId) for \(todayStr)")
+                                            try await routineService.uncompleteRoutine(id: routine.routineId, date: todayStr)
+                                        } else {
+                                            print("✅ Completing routine \(routine.routineId) for \(todayStr)")
+                                            try await routineService.completeRoutine(id: routine.routineId, date: todayStr)
+                                        }
+                                        // Silent refresh - no loading indicator
+                                        await viewModel.refreshGroupRoutinesSilently(groupId: group.id)
+                                        // Notify success to reset local state
+                                        await MainActor.run { onSuccess() }
+                                    } catch {
+                                        print("❌ Toggle error: \(error)")
+                                        // Network error - revert optimistic update
+                                        await MainActor.run {
+                                            onError()
+                                            HapticFeedback.error()
+                                        }
+                                    }
                                 }
                             },
                             onRemove: {
@@ -3372,17 +3425,23 @@ struct RoutineLikeButton: View {
 struct GroupRoutineRow: View {
     let routine: GroupRoutine
     let currentUserId: String
-    let onComplete: () -> Void
+    let onToggle: (Bool, @escaping () -> Void, @escaping () -> Void) -> Void  // (currentState, onSuccess, onError)
     let onRemove: () -> Void
 
     @State private var isExpanded = false
+    @State private var localCompletionState: Bool? = nil  // Optimistic UI state
 
     private var currentUserCompletion: GroupRoutineMemberCompletion? {
         routine.safeCompletions.first { $0.userId == currentUserId }
     }
 
-    private var isCompletedByMe: Bool {
+    private var serverCompletedByMe: Bool {
         currentUserCompletion?.completed ?? false
+    }
+
+    // Use local state if set (optimistic), otherwise use server state
+    private var isCompletedByMe: Bool {
+        localCompletionState ?? serverCompletedByMe
     }
 
     var body: some View {
@@ -3423,16 +3482,48 @@ struct GroupRoutineRow: View {
                             .foregroundColor(ColorTokens.textMuted)
                     }
 
-                    // My completion button
+                    // My completion button - instant optimistic toggle
                     Button(action: {
+                        let currentState = isCompletedByMe
+                        print("🔘 TOGGLE TAPPED - routineId: \(routine.routineId), currentState: \(currentState), serverState: \(serverCompletedByMe)")
+
                         HapticFeedback.light()
-                        onComplete()
+                        // Optimistic update - toggle immediately
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
+                            localCompletionState = !currentState
+                        }
+
+                        // API call in background - no UI blocking
+                        onToggle(
+                            currentState,
+                            {
+                                // Success - clear local state to use server state
+                                print("✅ API success - clearing local state, server will be: \(!currentState)")
+                                withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
+                                    localCompletionState = nil
+                                }
+                            },
+                            {
+                                // Error - revert to previous state
+                                print("❌ API error - reverting to \(currentState)")
+                                withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
+                                    localCompletionState = currentState
+                                }
+                            }
+                        )
                     }) {
                         Image(systemName: isCompletedByMe ? "checkmark.circle.fill" : "circle")
-                            .font(.satoshi(26))
+                            .font(.system(size: 26))
                             .foregroundColor(isCompletedByMe ? ColorTokens.success : ColorTokens.textMuted)
+                            .scaleEffect(isCompletedByMe ? 1.0 : 0.9)
+                            .animation(.spring(response: 0.25, dampingFraction: 0.6), value: isCompletedByMe)
                     }
                     .buttonStyle(PlainButtonStyle())
+                    // Sync local state when server data changes
+                    .onChange(of: serverCompletedByMe) { oldValue, newValue in
+                        print("🔄 Server state changed: \(oldValue) -> \(newValue), clearing local override")
+                        localCompletionState = nil
+                    }
                 }
                 .contentShape(Rectangle())
                 .onTapGesture {

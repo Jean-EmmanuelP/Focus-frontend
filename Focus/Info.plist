@@ -44,5 +44,7 @@
 	<string>Volta utilise la reconnaissance vocale pour t'aider à planifier ta journée et définir tes intentions par la voix.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Volta a besoin d'accéder au microphone pour la reconnaissance vocale et l'assistant IA.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 </dict>
 </plist>
