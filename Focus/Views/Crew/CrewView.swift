@@ -741,67 +741,26 @@ struct LeaderboardEntryRow: View {
                             }
                         }
 
-                        // Stats row: flames + focus time
-                        HStack(spacing: SpacingTokens.md) {
-                            // Streak flames
-                            HStack(spacing: 3) {
-                                Image(systemName: "flame.fill")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(entry.safeCurrentStreak > 0 ? .orange : ColorTokens.textMuted)
-                                Text("\(entry.safeCurrentStreak)")
-                                    .font(.satoshi(12, weight: .medium))
-                                    .foregroundColor(entry.safeCurrentStreak > 0 ? .orange : ColorTokens.textMuted)
-                            }
-
-                            // Focus time
-                            HStack(spacing: 3) {
-                                Image(systemName: "clock.fill")
-                                    .font(.system(size: 11))
-                                    .foregroundColor(ColorTokens.textMuted)
-                                Text(entry.formattedFocusTime)
-                                    .font(.satoshi(12))
-                                    .foregroundColor(ColorTokens.textSecondary)
-                            }
+                        // Stats row: streak flames only (focus time is shown on the right)
+                        HStack(spacing: 3) {
+                            Image(systemName: "flame.fill")
+                                .font(.system(size: 12))
+                                .foregroundColor(entry.safeCurrentStreak > 0 ? .orange : ColorTokens.textMuted)
+                            Text("\(entry.safeCurrentStreak)j")
+                                .font(.satoshi(12, weight: .medium))
+                                .foregroundColor(entry.safeCurrentStreak > 0 ? .orange : ColorTokens.textMuted)
                         }
                     }
 
                     Spacer()
 
-                    // Right side: Live timer or action button
+                    // Right side: Live timer OR weekly focus time
                     if entry.safeIsLive {
                         // Live focus indicator with real-time timer
                         liveTimerView
-                    } else if entry.safeIsSelf {
-                        Text("common.you".localized)
-                            .font(.satoshi(11, weight: .semibold))
-                            .foregroundColor(ColorTokens.primaryStart)
-                            .padding(.horizontal, SpacingTokens.sm)
-                            .padding(.vertical, SpacingTokens.xs)
-                            .background(ColorTokens.primarySoft)
-                            .cornerRadius(RadiusTokens.sm)
-                    } else if entry.safeIsCrewMember {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 18))
-                            .foregroundColor(ColorTokens.success)
-                    } else if entry.safeHasPendingRequest {
-                        Text(entry.requestDirection == "outgoing" ? "crew.pending".localized : "crew.respond".localized)
-                            .font(.satoshi(11, weight: .medium))
-                            .foregroundColor(entry.requestDirection == "outgoing" ? ColorTokens.warning : ColorTokens.primaryStart)
-                            .padding(.horizontal, SpacingTokens.sm)
-                            .padding(.vertical, SpacingTokens.xs)
-                            .background((entry.requestDirection == "outgoing" ? ColorTokens.warning : ColorTokens.primaryStart).opacity(0.15))
-                            .cornerRadius(RadiusTokens.sm)
                     } else {
-                        Button {
-                            onSendRequest()
-                        } label: {
-                            Image(systemName: "person.badge.plus")
-                                .font(.system(size: 14))
-                                .foregroundColor(ColorTokens.primaryStart)
-                                .frame(width: 32, height: 32)
-                                .background(ColorTokens.primarySoft)
-                                .cornerRadius(RadiusTokens.sm)
-                        }
+                        // Weekly focus time display
+                        weeklyFocusView
                     }
                 }
             }
@@ -863,6 +822,17 @@ struct LeaderboardEntryRow: View {
         .padding(.vertical, SpacingTokens.xs)
         .background(Color.green.opacity(0.15))
         .cornerRadius(RadiusTokens.md)
+    }
+
+    // MARK: - Weekly Focus Time View
+    private var weeklyFocusView: some View {
+        Text(entry.formattedFocusTime)
+            .font(.satoshi(14, weight: .bold))
+            .foregroundColor(ColorTokens.primaryStart)
+            .padding(.horizontal, SpacingTokens.sm)
+            .padding(.vertical, SpacingTokens.xs)
+            .background(ColorTokens.primarySoft)
+            .cornerRadius(RadiusTokens.md)
     }
 
     // MARK: - Helpers
