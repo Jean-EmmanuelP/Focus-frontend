@@ -26,6 +26,18 @@ struct WeekCalendarView: View {
     @State private var showSidebar = true
     @State private var draggedTaskId: String?
 
+    // View mode: list or calendar (persisted in UserDefaults)
+    @AppStorage("calendarViewMode") private var viewModeRaw: String = "calendar"
+
+    private var viewMode: CalendarViewMode {
+        CalendarViewMode(rawValue: viewModeRaw) ?? .calendar
+    }
+
+    enum CalendarViewMode: String {
+        case calendar  // Time-blocking view
+        case list      // Simple task list
+    }
+
     // Hours to display (6am to 11pm)
     private let hours = Array(6...23)
     private let hourHeight: CGFloat = 60
@@ -39,20 +51,14 @@ struct WeekCalendarView: View {
                 // Compact header with week navigation + day selector
                 ellieHeader
 
-                // Main content: Sidebar + Calendar (Ellie-style split)
-                GeometryReader { geometry in
-                    HStack(spacing: 0) {
-                        // Left: Task sidebar (unscheduled tasks)
-                        if showSidebar {
-                            taskSidebar
-                                .frame(width: min(geometry.size.width * 0.35, 160))
-                                .transition(.move(edge: .leading).combined(with: .opacity))
-                        }
-
-                        // Right: Time blocking calendar
-                        timeBlockingCalendar
-                            .frame(maxWidth: .infinity)
-                    }
+                // Main content based on view mode
+                switch viewMode {
+                case .list:
+                    // Simple task list view
+                    taskListView
+                case .calendar:
+                    // Time-blocking calendar only
+                    timeBlockingCalendar
                 }
             }
 
@@ -173,42 +179,76 @@ struct WeekCalendarView: View {
     // MARK: - Ellie-Style Header
     private var ellieHeader: some View {
         VStack(spacing: 0) {
-            // Top row: Sidebar toggle + Date info + Actions
+            // Top row: Date info + View toggle + Today
             HStack(spacing: 12) {
-                // Sidebar toggle button
-                Button(action: {
-                    withAnimation(.spring(response: 0.3)) {
-                        showSidebar.toggle()
-                    }
-                }) {
-                    Image(systemName: showSidebar ? "sidebar.left" : "sidebar.leading")
-                        .font(.satoshi(18))
-                        .foregroundColor(ColorTokens.textSecondary)
-                        .frame(width: 36, height: 36)
-                }
-
+                // Date info
                 VStack(alignment: .leading, spacing: 2) {
                     Text(viewModel.formattedSelectedDate)
                         .font(.satoshi(16, weight: .bold))
                         .foregroundColor(ColorTokens.textPrimary)
 
                     // Task count summary
-                    let scheduled = viewModel.scheduledTasks.count
-                    let unscheduled = viewModel.unscheduledTasks.count
-                    Text("\(scheduled) scheduled • \(unscheduled) to plan")
+                    let allTasks = viewModel.tasksForSelectedDate
+                    let completed = allTasks.filter { $0.isCompleted }.count
+                    Text("\(completed)/\(allTasks.count) done")
                         .font(.satoshi(12))
                         .foregroundColor(ColorTokens.textMuted)
                 }
 
                 Spacer()
 
+                // View mode segmented picker (like Ellie)
+                HStack(spacing: 0) {
+                    Button(action: {
+                        withAnimation(.spring(response: 0.25)) {
+                            viewModeRaw = CalendarViewMode.calendar.rawValue
+                        }
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "calendar")
+                                .font(.satoshi(12))
+                            Text("Calendar")
+                                .font(.satoshi(12, weight: .medium))
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(viewMode == .calendar ? ColorTokens.primaryStart : Color.clear)
+                        .foregroundColor(viewMode == .calendar ? .white : ColorTokens.textSecondary)
+                        .cornerRadius(RadiusTokens.sm)
+                    }
+
+                    Button(action: {
+                        withAnimation(.spring(response: 0.25)) {
+                            viewModeRaw = CalendarViewMode.list.rawValue
+                        }
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "checklist")
+                                .font(.satoshi(12))
+                            Text("Tasks")
+                                .font(.satoshi(12, weight: .medium))
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(viewMode == .list ? ColorTokens.primaryStart : Color.clear)
+                        .foregroundColor(viewMode == .list ? .white : ColorTokens.textSecondary)
+                        .cornerRadius(RadiusTokens.sm)
+                    }
+                }
+                .background(ColorTokens.surface)
+                .cornerRadius(RadiusTokens.md)
+                .overlay(
+                    RoundedRectangle(cornerRadius: RadiusTokens.md)
+                        .stroke(ColorTokens.border, lineWidth: 1)
+                )
+
                 // Today button
                 if !Calendar.current.isDateInToday(viewModel.selectedDate) {
                     Button(action: { viewModel.goToCurrentWeek(); viewModel.selectDate(Date()) }) {
                         Text("Today")
-                            .font(.satoshi(13, weight: .semibold))
+                            .font(.satoshi(12, weight: .semibold))
                             .foregroundColor(ColorTokens.primaryStart)
-                            .padding(.horizontal, 12)
+                            .padding(.horizontal, 10)
                             .padding(.vertical, 6)
                             .background(ColorTokens.primaryStart.opacity(0.15))
                             .cornerRadius(RadiusTokens.full)
@@ -332,7 +372,7 @@ struct WeekCalendarView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 40)
                     } else {
-                        ForEach(viewModel.unscheduledTasks) { task in
+                        ForEach(viewModel.unscheduledTasks, id: \.id) { (task: CalendarTask) in
                             SidebarTaskCard(
                                 task: task,
                                 onTap: { selectedTask = task },
@@ -400,6 +440,82 @@ struct WeekCalendarView: View {
         .onChange(of: viewModel.selectedDate) { _, _ in scrollToCurrentHour() }
     }
 
+    // MARK: - Task List View (simple ordered list)
+    private var taskListView: some View {
+        ScrollView {
+            LazyVStack(spacing: 8) {
+                // All tasks for selected date, ordered by time then position
+                let allTasks = viewModel.tasksForSelectedDate.sorted { task1, task2 in
+                    // Sort by scheduled time first, then by position
+                    if let time1 = task1.scheduledStart, let time2 = task2.scheduledStart {
+                        return time1 < time2
+                    } else if task1.scheduledStart != nil {
+                        return true  // Scheduled tasks first
+                    } else if task2.scheduledStart != nil {
+                        return false
+                    }
+                    return task1.position < task2.position
+                }
+
+                if allTasks.isEmpty {
+                    // Empty state
+                    VStack(spacing: 12) {
+                        Image(systemName: "checkmark.circle")
+                            .font(.system(size: 40))
+                            .foregroundColor(ColorTokens.textMuted.opacity(0.5))
+                        Text("No tasks for this day")
+                            .font(.satoshi(14))
+                            .foregroundColor(ColorTokens.textMuted)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 60)
+                } else {
+                    ForEach(allTasks, id: \.id) { (task: CalendarTask) in
+                        TaskListRow(
+                            task: task,
+                            onTap: { selectedTask = task },
+                            onToggle: {
+                                Task { await viewModel.toggleTask(task.id) }
+                            },
+                            onStartFocus: {
+                                startFocusForTask(task)
+                            }
+                        )
+                    }
+                }
+
+                // Rituals section
+                let ritualsForDay = viewModel.scheduledRituals.filter { shouldShowRitual($0, on: viewModel.selectedDate) }
+                if !ritualsForDay.isEmpty {
+                    Divider()
+                        .padding(.vertical, 8)
+
+                    Text("Rituals")
+                        .font(.satoshi(12, weight: .semibold))
+                        .foregroundColor(ColorTokens.textMuted)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 16)
+
+                    ForEach(ritualsForDay) { ritual in
+                        RitualListRow(
+                            ritual: ritual,
+                            isCompleted: viewModel.isRitualCompleted(ritual.id, on: viewModel.selectedDate),
+                            onToggle: {
+                                Task { await viewModel.toggleRitual(ritual) }
+                            },
+                            onStartFocus: {
+                                startFocusForRitual(ritual)
+                            }
+                        )
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 100)
+        }
+    }
+
     // MARK: - Scheduled Tasks Overlay (for time blocking view)
     private var scheduledTasksOverlay: some View {
         let timeColumnWidth: CGFloat = 28
@@ -407,48 +523,66 @@ struct WeekCalendarView: View {
         return GeometryReader { geometry in
             let dayWidth = geometry.size.width - timeColumnWidth
 
-            ForEach(viewModel.scheduledTasks) { task in
-                let times = getDisplayTimes(for: task)
+            // Use a simple container that positions from top-left
+            ZStack(alignment: .topLeading) {
+                // Anchor point at origin
+                Color.clear.frame(width: 1, height: 1)
 
-                DayTaskBlockView(
-                    task: task,
-                    onTap: { selectedTask = task },
-                    onStartFocus: {
-                        router.startFocusSession(
-                            task: task,
-                            questId: task.questId,
-                            questTitle: task.questTitle
+                // Tasks - sorted by start time, longer tasks rendered first (below shorter ones)
+                let sortedTasks = viewModel.scheduledTasks.sorted { task1, task2 in
+                    let times1 = getDisplayTimes(for: task1)
+                    let times2 = getDisplayTimes(for: task2)
+                    let duration1 = times1.end.timeIntervalSince(times1.start)
+                    let duration2 = times2.end.timeIntervalSince(times2.start)
+                    // Longer tasks first (rendered behind), then by start time
+                    if duration1 != duration2 {
+                        return duration1 > duration2
+                    }
+                    return times1.start < times2.start
+                }
+
+                ForEach(sortedTasks, id: \.id) { (task: CalendarTask) in
+                    let times = getDisplayTimes(for: task)
+                    let yOffset = calculateYOffset(startTime: times.start)
+                    let height = calculateTaskHeight(startTime: times.start, endTime: times.end)
+
+                    DayTaskBlockView(
+                        task: task,
+                        onTap: { selectedTask = task },
+                        onStartFocus: { [task] in
+                            startFocusForTask(task)
+                        },
+                        onComplete: { Task { await viewModel.toggleTask(task.id) } },
+                        onUncomplete: { Task { await viewModel.toggleTask(task.id) } }
+                    )
+                    .frame(width: dayWidth - 8, height: height)
+                    .offset(x: timeColumnWidth + 4, y: yOffset)
+                    .contextMenu {
+                        Button(role: .destructive) {
+                            Task { await viewModel.unscheduleTask(task) }
+                        } label: {
+                            Label("Remove from calendar", systemImage: "calendar.badge.minus")
+                        }
+                    }
+                }
+
+                // Rituals overlay - rendered on top of tasks
+                ForEach(viewModel.scheduledRituals.filter { shouldShowRitual($0, on: viewModel.selectedDate) }) { ritual in
+                    if let times = getRitualDisplayTimes(for: ritual) {
+                        DayRitualBlockView(
+                            ritual: ritual,
+                            isCompletedOnDate: viewModel.isRitualCompleted(ritual.id, on: viewModel.selectedDate),
+                            onToggle: { Task { await viewModel.toggleRitual(ritual) } },
+                            onStartFocus: { [ritual] in
+                                startFocusForRitual(ritual)
+                            }
                         )
-                    },
-                    onComplete: { Task { await viewModel.toggleTask(task.id) } },
-                    onUncomplete: { Task { await viewModel.toggleTask(task.id) } }
-                )
-                .frame(width: dayWidth - 8, height: calculateTaskHeight(startTime: times.start, endTime: times.end))
-                .offset(x: timeColumnWidth + 4, y: calculateYOffset(startTime: times.start))
-                .contextMenu {
-                    Button(role: .destructive) {
-                        Task { await viewModel.unscheduleTask(task) }
-                    } label: {
-                        Label("Remove from calendar", systemImage: "calendar.badge.minus")
+                        .frame(width: dayWidth - 8, height: calculateTaskHeight(startTime: times.start, endTime: times.end))
+                        .offset(x: timeColumnWidth + 4, y: calculateYOffset(startTime: times.start))
                     }
                 }
             }
-
-            // Rituals overlay
-            ForEach(viewModel.scheduledRituals.filter { shouldShowRitual($0, on: viewModel.selectedDate) }) { ritual in
-                if let times = getRitualDisplayTimes(for: ritual) {
-                    DayRitualBlockView(
-                        ritual: ritual,
-                        isCompletedOnDate: viewModel.isRitualCompleted(ritual.id, on: viewModel.selectedDate),
-                        onToggle: { Task { await viewModel.toggleRitual(ritual) } },
-                        onStartFocus: {
-                            router.navigate(to: .fire)
-                        }
-                    )
-                    .frame(width: dayWidth - 8, height: calculateTaskHeight(startTime: times.start, endTime: times.end))
-                    .offset(x: timeColumnWidth + 4, y: calculateYOffset(startTime: times.start))
-                }
-            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
     }
 
@@ -583,23 +717,30 @@ struct WeekCalendarView: View {
     private var hourGrid: some View {
         VStack(spacing: 0) {
             ForEach(hours, id: \.self) { hour in
-                VStack(spacing: 0) {
-                    HStack(spacing: 0) {
-                        // Time label - compact, aligned at top of hour
+                let isPeakHour = viewModel.isInPeakHours(hour)
+                HStack(alignment: .top, spacing: 0) {
+                    // Time label aligned to top
+                    HStack(spacing: 2) {
+                        if isPeakHour {
+                            Image(systemName: "bolt.fill")
+                                .font(.system(size: 6))
+                                .foregroundColor(ColorTokens.primaryStart.opacity(0.6))
+                        }
                         Text(String(format: "%02d", hour))
-                            .font(.satoshi(10, weight: .regular))
-                            .foregroundColor(ColorTokens.textMuted.opacity(0.6))
-                            .frame(width: 24, alignment: .trailing)
-                            .padding(.trailing, 4)
-
-                        // Grid line - subtle
-                        Rectangle()
-                            .fill(ColorTokens.border.opacity(0.15))
-                            .frame(height: 0.5)
+                            .font(.satoshi(10, weight: isPeakHour ? .medium : .regular))
+                            .foregroundColor(isPeakHour ? ColorTokens.primaryStart.opacity(0.8) : ColorTokens.textMuted.opacity(0.6))
                     }
-                    Spacer()
+                    .frame(width: 28, alignment: .trailing)
+                    .padding(.trailing, 4)
+                    .offset(y: -6) // Offset label up so baseline aligns with grid line
+
+                    // Grid line
+                    Rectangle()
+                        .fill(isPeakHour ? ColorTokens.primaryStart.opacity(0.15) : ColorTokens.border.opacity(0.15))
+                        .frame(height: isPeakHour ? 1 : 0.5)
                 }
-                .frame(height: hourHeight)
+                .frame(height: hourHeight, alignment: .top)
+                .background(isPeakHour ? ColorTokens.primaryStart.opacity(0.03) : Color.clear)
                 .id(hour) // ID for ScrollViewReader
             }
         }
@@ -631,7 +772,9 @@ struct WeekCalendarView: View {
     private func calculateYOffset(startTime: Date) -> CGFloat {
         let startHour = Calendar.current.component(.hour, from: startTime)
         let startMinute = Calendar.current.component(.minute, from: startTime)
-        return CGFloat(startHour - hours.first!) * hourHeight + CGFloat(startMinute) / 60.0 * hourHeight
+        // Offset from top of calendar (hour 6 = y position 0)
+        let offset = CGFloat(startHour - hours.first!) * hourHeight + CGFloat(startMinute) / 60.0 * hourHeight
+        return offset
     }
 
     // Calculate height for a task
@@ -649,40 +792,62 @@ struct WeekCalendarView: View {
 
     // Get display times for a task - use scheduled times or defaults based on timeBlock
     private func getDisplayTimes(for task: CalendarTask) -> (start: Date, end: Date) {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd HH:mm"
-        formatter.timeZone = TimeZone.current
-        formatter.locale = Locale(identifier: "en_US_POSIX")
+        let calendar = Calendar.current
 
-        // If task has scheduled times, use them
-        if let startDate = task.startDate, let endDate = task.endDate {
-            return (startDate, endDate)
+        // Parse date string (YYYY-MM-DD)
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+
+        guard let baseDate = dateFormatter.date(from: task.date) else {
+            // Fallback - today at 9am for 1 hour
+            let now = Date()
+            let start = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: now) ?? now
+            let end = start.addingTimeInterval(3600)
+            return (start, end)
+        }
+
+        // If task has both scheduledStart and scheduledEnd, parse them
+        if let scheduledStart = task.scheduledStart, let scheduledEnd = task.scheduledEnd {
+            // Parse HH:mm format
+            let startComponents = scheduledStart.split(separator: ":").compactMap { Int($0) }
+            let endComponents = scheduledEnd.split(separator: ":").compactMap { Int($0) }
+
+            if startComponents.count >= 2 && endComponents.count >= 2 {
+                let startHour = startComponents[0]
+                let startMinute = startComponents[1]
+                let endHour = endComponents[0]
+                let endMinute = endComponents[1]
+
+                if let start = calendar.date(bySettingHour: startHour, minute: startMinute, second: 0, of: baseDate),
+                   let end = calendar.date(bySettingHour: endHour, minute: endMinute, second: 0, of: baseDate) {
+                    return (start, end)
+                }
+            }
         }
 
         // Otherwise, create default times based on timeBlock
-        let defaultStart: String
+        let defaultStartHour: Int
         switch task.timeBlock {
         case "morning":
-            defaultStart = "09:00"
+            defaultStartHour = 9
         case "afternoon":
-            defaultStart = "14:00"
+            defaultStartHour = 14
         case "evening":
-            defaultStart = "19:00"
+            defaultStartHour = 19
         default:
-            defaultStart = "09:00"
+            defaultStartHour = 9
         }
 
         let duration = task.estimatedMinutes ?? 60
-        let startDateStr = "\(task.date) \(defaultStart)"
 
-        if let start = formatter.date(from: startDateStr) {
+        if let start = calendar.date(bySettingHour: defaultStartHour, minute: 0, second: 0, of: baseDate) {
             let end = start.addingTimeInterval(TimeInterval(duration * 60))
             return (start, end)
         }
 
-        // Fallback - today at 9am for 1 hour
+        // Final fallback
         let now = Date()
-        let calendar = Calendar.current
         let start = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: now) ?? now
         let end = start.addingTimeInterval(3600)
         return (start, end)
@@ -701,15 +866,17 @@ struct WeekCalendarView: View {
         let timeColumnWidth: CGFloat = 28
         let dayWidth = geometry.size.width - timeColumnWidth
 
-        return ForEach(hours, id: \.self) { hour in
-            Rectangle()
-                .fill(Color.clear)
-                .frame(width: dayWidth, height: hourHeight)
-                .contentShape(Rectangle())
-                .offset(x: timeColumnWidth, y: CGFloat(hour - (hours.first ?? 6)) * hourHeight)
-                .onTapGesture {
-                    handleDayViewTap(hour: hour)
-                }
+        return ZStack(alignment: .topLeading) {
+            ForEach(hours, id: \.self) { hour in
+                Rectangle()
+                    .fill(Color.clear)
+                    .frame(width: dayWidth, height: hourHeight)
+                    .contentShape(Rectangle())
+                    .position(x: timeColumnWidth + dayWidth / 2, y: CGFloat(hour - (hours.first ?? 6)) * hourHeight + hourHeight / 2)
+                    .onTapGesture {
+                        handleDayViewTap(hour: hour)
+                    }
+            }
         }
     }
 
@@ -745,6 +912,15 @@ struct WeekCalendarView: View {
                 let displayTimes = getDisplayTimes(for: task)
                 let yOffset = calculateYOffset(startTime: displayTimes.start)
                 let height = calculateTaskHeight(startTime: displayTimes.start, endTime: displayTimes.end)
+                let _ = {
+                    let startHour = Calendar.current.component(.hour, from: displayTimes.start)
+                    let startMin = Calendar.current.component(.minute, from: displayTimes.start)
+                    print("📅 Task '\(task.title)':")
+                    print("   - Backend: scheduledStart=\(task.scheduledStart ?? "nil"), scheduledEnd=\(task.scheduledEnd ?? "nil")")
+                    print("   - Parsed Date: start=\(displayTimes.start), end=\(displayTimes.end)")
+                    print("   - Extracted hour:min = \(startHour):\(startMin)")
+                    print("   - hours.first = \(hours.first!), yOffset=\(yOffset), height=\(height)")
+                }()
 
                 DayTaskBlockView(
                     task: task,
@@ -1064,96 +1240,104 @@ struct DayTaskBlockView: View {
     var onUncomplete: (() -> Void)? = nil
 
     var body: some View {
-        HStack(spacing: 12) {
-            // Left: Checkbox to toggle completion
-            Button(action: {
-                if task.isCompleted {
-                    HapticFeedback.medium()
-                    onUncomplete?()
-                } else {
-                    HapticFeedback.success()
-                    onComplete?()
-                }
-            }) {
-                Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .font(.satoshi(24))
-                    .foregroundColor(task.isCompleted ? .white : .white.opacity(0.7))
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(PlainButtonStyle())
+        GeometryReader { geometry in
+            ZStack(alignment: .topLeading) {
+                // Background that fills the entire allocated space
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(taskColor)
 
-            // Center: Task info
-            VStack(alignment: .leading, spacing: 2) {
-                Text(task.title)
-                    .font(.satoshi(15, weight: .semibold))
-                    .foregroundColor(.white)
-                    .strikethrough(task.isCompleted)
-                    .lineLimit(2)
-
-                HStack(spacing: 8) {
-                    // Time range
-                    Text(task.formattedTimeRange)
-                        .font(.satoshi(12, weight: .medium))
-                        .foregroundColor(.white.opacity(0.8))
-
-                    // Quest name if available
-                    if let questTitle = task.questTitle {
-                        Text("• \(questTitle)")
-                            .font(.satoshi(12, weight: .medium))
-                            .foregroundColor(.white.opacity(0.7))
-                            .lineLimit(1)
-                    }
-
-                    // Photo indicator if task has photos
-                    if let photosCount = task.photosCount, photosCount > 0 {
-                        HStack(spacing: 2) {
-                            Image(systemName: "camera.fill")
-                                .font(.satoshi(10))
-                            Text("\(photosCount)")
-                                .font(.satoshi(10, weight: .medium))
+                // Content aligned to top
+                HStack(spacing: 12) {
+                    // Left: Checkbox to toggle completion
+                    Button(action: {
+                        if task.isCompleted {
+                            HapticFeedback.medium()
+                            onUncomplete?()
+                        } else {
+                            HapticFeedback.success()
+                            onComplete?()
                         }
-                        .foregroundColor(.white.opacity(0.8))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.white.opacity(0.2))
-                        .cornerRadius(RadiusTokens.full)
+                    }) {
+                        Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
+                            .font(.satoshi(24))
+                            .foregroundColor(task.isCompleted ? .white : .white.opacity(0.7))
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+                    .buttonStyle(PlainButtonStyle())
 
-            // Right: Focus button (only if not completed)
-            if !task.isCompleted {
-                Button(action: {
-                    HapticFeedback.medium()
-                    onStartFocus()
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "flame.fill")
-                            .font(.satoshi(14))
-                        Text("Focus")
-                            .font(.satoshi(12, weight: .semibold))
+                    // Center: Task info
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(task.title)
+                            .font(.satoshi(15, weight: .semibold))
+                            .foregroundColor(.white)
+                            .strikethrough(task.isCompleted)
+                            .lineLimit(2)
+
+                        HStack(spacing: 8) {
+                            // Time range
+                            Text(task.formattedTimeRange)
+                                .font(.satoshi(12, weight: .medium))
+                                .foregroundColor(.white.opacity(0.8))
+
+                            // Quest name if available
+                            if let questTitle = task.questTitle {
+                                Text("• \(questTitle)")
+                                    .font(.satoshi(12, weight: .medium))
+                                    .foregroundColor(.white.opacity(0.7))
+                                    .lineLimit(1)
+                            }
+
+                            // Photo indicator if task has photos
+                            if let photosCount = task.photosCount, photosCount > 0 {
+                                HStack(spacing: 2) {
+                                    Image(systemName: "camera.fill")
+                                        .font(.satoshi(10))
+                                    Text("\(photosCount)")
+                                        .font(.satoshi(10, weight: .medium))
+                                }
+                                .foregroundColor(.white.opacity(0.8))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.white.opacity(0.2))
+                                .cornerRadius(RadiusTokens.full)
+                            }
+                        }
                     }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(Color.white.opacity(0.25))
-                    .cornerRadius(RadiusTokens.full)
-                    .contentShape(Rectangle())
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    // Right: Focus button (only if not completed)
+                    if !task.isCompleted {
+                        Button(action: {
+                            HapticFeedback.medium()
+                            onStartFocus()
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "flame.fill")
+                                    .font(.satoshi(14))
+                                Text("Focus")
+                                    .font(.satoshi(12, weight: .semibold))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color.white.opacity(0.25))
+                            .cornerRadius(RadiusTokens.full)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
                 }
-                .buttonStyle(PlainButtonStyle())
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
             }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .frame(maxWidth: .infinity)
-        .background(taskColor)
-        .cornerRadius(12)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            HapticFeedback.light()
-            onTap()
+            .frame(width: geometry.size.width, height: geometry.size.height)
+            .clipped()
+            .contentShape(Rectangle())
+            .onTapGesture {
+                HapticFeedback.light()
+                onTap()
+            }
         }
     }
 
@@ -1196,83 +1380,91 @@ struct DayRitualBlockView: View {
     var onTap: (() -> Void)? = nil
 
     var body: some View {
-        HStack(spacing: 10) {
-            // Left: Checkbox to toggle completion
-            Button(action: {
-                if isCompletedOnDate {
-                    HapticFeedback.medium()
-                } else {
-                    HapticFeedback.success()
-                }
-                onToggle()
-            }) {
-                Image(systemName: isCompletedOnDate ? "checkmark.circle.fill" : "circle")
-                    .font(.satoshi(22))
-                    .foregroundColor(isCompletedOnDate ? .white : .white.opacity(0.7))
-                    .frame(width: 40, height: 40)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(PlainButtonStyle())
+        GeometryReader { geometry in
+            ZStack(alignment: .topLeading) {
+                // Background that fills the entire allocated space
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(ritualColor)
 
-            // Icon
-            Text(ritual.icon)
-                .font(.satoshi(18))
+                // Content aligned to top
+                HStack(spacing: 10) {
+                    // Left: Checkbox to toggle completion
+                    Button(action: {
+                        if isCompletedOnDate {
+                            HapticFeedback.medium()
+                        } else {
+                            HapticFeedback.success()
+                        }
+                        onToggle()
+                    }) {
+                        Image(systemName: isCompletedOnDate ? "checkmark.circle.fill" : "circle")
+                            .font(.satoshi(22))
+                            .foregroundColor(isCompletedOnDate ? .white : .white.opacity(0.7))
+                            .frame(width: 40, height: 40)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(PlainButtonStyle())
 
-            // Ritual info
-            VStack(alignment: .leading, spacing: 2) {
-                Text(ritual.title)
-                    .font(.satoshi(14, weight: .semibold))
-                    .foregroundColor(.white)
-                    .strikethrough(isCompletedOnDate)
-                    .lineLimit(1)
+                    // Icon
+                    Text(ritual.icon)
+                        .font(.satoshi(18))
 
-                HStack(spacing: 6) {
-                    if let time = ritual.formattedScheduledTime {
-                        Text(time)
-                            .font(.satoshi(11, weight: .medium))
-                            .foregroundColor(.white.opacity(0.8))
+                    // Ritual info
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(ritual.title)
+                            .font(.satoshi(14, weight: .semibold))
+                            .foregroundColor(.white)
+                            .strikethrough(isCompletedOnDate)
+                            .lineLimit(1)
+
+                        HStack(spacing: 6) {
+                            if let time = ritual.formattedScheduledTime {
+                                Text(time)
+                                    .font(.satoshi(11, weight: .medium))
+                                    .foregroundColor(.white.opacity(0.8))
+                            }
+
+                            Text("• \(ritual.frequency.displayName)")
+                                .font(.satoshi(11, weight: .medium))
+                                .foregroundColor(.white.opacity(0.7))
+                        }
                     }
 
-                    Text("• \(ritual.frequency.displayName)")
-                        .font(.satoshi(11, weight: .medium))
-                        .foregroundColor(.white.opacity(0.7))
-                }
-            }
+                    Spacer()
 
-            Spacer()
-
-            // Focus button (only if not completed)
-            if !isCompletedOnDate, let onFocus = onStartFocus {
-                Button(action: {
-                    HapticFeedback.medium()
-                    onFocus()
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "flame.fill")
-                            .font(.satoshi(12))
-                        Text("Focus")
-                            .font(.satoshi(11, weight: .semibold))
+                    // Focus button (only if not completed)
+                    if !isCompletedOnDate, let onFocus = onStartFocus {
+                        Button(action: {
+                            HapticFeedback.medium()
+                            onFocus()
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "flame.fill")
+                                    .font(.satoshi(12))
+                                Text("Focus")
+                                    .font(.satoshi(11, weight: .semibold))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Color.white.opacity(0.25))
+                            .cornerRadius(RadiusTokens.full)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(PlainButtonStyle())
                     }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Color.white.opacity(0.25))
-                    .cornerRadius(RadiusTokens.full)
-                    .contentShape(Rectangle())
                 }
-                .buttonStyle(PlainButtonStyle())
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
             }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity)
-        .background(ritualColor)
-        .cornerRadius(12)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            if let onTap = onTap {
-                HapticFeedback.light()
-                onTap()
+            .frame(width: geometry.size.width, height: geometry.size.height)
+            .clipped()
+            .contentShape(Rectangle())
+            .onTapGesture {
+                if let onTap = onTap {
+                    HapticFeedback.light()
+                    onTap()
+                }
             }
         }
     }
@@ -1296,11 +1488,20 @@ struct TaskDetailSheet: View {
     @State private var taskPhotos: [CommunityPostResponse] = []
     @State private var isLoadingPhotos = false
 
+    // Edit mode state
+    @State private var isEditing = false
+    @State private var editedTitle: String = ""
+    @State private var editedStartHour: Int = 9
+    @State private var editedStartMinute: Int = 0
+    @State private var editedEndHour: Int = 10
+    @State private var editedEndMinute: Int = 0
+    @State private var isSaving = false
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: SpacingTokens.lg) {
-                    // Task header
+                    // Task header - editable in edit mode
                     VStack(alignment: .leading, spacing: SpacingTokens.md) {
                         HStack(alignment: .top, spacing: SpacingTokens.md) {
                             if let areaIcon = task.areaIcon {
@@ -1312,21 +1513,91 @@ struct TaskDetailSheet: View {
                             }
 
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(task.title)
-                                    .font(.satoshi(22, weight: .bold))
-                                    .foregroundColor(ColorTokens.textPrimary)
-
-                                // Time
-                                HStack(spacing: 6) {
-                                    Image(systemName: "clock")
-                                        .font(.satoshi(12))
-                                    Text(task.formattedTimeRange)
-                                        .font(.satoshi(14))
+                                if isEditing {
+                                    TextField("Titre", text: $editedTitle)
+                                        .font(.satoshi(20, weight: .bold))
+                                        .foregroundColor(ColorTokens.textPrimary)
+                                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                                } else {
+                                    Text(task.title)
+                                        .font(.satoshi(22, weight: .bold))
+                                        .foregroundColor(ColorTokens.textPrimary)
                                 }
-                                .foregroundColor(ColorTokens.textSecondary)
+
+                                // Time - editable in edit mode
+                                if isEditing {
+                                    HStack(spacing: 8) {
+                                        Image(systemName: "clock")
+                                            .font(.satoshi(12))
+                                            .foregroundColor(ColorTokens.textSecondary)
+
+                                        // Start time picker
+                                        Picker("", selection: $editedStartHour) {
+                                            ForEach(0..<24, id: \.self) { hour in
+                                                Text(String(format: "%02d", hour)).tag(hour)
+                                            }
+                                        }
+                                        .pickerStyle(.menu)
+                                        .frame(width: 60)
+
+                                        Text(":")
+                                            .foregroundColor(ColorTokens.textSecondary)
+
+                                        Picker("", selection: $editedStartMinute) {
+                                            ForEach([0, 15, 30, 45], id: \.self) { minute in
+                                                Text(String(format: "%02d", minute)).tag(minute)
+                                            }
+                                        }
+                                        .pickerStyle(.menu)
+                                        .frame(width: 60)
+
+                                        Text("-")
+                                            .foregroundColor(ColorTokens.textSecondary)
+
+                                        // End time picker
+                                        Picker("", selection: $editedEndHour) {
+                                            ForEach(0..<24, id: \.self) { hour in
+                                                Text(String(format: "%02d", hour)).tag(hour)
+                                            }
+                                        }
+                                        .pickerStyle(.menu)
+                                        .frame(width: 60)
+
+                                        Text(":")
+                                            .foregroundColor(ColorTokens.textSecondary)
+
+                                        Picker("", selection: $editedEndMinute) {
+                                            ForEach([0, 15, 30, 45], id: \.self) { minute in
+                                                Text(String(format: "%02d", minute)).tag(minute)
+                                            }
+                                        }
+                                        .pickerStyle(.menu)
+                                        .frame(width: 60)
+                                    }
+                                } else {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "clock")
+                                            .font(.satoshi(12))
+                                        Text(task.formattedTimeRange)
+                                            .font(.satoshi(14))
+                                    }
+                                    .foregroundColor(ColorTokens.textSecondary)
+                                }
                             }
 
                             Spacer()
+
+                            // Edit button
+                            if !isEditing {
+                                Button(action: { startEditing() }) {
+                                    Image(systemName: "pencil")
+                                        .font(.satoshi(16))
+                                        .foregroundColor(ColorTokens.primaryStart)
+                                        .padding(8)
+                                        .background(ColorTokens.primarySoft)
+                                        .cornerRadius(8)
+                                }
+                            }
                         }
 
                         // Priority & Status badges
@@ -1457,60 +1728,97 @@ struct TaskDetailSheet: View {
 
                     // Actions
                     VStack(spacing: SpacingTokens.md) {
-                        // Start Focus button
-                        if !task.isCompleted {
-                            PrimaryButton("calendar.start_focus".localized, icon: "flame.fill") {
-                                dismiss()
-                                router.navigateToFireMode(questId: task.questId, description: task.title, taskId: task.id)
-                            }
-                        }
+                        // Save/Cancel buttons in edit mode
+                        if isEditing {
+                            HStack(spacing: SpacingTokens.md) {
+                                Button(action: { cancelEditing() }) {
+                                    HStack {
+                                        Image(systemName: "xmark")
+                                        Text("Annuler")
+                                    }
+                                    .foregroundColor(ColorTokens.textSecondary)
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(ColorTokens.surface)
+                                    .cornerRadius(RadiusTokens.md)
+                                }
 
-                        // Complete/Uncomplete button
-                        Button(action: {
-                            Task {
-                                await viewModel.toggleTask(task.id)
-                                dismiss()
+                                Button(action: { saveChanges() }) {
+                                    HStack {
+                                        if isSaving {
+                                            ProgressView()
+                                                .tint(.white)
+                                        } else {
+                                            Image(systemName: "checkmark")
+                                            Text("Enregistrer")
+                                        }
+                                    }
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(ColorTokens.primaryStart)
+                                    .cornerRadius(RadiusTokens.md)
+                                }
+                                .disabled(isSaving)
                             }
-                        }) {
-                            HStack {
-                                Image(systemName: task.isCompleted ? "arrow.uturn.backward.circle" : "checkmark.circle")
-                                Text(task.isCompleted ? "task.mark_incomplete".localized : "calendar.mark_complete".localized)
+                        } else {
+                            // Start Focus button
+                            if !task.isCompleted {
+                                PrimaryButton("calendar.start_focus".localized, icon: "flame.fill") {
+                                    dismiss()
+                                    router.navigateToFireMode(questId: task.questId, description: task.title, taskId: task.id)
+                                }
                             }
-                            .foregroundColor(task.isCompleted ? ColorTokens.textSecondary : Color.green)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(task.isCompleted ? ColorTokens.surface : Color.green.opacity(0.1))
-                            .cornerRadius(RadiusTokens.md)
-                        }
 
-                        // Delete button
-                        Button(action: {
-                            Task {
-                                await viewModel.deleteTask(task.id)
-                                dismiss()
+                            // Complete/Uncomplete button
+                            Button(action: {
+                                Task {
+                                    await viewModel.toggleTask(task.id)
+                                    dismiss()
+                                }
+                            }) {
+                                HStack {
+                                    Image(systemName: task.isCompleted ? "arrow.uturn.backward.circle" : "checkmark.circle")
+                                    Text(task.isCompleted ? "task.mark_incomplete".localized : "calendar.mark_complete".localized)
+                                }
+                                .foregroundColor(task.isCompleted ? ColorTokens.textSecondary : Color.green)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(task.isCompleted ? ColorTokens.surface : Color.green.opacity(0.1))
+                                .cornerRadius(RadiusTokens.md)
                             }
-                        }) {
-                            HStack {
-                                Image(systemName: "trash")
-                                Text("common.delete".localized)
+
+                            // Delete button
+                            Button(action: {
+                                Task {
+                                    await viewModel.deleteTask(task.id)
+                                    dismiss()
+                                }
+                            }) {
+                                HStack {
+                                    Image(systemName: "trash")
+                                    Text("common.delete".localized)
+                                }
+                                .foregroundColor(.red)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color.red.opacity(0.1))
+                                .cornerRadius(RadiusTokens.md)
                             }
-                            .foregroundColor(.red)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.red.opacity(0.1))
-                            .cornerRadius(RadiusTokens.md)
                         }
                     }
                 }
                 .padding()
             }
             .background(ColorTokens.background)
-            .navigationTitle("calendar.task_detail".localized)
+            .navigationTitle(isEditing ? "Modifier la tâche" : "calendar.task_detail".localized)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("common.done".localized) {
-                        dismiss()
+                    if !isEditing {
+                        Button("common.done".localized) {
+                            dismiss()
+                        }
                     }
                 }
             }
@@ -1518,6 +1826,57 @@ struct TaskDetailSheet: View {
         .presentationDetents([.medium, .large])
         .sheet(isPresented: $showPhotosSheet) {
             TaskPhotosSheet(taskId: task.id)
+        }
+    }
+
+    // MARK: - Edit Functions
+    private func startEditing() {
+        editedTitle = task.title
+
+        // Parse current times
+        if let start = task.scheduledStart {
+            let parts = start.split(separator: ":").compactMap { Int($0) }
+            if parts.count >= 2 {
+                editedStartHour = parts[0]
+                editedStartMinute = parts[1]
+            }
+        }
+
+        if let end = task.scheduledEnd {
+            let parts = end.split(separator: ":").compactMap { Int($0) }
+            if parts.count >= 2 {
+                editedEndHour = parts[0]
+                editedEndMinute = parts[1]
+            }
+        }
+
+        withAnimation {
+            isEditing = true
+        }
+    }
+
+    private func cancelEditing() {
+        withAnimation {
+            isEditing = false
+        }
+    }
+
+    private func saveChanges() {
+        isSaving = true
+        let newStartTime = String(format: "%02d:%02d", editedStartHour, editedStartMinute)
+        let newEndTime = String(format: "%02d:%02d", editedEndHour, editedEndMinute)
+
+        Task {
+            await viewModel.updateTask(
+                taskId: task.id,
+                title: editedTitle,
+                scheduledStart: newStartTime,
+                scheduledEnd: newEndTime
+            )
+            await MainActor.run {
+                isSaving = false
+                isEditing = false
+            }
         }
     }
 
@@ -1823,83 +2182,137 @@ struct QuickCreateTaskSheet: View {
     @State private var startHour = 9
     @State private var endHour = 10
     @State private var selectedPriority = "medium"
+    @State private var selectedQuestId: String? = nil
     @State private var isCreating = false
+    @State private var isPrivate = false
     @FocusState private var isTitleFocused: Bool
 
     private let hours = Array(6...23)
 
+    private var selectedQuest: Quest? {
+        guard let questId = selectedQuestId else { return nil }
+        return viewModel.quests.first { $0.id == questId }
+    }
+
     var body: some View {
         NavigationStack {
-            VStack(spacing: SpacingTokens.lg) {
-                // Title input
-                TextField("calendar.task_title_placeholder".localized, text: $title)
-                    .font(.satoshi(18))
-                    .padding()
-                    .background(ColorTokens.surface)
-                    .cornerRadius(RadiusTokens.md)
-                    .focused($isTitleFocused)
+            ScrollView {
+                VStack(spacing: SpacingTokens.lg) {
+                    // Title input
+                    TextField("calendar.task_title_placeholder".localized, text: $title)
+                        .font(.satoshi(18))
+                        .padding()
+                        .background(ColorTokens.surface)
+                        .cornerRadius(RadiusTokens.md)
+                        .focused($isTitleFocused)
 
-                // Time picker
-                VStack(alignment: .leading, spacing: SpacingTokens.sm) {
-                    Text("Horaire")
-                        .font(.satoshi(14, weight: .semibold))
-                        .foregroundColor(ColorTokens.textSecondary)
+                    // Quest picker
+                    VStack(alignment: .leading, spacing: SpacingTokens.sm) {
+                        Text("Quête (optionnel)")
+                            .font(.satoshi(14, weight: .semibold))
+                            .foregroundColor(ColorTokens.textSecondary)
 
-                    HStack(spacing: SpacingTokens.md) {
-                        // Start time
-                        VStack(spacing: 4) {
-                            Text("Debut")
-                                .font(.satoshi(12))
-                                .foregroundColor(ColorTokens.textMuted)
-                            Picker("", selection: $startHour) {
-                                ForEach(hours, id: \.self) { hour in
-                                    Text(String(format: "%02d:00", hour)).tag(hour)
+                        Menu {
+                            Button(action: { selectedQuestId = nil }) {
+                                Label("Aucune quête", systemImage: "xmark.circle")
+                            }
+                            ForEach(viewModel.quests) { quest in
+                                Button(action: { selectedQuestId = quest.id }) {
+                                    Label(quest.title, systemImage: "flag.fill")
                                 }
                             }
-                            .pickerStyle(.wheel)
-                            .frame(height: 100)
-                            .clipped()
-                        }
-                        .frame(maxWidth: .infinity)
-
-                        Text("-")
-                            .font(.satoshi(20, weight: .medium))
-                            .foregroundColor(ColorTokens.textMuted)
-
-                        // End time
-                        VStack(spacing: 4) {
-                            Text("Fin")
-                                .font(.satoshi(12))
-                                .foregroundColor(ColorTokens.textMuted)
-                            Picker("", selection: $endHour) {
-                                ForEach(hours.filter { $0 > startHour }, id: \.self) { hour in
-                                    Text(String(format: "%02d:00", hour)).tag(hour)
+                        } label: {
+                            HStack {
+                                if let quest = selectedQuest {
+                                    Text(quest.area.emoji)
+                                        .font(.satoshi(18))
+                                    Text(quest.title)
+                                        .font(.satoshi(14, weight: .medium))
+                                        .foregroundColor(ColorTokens.textPrimary)
+                                } else {
+                                    Image(systemName: "flag")
+                                        .font(.satoshi(16))
+                                        .foregroundColor(ColorTokens.textMuted)
+                                    Text("Sélectionner une quête")
+                                        .font(.satoshi(14))
+                                        .foregroundColor(ColorTokens.textMuted)
                                 }
+                                Spacer()
+                                Image(systemName: "chevron.down")
+                                    .font(.satoshi(12))
+                                    .foregroundColor(ColorTokens.textMuted)
                             }
-                            .pickerStyle(.wheel)
-                            .frame(height: 100)
-                            .clipped()
+                            .padding()
+                            .background(ColorTokens.surface)
+                            .cornerRadius(RadiusTokens.md)
                         }
-                        .frame(maxWidth: .infinity)
                     }
-                    .padding()
-                    .background(ColorTokens.surface)
-                    .cornerRadius(RadiusTokens.md)
-                }
 
-                Spacer()
+                    // Time picker
+                    VStack(alignment: .leading, spacing: SpacingTokens.sm) {
+                        Text("Horaire")
+                            .font(.satoshi(14, weight: .semibold))
+                            .foregroundColor(ColorTokens.textSecondary)
 
-                // Create button
-                PrimaryButton(
-                    isCreating ? "common.creating".localized : "calendar.create_task".localized,
-                    icon: isCreating ? nil : "plus",
-                    isLoading: isCreating
-                ) {
-                    createTask()
+                        HStack(spacing: SpacingTokens.md) {
+                            // Start time
+                            VStack(spacing: 4) {
+                                Text("Debut")
+                                    .font(.satoshi(12))
+                                    .foregroundColor(ColorTokens.textMuted)
+                                Picker("", selection: $startHour) {
+                                    ForEach(hours, id: \.self) { hour in
+                                        Text(String(format: "%02d:00", hour)).tag(hour)
+                                    }
+                                }
+                                .pickerStyle(.wheel)
+                                .frame(height: 100)
+                                .clipped()
+                            }
+                            .frame(maxWidth: .infinity)
+
+                            Text("-")
+                                .font(.satoshi(20, weight: .medium))
+                                .foregroundColor(ColorTokens.textMuted)
+
+                            // End time
+                            VStack(spacing: 4) {
+                                Text("Fin")
+                                    .font(.satoshi(12))
+                                    .foregroundColor(ColorTokens.textMuted)
+                                Picker("", selection: $endHour) {
+                                    ForEach(hours.filter { $0 > startHour }, id: \.self) { hour in
+                                        Text(String(format: "%02d:00", hour)).tag(hour)
+                                    }
+                                }
+                                .pickerStyle(.wheel)
+                                .frame(height: 100)
+                                .clipped()
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                        .padding()
+                        .background(ColorTokens.surface)
+                        .cornerRadius(RadiusTokens.md)
+                    }
+
+                    // Private toggle
+                    PrivateTaskToggleRow(isPrivate: $isPrivate)
+
+                    Spacer(minLength: 20)
+
+                    // Create button
+                    PrimaryButton(
+                        isCreating ? "common.creating".localized : "calendar.create_task".localized,
+                        icon: isCreating ? nil : "plus",
+                        isLoading: isCreating
+                    ) {
+                        createTask()
+                    }
+                    .disabled(title.isEmpty || isCreating)
                 }
-                .disabled(title.isEmpty || isCreating)
+                .padding()
             }
-            .padding()
             .background(ColorTokens.background)
             .navigationTitle("calendar.new_task".localized)
             .navigationBarTitleDisplayMode(.inline)
@@ -1925,7 +2338,7 @@ struct QuickCreateTaskSheet: View {
                 }
             }
         }
-        .presentationDetents([.height(420)])
+        .presentationDetents([.height(580)])
     }
 
     private func createTask() {
@@ -1940,7 +2353,9 @@ struct QuickCreateTaskSheet: View {
                 title: title,
                 scheduledStart: startTime,
                 scheduledEnd: endTime,
-                priority: selectedPriority
+                questId: selectedQuestId,
+                priority: selectedPriority,
+                isPrivate: isPrivate
             )
             await MainActor.run {
                 isCreating = false
@@ -1965,6 +2380,7 @@ struct QuickCreateTaskSheetWithTime: View {
     @State private var selectedEndHour: Int
     @State private var isCreating = false
     @State private var showQuestPicker = false
+    @State private var isPrivate = false
     @FocusState private var isTitleFocused: Bool
 
     private let hours = Array(6...23)
@@ -2132,6 +2548,10 @@ struct QuickCreateTaskSheetWithTime: View {
                         }
                         .padding(.horizontal, SpacingTokens.lg)
                     }
+
+                    // Private toggle
+                    PrivateTaskToggleRow(isPrivate: $isPrivate)
+                        .padding(.horizontal, SpacingTokens.lg)
                 }
 
                 Spacer()
@@ -2172,7 +2592,7 @@ struct QuickCreateTaskSheetWithTime: View {
                 .presentationDetents([.medium])
             }
         }
-        .presentationDetents([.height(380)])
+        .presentationDetents([.height(450)])
     }
 
     private func createTask() {
@@ -2203,7 +2623,8 @@ struct QuickCreateTaskSheetWithTime: View {
                 scheduledStart: scheduledStart,
                 scheduledEnd: scheduledEnd,
                 timeBlock: timeBlock,
-                questId: selectedQuestId
+                questId: selectedQuestId,
+                isPrivate: isPrivate
             )
             await MainActor.run {
                 isCreating = false
@@ -2569,5 +2990,161 @@ struct AddRitualFromCalendarSheet: View {
                 .font(.satoshi(12))
                 .foregroundColor(ColorTokens.textMuted)
         }
+    }
+}
+
+// MARK: - Task List Row (for simple list view)
+struct TaskListRow: View {
+    let task: CalendarTask
+    let onTap: () -> Void
+    let onToggle: () -> Void
+    let onStartFocus: () -> Void
+
+    private var taskColor: Color {
+        if task.isCompleted { return ColorTokens.success }
+        if let areaName = task.areaName?.lowercased() {
+            switch areaName {
+            case "health", "santé": return Color(hex: "#4CAF50") ?? .green
+            case "learning", "apprentissage": return Color(hex: "#2196F3") ?? .blue
+            case "career", "carrière": return Color(hex: "#FF9800") ?? .orange
+            case "relationships", "relations": return Color(hex: "#E91E63") ?? .pink
+            case "creativity", "créativité": return Color(hex: "#9C27B0") ?? .purple
+            default: return Color(hex: "#607D8B") ?? .gray
+            }
+        }
+        return ColorTokens.primaryStart
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Checkbox
+            Button(action: {
+                HapticFeedback.light()
+                onToggle()
+            }) {
+                Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
+                    .font(.satoshi(24))
+                    .foregroundColor(task.isCompleted ? ColorTokens.success : ColorTokens.textMuted)
+            }
+            .buttonStyle(PlainButtonStyle())
+
+            // Task info
+            VStack(alignment: .leading, spacing: 4) {
+                Text(task.title)
+                    .font(.satoshi(15, weight: .medium))
+                    .foregroundColor(task.isCompleted ? ColorTokens.textMuted : ColorTokens.textPrimary)
+                    .strikethrough(task.isCompleted)
+                    .lineLimit(2)
+
+                HStack(spacing: 8) {
+                    // Time if scheduled
+                    if let time = task.scheduledStart {
+                        HStack(spacing: 4) {
+                            Image(systemName: "clock")
+                                .font(.satoshi(10))
+                            Text(time)
+                                .font(.satoshi(12))
+                        }
+                        .foregroundColor(ColorTokens.textMuted)
+                    }
+
+                    // Quest badge
+                    if let questTitle = task.questTitle {
+                        Text(questTitle)
+                            .font(.satoshi(11, weight: .medium))
+                            .foregroundColor(taskColor)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(taskColor.opacity(0.15))
+                            .cornerRadius(4)
+                    }
+                }
+            }
+
+            Spacer()
+
+            // Focus button
+            Button(action: {
+                HapticFeedback.medium()
+                onStartFocus()
+            }) {
+                Image(systemName: "flame.fill")
+                    .font(.satoshi(16))
+                    .foregroundColor(ColorTokens.primaryStart)
+                    .frame(width: 36, height: 36)
+                    .background(ColorTokens.primaryStart.opacity(0.1))
+                    .cornerRadius(RadiusTokens.full)
+            }
+            .buttonStyle(PlainButtonStyle())
+        }
+        .padding(12)
+        .background(ColorTokens.surface)
+        .cornerRadius(RadiusTokens.md)
+        .contentShape(Rectangle())
+        .onTapGesture { onTap() }
+    }
+}
+
+// MARK: - Ritual List Row (for simple list view)
+struct RitualListRow: View {
+    let ritual: DailyRitual
+    let isCompleted: Bool
+    let onToggle: () -> Void
+    let onStartFocus: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Checkbox
+            Button(action: {
+                HapticFeedback.light()
+                onToggle()
+            }) {
+                Image(systemName: isCompleted ? "checkmark.circle.fill" : "circle")
+                    .font(.satoshi(24))
+                    .foregroundColor(isCompleted ? ColorTokens.success : ColorTokens.textMuted)
+            }
+            .buttonStyle(PlainButtonStyle())
+
+            // Ritual info
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text(ritual.icon ?? "🔄")
+                        .font(.satoshi(16))
+                    Text(ritual.title)
+                        .font(.satoshi(15, weight: .medium))
+                        .foregroundColor(isCompleted ? ColorTokens.textMuted : ColorTokens.textPrimary)
+                        .strikethrough(isCompleted)
+                }
+
+                if let time = ritual.scheduledTime {
+                    HStack(spacing: 4) {
+                        Image(systemName: "clock")
+                            .font(.satoshi(10))
+                        Text(time)
+                            .font(.satoshi(12))
+                    }
+                    .foregroundColor(ColorTokens.textMuted)
+                }
+            }
+
+            Spacer()
+
+            // Focus button
+            Button(action: {
+                HapticFeedback.medium()
+                onStartFocus()
+            }) {
+                Image(systemName: "flame.fill")
+                    .font(.satoshi(16))
+                    .foregroundColor(ColorTokens.primaryStart)
+                    .frame(width: 36, height: 36)
+                    .background(ColorTokens.primaryStart.opacity(0.1))
+                    .cornerRadius(RadiusTokens.full)
+            }
+            .buttonStyle(PlainButtonStyle())
+        }
+        .padding(12)
+        .background(ColorTokens.surface)
+        .cornerRadius(RadiusTokens.md)
     }
 }
