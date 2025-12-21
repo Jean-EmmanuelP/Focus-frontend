@@ -1,5 +1,35 @@
 import SwiftUI
 
+// MARK: - Private Task Toggle Row
+struct PrivateTaskToggleRow: View {
+    @Binding var isPrivate: Bool
+
+    var body: some View {
+        HStack {
+            Image(systemName: "lock.fill")
+                .foregroundColor(isPrivate ? ColorTokens.primaryStart : ColorTokens.textMuted)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("calendar.private_task".localized)
+                    .font(.satoshi(14, weight: .semibold))
+                    .foregroundColor(ColorTokens.textPrimary)
+                Text("calendar.private_task_desc".localized)
+                    .font(.satoshi(12))
+                    .foregroundColor(ColorTokens.textMuted)
+            }
+
+            Spacer()
+
+            Toggle("", isOn: $isPrivate)
+                .labelsHidden()
+                .tint(ColorTokens.primaryStart)
+        }
+        .padding(SpacingTokens.md)
+        .background(ColorTokens.surface)
+        .cornerRadius(RadiusTokens.md)
+    }
+}
+
 // MARK: - AI Generate Day Sheet
 struct AIGenerateDaySheet: View {
     @ObservedObject var viewModel: CalendarViewModel
@@ -249,24 +279,7 @@ struct CreateScheduledTaskSheet: View {
                         }
 
                         // Private toggle
-                        Toggle(isOn: $isPrivate) {
-                            HStack(spacing: SpacingTokens.sm) {
-                                Image(systemName: "lock.fill")
-                                    .foregroundColor(isPrivate ? ColorTokens.accent : ColorTokens.textMuted)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("calendar.private_task".localized)
-                                        .font(.satoshi(14, weight: .semibold))
-                                        .foregroundColor(ColorTokens.textPrimary)
-                                    Text("calendar.private_task_desc".localized)
-                                        .font(.satoshi(12))
-                                        .foregroundColor(ColorTokens.textMuted)
-                                }
-                            }
-                        }
-                        .toggleStyle(SwitchToggleStyle(tint: ColorTokens.accent))
-                        .padding(SpacingTokens.md)
-                        .background(ColorTokens.surface)
-                        .cornerRadius(RadiusTokens.md)
+                        PrivateTaskToggleRow(isPrivate: $isPrivate)
 
                         // Create button
                         PrimaryButton("calendar.create_task".localized) {
@@ -477,24 +490,7 @@ struct CreateTaskSheet: View {
                         }
 
                         // Private toggle
-                        Toggle(isOn: $isPrivate) {
-                            HStack(spacing: SpacingTokens.sm) {
-                                Image(systemName: "lock.fill")
-                                    .foregroundColor(isPrivate ? ColorTokens.accent : ColorTokens.textMuted)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("calendar.private_task".localized)
-                                        .font(.satoshi(14, weight: .semibold))
-                                        .foregroundColor(ColorTokens.textPrimary)
-                                    Text("calendar.private_task_desc".localized)
-                                        .font(.satoshi(12))
-                                        .foregroundColor(ColorTokens.textMuted)
-                                }
-                            }
-                        }
-                        .toggleStyle(SwitchToggleStyle(tint: ColorTokens.accent))
-                        .padding(SpacingTokens.md)
-                        .background(ColorTokens.surface)
-                        .cornerRadius(RadiusTokens.md)
+                        PrivateTaskToggleRow(isPrivate: $isPrivate)
 
                         // Create button
                         PrimaryButton("calendar.create_task".localized) {
