@@ -1,5 +1,144 @@
 import SwiftUI
 
+// MARK: - Priority Button Row
+struct PriorityButtonRow: View {
+    @Binding var priority: TaskPriority
+
+    var body: some View {
+        HStack(spacing: SpacingTokens.sm) {
+            ForEach(TaskPriority.allCases, id: \.self) { p in
+                PriorityButton(priority: p, isSelected: priority == p) {
+                    priority = p
+                }
+            }
+        }
+    }
+}
+
+struct PriorityButton: View {
+    let priority: TaskPriority
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(priority.displayName)
+                .font(.system(size: 13, weight: isSelected ? .bold : .medium))
+                .foregroundColor(isSelected ? .white : ColorTokens.textSecondary)
+                .padding(.horizontal, SpacingTokens.md)
+                .padding(.vertical, SpacingTokens.sm)
+                .background(backgroundGradient)
+                .cornerRadius(RadiusTokens.md)
+        }
+    }
+
+    private var backgroundGradient: LinearGradient {
+        if isSelected {
+            switch priority {
+            case .low:
+                return LinearGradient(colors: [.gray, .gray.opacity(0.8)], startPoint: .top, endPoint: .bottom)
+            case .medium:
+                return LinearGradient(colors: [.blue, .blue.opacity(0.8)], startPoint: .top, endPoint: .bottom)
+            case .high:
+                return LinearGradient(colors: [.orange, .orange.opacity(0.8)], startPoint: .top, endPoint: .bottom)
+            case .urgent:
+                return LinearGradient(colors: [.red, .red.opacity(0.8)], startPoint: .top, endPoint: .bottom)
+            }
+        } else {
+            return LinearGradient(colors: [ColorTokens.surface], startPoint: .top, endPoint: .bottom)
+        }
+    }
+}
+
+// MARK: - Estimated Time Button Row
+struct EstimatedTimeButtonRow: View {
+    @Binding var estimatedMinutes: Int
+    let options: [Int] = [15, 30, 45, 60, 90]
+
+    var body: some View {
+        HStack(spacing: SpacingTokens.sm) {
+            ForEach(options, id: \.self) { minutes in
+                EstimatedTimeButton(minutes: minutes, isSelected: estimatedMinutes == minutes) {
+                    estimatedMinutes = minutes
+                }
+            }
+        }
+    }
+}
+
+struct EstimatedTimeButton: View {
+    let minutes: Int
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text("\(minutes)m")
+                .font(.system(size: 14, weight: isSelected ? .bold : .medium))
+                .foregroundColor(isSelected ? .white : ColorTokens.textSecondary)
+                .padding(.horizontal, SpacingTokens.md)
+                .padding(.vertical, SpacingTokens.sm)
+                .background(isSelected ? ColorTokens.fireGradient : LinearGradient(colors: [ColorTokens.surface], startPoint: .top, endPoint: .bottom))
+                .cornerRadius(RadiusTokens.md)
+        }
+    }
+}
+
+// MARK: - Quest Picker Section
+struct QuestPickerSection: View {
+    @ObservedObject var viewModel: CalendarViewModel
+    @Binding var selectedQuestId: String?
+
+    var body: some View {
+        if !viewModel.quests.isEmpty {
+            VStack(alignment: .leading, spacing: SpacingTokens.sm) {
+                Text("calendar.link_quest".localized)
+                    .font(.satoshi(14, weight: .semibold))
+                    .foregroundColor(ColorTokens.textSecondary)
+
+                Menu {
+                    Button(action: { selectedQuestId = nil }) {
+                        Text("common.none".localized)
+                    }
+
+                    ForEach(viewModel.quests) { quest in
+                        Button(action: { selectedQuestId = quest.id }) {
+                            Text("\(quest.area.emoji) \(quest.title)")
+                        }
+                    }
+                } label: {
+                    QuestPickerLabel(viewModel: viewModel, selectedQuestId: selectedQuestId)
+                }
+            }
+        }
+    }
+}
+
+struct QuestPickerLabel: View {
+    @ObservedObject var viewModel: CalendarViewModel
+    let selectedQuestId: String?
+
+    var body: some View {
+        HStack {
+            if let questId = selectedQuestId,
+               let quest = viewModel.quests.first(where: { $0.id == questId }) {
+                Text("\(quest.area.emoji) \(quest.title)")
+                    .foregroundColor(ColorTokens.textPrimary)
+            } else {
+                Text("calendar.select_quest".localized)
+                    .foregroundColor(ColorTokens.textMuted)
+            }
+            Spacer()
+            Image(systemName: "chevron.up.chevron.down")
+                .font(.satoshi(12))
+                .foregroundColor(ColorTokens.textMuted)
+        }
+        .padding(SpacingTokens.md)
+        .background(ColorTokens.surface)
+        .cornerRadius(RadiusTokens.md)
+    }
+}
+
 // MARK: - Private Task Toggle Row
 struct PrivateTaskToggleRow: View {
     @Binding var isPrivate: Bool
@@ -224,59 +363,11 @@ struct CreateScheduledTaskSheet: View {
                                 .font(.satoshi(14, weight: .semibold))
                                 .foregroundColor(ColorTokens.textSecondary)
 
-                            HStack(spacing: SpacingTokens.sm) {
-                                ForEach(TaskPriority.allCases, id: \.self) { p in
-                                    Button(action: { priority = p }) {
-                                        Text(p.displayName)
-                                            .font(.system(size: 13, weight: priority == p ? .bold : .medium))
-                                            .foregroundColor(priority == p ? .white : ColorTokens.textSecondary)
-                                            .padding(.horizontal, SpacingTokens.md)
-                                            .padding(.vertical, SpacingTokens.sm)
-                                            .background(priority == p ? priorityGradient(p) : LinearGradient(colors: [ColorTokens.surface], startPoint: .top, endPoint: .bottom))
-                                            .cornerRadius(RadiusTokens.md)
-                                    }
-                                }
-                            }
+                            PriorityButtonRow(priority: $priority)
                         }
 
                         // Link to Quest (optional)
-                        if !viewModel.quests.isEmpty {
-                            VStack(alignment: .leading, spacing: SpacingTokens.sm) {
-                                Text("calendar.link_quest".localized)
-                                    .font(.satoshi(14, weight: .semibold))
-                                    .foregroundColor(ColorTokens.textSecondary)
-
-                                Menu {
-                                    Button(action: { selectedQuestId = nil }) {
-                                        Text("common.none".localized)
-                                    }
-
-                                    ForEach(viewModel.quests) { quest in
-                                        Button(action: { selectedQuestId = quest.id }) {
-                                            Text("\(quest.area.emoji) \(quest.title)")
-                                        }
-                                    }
-                                } label: {
-                                    HStack {
-                                        if let questId = selectedQuestId,
-                                           let quest = viewModel.quests.first(where: { $0.id == questId }) {
-                                            Text("\(quest.area.emoji) \(quest.title)")
-                                                .foregroundColor(ColorTokens.textPrimary)
-                                        } else {
-                                            Text("calendar.select_quest".localized)
-                                                .foregroundColor(ColorTokens.textMuted)
-                                        }
-                                        Spacer()
-                                        Image(systemName: "chevron.up.chevron.down")
-                                            .font(.satoshi(12))
-                                            .foregroundColor(ColorTokens.textMuted)
-                                    }
-                                    .padding(SpacingTokens.md)
-                                    .background(ColorTokens.surface)
-                                    .cornerRadius(RadiusTokens.md)
-                                }
-                            }
-                        }
+                        QuestPickerSection(viewModel: viewModel, selectedQuestId: $selectedQuestId)
 
                         // Private toggle
                         PrivateTaskToggleRow(isPrivate: $isPrivate)
@@ -302,19 +393,6 @@ struct CreateScheduledTaskSheet: View {
                     .foregroundColor(ColorTokens.textSecondary)
                 }
             }
-        }
-    }
-
-    private func priorityGradient(_ priority: TaskPriority) -> LinearGradient {
-        switch priority {
-        case .low:
-            return LinearGradient(colors: [.gray, .gray.opacity(0.8)], startPoint: .top, endPoint: .bottom)
-        case .medium:
-            return LinearGradient(colors: [.blue, .blue.opacity(0.8)], startPoint: .top, endPoint: .bottom)
-        case .high:
-            return LinearGradient(colors: [.orange, .orange.opacity(0.8)], startPoint: .top, endPoint: .bottom)
-        case .urgent:
-            return LinearGradient(colors: [.red, .red.opacity(0.8)], startPoint: .top, endPoint: .bottom)
         }
     }
 
@@ -410,23 +488,7 @@ struct CreateTaskSheet: View {
                                 .font(.satoshi(14, weight: .semibold))
                                 .foregroundColor(ColorTokens.textSecondary)
 
-                            HStack(spacing: SpacingTokens.sm) {
-                                ForEach([15, 30, 45, 60, 90], id: \.self) { minutes in
-                                    Button(action: { estimatedMinutes = minutes }) {
-                                        Text("\(minutes)m")
-                                            .font(.system(size: 14, weight: estimatedMinutes == minutes ? .bold : .medium))
-                                            .foregroundColor(estimatedMinutes == minutes ? .white : ColorTokens.textSecondary)
-                                            .padding(.horizontal, SpacingTokens.md)
-                                            .padding(.vertical, SpacingTokens.sm)
-                                            .background(
-                                                estimatedMinutes == minutes
-                                                    ? ColorTokens.fireGradient
-                                                    : LinearGradient(colors: [ColorTokens.surface], startPoint: .top, endPoint: .bottom)
-                                            )
-                                            .cornerRadius(RadiusTokens.md)
-                                    }
-                                }
-                            }
+                            EstimatedTimeButtonRow(estimatedMinutes: $estimatedMinutes)
                         }
 
                         // Priority
@@ -435,59 +497,11 @@ struct CreateTaskSheet: View {
                                 .font(.satoshi(14, weight: .semibold))
                                 .foregroundColor(ColorTokens.textSecondary)
 
-                            HStack(spacing: SpacingTokens.sm) {
-                                ForEach(TaskPriority.allCases, id: \.self) { p in
-                                    Button(action: { priority = p }) {
-                                        Text(p.displayName)
-                                            .font(.system(size: 13, weight: priority == p ? .bold : .medium))
-                                            .foregroundColor(priority == p ? .white : ColorTokens.textSecondary)
-                                            .padding(.horizontal, SpacingTokens.md)
-                                            .padding(.vertical, SpacingTokens.sm)
-                                            .background(priority == p ? priorityGradient(p) : LinearGradient(colors: [ColorTokens.surface], startPoint: .top, endPoint: .bottom))
-                                            .cornerRadius(RadiusTokens.md)
-                                    }
-                                }
-                            }
+                            PriorityButtonRow(priority: $priority)
                         }
 
                         // Link to Quest (optional)
-                        if !viewModel.quests.isEmpty {
-                            VStack(alignment: .leading, spacing: SpacingTokens.sm) {
-                                Text("calendar.link_quest".localized)
-                                    .font(.satoshi(14, weight: .semibold))
-                                    .foregroundColor(ColorTokens.textSecondary)
-
-                                Menu {
-                                    Button(action: { selectedQuestId = nil }) {
-                                        Text("common.none".localized)
-                                    }
-
-                                    ForEach(viewModel.quests) { quest in
-                                        Button(action: { selectedQuestId = quest.id }) {
-                                            Text("\(quest.area.emoji) \(quest.title)")
-                                        }
-                                    }
-                                } label: {
-                                    HStack {
-                                        if let questId = selectedQuestId,
-                                           let quest = viewModel.quests.first(where: { $0.id == questId }) {
-                                            Text("\(quest.area.emoji) \(quest.title)")
-                                                .foregroundColor(ColorTokens.textPrimary)
-                                        } else {
-                                            Text("calendar.select_quest".localized)
-                                                .foregroundColor(ColorTokens.textMuted)
-                                        }
-                                        Spacer()
-                                        Image(systemName: "chevron.up.chevron.down")
-                                            .font(.satoshi(12))
-                                            .foregroundColor(ColorTokens.textMuted)
-                                    }
-                                    .padding(SpacingTokens.md)
-                                    .background(ColorTokens.surface)
-                                    .cornerRadius(RadiusTokens.md)
-                                }
-                            }
-                        }
+                        QuestPickerSection(viewModel: viewModel, selectedQuestId: $selectedQuestId)
 
                         // Private toggle
                         PrivateTaskToggleRow(isPrivate: $isPrivate)
@@ -513,19 +527,6 @@ struct CreateTaskSheet: View {
                     .foregroundColor(ColorTokens.textSecondary)
                 }
             }
-        }
-    }
-
-    private func priorityGradient(_ priority: TaskPriority) -> LinearGradient {
-        switch priority {
-        case .low:
-            return LinearGradient(colors: [.gray, .gray.opacity(0.8)], startPoint: .top, endPoint: .bottom)
-        case .medium:
-            return LinearGradient(colors: [.blue, .blue.opacity(0.8)], startPoint: .top, endPoint: .bottom)
-        case .high:
-            return LinearGradient(colors: [.orange, .orange.opacity(0.8)], startPoint: .top, endPoint: .bottom)
-        case .urgent:
-            return LinearGradient(colors: [.red, .red.opacity(0.8)], startPoint: .top, endPoint: .bottom)
         }
     }
 
