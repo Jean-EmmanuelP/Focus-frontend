@@ -35,11 +35,13 @@ struct CalendarTask: Codable, Identifiable {
     var completedAt: Date?
     var isAiGenerated: Bool
     var aiNotes: String?
+    var isPrivate: Bool?                    // If true, task content is hidden from friends
     let createdAt: Date
     var updatedAt: Date
     var questTitle: String?
     var areaName: String?
     var areaIcon: String?
+    var photosCount: Int?                   // Number of community photos linked to this task
 
     var isCompleted: Bool {
         status == "completed"
@@ -58,6 +60,8 @@ struct CalendarTask: Codable, Identifiable {
         guard let start = scheduledStart else { return nil }
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        formatter.timeZone = TimeZone.current  // Use local timezone
+        formatter.locale = Locale(identifier: "en_US_POSIX")
         return formatter.date(from: "\(date) \(start)")
     }
 
@@ -65,6 +69,8 @@ struct CalendarTask: Codable, Identifiable {
         guard let end = scheduledEnd else { return nil }
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        formatter.timeZone = TimeZone.current  // Use local timezone
+        formatter.locale = Locale(identifier: "en_US_POSIX")
         return formatter.date(from: "\(date) \(end)")
     }
 
@@ -148,6 +154,7 @@ struct CreateTaskRequest: Codable {
     var estimatedMinutes: Int?
     var priority: String?
     var dueAt: Date?
+    var isPrivate: Bool?
 }
 
 struct UpdateTaskRequest: Codable {
@@ -165,6 +172,7 @@ struct UpdateTaskRequest: Codable {
     var dueAt: Date?
     var questId: String?
     var areaId: String?
+    var isPrivate: Bool?
 }
 
 struct RescheduleTaskRequest: Codable {

@@ -55,7 +55,8 @@ class CalendarService {
         position: Int? = nil,
         estimatedMinutes: Int? = nil,
         priority: String = "medium",
-        dueAt: Date? = nil
+        dueAt: Date? = nil,
+        isPrivate: Bool = false
     ) async throws -> CalendarTask {
         let request = CreateTaskRequest(
             questId: questId,
@@ -69,7 +70,8 @@ class CalendarService {
             position: position,
             estimatedMinutes: estimatedMinutes,
             priority: priority,
-            dueAt: dueAt
+            dueAt: dueAt,
+            isPrivate: isPrivate
         )
         return try await apiClient.request(
             endpoint: .createCalendarTask,

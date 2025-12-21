@@ -45,6 +45,7 @@
 "dashboard.good_morning" = "Bonjour";
 "dashboard.good_afternoon" = "Bon après-midi";
 "dashboard.good_evening" = "Bonsoir";
+"dashboard.good_night" = "Bonne nuit";
 "dashboard.start_day" = "Commencer ta journée";
 "dashboard.end_day" = "Terminer ta journée";
 "dashboard.todays_routines" = "Routines du jour";
@@ -257,6 +258,7 @@
 "crew.groups.no_friends" = "Ajoute d'abord des amis";
 "crew.groups.detail" = "Détails du Groupe";
 "crew.groups.add_members" = "Ajouter des membres";
+"crew.groups.edit" = "Modifier le Groupe";
 "crew.groups.delete" = "Supprimer le Groupe";
 "crew.groups.delete_title" = "Supprimer le Groupe ?";
 "crew.groups.delete_confirm" = "Cette action est irréversible. Tous les membres seront retirés de ce groupe.";
@@ -611,6 +613,8 @@
 "calendar.priority.high" = "Haute";
 "calendar.priority.medium" = "Moyenne";
 "calendar.priority.low" = "Basse";
+"calendar.private_task" = "Tâche privée";
+"calendar.private_task_desc" = "Masquer le contenu à tes amis";
 "task.description" = "Description";
 "task.linked_quest" = "Quête associée";
 "task.mark_incomplete" = "Marquer comme non terminé";
@@ -659,6 +663,16 @@
 "settings.edit_profile" = "Modifier le profil";
 "settings.day_streak" = "jours de série";
 "settings.sign_out" = "Déconnexion";
+"settings.productivity_peak" = "Pic de productivité";
+"settings.productivity_peak_description" = "Quand te sens-tu le plus productif ? On organisera les tâches qui demandent de la concentration à ce moment.";
+
+// MARK: - Productivity
+"productivity.morning" = "Matin";
+"productivity.afternoon" = "Après-midi";
+"productivity.evening" = "Soir";
+"productivity.morning.description" = "6h - 12h : Idéal pour le travail profond";
+"productivity.afternoon.description" = "12h - 18h : Idéal pour la collaboration";
+"productivity.evening.description" = "18h - 22h : Idéal pour les tâches concentrées";
 
 // MARK: - Tutorial
 "tutorial.title" = "Comment utiliser Volta";
@@ -709,6 +723,7 @@
 
 // MARK: - Community
 "tab.community" = "Communauté";
+"tab.profile" = "Profil";
 "community.title" = "Communauté";
 "community.feed" = "Feed";
 "community.my_posts" = "Mes Posts";

@@ -1507,6 +1507,11 @@ struct MemberDayDetailView: View {
                 Spacer()
             }
 
+            // Calendar Tasks
+            if let tasks = day.tasks, !tasks.isEmpty {
+                tasksSection(tasks)
+            }
+
             // Intentions for the day
             if let intentions = day.intentions, !intentions.isEmpty {
                 intentionsSection(intentions)
@@ -1523,10 +1528,81 @@ struct MemberDayDetailView: View {
             }
 
             // Empty state for calendar
-            if (day.intentions ?? []).isEmpty &&
+            if (day.tasks ?? []).isEmpty &&
+               (day.intentions ?? []).isEmpty &&
                (day.focusSessions ?? []).isEmpty &&
                (day.routines ?? []).isEmpty {
                 emptyDayState
+            }
+        }
+    }
+
+    // MARK: - Tasks Section
+    private func tasksSection(_ tasks: [CrewTask]) -> some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.md) {
+            Text("Planning du Jour")
+                .caption()
+                .fontWeight(.semibold)
+                .foregroundColor(ColorTokens.textMuted)
+
+            ForEach(tasks) { task in
+                Card {
+                    HStack(spacing: SpacingTokens.md) {
+                        // Area icon or lock for private tasks
+                        if task.isPrivate == true {
+                            Image(systemName: "lock.fill")
+                                .font(.satoshi(18))
+                                .foregroundColor(ColorTokens.textMuted)
+                        } else {
+                            Text(task.areaIcon ?? "📋")
+                                .font(.satoshi(20))
+                        }
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(task.title)
+                                .font(.satoshi(14, weight: .medium))
+                                .foregroundColor(task.isPrivate == true ? ColorTokens.textMuted : ColorTokens.textPrimary)
+                                .lineLimit(1)
+                                .italic(task.isPrivate == true)
+
+                            HStack(spacing: SpacingTokens.sm) {
+                                // Time if available
+                                if let start = task.scheduledStart, let end = task.scheduledEnd {
+                                    Text("\(start) - \(end)")
+                                        .caption()
+                                        .foregroundColor(ColorTokens.textMuted)
+                                } else {
+                                    Text(task.timeBlock.capitalized)
+                                        .caption()
+                                        .foregroundColor(ColorTokens.textMuted)
+                                }
+
+                                // Area name if available (not shown for private tasks)
+                                if let areaName = task.areaName, task.isPrivate != true {
+                                    Text("•")
+                                        .caption()
+                                        .foregroundColor(ColorTokens.textMuted)
+                                    Text(areaName)
+                                        .caption()
+                                        .foregroundColor(ColorTokens.textMuted)
+                                }
+                            }
+                        }
+
+                        Spacer()
+
+                        // Status indicator
+                        if task.status == "completed" {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(ColorTokens.success)
+                        } else {
+                            Circle()
+                                .stroke(ColorTokens.border, lineWidth: 1.5)
+                                .frame(width: 22, height: 22)
+                        }
+                    }
+                    .padding(SpacingTokens.md)
+                }
             }
         }
     }
@@ -2633,6 +2709,17 @@ struct GroupDetailView: View {
     @State private var showingAddMembers = false
     @State private var showingInviteMembers = false
     @State private var showingEditGroup = false
+    @State private var showingMemberDetail = false
+    @State private var selectedMemberForDetail: CrewMemberResponse?
+
+    // Check if current user is the owner of the group
+    private var isCurrentUserOwner: Bool {
+        guard let group = viewModel.selectedGroup,
+              let currentUserId = AuthService.shared.userId else { return false }
+        return group.members?.contains { member in
+            member.memberId.lowercased() == currentUserId.lowercased() && member.safeIsOwner
+        } ?? false
+    }
 
     var body: some View {
         NavigationStack {
@@ -2675,6 +2762,15 @@ struct GroupDetailView: View {
 
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
+                        // Only owner can edit group
+                        if isCurrentUserOwner {
+                            Button {
+                                showingEditGroup = true
+                            } label: {
+                                Label("crew.groups.edit".localized, systemImage: "pencil")
+                            }
+                        }
+
                         Button {
                             showingInviteMembers = true
                         } label: {
@@ -2695,10 +2791,13 @@ struct GroupDetailView: View {
                             Label("crew.groups.leave".localized, systemImage: "rectangle.portrait.and.arrow.right")
                         }
 
-                        Button(role: .destructive) {
-                            showingDeleteAlert = true
-                        } label: {
-                            Label("crew.groups.delete".localized, systemImage: "trash")
+                        // Only owner can delete group
+                        if isCurrentUserOwner {
+                            Button(role: .destructive) {
+                                showingDeleteAlert = true
+                            } label: {
+                                Label("crew.groups.delete".localized, systemImage: "trash")
+                            }
                         }
                     } label: {
                         Image(systemName: "ellipsis.circle")
@@ -2740,6 +2839,14 @@ struct GroupDetailView: View {
             }
             .sheet(isPresented: $viewModel.showingShareRoutine) {
                 ShareRoutineSheet(viewModel: viewModel)
+            }
+            .sheet(isPresented: $showingEditGroup) {
+                EditGroupSheet(viewModel: viewModel)
+            }
+            .sheet(isPresented: $showingMemberDetail) {
+                if let member = selectedMemberForDetail {
+                    GroupMemberDayDetailView(viewModel: viewModel, member: member)
+                }
             }
         }
     }
@@ -2851,9 +2958,25 @@ struct GroupDetailView: View {
                     .background(Color(hex: group.color).opacity(0.2))
                     .cornerRadius(RadiusTokens.lg)
 
-                Text(group.name)
-                    .font(.satoshi(22, weight: .bold))
-                    .foregroundColor(ColorTokens.textPrimary)
+                // Tappable name for owner to edit
+                if isCurrentUserOwner {
+                    Button {
+                        showingEditGroup = true
+                    } label: {
+                        HStack(spacing: SpacingTokens.xs) {
+                            Text(group.name)
+                                .font(.satoshi(22, weight: .bold))
+                                .foregroundColor(ColorTokens.textPrimary)
+                            Image(systemName: "pencil")
+                                .font(.system(size: 14))
+                                .foregroundColor(ColorTokens.textMuted)
+                        }
+                    }
+                } else {
+                    Text(group.name)
+                        .font(.satoshi(22, weight: .bold))
+                        .foregroundColor(ColorTokens.textPrimary)
+                }
 
                 if let description = group.description, !description.isEmpty {
                     Text(description)
@@ -2887,7 +3010,7 @@ struct GroupDetailView: View {
                         GroupMemberRow(
                             member: member,
                             onViewDay: {
-                                // Convert to CrewMemberResponse and view day
+                                // Convert to CrewMemberResponse and show detail in a new sheet
                                 let crewMember = CrewMemberResponse(
                                     id: member.id,
                                     memberId: member.memberId,
@@ -2902,10 +3025,8 @@ struct GroupDetailView: View {
                                     createdAt: nil,
                                     email: nil
                                 )
-                                dismiss()
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                    viewModel.selectMember(crewMember)
-                                }
+                                selectedMemberForDetail = crewMember
+                                showingMemberDetail = true
                             },
                             onRemove: {
                                 Task {
@@ -3087,6 +3208,532 @@ struct AddMembersToGroupView: View {
             if success {
                 dismiss()
             }
+        }
+    }
+}
+
+// MARK: - Edit Group Sheet
+struct EditGroupSheet: View {
+    @ObservedObject var viewModel: CrewViewModel
+    @Environment(\.dismiss) var dismiss
+
+    @State private var groupName: String = ""
+    @State private var isSaving = false
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                ColorTokens.background
+                    .ignoresSafeArea()
+
+                VStack(spacing: SpacingTokens.lg) {
+                    VStack(alignment: .leading, spacing: SpacingTokens.sm) {
+                        Text("crew.groups.name".localized)
+                            .caption()
+                            .foregroundColor(ColorTokens.textMuted)
+
+                        TextField("crew.groups.name_placeholder".localized, text: $groupName)
+                            .font(.satoshi(16))
+                            .padding(SpacingTokens.md)
+                            .background(ColorTokens.surface)
+                            .cornerRadius(RadiusTokens.md)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: RadiusTokens.md)
+                                    .stroke(ColorTokens.border, lineWidth: 1)
+                            )
+                    }
+                    .padding(.horizontal, SpacingTokens.lg)
+                    .padding(.top, SpacingTokens.lg)
+
+                    Spacer()
+
+                    // Save button
+                    Button {
+                        saveChanges()
+                    } label: {
+                        HStack {
+                            if isSaving {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            } else {
+                                Text("common.save".localized)
+                            }
+                        }
+                        .font(.satoshi(16, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background {
+                            if groupName.isEmpty || groupName == viewModel.selectedGroup?.name {
+                                ColorTokens.textMuted
+                            } else {
+                                ColorTokens.fireGradient
+                            }
+                        }
+                        .cornerRadius(RadiusTokens.lg)
+                    }
+                    .disabled(groupName.isEmpty || groupName == viewModel.selectedGroup?.name || isSaving)
+                    .padding(.horizontal, SpacingTokens.lg)
+                    .padding(.bottom, SpacingTokens.lg)
+                }
+            }
+            .navigationTitle("crew.groups.edit".localized)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("common.cancel".localized) {
+                        dismiss()
+                    }
+                    .foregroundColor(ColorTokens.textMuted)
+                }
+            }
+            .onAppear {
+                groupName = viewModel.selectedGroup?.name ?? ""
+            }
+        }
+    }
+
+    private func saveChanges() {
+        guard let group = viewModel.selectedGroup else { return }
+        isSaving = true
+        Task {
+            let success = await viewModel.updateGroup(groupId: group.id, name: groupName)
+            isSaving = false
+            if success {
+                dismiss()
+            }
+        }
+    }
+}
+
+// MARK: - Group Member Day Detail View (shown from group detail)
+struct GroupMemberDayDetailView: View {
+    @ObservedObject var viewModel: CrewViewModel
+    let member: CrewMemberResponse
+    @Environment(\.dismiss) var dismiss
+
+    @State private var selectedDate = Date()
+    @State private var memberDay: CrewMemberDayResponse?
+    @State private var isLoading = false
+
+    private let crewService = CrewService()
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                ColorTokens.background
+                    .ignoresSafeArea()
+
+                if isLoading {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: ColorTokens.primaryStart))
+                } else if let day = memberDay {
+                    VStack(spacing: 0) {
+                        // User header compact
+                        compactUserHeader(day.user)
+                            .padding(.horizontal, SpacingTokens.lg)
+                            .padding(.top, SpacingTokens.sm)
+
+                        // Week calendar strip
+                        weekCalendarStrip
+                            .padding(.top, SpacingTokens.md)
+
+                        // Content
+                        ScrollView {
+                            VStack(spacing: SpacingTokens.lg) {
+                                calendarTabContent(day)
+                            }
+                            .padding(SpacingTokens.lg)
+                        }
+                    }
+                } else {
+                    // Private or no permission
+                    VStack(spacing: SpacingTokens.lg) {
+                        Image(systemName: "lock.fill")
+                            .font(.satoshi(60))
+                            .foregroundColor(ColorTokens.textMuted)
+
+                        Text("crew.day_not_visible".localized)
+                            .subtitle()
+                            .fontWeight(.bold)
+                            .foregroundColor(ColorTokens.textPrimary)
+
+                        Text("crew.day_private".localized)
+                            .bodyText()
+                            .foregroundColor(ColorTokens.textSecondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding()
+                }
+            }
+            .navigationTitle(member.displayName)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("common.done".localized) {
+                        dismiss()
+                    }
+                    .foregroundColor(ColorTokens.primaryStart)
+                }
+            }
+            .task {
+                await loadMemberDay()
+            }
+        }
+    }
+
+    // MARK: - Load Data
+    private func loadMemberDay() async {
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            memberDay = try await crewService.fetchCrewMemberDay(
+                userId: member.memberId,
+                date: selectedDate
+            )
+        } catch {
+            memberDay = nil
+        }
+    }
+
+    // MARK: - Compact User Header
+    private func compactUserHeader(_ user: CrewUserInfo) -> some View {
+        HStack(spacing: SpacingTokens.md) {
+            AvatarView(
+                name: user.displayName,
+                avatarURL: user.avatarUrl,
+                size: 40,
+                allowZoom: true
+            )
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(user.displayName)
+                    .bodyText()
+                    .fontWeight(.semibold)
+                    .foregroundColor(ColorTokens.textPrimary)
+
+                Text("crew.crew_member".localized)
+                    .caption()
+                    .foregroundColor(ColorTokens.textMuted)
+            }
+
+            Spacer()
+        }
+    }
+
+    // MARK: - Week Calendar Strip
+    private var weekCalendarStrip: some View {
+        let calendar = Calendar.current
+        let today = Date()
+        let weekDays = getWeekDays(for: selectedDate)
+
+        return VStack(spacing: SpacingTokens.sm) {
+            HStack {
+                Button {
+                    changeSelectedDate(by: -7)
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.satoshi(14, weight: .medium))
+                        .foregroundColor(ColorTokens.textPrimary)
+                        .frame(width: 32, height: 32)
+                        .background(ColorTokens.surface)
+                        .cornerRadius(RadiusTokens.sm)
+                }
+
+                Spacer()
+
+                Text(selectedDate, style: .date)
+                    .font(.satoshi(14, weight: .medium))
+                    .foregroundColor(ColorTokens.textPrimary)
+
+                Spacer()
+
+                Button {
+                    changeSelectedDate(by: 7)
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .font(.satoshi(14, weight: .medium))
+                        .foregroundColor(selectedDate > today ? ColorTokens.textMuted : ColorTokens.textPrimary)
+                        .frame(width: 32, height: 32)
+                        .background(ColorTokens.surface)
+                        .cornerRadius(RadiusTokens.sm)
+                }
+                .disabled(calendar.isDate(selectedDate, inSameDayAs: today) || selectedDate > today)
+            }
+            .padding(.horizontal, SpacingTokens.lg)
+
+            // Day pills
+            HStack(spacing: 8) {
+                ForEach(weekDays, id: \.self) { date in
+                    let isSelected = calendar.isDate(date, inSameDayAs: selectedDate)
+                    let isToday = calendar.isDate(date, inSameDayAs: today)
+                    let isFuture = date > today
+
+                    Button {
+                        if !isFuture {
+                            selectedDate = date
+                            Task { await loadMemberDay() }
+                        }
+                    } label: {
+                        VStack(spacing: 4) {
+                            Text(dayOfWeekLetter(date))
+                                .font(.satoshi(10, weight: .medium))
+                                .foregroundColor(isSelected ? .white : ColorTokens.textMuted)
+
+                            Text("\(calendar.component(.day, from: date))")
+                                .font(.satoshi(14, weight: isSelected ? .bold : .medium))
+                                .foregroundColor(isSelected ? .white : (isFuture ? ColorTokens.textMuted : ColorTokens.textPrimary))
+                        }
+                        .frame(width: 40, height: 50)
+                        .background(isSelected ? ColorTokens.primaryStart : (isToday ? ColorTokens.primarySoft : ColorTokens.surface))
+                        .cornerRadius(RadiusTokens.md)
+                    }
+                    .disabled(isFuture)
+                }
+            }
+            .padding(.horizontal, SpacingTokens.lg)
+        }
+    }
+
+    private func getWeekDays(for date: Date) -> [Date] {
+        let calendar = Calendar.current
+        let startOfWeek = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: date))!
+        return (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: startOfWeek) }
+    }
+
+    private func dayOfWeekLetter(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEEE"
+        return formatter.string(from: date)
+    }
+
+    private func changeSelectedDate(by days: Int) {
+        guard let newDate = Calendar.current.date(byAdding: .day, value: days, to: selectedDate) else { return }
+        if newDate > Date() { return }
+        selectedDate = newDate
+        Task { await loadMemberDay() }
+    }
+
+    // MARK: - Calendar Tab Content
+    private func calendarTabContent(_ day: CrewMemberDayResponse) -> some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.lg) {
+            // Daily schedule header
+            HStack {
+                Text("📅")
+                    .font(.satoshi(18))
+                Text("crew.member.daily_schedule".localized)
+                    .subtitle()
+                    .fontWeight(.semibold)
+                    .foregroundColor(ColorTokens.textPrimary)
+                Spacer()
+            }
+
+            // Calendar Tasks
+            if let tasks = day.tasks, !tasks.isEmpty {
+                tasksSection(tasks)
+            }
+
+            // Intentions for the day
+            if let intentions = day.intentions, !intentions.isEmpty {
+                intentionsSection(intentions)
+            }
+
+            // Focus sessions timeline
+            if let sessions = day.focusSessions, !sessions.isEmpty {
+                focusSessionsSection(sessions)
+            }
+
+            // Scheduled routines
+            if let routines = day.routines, !routines.isEmpty {
+                scheduledRoutinesSection(routines)
+            }
+
+            // Empty state for calendar
+            if (day.tasks ?? []).isEmpty &&
+               (day.intentions ?? []).isEmpty &&
+               (day.focusSessions ?? []).isEmpty &&
+               (day.routines ?? []).isEmpty {
+                emptyDayState
+            }
+        }
+    }
+
+    // MARK: - Tasks Section
+    private func tasksSection(_ tasks: [CrewTask]) -> some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.md) {
+            Text("Planning du Jour")
+                .caption()
+                .fontWeight(.semibold)
+                .foregroundColor(ColorTokens.textMuted)
+
+            ForEach(tasks) { task in
+                Card {
+                    HStack(spacing: SpacingTokens.md) {
+                        // Area icon or lock for private tasks
+                        if task.isPrivate == true {
+                            Image(systemName: "lock.fill")
+                                .font(.satoshi(18))
+                                .foregroundColor(ColorTokens.textMuted)
+                        } else {
+                            Text(task.areaIcon ?? "📋")
+                                .font(.satoshi(20))
+                        }
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(task.title)
+                                .font(.satoshi(14, weight: .medium))
+                                .foregroundColor(task.isPrivate == true ? ColorTokens.textMuted : ColorTokens.textPrimary)
+                                .lineLimit(1)
+                                .italic(task.isPrivate == true)
+
+                            HStack(spacing: SpacingTokens.sm) {
+                                if let start = task.scheduledStart, let end = task.scheduledEnd {
+                                    Text("\(start) - \(end)")
+                                        .caption()
+                                        .foregroundColor(ColorTokens.textMuted)
+                                } else {
+                                    Text(task.timeBlock.capitalized)
+                                        .caption()
+                                        .foregroundColor(ColorTokens.textMuted)
+                                }
+
+                                // Area name (not shown for private tasks)
+                                if let areaName = task.areaName, task.isPrivate != true {
+                                    Text("•")
+                                        .caption()
+                                        .foregroundColor(ColorTokens.textMuted)
+                                    Text(areaName)
+                                        .caption()
+                                        .foregroundColor(ColorTokens.textMuted)
+                                }
+                            }
+                        }
+
+                        Spacer()
+
+                        if task.status == "completed" {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(ColorTokens.success)
+                        } else {
+                            Circle()
+                                .stroke(ColorTokens.border, lineWidth: 1.5)
+                                .frame(width: 22, height: 22)
+                        }
+                    }
+                    .padding(SpacingTokens.md)
+                }
+            }
+        }
+    }
+
+    // MARK: - Intentions Section
+    private func intentionsSection(_ intentions: [CrewIntention]) -> some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.sm) {
+            Text("crew.member.intentions".localized)
+                .caption()
+                .foregroundColor(ColorTokens.textMuted)
+
+            ForEach(intentions) { intention in
+                HStack(spacing: SpacingTokens.sm) {
+                    Circle()
+                        .fill(ColorTokens.primaryStart)
+                        .frame(width: 8, height: 8)
+
+                    Text(intention.content)
+                        .bodyText()
+                        .foregroundColor(ColorTokens.textPrimary)
+
+                    Spacer()
+                }
+                .padding(SpacingTokens.md)
+                .background(ColorTokens.surface)
+                .cornerRadius(RadiusTokens.md)
+            }
+        }
+    }
+
+    // MARK: - Focus Sessions Section
+    private func focusSessionsSection(_ sessions: [CrewFocusSession]) -> some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.sm) {
+            Text("crew.member.focus_sessions".localized)
+                .caption()
+                .foregroundColor(ColorTokens.textMuted)
+
+            ForEach(sessions) { session in
+                HStack(spacing: SpacingTokens.md) {
+                    Circle()
+                        .fill(ColorTokens.primaryStart)
+                        .frame(width: 8, height: 8)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(session.description ?? "Focus Session")
+                            .bodyText()
+                            .fontWeight(.medium)
+                            .foregroundColor(ColorTokens.textPrimary)
+
+                        Text("\(session.durationMinutes) min")
+                            .caption()
+                            .foregroundColor(ColorTokens.textMuted)
+                    }
+
+                    Spacer()
+
+                    Text(session.startedAt, style: .time)
+                        .caption()
+                        .foregroundColor(ColorTokens.textMuted)
+                }
+                .padding(SpacingTokens.md)
+                .background(ColorTokens.surface)
+                .cornerRadius(RadiusTokens.md)
+            }
+        }
+    }
+
+    // MARK: - Routines Section
+    private func scheduledRoutinesSection(_ routines: [CrewRoutine]) -> some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.sm) {
+            Text("crew.member.routines".localized)
+                .caption()
+                .foregroundColor(ColorTokens.textMuted)
+
+            ForEach(routines) { routine in
+                HStack(spacing: SpacingTokens.md) {
+                    Text(routine.icon ?? "✨")
+                        .font(.satoshi(18))
+
+                    Text(routine.title)
+                        .bodyText()
+                        .foregroundColor(ColorTokens.textPrimary)
+                        .strikethrough(routine.completed)
+
+                    Spacer()
+
+                    Image(systemName: routine.completed ? "checkmark.circle.fill" : "circle")
+                        .foregroundColor(routine.completed ? ColorTokens.success : ColorTokens.textMuted)
+                        .font(.satoshi(16))
+                }
+                .padding(SpacingTokens.md)
+                .background(ColorTokens.surface)
+                .cornerRadius(RadiusTokens.md)
+            }
+        }
+    }
+
+    // MARK: - Empty State
+    private var emptyDayState: some View {
+        Card {
+            VStack(spacing: SpacingTokens.md) {
+                Image(systemName: "calendar.badge.clock")
+                    .font(.satoshi(40))
+                    .foregroundColor(ColorTokens.textMuted)
+
+                Text("crew.member.no_activity".localized)
+                    .bodyText()
+                    .foregroundColor(ColorTokens.textMuted)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(SpacingTokens.lg)
         }
     }
 }
@@ -3401,11 +4048,10 @@ struct GroupRoutineRow: View {
     let onToggle: (Bool, @escaping () -> Void, @escaping () -> Void) -> Void  // (currentState, onSuccess, onError)
     let onRemove: () -> Void
 
-    @State private var isExpanded = false
     @State private var localCompletionState: Bool? = nil  // Optimistic UI state
 
     private var currentUserCompletion: GroupRoutineMemberCompletion? {
-        routine.safeCompletions.first { $0.userId == currentUserId }
+        routine.safeCompletions.first { $0.userId.lowercased() == currentUserId.lowercased() }
     }
 
     private var serverCompletedByMe: Bool {
@@ -3417,19 +4063,138 @@ struct GroupRoutineRow: View {
         localCompletionState ?? serverCompletedByMe
     }
 
+    // Members who completed the routine
+    private var completedMembers: [GroupRoutineMemberCompletion] {
+        routine.safeCompletions.filter { $0.completed }
+    }
+
+    var body: some View {
+        HStack(spacing: SpacingTokens.md) {
+            // Icon
+            Text(routine.icon ?? "🔄")
+                .font(.satoshi(20))
+                .frame(width: 36, height: 36)
+                .background(isCompletedByMe ? ColorTokens.success.opacity(0.15) : ColorTokens.primarySoft)
+                .cornerRadius(RadiusTokens.sm)
+
+            // Title (with strikethrough if completed by me)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(routine.title)
+                    .font(.satoshi(14, weight: isCompletedByMe ? .medium : .semibold))
+                    .foregroundColor(isCompletedByMe ? ColorTokens.textMuted : ColorTokens.textPrimary)
+                    .strikethrough(isCompletedByMe, color: ColorTokens.textMuted)
+
+                if let time = routine.scheduledTime {
+                    Text(time)
+                        .font(.satoshi(11))
+                        .foregroundColor(ColorTokens.textMuted)
+                }
+            }
+
+            Spacer()
+
+            // Inline avatars of people who completed it
+            HStack(spacing: -8) {
+                ForEach(completedMembers.prefix(4)) { member in
+                    AvatarView(
+                        name: member.displayName,
+                        avatarURL: member.avatarUrl,
+                        size: 24
+                    )
+                    .overlay(
+                        Circle()
+                            .stroke(ColorTokens.surface, lineWidth: 2)
+                    )
+                }
+                // Show +N if more than 4
+                if completedMembers.count > 4 {
+                    Text("+\(completedMembers.count - 4)")
+                        .font(.satoshi(10, weight: .bold))
+                        .foregroundColor(ColorTokens.textPrimary)
+                        .frame(width: 24, height: 24)
+                        .background(ColorTokens.surfaceElevated)
+                        .clipShape(Circle())
+                        .overlay(
+                            Circle()
+                                .stroke(ColorTokens.surface, lineWidth: 2)
+                        )
+                }
+            }
+
+            // My completion button
+            Button(action: {
+                let currentState = isCompletedByMe
+                HapticFeedback.light()
+
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
+                    localCompletionState = !currentState
+                }
+
+                onToggle(
+                    currentState,
+                    {
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
+                            localCompletionState = nil
+                        }
+                    },
+                    {
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
+                            localCompletionState = currentState
+                        }
+                    }
+                )
+            }) {
+                Image(systemName: isCompletedByMe ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 24))
+                    .foregroundColor(isCompletedByMe ? ColorTokens.success : ColorTokens.textMuted)
+            }
+            .buttonStyle(PlainButtonStyle())
+            .onChange(of: serverCompletedByMe) { _, _ in
+                localCompletionState = nil
+            }
+        }
+        .padding(SpacingTokens.md)
+        .background(ColorTokens.surface)
+        .cornerRadius(RadiusTokens.md)
+        .overlay(
+            RoundedRectangle(cornerRadius: RadiusTokens.md)
+                .stroke(isCompletedByMe ? ColorTokens.success.opacity(0.3) : ColorTokens.border, lineWidth: 1)
+        )
+    }
+}
+
+// Keep old expanded view as separate component for detail view if needed
+struct GroupRoutineDetailRow: View {
+    let routine: GroupRoutine
+    let currentUserId: String
+    let onToggle: (Bool, @escaping () -> Void, @escaping () -> Void) -> Void
+    let onRemove: () -> Void
+
+    @State private var isExpanded = false
+    @State private var localCompletionState: Bool? = nil
+
+    private var currentUserCompletion: GroupRoutineMemberCompletion? {
+        routine.safeCompletions.first { $0.userId.lowercased() == currentUserId.lowercased() }
+    }
+
+    private var serverCompletedByMe: Bool {
+        currentUserCompletion?.completed ?? false
+    }
+
+    private var isCompletedByMe: Bool {
+        localCompletionState ?? serverCompletedByMe
+    }
+
     var body: some View {
         Card {
             VStack(spacing: SpacingTokens.sm) {
-                // Main row
                 HStack(spacing: SpacingTokens.md) {
-                    // Icon
                     Text(routine.icon ?? "🔄")
                         .font(.satoshi(24))
                         .frame(width: 40, height: 40)
                         .background(ColorTokens.primarySoft)
                         .cornerRadius(RadiusTokens.sm)
 
-                    // Title and time
                     VStack(alignment: .leading, spacing: 2) {
                         Text(routine.title)
                             .font(.satoshi(14, weight: .semibold))
@@ -3444,57 +4209,34 @@ struct GroupRoutineRow: View {
 
                     Spacer()
 
-                    // Completion status
                     VStack(alignment: .trailing, spacing: 2) {
                         Text("\(routine.safeCompletionCount)/\(routine.safeTotalMembers)")
                             .font(.satoshi(14, weight: .semibold))
                             .foregroundColor(routine.safeCompletionCount == routine.safeTotalMembers ? ColorTokens.success : ColorTokens.textSecondary)
 
-                        Text("crew.groups.completed".localized)
+                        Text("fait")
                             .font(.satoshi(10))
                             .foregroundColor(ColorTokens.textMuted)
                     }
 
-                    // My completion button - instant optimistic toggle
                     Button(action: {
                         let currentState = isCompletedByMe
-                        print("🔘 TOGGLE TAPPED - routineId: \(routine.routineId), currentState: \(currentState), serverState: \(serverCompletedByMe)")
-
                         HapticFeedback.light()
-                        // Optimistic update - toggle immediately
                         withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
                             localCompletionState = !currentState
                         }
-
-                        // API call in background - no UI blocking
-                        onToggle(
-                            currentState,
-                            {
-                                // Success - clear local state to use server state
-                                print("✅ API success - clearing local state, server will be: \(!currentState)")
-                                withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
-                                    localCompletionState = nil
-                                }
-                            },
-                            {
-                                // Error - revert to previous state
-                                print("❌ API error - reverting to \(currentState)")
-                                withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
-                                    localCompletionState = currentState
-                                }
-                            }
-                        )
+                        onToggle(currentState, {
+                            withAnimation { localCompletionState = nil }
+                        }, {
+                            withAnimation { localCompletionState = currentState }
+                        })
                     }) {
                         Image(systemName: isCompletedByMe ? "checkmark.circle.fill" : "circle")
                             .font(.system(size: 26))
                             .foregroundColor(isCompletedByMe ? ColorTokens.success : ColorTokens.textMuted)
-                            .scaleEffect(isCompletedByMe ? 1.0 : 0.9)
-                            .animation(.spring(response: 0.25, dampingFraction: 0.6), value: isCompletedByMe)
                     }
                     .buttonStyle(PlainButtonStyle())
-                    // Sync local state when server data changes
-                    .onChange(of: serverCompletedByMe) { oldValue, newValue in
-                        print("🔄 Server state changed: \(oldValue) -> \(newValue), clearing local override")
+                    .onChange(of: serverCompletedByMe) { _, _ in
                         localCompletionState = nil
                     }
                 }
@@ -3505,11 +4247,9 @@ struct GroupRoutineRow: View {
                     }
                 }
 
-                // Expanded: Show all members
                 if isExpanded {
                     Divider()
 
-                    // Members completion list
                     VStack(spacing: SpacingTokens.xs) {
                         ForEach(routine.safeCompletions) { member in
                             HStack(spacing: SpacingTokens.sm) {
@@ -3539,7 +4279,6 @@ struct GroupRoutineRow: View {
                         }
                     }
 
-                    // Shared by info
                     if let sharer = routine.sharedBy {
                         HStack {
                             Text("crew.groups.shared_by".localized)

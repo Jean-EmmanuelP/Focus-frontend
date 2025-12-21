@@ -243,6 +243,21 @@ struct LeaderboardEntry: Codable, Identifiable {
     var safeIsLive: Bool { isLive ?? false }
 }
 
+/// Crew task (calendar task)
+struct CrewTask: Codable, Identifiable {
+    let id: String
+    let title: String
+    let description: String?
+    let scheduledStart: String?
+    let scheduledEnd: String?
+    let timeBlock: String
+    let priority: String
+    let status: String
+    let areaName: String?
+    let areaIcon: String?
+    let isPrivate: Bool?
+}
+
 /// Crew member's day data
 struct CrewMemberDayResponse: Codable {
     let user: CrewUserInfo
@@ -250,6 +265,7 @@ struct CrewMemberDayResponse: Codable {
     let focusSessions: [CrewFocusSession]?
     var completedRoutines: [CrewCompletedRoutine]?
     var routines: [CrewRoutine]?
+    let tasks: [CrewTask]?
     let stats: CrewMemberStats?
 }
 

@@ -82,6 +82,17 @@ class CalendarViewModel: ObservableObject {
         store.areas
     }
 
+    /// User's productivity peak preference
+    var productivityPeak: ProductivityPeak? {
+        store.user?.productivityPeak
+    }
+
+    /// Check if a given hour is within the user's peak productivity hours
+    func isInPeakHours(_ hour: Int) -> Bool {
+        guard let peak = productivityPeak else { return false }
+        return peak.peakHours.contains(hour)
+    }
+
     var quests: [Quest] {
         store.quests.filter { $0.status == .active }
     }
@@ -421,8 +432,39 @@ class CalendarViewModel: ObservableObject {
     // MARK: - Date Navigation
     func selectDate(_ date: Date) {
         selectedDate = date
-        Task {
-            await loadDayData()
+
+        // Check if date is within current loaded week
+        let isInCurrentWeek = date >= weekStartDate && date <= weekEndDate
+
+        if isInCurrentWeek && !weekTasks.isEmpty {
+            // Use cached data - just filter weekTasks, no API call needed
+            filterTasksForSelectedDate()
+            print("[CalendarViewModel] Using cached weekTasks for \(selectedDateString)")
+        } else {
+            // Date is outside current week - need to load new week
+            let newWeekStart = date.startOfWeek
+            if newWeekStart != weekStartDate {
+                weekStartDate = newWeekStart
+            }
+            Task {
+                await loadWeekData()
+            }
+        }
+    }
+
+    /// Filter weekTasks for the selected date without making an API call
+    private func filterTasksForSelectedDate() {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let selectedDateStr = dateFormatter.string(from: selectedDate)
+        tasks = weekTasks.filter { $0.date == selectedDateStr }
+
+        // Calculate progress from tasks
+        if !tasks.isEmpty {
+            let completedCount = tasks.filter { $0.isCompleted }.count
+            dayProgress = (completedCount * 100) / tasks.count
+        } else {
+            dayProgress = 0
         }
     }
 
@@ -439,7 +481,19 @@ class CalendarViewModel: ObservableObject {
     }
 
     func goToToday() {
-        selectDate(Date())
+        let today = Date()
+        let todayWeekStart = today.startOfWeek
+
+        // If today is in a different week, update weekStartDate
+        if todayWeekStart != weekStartDate {
+            weekStartDate = todayWeekStart
+            Task {
+                await loadWeekData()
+            }
+        } else {
+            selectedDate = today
+            filterTasksForSelectedDate()
+        }
     }
 
     // MARK: - Voice Processing
@@ -502,7 +556,8 @@ class CalendarViewModel: ObservableObject {
         questId: String? = nil,
         areaId: String? = nil,
         estimatedMinutes: Int? = nil,
-        priority: String = "medium"
+        priority: String = "medium",
+        isPrivate: Bool = false
     ) async {
         let taskDate = date ?? selectedDateString
 
@@ -535,7 +590,7 @@ class CalendarViewModel: ObservableObject {
         }
 
         do {
-            print("[CalendarViewModel] Creating task: \(title), date: \(taskDate), start: \(finalStart ?? "nil"), end: \(finalEnd ?? "nil"), timeBlock: \(timeBlock)")
+            print("[CalendarViewModel] Creating task: \(title), date: \(taskDate), start: \(finalStart ?? "nil"), end: \(finalEnd ?? "nil"), timeBlock: \(timeBlock), isPrivate: \(isPrivate)")
             let createdTask = try await calendarService.createTask(
                 questId: questId,
                 areaId: areaId,
@@ -546,7 +601,8 @@ class CalendarViewModel: ObservableObject {
                 scheduledEnd: finalEnd,
                 timeBlock: timeBlock,
                 estimatedMinutes: estimatedMinutes ?? duration,
-                priority: priority
+                priority: priority,
+                isPrivate: isPrivate
             )
             print("[CalendarViewModel] Task created successfully: id=\(createdTask.id)")
 
@@ -679,6 +735,47 @@ class CalendarViewModel: ObservableObject {
             store.upcomingWeekTasks.removeAll { $0.id == taskId }
         } catch {
             handleError(error, context: "deleting task")
+        }
+    }
+
+    /// Update a task's title and schedule
+    func updateTask(taskId: String, title: String, scheduledStart: String, scheduledEnd: String) async {
+        guard let task = tasks.first(where: { $0.id == taskId }) ?? weekTasks.first(where: { $0.id == taskId }) else {
+            return
+        }
+
+        do {
+            // First update the title
+            var updated = try await calendarService.updateTask(id: taskId, title: title)
+
+            // Then reschedule if times changed
+            let timesChanged = task.scheduledStart != scheduledStart || task.scheduledEnd != scheduledEnd
+            if timesChanged {
+                updated = try await calendarService.rescheduleTask(
+                    id: taskId,
+                    date: task.date,
+                    scheduledStart: scheduledStart,
+                    scheduledEnd: scheduledEnd
+                )
+            }
+
+            // Update local CalendarViewModel
+            if let index = tasks.firstIndex(where: { $0.id == taskId }) {
+                tasks[index] = updated
+            }
+            if let index = weekTasks.firstIndex(where: { $0.id == taskId }) {
+                weekTasks[index] = updated
+            }
+
+            // Update AppStore for Dashboard sync
+            if let index = store.todaysTasks.firstIndex(where: { $0.id == taskId }) {
+                store.todaysTasks[index] = updated
+            }
+            if let index = store.upcomingWeekTasks.firstIndex(where: { $0.id == taskId }) {
+                store.upcomingWeekTasks[index] = updated
+            }
+        } catch {
+            handleError(error, context: "updating task")
         }
     }
 

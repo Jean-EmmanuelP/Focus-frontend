@@ -43,6 +43,7 @@
 "dashboard.good_morning" = "Buenos días";
 "dashboard.good_afternoon" = "Buenas tardes";
 "dashboard.good_evening" = "Buenas noches";
+"dashboard.good_night" = "Buenas noches";
 "dashboard.start_day" = "Comienza tu Día";
 "dashboard.end_day" = "Termina tu Día";
 "dashboard.todays_routines" = "Rutinas de Hoy";
@@ -246,6 +247,7 @@
 "crew.groups.no_friends" = "Primero agrega amigos a tu crew";
 "crew.groups.detail" = "Detalles del Grupo";
 "crew.groups.add_members" = "Agregar Miembros";
+"crew.groups.edit" = "Editar Grupo";
 "crew.groups.delete" = "Eliminar Grupo";
 "crew.groups.delete_title" = "¿Eliminar Grupo?";
 "crew.groups.delete_confirm" = "Esta acción no se puede deshacer. Todos los miembros serán removidos de este grupo.";
@@ -600,6 +602,8 @@
 "calendar.priority.high" = "Alta";
 "calendar.priority.medium" = "Media";
 "calendar.priority.low" = "Baja";
+"calendar.private_task" = "Tarea privada";
+"calendar.private_task_desc" = "Ocultar contenido a tus amigos";
 "task.description" = "Descripción";
 "task.linked_quest" = "Misión asociada";
 "task.mark_incomplete" = "Marcar como incompleto";
@@ -648,6 +652,16 @@
 "settings.edit_profile" = "Editar perfil";
 "settings.day_streak" = "días de racha";
 "settings.sign_out" = "Cerrar sesión";
+"settings.productivity_peak" = "Pico de productividad";
+"settings.productivity_peak_description" = "¿Cuándo te sientes más productivo? Organizaremos las tareas de alta concentración en este momento.";
+
+// MARK: - Productivity
+"productivity.morning" = "Mañana";
+"productivity.afternoon" = "Tarde";
+"productivity.evening" = "Noche";
+"productivity.morning.description" = "6am - 12pm: Ideal para trabajo profundo";
+"productivity.afternoon.description" = "12pm - 6pm: Ideal para colaboración";
+"productivity.evening.description" = "6pm - 10pm: Ideal para tareas concentradas";
 
 // MARK: - Tutorial
 "tutorial.title" = "Cómo usar Volta";
@@ -698,6 +712,7 @@
 
 // MARK: - Community
 "tab.community" = "Comunidad";
+"tab.profile" = "Perfil";
 "community.title" = "Comunidad";
 "community.feed" = "Feed";
 "community.my_posts" = "Mis Posts";

@@ -122,6 +122,7 @@ struct CreateScheduledTaskSheet: View {
     @State private var endTime: Date = Date().addingTimeInterval(3600) // 1 hour later
     @State private var selectedQuestId: String?
     @State private var priority: TaskPriority = .medium
+    @State private var isPrivate: Bool = false
 
     var body: some View {
         NavigationStack {
@@ -247,6 +248,26 @@ struct CreateScheduledTaskSheet: View {
                             }
                         }
 
+                        // Private toggle
+                        Toggle(isOn: $isPrivate) {
+                            HStack(spacing: SpacingTokens.sm) {
+                                Image(systemName: "lock.fill")
+                                    .foregroundColor(isPrivate ? ColorTokens.accent : ColorTokens.textMuted)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("calendar.private_task".localized)
+                                        .font(.satoshi(14, weight: .semibold))
+                                        .foregroundColor(ColorTokens.textPrimary)
+                                    Text("calendar.private_task_desc".localized)
+                                        .font(.satoshi(12))
+                                        .foregroundColor(ColorTokens.textMuted)
+                                }
+                            }
+                        }
+                        .toggleStyle(SwitchToggleStyle(tint: ColorTokens.accent))
+                        .padding(SpacingTokens.md)
+                        .background(ColorTokens.surface)
+                        .cornerRadius(RadiusTokens.md)
+
                         // Create button
                         PrimaryButton("calendar.create_task".localized) {
                             createTask()
@@ -314,7 +335,8 @@ struct CreateScheduledTaskSheet: View {
                 timeBlock: timeBlock,
                 questId: selectedQuestId,
                 estimatedMinutes: estimatedMinutes,
-                priority: priority.rawValue
+                priority: priority.rawValue,
+                isPrivate: isPrivate
             )
             dismiss()
         }
@@ -332,6 +354,7 @@ struct CreateTaskSheet: View {
     @State private var estimatedMinutes: Int = 30
     @State private var priority: TaskPriority = .medium
     @State private var selectedQuestId: String?
+    @State private var isPrivate: Bool = false
 
     var body: some View {
         NavigationStack {
@@ -453,6 +476,26 @@ struct CreateTaskSheet: View {
                             }
                         }
 
+                        // Private toggle
+                        Toggle(isOn: $isPrivate) {
+                            HStack(spacing: SpacingTokens.sm) {
+                                Image(systemName: "lock.fill")
+                                    .foregroundColor(isPrivate ? ColorTokens.accent : ColorTokens.textMuted)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("calendar.private_task".localized)
+                                        .font(.satoshi(14, weight: .semibold))
+                                        .foregroundColor(ColorTokens.textPrimary)
+                                    Text("calendar.private_task_desc".localized)
+                                        .font(.satoshi(12))
+                                        .foregroundColor(ColorTokens.textMuted)
+                                }
+                            }
+                        }
+                        .toggleStyle(SwitchToggleStyle(tint: ColorTokens.accent))
+                        .padding(SpacingTokens.md)
+                        .background(ColorTokens.surface)
+                        .cornerRadius(RadiusTokens.md)
+
                         // Create button
                         PrimaryButton("calendar.create_task".localized) {
                             createTask()
@@ -498,7 +541,8 @@ struct CreateTaskSheet: View {
                 timeBlock: timeBlock,
                 questId: selectedQuestId,
                 estimatedMinutes: estimatedMinutes,
-                priority: priority.rawValue
+                priority: priority.rawValue,
+                isPrivate: isPrivate
             )
             dismiss()
         }

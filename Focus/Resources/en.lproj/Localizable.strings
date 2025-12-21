@@ -44,6 +44,7 @@
 "dashboard.good_morning" = "Good morning";
 "dashboard.good_afternoon" = "Good afternoon";
 "dashboard.good_evening" = "Good evening";
+"dashboard.good_night" = "Good night";
 "dashboard.start_day" = "Start Your Day";
 "dashboard.end_day" = "End Your Day";
 "dashboard.todays_routines" = "Today's Routines";
@@ -247,6 +248,7 @@
 "crew.groups.no_friends" = "Add friends to your crew first";
 "crew.groups.detail" = "Group Details";
 "crew.groups.add_members" = "Add Members";
+"crew.groups.edit" = "Edit Group";
 "crew.groups.delete" = "Delete Group";
 "crew.groups.delete_title" = "Delete Group?";
 "crew.groups.delete_confirm" = "This action cannot be undone. All members will be removed from this group.";
@@ -602,6 +604,8 @@
 "calendar.priority.high" = "High";
 "calendar.priority.medium" = "Medium";
 "calendar.priority.low" = "Low";
+"calendar.private_task" = "Private task";
+"calendar.private_task_desc" = "Hide content from your friends";
 "task.description" = "Description";
 "task.linked_quest" = "Linked Quest";
 "task.mark_incomplete" = "Mark as Incomplete";
@@ -650,6 +654,16 @@
 "settings.edit_profile" = "Edit profile";
 "settings.day_streak" = "day streak";
 "settings.sign_out" = "Sign out";
+"settings.productivity_peak" = "Productivity Peak";
+"settings.productivity_peak_description" = "When do you feel most productive? We'll organize high-focus tasks during this time.";
+
+// MARK: - Productivity
+"productivity.morning" = "Morning";
+"productivity.afternoon" = "Afternoon";
+"productivity.evening" = "Evening";
+"productivity.morning.description" = "6am - 12pm: Best for deep work";
+"productivity.afternoon.description" = "12pm - 6pm: Best for collaboration";
+"productivity.evening.description" = "6pm - 10pm: Best for focused tasks";
 
 // MARK: - Tutorial
 "tutorial.title" = "How to use Volta";
@@ -700,6 +714,7 @@
 
 // MARK: - Community
 "tab.community" = "Community";
+"tab.profile" = "Profile";
 "community.title" = "Community";
 "community.feed" = "Feed";
 "community.my_posts" = "My Posts";
