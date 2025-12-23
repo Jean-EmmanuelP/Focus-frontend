@@ -797,6 +797,7 @@ struct WeekCalendarView: View {
         // Parse date string (YYYY-MM-DD)
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
+        dateFormatter.timeZone = TimeZone.current  // Use local timezone to avoid date shifts
         dateFormatter.locale = Locale(identifier: "en_US_POSIX")
 
         guard let baseDate = dateFormatter.date(from: task.date) else {
@@ -816,11 +817,25 @@ struct WeekCalendarView: View {
             if startComponents.count >= 2 && endComponents.count >= 2 {
                 let startHour = startComponents[0]
                 let startMinute = startComponents[1]
-                let endHour = endComponents[0]
+                var endHour = endComponents[0]
                 let endMinute = endComponents[1]
 
-                if let start = calendar.date(bySettingHour: startHour, minute: startMinute, second: 0, of: baseDate),
-                   let end = calendar.date(bySettingHour: endHour, minute: endMinute, second: 0, of: baseDate) {
+                // Handle midnight (00:00) as end of day (24:00)
+                // If end time is 00:00 and start time is in the evening, treat as midnight
+                if endHour == 0 && endMinute == 0 && startHour > 0 {
+                    endHour = 24
+                }
+
+                if let start = calendar.date(bySettingHour: startHour, minute: startMinute, second: 0, of: baseDate) {
+                    // For midnight (hour 24), use 23:59:59 or next day 00:00
+                    let end: Date
+                    if endHour == 24 {
+                        end = calendar.date(bySettingHour: 23, minute: 59, second: 59, of: baseDate) ?? start.addingTimeInterval(3600)
+                    } else if let endDate = calendar.date(bySettingHour: endHour, minute: endMinute, second: 0, of: baseDate) {
+                        end = endDate
+                    } else {
+                        end = start.addingTimeInterval(3600)
+                    }
                     return (start, end)
                 }
             }
@@ -2188,6 +2203,7 @@ struct QuickCreateTaskSheet: View {
     @FocusState private var isTitleFocused: Bool
 
     private let hours = Array(6...23)
+    private let endHours = Array(7...24)  // Include 24 for midnight (00:00)
 
     private var selectedQuest: Quest? {
         guard let questId = selectedQuestId else { return nil }
@@ -2281,8 +2297,9 @@ struct QuickCreateTaskSheet: View {
                                     .font(.satoshi(12))
                                     .foregroundColor(ColorTokens.textMuted)
                                 Picker("", selection: $endHour) {
-                                    ForEach(hours.filter { $0 > startHour }, id: \.self) { hour in
-                                        Text(String(format: "%02d:00", hour)).tag(hour)
+                                    ForEach(endHours.filter { $0 > startHour }, id: \.self) { hour in
+                                        // Display 24 as "00:00" (midnight)
+                                        Text(hour == 24 ? "00:00" : String(format: "%02d:00", hour)).tag(hour)
                                     }
                                 }
                                 .pickerStyle(.wheel)
@@ -2329,12 +2346,12 @@ struct QuickCreateTaskSheet: View {
                 let currentHour = Calendar.current.component(.hour, from: Date())
                 if hours.contains(currentHour) {
                     startHour = currentHour
-                    endHour = min(currentHour + 1, 23)
+                    endHour = min(currentHour + 1, 24)
                 }
             }
             .onChange(of: startHour) { _, newValue in
                 if endHour <= newValue {
-                    endHour = min(newValue + 1, 23)
+                    endHour = min(newValue + 1, 24)
                 }
             }
         }
@@ -2346,7 +2363,8 @@ struct QuickCreateTaskSheet: View {
         isCreating = true
 
         let startTime = String(format: "%02d:00", startHour)
-        let endTime = String(format: "%02d:00", endHour)
+        // Convert 24 to 00:00 for midnight
+        let endTime = endHour == 24 ? "00:00" : String(format: "%02d:00", endHour)
 
         Task {
             await viewModel.createTask(
@@ -2384,6 +2402,7 @@ struct QuickCreateTaskSheetWithTime: View {
     @FocusState private var isTitleFocused: Bool
 
     private let hours = Array(6...23)
+    private let endHours = Array(7...24)  // Include 24 for midnight (00:00)
 
     init(viewModel: CalendarViewModel, date: Date, startHour: Int, endHour: Int) {
         self.viewModel = viewModel
@@ -2391,7 +2410,7 @@ struct QuickCreateTaskSheetWithTime: View {
         self.startHour = startHour
         self.endHour = endHour
         _selectedStartHour = State(initialValue: startHour)
-        _selectedEndHour = State(initialValue: endHour)
+        _selectedEndHour = State(initialValue: min(endHour, 24))
     }
 
     // Get area from selected quest
@@ -2434,7 +2453,7 @@ struct QuickCreateTaskSheetWithTime: View {
                                 Button(String(format: "%02d:00", hour)) {
                                     selectedStartHour = hour
                                     if selectedEndHour <= hour {
-                                        selectedEndHour = min(hour + 1, 23)
+                                        selectedEndHour = min(hour + 1, 24)
                                     }
                                 }
                             }
@@ -2453,13 +2472,15 @@ struct QuickCreateTaskSheetWithTime: View {
 
                         // End time picker
                         Menu {
-                            ForEach(hours.filter { $0 > selectedStartHour }, id: \.self) { hour in
-                                Button(String(format: "%02d:00", hour)) {
+                            ForEach(endHours.filter { $0 > selectedStartHour }, id: \.self) { hour in
+                                // Display 24 as "00:00" (midnight)
+                                Button(hour == 24 ? "00:00" : String(format: "%02d:00", hour)) {
                                     selectedEndHour = hour
                                 }
                             }
                         } label: {
-                            Text(String(format: "%02d:00", selectedEndHour))
+                            // Display 24 as "00:00" (midnight)
+                            Text(selectedEndHour == 24 ? "00:00" : String(format: "%02d:00", selectedEndHour))
                                 .font(.satoshi(16, weight: .medium))
                                 .foregroundColor(ColorTokens.textPrimary)
                                 .padding(.horizontal, SpacingTokens.md)
@@ -2470,7 +2491,7 @@ struct QuickCreateTaskSheetWithTime: View {
 
                         Spacer()
 
-                        // Duration badge
+                        // Duration badge (24 - startHour for midnight)
                         let duration = selectedEndHour - selectedStartHour
                         Text("\(duration)h")
                             .font(.satoshi(13, weight: .medium))
@@ -2604,7 +2625,8 @@ struct QuickCreateTaskSheetWithTime: View {
         let dateStr = dateFormatter.string(from: date)
 
         let scheduledStart = String(format: "%02d:00", selectedStartHour)
-        let scheduledEnd = String(format: "%02d:00", selectedEndHour)
+        // Convert 24 to 00:00 for midnight
+        let scheduledEnd = selectedEndHour == 24 ? "00:00" : String(format: "%02d:00", selectedEndHour)
 
         // Determine time block from hour
         let timeBlock: String

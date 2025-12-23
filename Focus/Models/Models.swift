@@ -14,6 +14,7 @@ struct User: Codable, Identifiable {
     var hobbies: String?
     var lifeGoal: String?       // What they want to achieve
     var dayVisibility: String?  // public, crew, private
+    var productivityPeak: ProductivityPeak? // morning, afternoon, evening
     var currentStreak: Int
     var longestStreak: Int
 
@@ -160,6 +161,7 @@ struct AreaProgress: Identifiable {
 // MARK: - Daily Ritual
 struct DailyRitual: Codable, Identifiable {
     let id: String
+    var areaId: String?
     var title: String
     var icon: String
     var isCompleted: Bool
@@ -169,8 +171,9 @@ struct DailyRitual: Codable, Identifiable {
     var durationMinutes: Int? // Duration in minutes (default 30)
 
     // Simplified initializer for API conversion
-    init(id: String, title: String, icon: String, isCompleted: Bool, category: RitualCategory, frequency: RitualFrequency = .daily, scheduledTime: String? = nil, durationMinutes: Int? = nil) {
+    init(id: String, areaId: String? = nil, title: String, icon: String, isCompleted: Bool, category: RitualCategory, frequency: RitualFrequency = .daily, scheduledTime: String? = nil, durationMinutes: Int? = nil) {
         self.id = id
+        self.areaId = areaId
         self.title = title
         self.icon = icon
         self.isCompleted = isCompleted
@@ -296,26 +299,67 @@ struct MorningCheckIn: Codable, Identifiable {
     let intentions: [DailyIntention]
 }
 
+// MARK: - Productivity Peak
+enum ProductivityPeak: String, Codable, CaseIterable {
+    case morning = "morning"
+    case afternoon = "afternoon"
+    case evening = "evening"
+
+    var displayName: String {
+        switch self {
+        case .morning: return "productivity.morning".localized
+        case .afternoon: return "productivity.afternoon".localized
+        case .evening: return "productivity.evening".localized
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .morning: return "sunrise.fill"
+        case .afternoon: return "sun.max.fill"
+        case .evening: return "moon.stars.fill"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .morning: return "productivity.morning.description".localized
+        case .afternoon: return "productivity.afternoon.description".localized
+        case .evening: return "productivity.evening.description".localized
+        }
+    }
+
+    /// Time range for high concentration tasks
+    var peakHours: ClosedRange<Int> {
+        switch self {
+        case .morning: return 6...11
+        case .afternoon: return 12...17
+        case .evening: return 18...22
+        }
+    }
+}
+
 enum Feeling: String, Codable, CaseIterable {
-    case happy = "😊"
-    case calm = "😌"
-    case neutral = "😐"
+    // Ordered from worst to best mood
     case sad = "😔"
     case anxious = "😰"
     case frustrated = "😤"
-    case excited = "🤩"
     case tired = "🥱"
-    
+    case neutral = "😐"
+    case calm = "😌"
+    case happy = "😊"
+    case excited = "🤩"
+
     var label: String {
         switch self {
-        case .happy: return "Happy"
-        case .calm: return "Calm"
-        case .neutral: return "Neutral"
         case .sad: return "Sad"
         case .anxious: return "Anxious"
         case .frustrated: return "Frustrated"
-        case .excited: return "Excited"
         case .tired: return "Tired"
+        case .neutral: return "Neutral"
+        case .calm: return "Calm"
+        case .happy: return "Happy"
+        case .excited: return "Excited"
         }
     }
 }
@@ -371,6 +415,7 @@ extension User {
         self.hobbies = response.hobbies
         self.lifeGoal = response.lifeGoal
         self.dayVisibility = response.dayVisibility
+        self.productivityPeak = ProductivityPeak(rawValue: response.productivityPeak ?? "")
         self.currentStreak = 0
         self.longestStreak = 0
     }
@@ -380,6 +425,7 @@ extension DailyRitual {
     /// Create DailyRitual from API RoutineResponse
     init(from response: RoutineResponse) {
         self.id = response.id
+        self.areaId = response.areaId
         self.title = response.title
         self.icon = response.icon ?? "✨" // Default icon if none provided
         self.isCompleted = response.completed ?? false
@@ -441,6 +487,7 @@ extension DayProgress {
     init(from stat: DailySessionStat) {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
+        dateFormatter.timeZone = TimeZone.current  // Use local timezone to avoid date shifts
         let date = dateFormatter.date(from: stat.date) ?? Date()
 
         let dayFormatter = DateFormatter()

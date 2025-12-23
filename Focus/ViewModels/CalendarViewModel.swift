@@ -268,6 +268,7 @@ class CalendarViewModel: ObservableObject {
         let calendar = Calendar.current
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
+        dateFormatter.timeZone = TimeZone.current  // Use local timezone to avoid date shifts
         guard let date = dateFormatter.date(from: task.date) else { return 0 }
         let dayOfWeek = calendar.component(.weekday, from: date)
         // Adjust for week starting on Monday (if needed)
