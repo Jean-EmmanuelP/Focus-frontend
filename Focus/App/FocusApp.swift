@@ -7,12 +7,21 @@
 
 import SwiftUI
 import GoogleSignIn
+import RevenueCat
 
 @main
 struct FocusApp: App {
     @StateObject private var store = FocusAppStore.shared
     @StateObject private var router = AppRouter.shared
+    @ObservedObject private var revenueCatManager = RevenueCatManager.shared
+    @StateObject private var updateService = AppUpdateService.shared
     @State private var appState: AppLaunchState = .splash
+    @State private var showUpdateSheet = false
+
+    init() {
+        // Configure RevenueCat on app launch
+        RevenueCatManager.shared.configure()
+    }
 
     enum AppLaunchState {
         case splash
@@ -42,9 +51,13 @@ struct FocusApp: App {
 
                     case .ready:
                         // Debug: log state changes
-                        let _ = print("📱 FocusApp ready state: isAuth=\(store.isAuthenticated), hasCompleted=\(store.hasCompletedOnboarding), isChecking=\(store.isCheckingOnboarding)")
+                        let _ = print("📱 FocusApp ready state: isAuth=\(store.isAuthenticated), hasCompleted=\(store.hasCompletedOnboarding), isChecking=\(store.isCheckingOnboarding), forceOnboarding=\(AppConfiguration.Debug.forceShowOnboarding)")
 
-                        if store.isAuthenticated && store.hasCompletedOnboarding {
+                        // DEBUG: Force show onboarding if flag is set (dev only)
+                        if AppConfiguration.Debug.forceShowOnboarding && store.isAuthenticated {
+                            OnboardingView()
+                                .transition(.opacity)
+                        } else if store.isAuthenticated && store.hasCompletedOnboarding {
                             // User is authenticated AND has completed onboarding
                             MainTabView()
                                 .transition(.opacity)
@@ -66,12 +79,24 @@ struct FocusApp: App {
             }
             .environmentObject(store)
             .environmentObject(router)
+            .environmentObject(revenueCatManager)
             .preferredColorScheme(.dark)
             .animation(.easeInOut(duration: 0.3), value: store.hasCompletedOnboarding)
             .animation(.easeInOut(duration: 0.3), value: store.isAuthenticated)
             .animation(.easeInOut(duration: 0.3), value: store.isCheckingOnboarding)
             .onOpenURL { url in
                 handleDeepLink(url)
+            }
+            .task {
+                // Check for app updates on launch
+                await updateService.checkForUpdate()
+                if updateService.updateAvailable {
+                    showUpdateSheet = true
+                }
+            }
+            .sheet(isPresented: $showUpdateSheet) {
+                UpdateAvailableSheet(updateService: updateService)
+                    .presentationDetents([.medium])
             }
             // Note: Onboarding status is checked in FocusAppStore.handleAuthServiceUpdate()
         }

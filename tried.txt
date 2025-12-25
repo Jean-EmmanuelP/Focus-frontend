@@ -1,0 +1,306 @@
+# ANALYSE COMPLETE - SYNCHRONISATION GOOGLE CALENDAR (Tasks uniquement)
+
+================================================================================
+## ETAT ACTUEL APRES SUPPRESSION SYNC ROUTINES
+================================================================================
+
+La synchronisation Google Calendar ne concerne maintenant que les **TASKS**.
+Les routines restent locales à Volta uniquement.
+
+### Fichiers impliqués:
+- `internal/googlecalendar/handler.go` - Toute la logique sync
+- `internal/calendar/handler.go` - Appelle les fonctions sync lors de CRUD tasks
+- `cmd/api/main.go` - Connecte calendarHandler au googleCalendarHandler
+
+### Fonctions de sync actives:
+1. `SyncTaskToGoogleCalendar()` - Sync une task Focus → Google
+2. `DeleteGoogleCalendarEvent()` - Supprime un event Google
+3. `SyncAllTasksToGoogleCalendar()` - Sync toutes les tasks futures
+4. `syncTasksToGoogle()` - Sync batch (tasks modifiées depuis dernier sync)
+5. `importEventsFromGoogle()` - Import Google → Focus
+
+================================================================================
+## TOUS LES SCENARIOS - FOCUS → GOOGLE CALENDAR
+================================================================================
+
+### Scénario 1: CRÉATION d'une task dans Focus
+**Déclencheur:** POST /calendar/tasks
+**Flux:**
+1. Task créée dans DB (sans google_event_id)
+2. Goroutine async appelle `SyncTaskToGoogleCalendar()`
+3. Vérifie: config existe, is_enabled, sync_direction (bidirectional/to_google)
+4. Vérifie: token non expiré
+5. `SELECT google_event_id FROM tasks WHERE id = $1` → NULL
+6. POST vers Google Calendar API → crée event
+7. UPDATE tasks SET google_event_id, google_calendar_id, last_synced_at
+
+**✅ Résultat:** Task créée dans Focus ET event créé dans Google
+**⚠️ Risque:** Si goroutine échoue, task existe sans event Google (orphelin côté Focus)
+
+---
+
+### Scénario 2: MODIFICATION d'une task dans Focus
+**Déclencheur:** PATCH /calendar/tasks/{id}
+**Flux:**
+1. Task modifiée dans DB
+2. Goroutine async appelle `SyncTaskToGoogleCalendar()`
+3. `SELECT google_event_id FROM tasks WHERE id = $1` → "abc123"
+4. PATCH vers Google Calendar API avec l'ID existant
+5. UPDATE tasks SET last_synced_at = now()
+
+**✅ Résultat:** Modifications propagées vers Google Calendar
+**✅ Pas de doublon:** Utilise l'ID existant pour PATCH
+
+---
+
+### Scénario 3: SUPPRESSION d'une task dans Focus
+**Déclencheur:** DELETE /calendar/tasks/{id}
+**Flux:**
+1. `SELECT google_event_id FROM tasks WHERE id = $1` AVANT suppression
+2. DELETE FROM tasks WHERE id = $1
+3. SI google_event_id existe: goroutine async appelle `DeleteGoogleCalendarEvent()`
+4. DELETE vers Google Calendar API
+
+**✅ Résultat:** Task supprimée de Focus ET event supprimé de Google
+**✅ Gère 404:** Si event déjà supprimé côté Google, pas d'erreur
+
+---
+
+### Scénario 4: SYNC MANUELLE (bouton "Sync Now")
+**Déclencheur:** POST /google-calendar/sync
+**Flux:**
+1. Appelle `performSync()` qui:
+   - `syncTasksToGoogle()`: Tasks où google_event_id IS NULL OR last_synced_at < updated_at
+   - `importEventsFromGoogle()`: Importe events des 30 prochains jours
+
+**✅ Résultat:** Sync bidirectionnelle complète
+**⚠️ Limite:** Maximum 50 tasks synced, 100 events importés par appel
+
+---
+
+### Scénario 5: CONNEXION INITIALE (après OAuth)
+**Déclencheur:** POST /google-calendar/tokens
+**Flux:**
+1. Sauvegarde access_token, refresh_token, token_expiry
+2. Goroutine async appelle `SyncAllTasksToGoogleCalendar()`
+3. Sync toutes les tasks futures (date >= CURRENT_DATE)
+
+**✅ Résultat:** Toutes les tasks existantes sont poussées vers Google
+
+================================================================================
+## TOUS LES SCENARIOS - GOOGLE CALENDAR → FOCUS
+================================================================================
+
+### Scénario 6: CRÉATION d'un event dans Google Calendar
+**Déclencheur:** POST /google-calendar/sync (manuel)
+**Flux:**
+1. Fetch events des 30 prochains jours depuis Google
+2. Pour chaque event:
+   - Skip si summary vide
+   - Skip si commence par "🔄" (ancien préfixe routine)
+3. `SELECT id FROM tasks WHERE google_event_id = $1` → pas trouvé
+4. INSERT INTO tasks avec google_event_id
+
+**✅ Résultat:** Nouvel event Google devient task dans Focus
+**⚠️ Pas automatique:** Nécessite sync manuelle
+
+---
+
+### Scénario 7: MODIFICATION d'un event dans Google Calendar
+**Déclencheur:** POST /google-calendar/sync (manuel)
+**Flux:**
+1. `SELECT id, updated_at FROM tasks WHERE google_event_id = $1` → trouvé
+2. Compare timestamps: `googleUpdated.After(existingUpdatedAt)`
+3. SI Google plus récent: UPDATE tasks SET title, description, date, scheduled_start, scheduled_end
+
+**✅ Résultat:** Modifications Google propagées vers Focus (si Google plus récent)
+**✅ Gestion conflits:** Google gagne si plus récent
+
+---
+
+### Scénario 8: SUPPRESSION d'un event dans Google Calendar
+**Déclencheur:** POST /google-calendar/sync (manuel)
+**Flux:**
+1. Google retourne event avec status="cancelled"
+2. `DELETE FROM tasks WHERE user_id = $1 AND google_event_id = $2`
+
+**✅ Résultat:** Task supprimée de Focus
+
+---
+
+### Scénario 9: Event all-day dans Google Calendar
+**Flux:**
+1. event.Start.Date existe mais event.Start.DateTime est vide
+2. Utilise event.Start.Date directement comme eventDate
+3. scheduled_start et scheduled_end restent NULL
+
+**✅ Résultat:** Task créée sans heures (all-day)
+
+================================================================================
+## SCENARIOS DE RACE CONDITION
+================================================================================
+
+### Scénario 10: DOUBLE CRÉATION RAPIDE (même task)
+**Situation:** Appui rapide 2x sur "Créer" ou latence réseau
+**Flux potentiel:**
+```
+T1: Goroutine 1 → SELECT google_event_id → NULL
+T2: Goroutine 2 → SELECT google_event_id → NULL (pas encore sauvé!)
+T3: Goroutine 1 → POST → crée event A
+T4: Goroutine 2 → POST → crée event B (DOUBLON!)
+T5: Goroutine 1 → UPDATE SET google_event_id = A
+T6: Goroutine 2 → UPDATE SET google_event_id = B (écrase A!)
+```
+
+**⚠️ PROBLÈME:**
+- 2 events créés dans Google Calendar
+- Event A devient orphelin (non tracké)
+- Seul event B est référencé
+
+**Probabilité:** Faible (nécessite timing précis)
+**Impact:** Events orphelins dans Google Calendar
+
+---
+
+### Scénario 11: MODIFICATION + SYNC BATCH en parallèle
+**Situation:** User modifie task pendant qu'un sync batch tourne
+**Flux potentiel:**
+1. Sync batch lit task avec ancien titre "A"
+2. User modifie titre en "B", déclenche goroutine
+3. Goroutine sync "B" vers Google
+4. Sync batch sync "A" vers Google (écrase "B")
+
+**⚠️ PROBLÈME:** Données incohérentes temporaires
+**Résolution:** La prochaine modification ou sync corrigera
+
+---
+
+### Scénario 12: SUPPRESSION pendant SYNC en cours
+**Situation:** User supprime task pendant que sync crée l'event
+**Flux potentiel:**
+1. CreateTask → goroutine démarre pour sync
+2. User supprime immédiatement la task
+3. Task supprimée de DB
+4. Goroutine tente UPDATE SET google_event_id → échec silencieux
+5. Event créé dans Google mais task n'existe plus
+
+**⚠️ PROBLÈME:** Event orphelin dans Google Calendar
+
+================================================================================
+## PROBLEMES CRITIQUES IDENTIFIES
+================================================================================
+
+### 🔴 1. TOKEN REFRESH NON IMPLÉMENTÉ
+**Fichier:** googlecalendar/handler.go:812-816
+```go
+if time.Now().After(config.TokenExpiry) {
+    log.Printf("[SyncTaskToGoogleCalendar] Token expired for user %s", userID)
+    return nil // Don't fail the task creation, just skip sync
+}
+```
+
+**Impact:**
+- Token Google expire après ~1 heure
+- Aucun refresh automatique
+- Sync arrête silencieusement de fonctionner
+- User ne sait pas que sync est cassée
+
+**Solution requise:** Utiliser refresh_token pour obtenir nouveau access_token
+
+---
+
+### 🔴 2. TASKS PRIVÉES SYNCHRONISÉES
+**Fichier:** Le champ `is_private` existe dans tasks mais n'est PAS vérifié
+
+**Code manquant dans SyncTaskToGoogleCalendar:**
+```go
+// NE VÉRIFIE PAS is_private AVANT DE SYNC
+```
+
+**Impact:** Tasks marquées "privées" sont visibles dans Google Calendar partagé
+
+---
+
+### 🔴 3. PAS DE RETRY LOGIC
+**Situation:** Erreur réseau ou API → sync échoue définitivement
+
+**Impact:**
+- Task créée dans Focus sans event Google
+- Pas de file d'attente de retry
+- Erreur juste loggée
+
+---
+
+### 🟡 4. LIMITE PAGINATION
+**syncTasksToGoogle:** LIMIT 50
+**importEventsFromGoogle:** maxResults=100
+
+**Impact:** Calendriers chargés ne sync pas complètement en une fois
+
+---
+
+### 🟡 5. PAS DE PUSH NOTIFICATIONS
+**Situation:** Changements dans Google Calendar nécessitent sync manuelle
+
+**Impact:** Sync pas temps réel, uniquement par polling/manuel
+
+================================================================================
+## VERIFICATION FONCTIONNELLE
+================================================================================
+
+| # | Scénario | Direction | Statut | Notes |
+|---|----------|-----------|--------|-------|
+| 1 | Créer task | Focus→Google | ✅ | Async via goroutine |
+| 2 | Modifier task | Focus→Google | ✅ | PATCH avec event ID existant |
+| 3 | Supprimer task | Focus→Google | ✅ | DELETE event |
+| 4 | Créer event Google | Google→Focus | ✅ | Sur sync manuelle |
+| 5 | Modifier event Google | Google→Focus | ✅ | Si Google plus récent |
+| 6 | Supprimer event Google | Google→Focus | ✅ | status=cancelled |
+| 7 | Event all-day | Google→Focus | ✅ | Parse date sans heure |
+| 8 | Task sans heures | Focus→Google | ✅ | Défaut 09:00-10:00 |
+| 9 | Sync direction to_google | Focus→Google | ✅ | Skip import |
+| 10 | Sync direction from_google | Google→Focus | ✅ | Skip export |
+| 11 | Token expiré | Tous | ⚠️ | Sync silencieusement ignorée |
+| 12 | Task privée | Focus→Google | ⚠️ | Sync quand même (bug) |
+| 13 | Double création rapide | Focus→Google | ⚠️ | Doublon possible |
+| 14 | Event routine 🔄 | Google→Focus | ✅ | Skip (ne crée pas de task) |
+
+================================================================================
+## CONCLUSION
+================================================================================
+
+### Ce qui fonctionne bien ✅
+1. Sync bidirectionnelle basique pour les tasks
+2. Gestion des conflits (Google gagne si plus récent)
+3. Suppression propagée dans les deux sens
+4. Events all-day correctement gérés
+5. Routines correctement exclues de la sync
+
+### Ce qui doit être corrigé 🔴
+1. **Token refresh** - CRITIQUE - sync casse après 1h
+2. **Tasks privées** - Ne pas sync les tasks is_private=true
+3. **Retry logic** - Réessayer les sync échouées
+
+### Améliorations futures 🟡
+1. Pagination pour gros calendriers (>100 events)
+2. Webhook Google pour sync temps réel
+3. Notification utilisateur en cas d'erreur sync
+4. Mutex/transaction pour éviter race conditions
+
+================================================================================
+## RECOMMANDATION FINALE
+================================================================================
+
+La synchronisation Google Calendar pour les tasks est **FONCTIONNELLE** pour un usage normal.
+
+**Risques acceptables:**
+- Race condition (probabilité faible, impact faible)
+- Limite 100 events (peu d'utilisateurs concernés)
+
+**À corriger avant production stable:**
+1. ⚠️ Token refresh automatique
+2. ⚠️ Exclure tasks privées de la sync
+
+Le code actuel peut être utilisé en l'état avec la connaissance que:
+- Le token expire après 1h et nécessite reconnexion Google
+- Les tasks privées apparaîtront dans Google Calendar

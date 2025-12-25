@@ -20,10 +20,10 @@ struct SaveGoogleTokensRequest: Codable {
     let googleEmail: String
 
     enum CodingKeys: String, CodingKey {
-        case accessToken = "accessToken"
-        case refreshToken = "refreshToken"
-        case expiresIn = "expiresIn"
-        case googleEmail = "googleEmail"
+        case accessToken = "access_token"
+        case refreshToken = "refresh_token"
+        case expiresIn = "expires_in"
+        case googleEmail = "google_email"
     }
 }
 
@@ -84,6 +84,10 @@ class GoogleCalendarService: ObservableObject {
     // Stored tokens (in memory - will use backend for persistence)
     private var accessToken: String?
     private var refreshToken: String?
+
+    // Throttle sync to avoid too many API calls
+    private var lastSyncTime: Date?
+    private let minSyncInterval: TimeInterval = 60 // Minimum 1 minute between syncs
 
     private init() {}
 
@@ -177,7 +181,10 @@ class GoogleCalendarService: ObservableObject {
     /// Trigger manual sync
     func syncNow() async throws -> GoogleSyncResult {
         isSyncing = true
-        defer { isSyncing = false }
+        defer {
+            isSyncing = false
+            lastSyncTime = Date()
+        }
 
         let result: GoogleSyncResult = try await APIClient.shared.request(
             endpoint: .googleCalendarSync,
@@ -190,6 +197,45 @@ class GoogleCalendarService: ObservableObject {
         return result
     }
 
+    /// Sync if enough time has passed since last sync (throttled)
+    /// Returns true if sync was performed, false if skipped due to throttle
+    @discardableResult
+    func syncIfNeeded() async -> Bool {
+        guard config?.isConnected == true && config?.isEnabled == true else {
+            return false
+        }
+
+        // Check throttle
+        if let lastSync = lastSyncTime, Date().timeIntervalSince(lastSync) < minSyncInterval {
+            print("[GoogleCalendarService] Sync skipped - last sync was \(Int(Date().timeIntervalSince(lastSync)))s ago")
+            return false
+        }
+
+        do {
+            let _ = try await syncNow()
+            print("[GoogleCalendarService] Auto-sync completed")
+            return true
+        } catch {
+            print("[GoogleCalendarService] Auto-sync failed: \(error.localizedDescription)")
+            return false
+        }
+    }
+
+    /// Check and trigger weekly routine sync if needed (call on app launch)
+    func checkWeeklySync() async {
+        guard config?.isConnected == true && config?.isEnabled == true else {
+            return
+        }
+
+        do {
+            try await APIClient.shared.request(
+                endpoint: .googleCalendarCheckWeekly,
+                method: .get
+            )
+        } catch {
+            print("[GoogleCalendarService] Weekly sync check failed: \(error.localizedDescription)")
+        }
+    }
 
     // MARK: - Google Calendar API Direct Methods (using stored access token)
 

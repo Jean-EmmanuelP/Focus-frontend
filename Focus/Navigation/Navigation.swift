@@ -5,13 +5,17 @@ import Combine
 enum AppTab: Int, CaseIterable {
     case dashboard = 0
     case calendar = 1
-    case crew = 2
+    case community = 2
+    case crew = 3
+    case profile = 4
 
     var title: String {
         switch self {
         case .dashboard: return "tab.dashboard".localized
         case .calendar: return "tab.calendar".localized
+        case .community: return "tab.community".localized
         case .crew: return "tab.crew".localized
+        case .profile: return "tab.profile".localized
         }
     }
 
@@ -19,7 +23,9 @@ enum AppTab: Int, CaseIterable {
         switch self {
         case .dashboard: return "house.fill"
         case .calendar: return "calendar"
+        case .community: return "photo.stack"
         case .crew: return "person.3.fill"
+        case .profile: return "person.circle.fill"
         }
     }
 }
@@ -147,6 +153,15 @@ struct MainTabView: View {
             }
             .tag(AppTab.calendar)
 
+            // Community
+            NavigationStack {
+                CommunityView()
+            }
+            .tabItem {
+                Label(AppTab.community.title, systemImage: AppTab.community.icon)
+            }
+            .tag(AppTab.community)
+
             // Crew
             NavigationStack {
                 CrewView()
@@ -155,10 +170,19 @@ struct MainTabView: View {
                 Label(AppTab.crew.title, systemImage: AppTab.crew.icon)
             }
             .tag(AppTab.crew)
+
+            // Profile
+            NavigationStack {
+                ProfileView()
+            }
+            .tabItem {
+                Label(AppTab.profile.title, systemImage: AppTab.profile.icon)
+            }
+            .tag(AppTab.profile)
         }
         .accentColor(ColorTokens.primaryStart)
         .fullScreenCover(isPresented: $router.showStartTheDay) {
-            StartTheDayVoiceView()
+            PlanYourDayView()
         }
         .sheet(isPresented: $router.showEndOfDay) {
             NavigationStack {
@@ -193,7 +217,7 @@ struct MainTabView: View {
     private func destinationView(for destination: NavigationDestination) -> some View {
         switch destination {
         case .startTheDay:
-            StartTheDayVoiceView()
+            PlanYourDayView()
         case .endOfDay:
             EndOfDayView()
         case .focusSession:

@@ -671,10 +671,11 @@ final class FocusAppStore: ObservableObject {
         await refresh()
     }
 
-    func updateRitual(id: String, title: String?, frequency: String?, icon: String?, scheduledTime: String? = nil, durationMinutes: Int? = nil) async throws {
-        print("📝 AppStore.updateRitual: id=\(id), scheduledTime=\(scheduledTime ?? "nil"), durationMinutes=\(durationMinutes ?? 0)")
+    func updateRitual(id: String, areaId: String? = nil, title: String?, frequency: String?, icon: String?, scheduledTime: String? = nil, durationMinutes: Int? = nil) async throws {
+        print("📝 AppStore.updateRitual: id=\(id), areaId=\(areaId ?? "nil"), scheduledTime=\(scheduledTime ?? "nil"), durationMinutes=\(durationMinutes ?? 0)")
         _ = try await routineService.updateRoutine(
             id: id,
+            areaId: areaId,
             title: title,
             frequency: frequency,
             icon: icon,

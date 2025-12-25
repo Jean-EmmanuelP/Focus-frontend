@@ -306,8 +306,9 @@ class RoutineService {
         )
     }
 
-    func updateRoutine(id: String, title: String?, frequency: String?, icon: String?, scheduledTime: String? = nil, durationMinutes: Int? = nil) async throws -> RoutineResponse {
+    func updateRoutine(id: String, areaId: String? = nil, title: String?, frequency: String?, icon: String?, scheduledTime: String? = nil, durationMinutes: Int? = nil) async throws -> RoutineResponse {
         struct UpdateRoutineRequest: Encodable {
+            let areaId: String?
             let title: String?
             let frequency: String?
             let icon: String?
@@ -315,7 +316,7 @@ class RoutineService {
             let durationMinutes: Int?
         }
 
-        let request = UpdateRoutineRequest(title: title, frequency: frequency, icon: icon, scheduledTime: scheduledTime, durationMinutes: durationMinutes)
+        let request = UpdateRoutineRequest(areaId: areaId, title: title, frequency: frequency, icon: icon, scheduledTime: scheduledTime, durationMinutes: durationMinutes)
 
         return try await apiClient.request(
             endpoint: .updateRoutine(id),

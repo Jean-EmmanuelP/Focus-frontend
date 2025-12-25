@@ -1,0 +1,127 @@
+{
+  "appPolicies" : {
+    "eula" : "",
+    "policies" : [
+      {
+        "locale" : "en_US",
+        "policyText" : "",
+        "policyURL" : ""
+      }
+    ]
+  },
+  "identifier" : "D74E7E74",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+
+  ],
+  "settings" : {
+    "_applicationInternalID" : "6756152409",
+    "_askToBuyEnabled" : false,
+    "_billingGracePeriodEnabled" : false,
+    "_billingIssuesEnabled" : false,
+    "_developerTeamID" : "62NW6K29QN",
+    "_disableDialogs" : false,
+    "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 787748841.74806404,
+    "_locale" : "en_US",
+    "_renewalBillingIssuesEnabled" : false,
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+
+    ],
+    "_timeRate" : 0
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "21862787",
+      "localizations" : [
+
+      ],
+      "name" : "Volta Premium",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "8.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "6756679933",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Acceso premium mensual a todas las funciones",
+              "displayName" : "Suscripción mensual",
+              "locale" : "es_ES"
+            },
+            {
+              "description" : "Accès premium mensuel à toutes les fonctionnalités",
+              "displayName" : "Abonnement mensuel",
+              "locale" : "fr"
+            },
+            {
+              "description" : "Monthly premium access to all features",
+              "displayName" : "Monthly subscription",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.volta.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Monthly",
+          "subscriptionGroupID" : "21862787",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "69.99",
+          "familyShareable" : false,
+          "groupNumber" : 2,
+          "internalID" : "6756682170",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Acceso premium anual con 33% de descuento",
+              "displayName" : "Suscripción anual",
+              "locale" : "es_ES"
+            },
+            {
+              "description" : "Annual premium access with 33% discount",
+              "displayName" : "Yearly subscription",
+              "locale" : "en_US"
+            },
+            {
+              "description" : "Accès premium annuel avec 33% de réduction",
+              "displayName" : "Abonnement annuel",
+              "locale" : "fr"
+            }
+          ],
+          "productID" : "com.volta.yearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Yearly",
+          "subscriptionGroupID" : "21862787",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}

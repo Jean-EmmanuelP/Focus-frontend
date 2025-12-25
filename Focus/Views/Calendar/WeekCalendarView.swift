@@ -2188,22 +2188,61 @@ struct VoiceInputSheet: View {
     }
 }
 
+// MARK: - Time Slot Helper
+struct TimeSlot: Hashable, Identifiable {
+    let hour: Int
+    let minute: Int
+
+    var id: String { displayString }
+
+    var displayString: String {
+        String(format: "%02d:%02d", hour, minute)
+    }
+
+    var totalMinutes: Int {
+        hour * 60 + minute
+    }
+
+    static func < (lhs: TimeSlot, rhs: TimeSlot) -> Bool {
+        lhs.totalMinutes < rhs.totalMinutes
+    }
+
+    static func > (lhs: TimeSlot, rhs: TimeSlot) -> Bool {
+        lhs.totalMinutes > rhs.totalMinutes
+    }
+
+    static func generateSlots(from startHour: Int, to endHour: Int, includeEndMidnight: Bool = false) -> [TimeSlot] {
+        var slots: [TimeSlot] = []
+        for h in startHour..<endHour {
+            slots.append(TimeSlot(hour: h, minute: 0))
+            slots.append(TimeSlot(hour: h, minute: 30))
+        }
+        // Add final hour
+        slots.append(TimeSlot(hour: endHour, minute: 0))
+        if includeEndMidnight && endHour == 23 {
+            slots.append(TimeSlot(hour: 23, minute: 30))
+            slots.append(TimeSlot(hour: 0, minute: 0)) // midnight
+        }
+        return slots
+    }
+}
+
 // MARK: - Quick Create Task Sheet
 struct QuickCreateTaskSheet: View {
     @ObservedObject var viewModel: CalendarViewModel
     @Environment(\.dismiss) private var dismiss
 
     @State private var title = ""
-    @State private var startHour = 9
-    @State private var endHour = 10
+    @State private var startSlot = TimeSlot(hour: 9, minute: 0)
+    @State private var endSlot = TimeSlot(hour: 10, minute: 0)
     @State private var selectedPriority = "medium"
     @State private var selectedQuestId: String? = nil
     @State private var isCreating = false
     @State private var isPrivate = false
     @FocusState private var isTitleFocused: Bool
 
-    private let hours = Array(6...23)
-    private let endHours = Array(7...24)  // Include 24 for midnight (00:00)
+    private let startSlots = TimeSlot.generateSlots(from: 6, to: 23)
+    private let endSlots = TimeSlot.generateSlots(from: 6, to: 23, includeEndMidnight: true)
 
     private var selectedQuest: Quest? {
         guard let questId = selectedQuestId else { return nil }
@@ -2276,9 +2315,9 @@ struct QuickCreateTaskSheet: View {
                                 Text("Debut")
                                     .font(.satoshi(12))
                                     .foregroundColor(ColorTokens.textMuted)
-                                Picker("", selection: $startHour) {
-                                    ForEach(hours, id: \.self) { hour in
-                                        Text(String(format: "%02d:00", hour)).tag(hour)
+                                Picker("", selection: $startSlot) {
+                                    ForEach(startSlots) { slot in
+                                        Text(slot.displayString).tag(slot)
                                     }
                                 }
                                 .pickerStyle(.wheel)
@@ -2296,10 +2335,9 @@ struct QuickCreateTaskSheet: View {
                                 Text("Fin")
                                     .font(.satoshi(12))
                                     .foregroundColor(ColorTokens.textMuted)
-                                Picker("", selection: $endHour) {
-                                    ForEach(endHours.filter { $0 > startHour }, id: \.self) { hour in
-                                        // Display 24 as "00:00" (midnight)
-                                        Text(hour == 24 ? "00:00" : String(format: "%02d:00", hour)).tag(hour)
+                                Picker("", selection: $endSlot) {
+                                    ForEach(endSlots.filter { $0 > startSlot }) { slot in
+                                        Text(slot.displayString).tag(slot)
                                     }
                                 }
                                 .pickerStyle(.wheel)
@@ -2344,14 +2382,18 @@ struct QuickCreateTaskSheet: View {
                 isTitleFocused = true
                 // Set default to current hour if within range
                 let currentHour = Calendar.current.component(.hour, from: Date())
-                if hours.contains(currentHour) {
-                    startHour = currentHour
-                    endHour = min(currentHour + 1, 24)
+                if currentHour >= 6 && currentHour <= 23 {
+                    startSlot = TimeSlot(hour: currentHour, minute: 0)
+                    endSlot = TimeSlot(hour: min(currentHour + 1, 23), minute: 0)
                 }
             }
-            .onChange(of: startHour) { _, newValue in
-                if endHour <= newValue {
-                    endHour = min(newValue + 1, 24)
+            .onChange(of: startSlot) { _, newValue in
+                if endSlot.totalMinutes <= newValue.totalMinutes {
+                    // Set end to 30 min after start
+                    let newEndMinutes = newValue.totalMinutes + 30
+                    let newEndHour = min(newEndMinutes / 60, 23)
+                    let newEndMinute = newEndMinutes % 60
+                    endSlot = TimeSlot(hour: newEndHour, minute: newEndMinute)
                 }
             }
         }
@@ -2362,9 +2404,8 @@ struct QuickCreateTaskSheet: View {
         guard !title.isEmpty else { return }
         isCreating = true
 
-        let startTime = String(format: "%02d:00", startHour)
-        // Convert 24 to 00:00 for midnight
-        let endTime = endHour == 24 ? "00:00" : String(format: "%02d:00", endHour)
+        let startTime = startSlot.displayString
+        let endTime = endSlot.displayString
 
         Task {
             await viewModel.createTask(
@@ -2394,23 +2435,23 @@ struct QuickCreateTaskSheetWithTime: View {
 
     @State private var title = ""
     @State private var selectedQuestId: String?
-    @State private var selectedStartHour: Int
-    @State private var selectedEndHour: Int
+    @State private var selectedStartSlot: TimeSlot
+    @State private var selectedEndSlot: TimeSlot
     @State private var isCreating = false
     @State private var showQuestPicker = false
     @State private var isPrivate = false
     @FocusState private var isTitleFocused: Bool
 
-    private let hours = Array(6...23)
-    private let endHours = Array(7...24)  // Include 24 for midnight (00:00)
+    private let startSlots = TimeSlot.generateSlots(from: 6, to: 23)
+    private let endSlots = TimeSlot.generateSlots(from: 6, to: 23, includeEndMidnight: true)
 
     init(viewModel: CalendarViewModel, date: Date, startHour: Int, endHour: Int) {
         self.viewModel = viewModel
         self.date = date
         self.startHour = startHour
         self.endHour = endHour
-        _selectedStartHour = State(initialValue: startHour)
-        _selectedEndHour = State(initialValue: min(endHour, 24))
+        _selectedStartSlot = State(initialValue: TimeSlot(hour: startHour, minute: 0))
+        _selectedEndSlot = State(initialValue: TimeSlot(hour: min(endHour, 23), minute: 0))
     }
 
     // Get area from selected quest
@@ -2449,16 +2490,20 @@ struct QuickCreateTaskSheetWithTime: View {
 
                         // Start time picker
                         Menu {
-                            ForEach(hours, id: \.self) { hour in
-                                Button(String(format: "%02d:00", hour)) {
-                                    selectedStartHour = hour
-                                    if selectedEndHour <= hour {
-                                        selectedEndHour = min(hour + 1, 24)
+                            ForEach(startSlots) { slot in
+                                Button(slot.displayString) {
+                                    selectedStartSlot = slot
+                                    if selectedEndSlot.totalMinutes <= slot.totalMinutes {
+                                        // Set end to 30 min after start
+                                        let newEndMinutes = slot.totalMinutes + 30
+                                        let newEndHour = min(newEndMinutes / 60, 23)
+                                        let newEndMinute = newEndMinutes % 60
+                                        selectedEndSlot = TimeSlot(hour: newEndHour, minute: newEndMinute)
                                     }
                                 }
                             }
                         } label: {
-                            Text(String(format: "%02d:00", selectedStartHour))
+                            Text(selectedStartSlot.displayString)
                                 .font(.satoshi(16, weight: .medium))
                                 .foregroundColor(ColorTokens.textPrimary)
                                 .padding(.horizontal, SpacingTokens.md)
@@ -2472,15 +2517,13 @@ struct QuickCreateTaskSheetWithTime: View {
 
                         // End time picker
                         Menu {
-                            ForEach(endHours.filter { $0 > selectedStartHour }, id: \.self) { hour in
-                                // Display 24 as "00:00" (midnight)
-                                Button(hour == 24 ? "00:00" : String(format: "%02d:00", hour)) {
-                                    selectedEndHour = hour
+                            ForEach(endSlots.filter { $0 > selectedStartSlot }) { slot in
+                                Button(slot.displayString) {
+                                    selectedEndSlot = slot
                                 }
                             }
                         } label: {
-                            // Display 24 as "00:00" (midnight)
-                            Text(selectedEndHour == 24 ? "00:00" : String(format: "%02d:00", selectedEndHour))
+                            Text(selectedEndSlot.displayString)
                                 .font(.satoshi(16, weight: .medium))
                                 .foregroundColor(ColorTokens.textPrimary)
                                 .padding(.horizontal, SpacingTokens.md)
@@ -2491,9 +2534,10 @@ struct QuickCreateTaskSheetWithTime: View {
 
                         Spacer()
 
-                        // Duration badge (24 - startHour for midnight)
-                        let duration = selectedEndHour - selectedStartHour
-                        Text("\(duration)h")
+                        // Duration badge
+                        let durationMinutes = selectedEndSlot.totalMinutes - selectedStartSlot.totalMinutes
+                        let durationText = durationMinutes >= 60 ? "\(durationMinutes / 60)h\(durationMinutes % 60 > 0 ? String(durationMinutes % 60) : "")" : "\(durationMinutes)m"
+                        Text(durationText)
                             .font(.satoshi(13, weight: .medium))
                             .foregroundColor(ColorTokens.primaryStart)
                             .padding(.horizontal, SpacingTokens.sm)
@@ -2624,15 +2668,14 @@ struct QuickCreateTaskSheetWithTime: View {
         dateFormatter.dateFormat = "yyyy-MM-dd"
         let dateStr = dateFormatter.string(from: date)
 
-        let scheduledStart = String(format: "%02d:00", selectedStartHour)
-        // Convert 24 to 00:00 for midnight
-        let scheduledEnd = selectedEndHour == 24 ? "00:00" : String(format: "%02d:00", selectedEndHour)
+        let scheduledStart = selectedStartSlot.displayString
+        let scheduledEnd = selectedEndSlot.displayString
 
         // Determine time block from hour
         let timeBlock: String
-        if selectedStartHour < 12 {
+        if selectedStartSlot.hour < 12 {
             timeBlock = "morning"
-        } else if selectedStartHour < 18 {
+        } else if selectedStartSlot.hour < 18 {
             timeBlock = "afternoon"
         } else {
             timeBlock = "evening"

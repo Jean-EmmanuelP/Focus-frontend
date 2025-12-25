@@ -2,9 +2,10 @@ import SwiftUI
 import AuthenticationServices
 import Combine
 import StoreKit
+import RevenueCat
 
 // MARK: - Onboarding Step Enum
-// Ordre: SignIn -> Questions -> TOUS les problemes -> TOUTES les solutions -> Reviews -> Fin
+// Ordre: SignIn -> Questions -> TOUS les problemes -> TOUTES les solutions -> Recap -> Paywall -> Commitment -> Fin
 enum OnboardingStep: Int, CaseIterable {
     case signIn = 0
     case projectStatus = 1
@@ -18,9 +19,12 @@ enum OnboardingStep: Int, CaseIterable {
     case solution1 = 7
     case solution2 = 8
     case solution3 = 9
-    case reviews = 10
-    case commitment = 11
-    case streakCard = 12
+    case solution4 = 10      // Community - nouvelle solution
+    // Recap + Commitment + Paywall
+    case featuresRecap = 11  // Resume de toutes les features
+    case commitment = 12     // Engagement avant paywall
+    case paywall = 13        // Page de paiement
+    case streakCard = 14
 
     var isProblem: Bool {
         switch self {
@@ -33,7 +37,7 @@ enum OnboardingStep: Int, CaseIterable {
 
     var isSolution: Bool {
         switch self {
-        case .solution1, .solution2, .solution3:
+        case .solution1, .solution2, .solution3, .solution4:
             return true
         default:
             return false
@@ -47,6 +51,10 @@ enum OnboardingStep: Int, CaseIterable {
         default:
             return false
         }
+    }
+
+    var isPaywall: Bool {
+        self == .paywall
     }
 }
 
@@ -185,7 +193,13 @@ class OnboardingViewModel: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
             withAnimation(.easeInOut(duration: 0.3)) {
                 if let nextIndex = OnboardingStep(rawValue: self.currentStep.rawValue + 1) {
-                    self.currentStep = nextIndex
+                    // Skip paywall step temporarily (payment disabled)
+                    if nextIndex == .paywall {
+                        // Skip to streakCard instead of commitment
+                        self.currentStep = .streakCard
+                    } else {
+                        self.currentStep = nextIndex
+                    }
                 }
                 self.isAnimating = false
             }
@@ -205,7 +219,12 @@ class OnboardingViewModel: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
             withAnimation(.easeInOut(duration: 0.3)) {
                 if let prevIndex = OnboardingStep(rawValue: self.currentStep.rawValue - 1) {
-                    self.currentStep = prevIndex
+                    // Skip paywall step temporarily (payment disabled)
+                    if prevIndex == .paywall {
+                        self.currentStep = .featuresRecap
+                    } else {
+                        self.currentStep = prevIndex
+                    }
                 }
                 self.isAnimating = false
             }
@@ -300,6 +319,13 @@ struct OnboardingView: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
+        } else if viewModel.currentStep == .featuresRecap || viewModel.currentStep.isPaywall {
+            // Premium gradient for paywall
+            LinearGradient(
+                colors: [Color(hex: "#1A1A2E"), Color(hex: "#16213E"), Color(hex: "#0F3460")],
+                startPoint: .top,
+                endPoint: .bottom
+            )
         } else {
             ColorTokens.background
         }
@@ -321,49 +347,59 @@ struct OnboardingView: View {
             ProblemStepView(
                 emoji: "😔",
                 title: "Tu manques de discipline",
-                subtitle: "Tu commences plein de choses mais tu finis rarement. La motivation s'effondre apres quelques jours et tes objectifs restent des reves.",
-                onContinue: { viewModel.nextStep() }
-            )
-        case .solution1:
-            SolutionStepView(
-                emoji: "🔥",
-                title: "FireMode: Deep Work garanti",
-                subtitle: "Lance des sessions de focus chronometrees. Tu definis la duree, tu te concentres, et tu vois tes heures de travail s'accumuler jour apres jour.",
-                feature: "Pomodoro evolue avec tracking",
+                subtitle: "Tu commences plein de projets mais tu abandonnes apres quelques jours. La motivation disparait et tes objectifs restent des reves.",
                 onContinue: { viewModel.nextStep() }
             )
         case .problem2:
             ProblemStepView(
                 emoji: "😞",
-                title: "Tu te sens seul",
-                subtitle: "Personne autour de toi ne comprend tes objectifs. Tu n'as personne pour te pousser quand tu procrastines.",
-                onContinue: { viewModel.nextStep() }
-            )
-        case .solution2:
-            SolutionStepView(
-                emoji: "👥",
-                title: "Crew: Ta squad d'accountability",
-                subtitle: "Rejoins un groupe de personnes motivees. Ils voient quand tu bosses, tes habitudes completees, et te challengent a rester consistant.",
-                feature: "Pression sociale positive",
+                title: "Tu te sens seul dans ton parcours",
+                subtitle: "Personne autour de toi ne comprend tes ambitions. Tu n'as personne pour te motiver quand tu procrastines.",
                 onContinue: { viewModel.nextStep() }
             )
         case .problem3:
             ProblemStepView(
                 emoji: "😩",
                 title: "Tu ne vois pas tes progres",
-                subtitle: "Sans suivi clair, tu as l'impression de stagner. Tes efforts semblent vains et tu abandonnes.",
+                subtitle: "Sans suivi clair, tu as l'impression de stagner. Tes efforts semblent vains et tu finis par abandonner.",
+                onContinue: { viewModel.nextStep() }
+            )
+        case .solution1:
+            SolutionStepView(
+                emoji: "🔥",
+                title: "FireMode: Deep Work garanti",
+                subtitle: "Lance des sessions de focus chronometrees. Bloque les distractions, concentre-toi, et accumule des heures de travail reel.",
+                feature: "Sessions Pomodoro evoluees",
+                onContinue: { viewModel.nextStep() }
+            )
+        case .solution2:
+            SolutionStepView(
+                emoji: "🎮",
+                title: "Gamifie ta productivite",
+                subtitle: "Gagne de l'XP, monte en niveau, debloque des achievements. Transforme tes objectifs en quetes epiques a accomplir.",
+                feature: "Systeme de progression RPG",
                 onContinue: { viewModel.nextStep() }
             )
         case .solution3:
             SolutionStepView(
-                emoji: "📈",
-                title: "Quests & Stats: Visualise ta progression",
-                subtitle: "Definis tes objectifs par domaine de vie. Suis ta progression, tes streaks, et celebre chaque victoire.",
-                feature: "Dashboard complet",
+                emoji: "📊",
+                title: "Visualise chaque progres",
+                subtitle: "Dashboard complet avec streaks, statistiques et graphiques. Vois exactement combien tu as accompli et celebre tes victoires.",
+                feature: "Analytics personnels",
                 onContinue: { viewModel.nextStep() }
             )
-        case .reviews:
-            ReviewsStepView(viewModel: viewModel)
+        case .solution4:
+            SolutionStepView(
+                emoji: "👥",
+                title: "Crew: Ta communaute",
+                subtitle: "Rejoins une squad de personnes motivees. Ils voient tes sessions, tes habitudes, et te poussent a rester consistant. Ensemble.",
+                feature: "Accountability sociale",
+                onContinue: { viewModel.nextStep() }
+            )
+        case .featuresRecap:
+            FeaturesRecapStepView(viewModel: viewModel)
+        case .paywall:
+            PaywallStepView(viewModel: viewModel)
         case .commitment:
             CommitmentStepView(viewModel: viewModel)
         case .streakCard:
@@ -980,6 +1016,646 @@ struct ReviewCard: View {
         .padding(SpacingTokens.md)
         .background(ColorTokens.surface)
         .cornerRadius(RadiusTokens.lg)
+    }
+}
+
+// MARK: - Features Recap Step
+struct FeaturesRecapStepView: View {
+    @ObservedObject var viewModel: OnboardingViewModel
+
+    private let features: [(emoji: String, title: String, desc: String)] = [
+        ("🔥", "FireMode", "Sessions de deep work chronometrees"),
+        ("🎮", "Gamification", "XP, niveaux et achievements"),
+        ("📊", "Analytics", "Statistiques et streaks detailles"),
+        ("👥", "Crew", "Communaute d'accountability"),
+        ("📅", "Planning", "Calendrier et routines quotidiennes"),
+        ("🎯", "Quests", "Objectifs par domaine de vie")
+    ]
+
+    var body: some View {
+        GeometryReader { geometry in
+            let isSmallScreen = geometry.size.height < 700
+
+            VStack(spacing: 0) {
+                Spacer()
+                    .frame(height: isSmallScreen ? SpacingTokens.lg : SpacingTokens.xl)
+
+                // Header
+                VStack(spacing: SpacingTokens.sm) {
+                    Text("🚀")
+                        .font(.system(size: isSmallScreen ? 50 : 60))
+
+                    Text("Tout ce dont tu as besoin")
+                        .font(.satoshi(isSmallScreen ? 24 : 28, weight: .bold))
+                        .foregroundColor(.white)
+                        .multilineTextAlignment(.center)
+
+                    Text("Pour enfin atteindre tes objectifs")
+                        .bodyText()
+                        .foregroundColor(.white.opacity(0.7))
+                }
+
+                Spacer()
+                    .frame(height: SpacingTokens.xl)
+
+                // Features grid
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: SpacingTokens.md) {
+                    ForEach(features, id: \.title) { feature in
+                        VStack(spacing: SpacingTokens.xs) {
+                            Text(feature.emoji)
+                                .font(.system(size: 32))
+
+                            Text(feature.title)
+                                .font(.satoshi(14, weight: .bold))
+                                .foregroundColor(.white)
+
+                            Text(feature.desc)
+                                .font(.satoshi(11))
+                                .foregroundColor(.white.opacity(0.6))
+                                .multilineTextAlignment(.center)
+                                .lineLimit(2)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, SpacingTokens.md)
+                        .padding(.horizontal, SpacingTokens.sm)
+                        .background(Color.white.opacity(0.1))
+                        .cornerRadius(RadiusTokens.md)
+                    }
+                }
+                .padding(.horizontal, SpacingTokens.lg)
+
+                Spacer()
+
+                // CTA
+                Button(action: {
+                    viewModel.nextStep()
+                    HapticFeedback.medium()
+                }) {
+                    HStack {
+                        Text("Debloquer l'acces")
+                        Image(systemName: "arrow.right")
+                    }
+                    .bodyText()
+                    .fontWeight(.semibold)
+                    .foregroundColor(.black)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, SpacingTokens.md + 2)
+                    .background(
+                        LinearGradient(
+                            colors: [Color(hex: "#FFD700"), Color(hex: "#FFA500")],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(RadiusTokens.lg)
+                }
+                .padding(.horizontal, SpacingTokens.xl)
+                .padding(.bottom, geometry.safeAreaInsets.bottom > 0 ? SpacingTokens.md : SpacingTokens.xl)
+            }
+        }
+    }
+}
+
+// MARK: - Paywall Step (Using RevenueCat)
+struct PaywallStepView: View {
+    @ObservedObject var viewModel: OnboardingViewModel
+    @EnvironmentObject var store: FocusAppStore
+    @EnvironmentObject var revenueCatManager: RevenueCatManager
+    @State private var selectedPackage: Package?
+    @State private var fallbackSelectedPlan: String = "yearly"
+    @State private var isProcessing = false
+    @State private var showError = false
+    @State private var errorMessage = ""
+
+    var body: some View {
+        GeometryReader { geometry in
+            let isSmallScreen = geometry.size.height < 700
+
+            ZStack {
+                // Background gradient
+                LinearGradient(
+                    colors: [Color(hex: "#0A0A1A"), Color(hex: "#1A1A2E"), Color(hex: "#0F0F23")],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .ignoresSafeArea()
+
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        Spacer().frame(height: isSmallScreen ? SpacingTokens.lg : SpacingTokens.xxl)
+
+                        // MARK: - Header Section
+                        headerSection(isSmallScreen: isSmallScreen)
+
+                        // MARK: - Social Proof
+                        socialProofSection
+                            .padding(.top, SpacingTokens.lg)
+                            .padding(.bottom, SpacingTokens.xl)
+
+                        // MARK: - Benefits Grid
+                        benefitsGridSection
+                            .padding(.bottom, SpacingTokens.xl)
+
+                        // MARK: - Plans
+                        if revenueCatManager.isLoading && revenueCatManager.offerings == nil {
+                            loadingSection
+                        } else if revenueCatManager.currentOffering != nil {
+                            packagesSection
+                        } else {
+                            fallbackPlansSection
+                        }
+
+                        Spacer().frame(height: SpacingTokens.lg)
+
+                        // MARK: - CTA
+                        ctaSection(geometry: geometry)
+                    }
+                }
+
+                if isProcessing {
+                    purchaseLoadingOverlay
+                }
+            }
+        }
+        .alert("Erreur", isPresented: $showError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(errorMessage)
+        }
+        .task {
+            if revenueCatManager.offerings == nil {
+                await revenueCatManager.fetchOfferings()
+            }
+            if selectedPackage == nil {
+                selectedPackage = revenueCatManager.yearlyPackage ?? revenueCatManager.monthlyPackage
+            }
+        }
+    }
+
+    // MARK: - Header
+    private func headerSection(isSmallScreen: Bool) -> some View {
+        VStack(spacing: SpacingTokens.md) {
+            // Animated glow effect
+            ZStack {
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [Color(hex: "#FFD700").opacity(0.4), Color.clear],
+                            center: .center,
+                            startRadius: 20,
+                            endRadius: 80
+                        )
+                    )
+                    .frame(width: 140, height: 140)
+
+                Text("🚀")
+                    .font(.system(size: isSmallScreen ? 56 : 64))
+            }
+
+            Text("Rejoins la communaute")
+                .font(.satoshi(isSmallScreen ? 24 : 28, weight: .bold))
+                .foregroundColor(.white)
+
+            Text("des personnes qui passent a l'action")
+                .font(.satoshi(isSmallScreen ? 16 : 18, weight: .medium))
+                .foregroundColor(Color(hex: "#FFD700"))
+        }
+    }
+
+    // MARK: - Social Proof
+    private var socialProofSection: some View {
+        VStack(spacing: SpacingTokens.sm) {
+            // Avatar stack
+            HStack(spacing: -12) {
+                ForEach(0..<5, id: \.self) { index in
+                    let avatarColors: [[Color]] = [
+                        [Color(hex: "#FF6B6B"), Color(hex: "#FF8E8E")],
+                        [Color(hex: "#4ECDC4"), Color(hex: "#7EE8E1")],
+                        [Color(hex: "#FFD700"), Color(hex: "#FFE44D")],
+                        [Color(hex: "#A855F7"), Color(hex: "#C084FC")],
+                        [Color(hex: "#3B82F6"), Color(hex: "#60A5FA")]
+                    ]
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: avatarColors[index % 5],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 36, height: 36)
+                        .overlay(
+                            Text(["🔥", "💪", "⚡", "🎯", "✨"][index])
+                                .font(.system(size: 16))
+                        )
+                        .overlay(Circle().stroke(Color(hex: "#0A0A1A"), lineWidth: 2))
+                }
+
+                Circle()
+                    .fill(Color.white.opacity(0.1))
+                    .frame(width: 36, height: 36)
+                    .overlay(
+                        Text("+2K")
+                            .font(.satoshi(10, weight: .bold))
+                            .foregroundColor(.white)
+                    )
+                    .overlay(Circle().stroke(Color(hex: "#0A0A1A"), lineWidth: 2))
+            }
+
+            Text("2,847 membres actifs")
+                .font(.satoshi(14, weight: .semibold))
+                .foregroundColor(.white.opacity(0.7))
+
+            // Rating stars
+            HStack(spacing: 4) {
+                ForEach(0..<5, id: \.self) { _ in
+                    Image(systemName: "star.fill")
+                        .font(.system(size: 12))
+                        .foregroundColor(Color(hex: "#FFD700"))
+                }
+                Text("4.9")
+                    .font(.satoshi(12, weight: .bold))
+                    .foregroundColor(.white)
+            }
+        }
+        .padding(.vertical, SpacingTokens.md)
+        .padding(.horizontal, SpacingTokens.xl)
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(RadiusTokens.lg)
+        .padding(.horizontal, SpacingTokens.xl)
+    }
+
+    // MARK: - Benefits Grid
+    private var benefitsGridSection: some View {
+        VStack(spacing: SpacingTokens.sm) {
+            HStack(spacing: SpacingTokens.sm) {
+                benefitCard(icon: "flame.fill", title: "Focus illimite", color: Color(hex: "#FF6B6B"))
+                benefitCard(icon: "person.3.fill", title: "Communaute", color: Color(hex: "#4ECDC4"))
+            }
+            HStack(spacing: SpacingTokens.sm) {
+                benefitCard(icon: "trophy.fill", title: "Gamification", color: Color(hex: "#FFD700"))
+                benefitCard(icon: "chart.line.uptrend.xyaxis", title: "Analytics", color: Color(hex: "#A855F7"))
+            }
+        }
+        .padding(.horizontal, SpacingTokens.xl)
+    }
+
+    private func benefitCard(icon: String, title: String, color: Color) -> some View {
+        HStack(spacing: SpacingTokens.sm) {
+            Image(systemName: icon)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(color)
+
+            Text(title)
+                .font(.satoshi(14, weight: .semibold))
+                .foregroundColor(.white)
+
+            Spacer()
+
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 16))
+                .foregroundColor(.green)
+        }
+        .padding(SpacingTokens.md)
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(RadiusTokens.md)
+    }
+
+    // MARK: - Loading
+    private var loadingSection: some View {
+        VStack(spacing: SpacingTokens.md) {
+            ProgressView()
+                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                .scaleEffect(1.2)
+            Text("Chargement...")
+                .font(.satoshi(14))
+                .foregroundColor(.white.opacity(0.6))
+        }
+        .padding(.vertical, SpacingTokens.xl)
+    }
+
+    // MARK: - RevenueCat Packages
+    private var packagesSection: some View {
+        VStack(spacing: SpacingTokens.md) {
+            if let yearly = revenueCatManager.yearlyPackage {
+                planCard(
+                    package: yearly,
+                    title: "Annuel",
+                    subtitle: "Le plus populaire",
+                    badge: "ECONOMISE 33%",
+                    isRecommended: true
+                )
+            }
+
+            if let monthly = revenueCatManager.monthlyPackage {
+                planCard(
+                    package: monthly,
+                    title: "Mensuel",
+                    subtitle: "Flexible",
+                    badge: nil,
+                    isRecommended: false
+                )
+            }
+        }
+        .padding(.horizontal, SpacingTokens.xl)
+    }
+
+    private func planCard(package: Package, title: String, subtitle: String, badge: String?, isRecommended: Bool) -> some View {
+        let isSelected = selectedPackage?.identifier == package.identifier
+
+        return Button(action: {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                selectedPackage = package
+            }
+            HapticFeedback.selection()
+        }) {
+            VStack(spacing: 0) {
+                if let badge = badge {
+                    Text(badge)
+                        .font(.satoshi(11, weight: .bold))
+                        .foregroundColor(.black)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
+                        .background(Color(hex: "#FFD700"))
+                }
+
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(title)
+                            .font(.satoshi(18, weight: .bold))
+                            .foregroundColor(.white)
+
+                        Text(subtitle)
+                            .font(.satoshi(13))
+                            .foregroundColor(.white.opacity(0.6))
+                    }
+
+                    Spacer()
+
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(package.storeProduct.localizedPriceString)
+                            .font(.satoshi(24, weight: .bold))
+                            .foregroundColor(.white)
+
+                        Text(periodText(for: package))
+                            .font(.satoshi(12))
+                            .foregroundColor(.white.opacity(0.5))
+                    }
+
+                    // Selection indicator
+                    ZStack {
+                        Circle()
+                            .stroke(isSelected ? Color(hex: "#FFD700") : Color.white.opacity(0.3), lineWidth: 2)
+                            .frame(width: 24, height: 24)
+
+                        if isSelected {
+                            Circle()
+                                .fill(Color(hex: "#FFD700"))
+                                .frame(width: 14, height: 14)
+                        }
+                    }
+                    .padding(.leading, SpacingTokens.sm)
+                }
+                .padding(SpacingTokens.lg)
+            }
+            .background(
+                RoundedRectangle(cornerRadius: badge != nil ? 0 : RadiusTokens.lg)
+                    .fill(isSelected ? Color.white.opacity(0.1) : Color.white.opacity(0.03))
+            )
+            .clipShape(RoundedRectangle(cornerRadius: RadiusTokens.lg))
+            .overlay(
+                RoundedRectangle(cornerRadius: RadiusTokens.lg)
+                    .stroke(isSelected ? Color(hex: "#FFD700") : Color.white.opacity(0.1), lineWidth: isSelected ? 2 : 1)
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
+    private func periodText(for package: Package) -> String {
+        switch package.packageType {
+        case .monthly: return "/mois"
+        case .annual: return "/an"
+        case .lifetime: return "a vie"
+        case .weekly: return "/semaine"
+        default: return ""
+        }
+    }
+
+    // MARK: - Fallback Plans
+    private var fallbackPlansSection: some View {
+        VStack(spacing: SpacingTokens.md) {
+            fallbackPlanCard(planId: "yearly", title: "Annuel", subtitle: "Le plus populaire", price: "79,99 €", period: "/an", badge: "ECONOMISE 33%")
+            fallbackPlanCard(planId: "monthly", title: "Mensuel", subtitle: "Flexible", price: "9,99 €", period: "/mois", badge: nil)
+        }
+        .padding(.horizontal, SpacingTokens.xl)
+    }
+
+    private func fallbackPlanCard(planId: String, title: String, subtitle: String, price: String, period: String, badge: String?) -> some View {
+        let isSelected = fallbackSelectedPlan == planId
+
+        return Button(action: {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                fallbackSelectedPlan = planId
+            }
+            HapticFeedback.selection()
+        }) {
+            VStack(spacing: 0) {
+                if let badge = badge {
+                    Text(badge)
+                        .font(.satoshi(11, weight: .bold))
+                        .foregroundColor(.black)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
+                        .background(Color(hex: "#FFD700"))
+                }
+
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(title)
+                            .font(.satoshi(18, weight: .bold))
+                            .foregroundColor(.white)
+
+                        Text(subtitle)
+                            .font(.satoshi(13))
+                            .foregroundColor(.white.opacity(0.6))
+                    }
+
+                    Spacer()
+
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(price)
+                            .font(.satoshi(24, weight: .bold))
+                            .foregroundColor(.white)
+
+                        Text(period)
+                            .font(.satoshi(12))
+                            .foregroundColor(.white.opacity(0.5))
+                    }
+
+                    ZStack {
+                        Circle()
+                            .stroke(isSelected ? Color(hex: "#FFD700") : Color.white.opacity(0.3), lineWidth: 2)
+                            .frame(width: 24, height: 24)
+
+                        if isSelected {
+                            Circle()
+                                .fill(Color(hex: "#FFD700"))
+                                .frame(width: 14, height: 14)
+                        }
+                    }
+                    .padding(.leading, SpacingTokens.sm)
+                }
+                .padding(SpacingTokens.lg)
+            }
+            .background(
+                RoundedRectangle(cornerRadius: badge != nil ? 0 : RadiusTokens.lg)
+                    .fill(isSelected ? Color.white.opacity(0.1) : Color.white.opacity(0.03))
+            )
+            .clipShape(RoundedRectangle(cornerRadius: RadiusTokens.lg))
+            .overlay(
+                RoundedRectangle(cornerRadius: RadiusTokens.lg)
+                    .stroke(isSelected ? Color(hex: "#FFD700") : Color.white.opacity(0.1), lineWidth: isSelected ? 2 : 1)
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
+    // MARK: - CTA
+    private func ctaSection(geometry: GeometryProxy) -> some View {
+        VStack(spacing: SpacingTokens.md) {
+            Button(action: handlePurchase) {
+                HStack(spacing: SpacingTokens.sm) {
+                    Text("Rejoindre la communaute")
+                        .font(.satoshi(17, weight: .bold))
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 16, weight: .bold))
+                }
+                .foregroundColor(.black)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 18)
+                .background(
+                    LinearGradient(
+                        colors: [Color(hex: "#FFD700"), Color(hex: "#FFA500")],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .cornerRadius(RadiusTokens.lg)
+                .shadow(color: Color(hex: "#FFD700").opacity(0.3), radius: 12, x: 0, y: 6)
+            }
+            .disabled(isProcessing)
+
+            // Guarantee text
+            HStack(spacing: 6) {
+                Image(systemName: "checkmark.shield.fill")
+                    .foregroundColor(.green)
+                    .font(.system(size: 14))
+                Text("Satisfait ou rembourse • Annule quand tu veux")
+                    .font(.satoshi(12))
+                    .foregroundColor(.white.opacity(0.6))
+            }
+
+            // Restore & Terms
+            HStack(spacing: SpacingTokens.lg) {
+                Button("Restaurer") {
+                    Task { await handleRestore() }
+                }
+                .font(.satoshi(12))
+                .foregroundColor(.white.opacity(0.4))
+
+                Text("•").foregroundColor(.white.opacity(0.2))
+
+                Button("CGV") { }
+                .font(.satoshi(12))
+                .foregroundColor(.white.opacity(0.4))
+
+                Text("•").foregroundColor(.white.opacity(0.2))
+
+                Button("Confidentialite") { }
+                .font(.satoshi(12))
+                .foregroundColor(.white.opacity(0.4))
+            }
+        }
+        .padding(.horizontal, SpacingTokens.xl)
+        .padding(.bottom, geometry.safeAreaInsets.bottom > 0 ? SpacingTokens.lg : SpacingTokens.xxl)
+    }
+
+    // MARK: - Loading Overlay
+    private var purchaseLoadingOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.8)
+                .ignoresSafeArea()
+
+            VStack(spacing: SpacingTokens.lg) {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: Color(hex: "#FFD700")))
+                    .scaleEffect(1.5)
+
+                Text("Traitement en cours...")
+                    .font(.satoshi(16, weight: .medium))
+                    .foregroundColor(.white)
+            }
+            .padding(SpacingTokens.xxl)
+            .background(Color(hex: "#1A1A2E"))
+            .cornerRadius(RadiusTokens.xl)
+        }
+    }
+
+    // MARK: - Actions
+    private func handlePurchase() {
+        guard let package = selectedPackage else {
+            viewModel.nextStep()
+            return
+        }
+
+        isProcessing = true
+        HapticFeedback.medium()
+
+        Task {
+            let success = await revenueCatManager.purchase(package: package)
+            isProcessing = false
+
+            if success {
+                HapticFeedback.success()
+                viewModel.nextStep()
+            } else if let error = revenueCatManager.errorMessage {
+                errorMessage = error
+                showError = true
+            }
+        }
+    }
+
+    private func handleRestore() async {
+        isProcessing = true
+
+        let success = await revenueCatManager.restorePurchases()
+        isProcessing = false
+
+        if success {
+            HapticFeedback.success()
+            viewModel.nextStep()
+        } else if let error = revenueCatManager.errorMessage {
+            errorMessage = error
+            showError = true
+        }
+    }
+}
+
+// MARK: - SubscriptionPeriod Extension
+extension RevenueCat.SubscriptionPeriod {
+    var periodTitle: String {
+        switch unit {
+        case .day:
+            return value == 1 ? "1 jour" : "\(value) jours"
+        case .week:
+            return value == 1 ? "1 semaine" : "\(value) semaines"
+        case .month:
+            return value == 1 ? "1 mois" : "\(value) mois"
+        case .year:
+            return value == 1 ? "1 an" : "\(value) ans"
+        @unknown default:
+            return "\(value)"
+        }
     }
 }
 

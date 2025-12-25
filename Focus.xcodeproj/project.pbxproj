@@ -7,11 +7,15 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		620DD7D32EF9DC0D00BBBDD1 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 620DD7D22EF9DC0D00BBBDD1 /* StoreKit.framework */; };
 		623E8A152EE22FF000356DD7 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 623E8A142EE22FF000356DD7 /* Supabase */; };
 		623E95782EE4AC3100356DD7 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 623E95772EE4AC3100356DD7 /* WidgetKit.framework */; };
 		623E957A2EE4AC3100356DD7 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 623E95792EE4AC3100356DD7 /* SwiftUI.framework */; };
 		623E958B2EE4AC3200356DD7 /* FocusWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 623E95752EE4AC3100356DD7 /* FocusWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		629D63C22EF0BFD20023C568 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 629D63C12EF0BFD20023C568 /* GoogleSignIn */; };
+		629D65162EF353FB0023C568 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = 629D65152EF353FB0023C568 /* RevenueCat */; };
+		629D65182EF354000023C568 /* RevenueCatUI in Frameworks */ = {isa = PBXBuildFile; productRef = 629D65172EF354000023C568 /* RevenueCatUI */; };
+		629D651C2EF417E60023C568 /* Volta.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 629D651B2EF417E60023C568 /* Volta.storekit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -39,11 +43,16 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		620DD56D2EF6F9C200BBBDD1 /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
+		620DD6CF2EF9C85E00BBBDD1 /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
+		620DD7D22EF9DC0D00BBBDD1 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
 		623E894A2EE1F65300356DD7 /* Focus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Focus.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		623E95752EE4AC3100356DD7 /* FocusWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FocusWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		623E95772EE4AC3100356DD7 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		623E95792EE4AC3100356DD7 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		623E95972EE4AC9000356DD7 /* FocusWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FocusWidgetExtension.entitlements; sourceTree = "<group>"; };
+		6257F9F72EF6C5180000AD1C /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
+		6257FB552EF6F88D0000AD1C /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
 		6272BAAE2EE9D2C8002693DF /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
 		628C5A992EEB8EA900E2D165 /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
 		628C5CCF2EEB93BF00E2D165 /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
@@ -53,6 +62,8 @@
 		6297A9692EE9C02200BF5326 /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
 		629B56972EED9D2D00CF0149 /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
 		629D62F02EF0B0890023C568 /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
+		629D641E2EF1D7150023C568 /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
+		629D651B2EF417E60023C568 /* Volta.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = Volta.storekit; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -96,8 +107,11 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				629D65182EF354000023C568 /* RevenueCatUI in Frameworks */,
 				623E8A152EE22FF000356DD7 /* Supabase in Frameworks */,
+				620DD7D32EF9DC0D00BBBDD1 /* StoreKit.framework in Frameworks */,
 				629D63C22EF0BFD20023C568 /* GoogleSignIn in Frameworks */,
+				629D65162EF353FB0023C568 /* RevenueCat in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -113,9 +127,24 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		620DD5C92EF6F9C200BBBDD1 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		620DD72C2EF9C85E00BBBDD1 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
 		623E89412EE1F65300356DD7 = {
 			isa = PBXGroup;
 			children = (
+				629D651B2EF417E60023C568 /* Volta.storekit */,
 				623E95972EE4AC9000356DD7 /* FocusWidgetExtension.entitlements */,
 				623E894C2EE1F65300356DD7 /* Focus */,
 				623E957B2EE4AC3100356DD7 /* FocusWidget */,
@@ -136,10 +165,25 @@
 		623E95762EE4AC3100356DD7 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				620DD7D22EF9DC0D00BBBDD1 /* StoreKit.framework */,
 				623E95772EE4AC3100356DD7 /* WidgetKit.framework */,
 				623E95792EE4AC3100356DD7 /* SwiftUI.framework */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		6257FA4D2EF6C5180000AD1C /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		6257FBB12EF6F88D0000AD1C /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
 			sourceTree = "<group>";
 		};
 		6272BAEA2EE9D2C8002693DF /* Products */ = {
@@ -205,6 +249,13 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		629D645F2EF1D7150023C568 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -229,6 +280,8 @@
 			packageProductDependencies = (
 				623E8A142EE22FF000356DD7 /* Supabase */,
 				629D63C12EF0BFD20023C568 /* GoogleSignIn */,
+				629D65152EF353FB0023C568 /* RevenueCat */,
+				629D65172EF354000023C568 /* RevenueCatUI */,
 			);
 			productName = Focus;
 			productReference = 623E894A2EE1F65300356DD7 /* Focus.app */;
@@ -288,6 +341,7 @@
 			packageReferences = (
 				623E8A132EE22FF000356DD7 /* XCRemoteSwiftPackageReference "supabase-swift" */,
 				629D63C02EF0BDA00023C568 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+				629D65142EF3536F0023C568 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 623E894B2EE1F65300356DD7 /* Products */;
@@ -302,6 +356,10 @@
 					ProjectRef = 629B56972EED9D2D00CF0149 /* TextParticle.xcodeproj */;
 				},
 				{
+					ProductGroup = 629D645F2EF1D7150023C568 /* Products */;
+					ProjectRef = 629D641E2EF1D7150023C568 /* TextParticle.xcodeproj */;
+				},
+				{
 					ProductGroup = 628C5D0A2EEB93BF00E2D165 /* Products */;
 					ProjectRef = 628C5CCF2EEB93BF00E2D165 /* TextParticle.xcodeproj */;
 				},
@@ -314,6 +372,10 @@
 					ProjectRef = 629D62F02EF0B0890023C568 /* TextParticle.xcodeproj */;
 				},
 				{
+					ProductGroup = 620DD5C92EF6F9C200BBBDD1 /* Products */;
+					ProjectRef = 620DD56D2EF6F9C200BBBDD1 /* TextParticle.xcodeproj */;
+				},
+				{
 					ProductGroup = 6297A88C2EE9B60300BF5326 /* Products */;
 					ProjectRef = 6297A8512EE9B60300BF5326 /* TextParticle.xcodeproj */;
 				},
@@ -322,8 +384,20 @@
 					ProjectRef = 6297A4A12EE91E7600BF5326 /* TextParticle.xcodeproj */;
 				},
 				{
+					ProductGroup = 6257FBB12EF6F88D0000AD1C /* Products */;
+					ProjectRef = 6257FB552EF6F88D0000AD1C /* TextParticle.xcodeproj */;
+				},
+				{
+					ProductGroup = 620DD72C2EF9C85E00BBBDD1 /* Products */;
+					ProjectRef = 620DD6CF2EF9C85E00BBBDD1 /* TextParticle.xcodeproj */;
+				},
+				{
 					ProductGroup = 628C5AD42EEB8EA900E2D165 /* Products */;
 					ProjectRef = 628C5A992EEB8EA900E2D165 /* TextParticle.xcodeproj */;
+				},
+				{
+					ProductGroup = 6257FA4D2EF6C5180000AD1C /* Products */;
+					ProjectRef = 6257F9F72EF6C5180000AD1C /* TextParticle.xcodeproj */;
 				},
 				{
 					ProductGroup = 6272BAEA2EE9D2C8002693DF /* Products */;
@@ -343,6 +417,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				629D651C2EF417E60023C568 /* Volta.storekit in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -503,7 +578,7 @@
 				CODE_SIGN_ENTITLEMENTS = Focus/Focus.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 0;
 				DEVELOPMENT_TEAM = 62NW6K29QN;
 				EMIT_FRONTEND_COMMAND_LINES = YES;
 				ENABLE_APP_SANDBOX = YES;
@@ -528,7 +603,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.6;
 				OTHER_LDFLAGS = "";
 				"OTHER_LDFLAGS[arch=*]" = (
 					"-Xlinker",
@@ -559,7 +634,7 @@
 				CODE_SIGN_ENTITLEMENTS = Focus/Focus.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 0;
 				DEVELOPMENT_TEAM = 62NW6K29QN;
 				EMIT_FRONTEND_COMMAND_LINES = YES;
 				ENABLE_APP_SANDBOX = YES;
@@ -584,7 +659,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.6;
 				OTHER_LDFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.jep.volta;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -723,6 +798,14 @@
 				minimumVersion = 9.0.0;
 			};
 		};
+		629D65142EF3536F0023C568 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/RevenueCat/purchases-ios-spm.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.50.1;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -735,6 +818,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 629D63C02EF0BDA00023C568 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
 			productName = GoogleSignIn;
+		};
+		629D65152EF353FB0023C568 /* RevenueCat */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 629D65142EF3536F0023C568 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */;
+			productName = RevenueCat;
+		};
+		629D65172EF354000023C568 /* RevenueCatUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 629D65142EF3536F0023C568 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */;
+			productName = RevenueCatUI;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

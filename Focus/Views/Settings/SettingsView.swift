@@ -20,8 +20,14 @@ struct SettingsView: View {
     @State private var showStatsSection = false
     @State private var showTutorial = false
     @State private var showGoogleCalendar = false
+    @State private var showAppBlocker = false
+    @State private var selectedVisibility: DayVisibility = .crewOnly
+    @State private var isUpdatingVisibility = false
+    @State private var selectedProductivityPeak: ProductivityPeak?
+    @State private var isUpdatingProductivity = false
 
     private let userService = UserService()
+    private let crewService = CrewService()
 
     var body: some View {
         NavigationStack {
@@ -67,6 +73,21 @@ struct SettingsView: View {
                         ) {
                             showGoogleCalendar = true
                         }
+
+                        // App Blocker
+                        SettingsMenuItem(
+                            icon: "🔒",
+                            title: "Blocage d'apps",
+                            subtitle: "Bloquer les apps pendant le Focus"
+                        ) {
+                            showAppBlocker = true
+                        }
+
+                        // Day Visibility
+                        dayVisibilitySection
+
+                        // Productivity Peak
+                        productivityPeakSection
 
                         // Tutorial
                         SettingsMenuItem(
@@ -148,6 +169,9 @@ struct SettingsView: View {
             .navigationDestination(isPresented: $showGoogleCalendar) {
                 GoogleCalendarSettingsView()
             }
+            .navigationDestination(isPresented: $showAppBlocker) {
+                AppBlockerSettingsView()
+            }
             .sheet(isPresented: $showTutorial) {
                 TutorialVideoView()
             }
@@ -222,6 +246,226 @@ struct SettingsView: View {
             }
         }
         .padding(.vertical, SpacingTokens.xl)
+        .onAppear {
+            updateSelectedVisibilityFromStore()
+            updateSelectedProductivityFromStore()
+        }
+    }
+
+    // MARK: - Day Visibility Section
+    private var dayVisibilitySection: some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.sm) {
+            HStack {
+                Text("👁")
+                    .font(.satoshi(24))
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack {
+                        Text("profile.day_visibility".localized)
+                            .font(.satoshi(16, weight: .semibold))
+                            .foregroundColor(ColorTokens.textPrimary)
+                        Spacer()
+                        if isUpdatingVisibility {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                        }
+                    }
+                    Text("profile.visibility_description".localized)
+                        .font(.satoshi(13))
+                        .foregroundColor(ColorTokens.textSecondary)
+                }
+            }
+            .padding(.horizontal, SpacingTokens.lg)
+            .padding(.top, SpacingTokens.lg)
+
+            // Visibility options
+            VStack(spacing: SpacingTokens.xs) {
+                ForEach(DayVisibility.allCases, id: \.self) { visibility in
+                    Button {
+                        updateVisibility(visibility)
+                    } label: {
+                        HStack {
+                            Image(systemName: visibility.icon)
+                                .font(.satoshi(16))
+                                .foregroundColor(selectedVisibility == visibility ? ColorTokens.primaryStart : ColorTokens.textMuted)
+                                .frame(width: 24)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(visibility.displayName)
+                                    .font(.satoshi(14))
+                                    .foregroundColor(selectedVisibility == visibility ? ColorTokens.textPrimary : ColorTokens.textSecondary)
+
+                                Text(visibility.description)
+                                    .font(.satoshi(11))
+                                    .foregroundColor(ColorTokens.textMuted)
+                            }
+
+                            Spacer()
+
+                            if selectedVisibility == visibility {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(ColorTokens.primaryStart)
+                            } else {
+                                Image(systemName: "circle")
+                                    .foregroundColor(ColorTokens.textMuted)
+                            }
+                        }
+                        .padding(SpacingTokens.sm)
+                        .background(selectedVisibility == visibility ? ColorTokens.primarySoft : Color.clear)
+                        .cornerRadius(RadiusTokens.sm)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .disabled(isUpdatingVisibility)
+                }
+            }
+            .padding(.horizontal, SpacingTokens.md)
+            .padding(.bottom, SpacingTokens.lg)
+        }
+        .background(ColorTokens.surface)
+        .cornerRadius(RadiusTokens.lg)
+    }
+
+    // MARK: - Productivity Peak Section
+    private var productivityPeakSection: some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.sm) {
+            HStack {
+                Text("⚡")
+                    .font(.satoshi(24))
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack {
+                        Text("settings.productivity_peak".localized)
+                            .font(.satoshi(16, weight: .semibold))
+                            .foregroundColor(ColorTokens.textPrimary)
+                        Spacer()
+                        if isUpdatingProductivity {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                        }
+                    }
+                    Text("settings.productivity_peak_description".localized)
+                        .font(.satoshi(13))
+                        .foregroundColor(ColorTokens.textSecondary)
+                }
+            }
+            .padding(.horizontal, SpacingTokens.lg)
+            .padding(.top, SpacingTokens.lg)
+
+            // Productivity options
+            VStack(spacing: SpacingTokens.xs) {
+                ForEach(ProductivityPeak.allCases, id: \.self) { peak in
+                    Button {
+                        updateProductivityPeak(peak)
+                    } label: {
+                        HStack {
+                            Image(systemName: peak.icon)
+                                .font(.satoshi(16))
+                                .foregroundColor(selectedProductivityPeak == peak ? ColorTokens.primaryStart : ColorTokens.textMuted)
+                                .frame(width: 24)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(peak.displayName)
+                                    .font(.satoshi(14))
+                                    .foregroundColor(selectedProductivityPeak == peak ? ColorTokens.textPrimary : ColorTokens.textSecondary)
+
+                                Text(peak.description)
+                                    .font(.satoshi(11))
+                                    .foregroundColor(ColorTokens.textMuted)
+                            }
+
+                            Spacer()
+
+                            if selectedProductivityPeak == peak {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(ColorTokens.primaryStart)
+                            } else {
+                                Image(systemName: "circle")
+                                    .foregroundColor(ColorTokens.textMuted)
+                            }
+                        }
+                        .padding(SpacingTokens.sm)
+                        .background(selectedProductivityPeak == peak ? ColorTokens.primarySoft : Color.clear)
+                        .cornerRadius(RadiusTokens.sm)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .disabled(isUpdatingProductivity)
+                }
+            }
+            .padding(.horizontal, SpacingTokens.md)
+            .padding(.bottom, SpacingTokens.lg)
+        }
+        .background(ColorTokens.surface)
+        .cornerRadius(RadiusTokens.lg)
+    }
+
+    // MARK: - Visibility Helpers
+    private func updateSelectedVisibilityFromStore() {
+        if let visibility = store.user?.dayVisibility,
+           let dayVis = DayVisibility(rawValue: visibility) {
+            if selectedVisibility != dayVis {
+                selectedVisibility = dayVis
+            }
+        }
+    }
+
+    private func updateVisibility(_ visibility: DayVisibility) {
+        guard visibility != selectedVisibility else { return }
+
+        isUpdatingVisibility = true
+        let previousVisibility = selectedVisibility
+        selectedVisibility = visibility
+
+        Task {
+            do {
+                try await crewService.updateDayVisibility(visibility)
+                // Update the store's user with the new visibility
+                await MainActor.run {
+                    if var user = store.user {
+                        user.dayVisibility = visibility.rawValue
+                        store.user = user
+                    }
+                }
+            } catch {
+                // Revert on error
+                await MainActor.run {
+                    selectedVisibility = previousVisibility
+                }
+            }
+            await MainActor.run {
+                isUpdatingVisibility = false
+            }
+        }
+    }
+
+    // MARK: - Productivity Helpers
+    private func updateSelectedProductivityFromStore() {
+        if let peak = store.user?.productivityPeak {
+            if selectedProductivityPeak != peak {
+                selectedProductivityPeak = peak
+            }
+        }
+    }
+
+    private func updateProductivityPeak(_ peak: ProductivityPeak) {
+        guard peak != selectedProductivityPeak else { return }
+
+        isUpdatingProductivity = true
+        let previousPeak = selectedProductivityPeak
+        selectedProductivityPeak = peak
+
+        Task {
+            do {
+                let updatedUser = try await userService.updateProductivityPeak(peak)
+                await MainActor.run {
+                    store.user = User(from: updatedUser)
+                }
+            } catch {
+                await MainActor.run {
+                    selectedProductivityPeak = previousPeak
+                }
+            }
+            await MainActor.run {
+                isUpdatingProductivity = false
+            }
+        }
     }
 }
 

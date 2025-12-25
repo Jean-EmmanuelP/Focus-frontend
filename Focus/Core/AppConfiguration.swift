@@ -132,12 +132,19 @@ enum AppConfiguration {
     struct Debug {
         /// Active les logs détaillés
         static let verboseLogging = Environment.current == .development
-        
+
         /// Active les logs réseau
         static let networkLogging = Environment.current == .development
-        
+
         /// Affiche les informations de debug dans l'UI
         static let showDebugInfo = Environment.current == .development
+
+        /// Force l'affichage de l'onboarding meme si deja complete (dev only)
+        /// Mettre a true pour tester/voir l'onboarding a volonte
+        static let forceShowOnboarding = false
+
+        /// Skip directement au paywall pour tester (dev only)
+        static let skipToPaywall = false
     }
 }
 

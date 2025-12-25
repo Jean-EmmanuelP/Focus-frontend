@@ -4311,10 +4311,13 @@ struct GroupRoutineDetailRow: View {
 
 struct ShareRoutineSheet: View {
     @ObservedObject var viewModel: CrewViewModel
+    @EnvironmentObject var store: FocusAppStore
     @Environment(\.dismiss) var dismiss
 
     @State private var selectedRoutineId: String?
     @State private var isSharing = false
+    @State private var showCreateRoutine = false
+    @StateObject private var ritualsViewModel = RitualsViewModel()
 
     // Filter out routines already shared with this group
     private var availableRoutines: [RoutineResponse] {
@@ -4328,75 +4331,9 @@ struct ShareRoutineSheet: View {
                 ColorTokens.background
                     .ignoresSafeArea()
 
-                if viewModel.userRoutines.isEmpty {
-                    VStack(spacing: SpacingTokens.lg) {
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                            .font(.satoshi(50))
-                            .foregroundColor(ColorTokens.textMuted)
-
-                        Text("crew.groups.no_routines".localized)
-                            .subtitle()
-                            .foregroundColor(ColorTokens.textSecondary)
-
-                        Text("crew.groups.no_routines_hint".localized)
-                            .bodyText()
-                            .foregroundColor(ColorTokens.textMuted)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, SpacingTokens.xl)
-                    }
-                } else if availableRoutines.isEmpty {
-                    VStack(spacing: SpacingTokens.lg) {
-                        Image(systemName: "checkmark.circle")
-                            .font(.satoshi(50))
-                            .foregroundColor(ColorTokens.success)
-
-                        Text("crew.groups.all_shared".localized)
-                            .subtitle()
-                            .foregroundColor(ColorTokens.textSecondary)
-                            .multilineTextAlignment(.center)
-                    }
-                } else {
-                    ScrollView {
-                        VStack(spacing: SpacingTokens.sm) {
-                            ForEach(availableRoutines) { routine in
-                                Button {
-                                    selectedRoutineId = routine.id
-                                } label: {
-                                    Card {
-                                        HStack(spacing: SpacingTokens.md) {
-                                            Text(routine.icon ?? "🔄")
-                                                .font(.satoshi(24))
-                                                .frame(width: 44, height: 44)
-                                                .background(ColorTokens.primarySoft)
-                                                .cornerRadius(RadiusTokens.sm)
-
-                                            VStack(alignment: .leading, spacing: 2) {
-                                                Text(routine.title)
-                                                    .font(.satoshi(14, weight: .semibold))
-                                                    .foregroundColor(ColorTokens.textPrimary)
-
-                                                Text(routine.frequency)
-                                                    .font(.satoshi(12))
-                                                    .foregroundColor(ColorTokens.textMuted)
-                                            }
-
-                                            Spacer()
-
-                                            Image(systemName: selectedRoutineId == routine.id ? "checkmark.circle.fill" : "circle")
-                                                .font(.satoshi(22))
-                                                .foregroundColor(selectedRoutineId == routine.id ? ColorTokens.primaryStart : ColorTokens.textMuted)
-                                        }
-                                        .padding(SpacingTokens.sm)
-                                    }
-                                }
-                                .buttonStyle(PlainButtonStyle())
-                            }
-                        }
-                        .padding(SpacingTokens.md)
-                    }
-                }
+                contentView
             }
-            .navigationTitle("crew.groups.share_routine_title".localized)
+            .navigationTitle("Partager une routine")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -4408,13 +4345,15 @@ struct ShareRoutineSheet: View {
                 }
 
                 ToolbarItem(placement: .primaryAction) {
-                    Button("crew.groups.share".localized) {
-                        shareRoutine()
+                    if !availableRoutines.isEmpty {
+                        Button("crew.groups.share".localized) {
+                            shareRoutine()
+                        }
+                        .fontWeight(.semibold)
+                        .foregroundColor(ColorTokens.primaryStart)
+                        .disabled(selectedRoutineId == nil || isSharing)
+                        .opacity(selectedRoutineId == nil ? 0.5 : 1)
                     }
-                    .fontWeight(.semibold)
-                    .foregroundColor(ColorTokens.primaryStart)
-                    .disabled(selectedRoutineId == nil || isSharing)
-                    .opacity(selectedRoutineId == nil ? 0.5 : 1)
                 }
             }
             .overlay {
@@ -4427,7 +4366,153 @@ struct ShareRoutineSheet: View {
                     }
                 }
             }
+            .sheet(isPresented: $showCreateRoutine) {
+                AddRitualSheet(viewModel: ritualsViewModel, areas: store.areas)
+                    .onDisappear {
+                        Task {
+                            await viewModel.loadUserRoutinesForSharing()
+                        }
+                    }
+            }
+            .onAppear {
+                ritualsViewModel.refresh()
+            }
         }
+    }
+
+    @ViewBuilder
+    private var contentView: some View {
+        if viewModel.userRoutines.isEmpty {
+            emptyStateView
+        } else if availableRoutines.isEmpty {
+            allSharedStateView
+        } else {
+            routinesListView
+        }
+    }
+
+    private var emptyStateView: some View {
+        VStack(spacing: SpacingTokens.lg) {
+            Image(systemName: "sparkles")
+                .font(.satoshi(50))
+                .foregroundColor(ColorTokens.primaryStart)
+
+            Text("Aucune routine")
+                .subtitle()
+                .foregroundColor(ColorTokens.textSecondary)
+
+            Text("Crée une routine pour la partager avec ton groupe")
+                .bodyText()
+                .foregroundColor(ColorTokens.textMuted)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, SpacingTokens.xl)
+
+            PrimaryButton("Créer une routine", icon: "plus") {
+                showCreateRoutine = true
+            }
+            .padding(.horizontal, SpacingTokens.xl)
+        }
+    }
+
+    private var allSharedStateView: some View {
+        VStack(spacing: SpacingTokens.lg) {
+            Image(systemName: "checkmark.circle")
+                .font(.satoshi(50))
+                .foregroundColor(ColorTokens.success)
+
+            Text("crew.groups.all_shared".localized)
+                .subtitle()
+                .foregroundColor(ColorTokens.textSecondary)
+                .multilineTextAlignment(.center)
+
+            Button(action: { showCreateRoutine = true }) {
+                HStack(spacing: SpacingTokens.xs) {
+                    Image(systemName: "plus.circle")
+                    Text("Créer une nouvelle routine")
+                }
+                .font(.satoshi(14, weight: .medium))
+                .foregroundColor(ColorTokens.primaryStart)
+            }
+            .padding(.top, SpacingTokens.md)
+        }
+    }
+
+    private var routinesListView: some View {
+        ScrollView {
+            VStack(spacing: SpacingTokens.sm) {
+                createNewRoutineButton
+
+                Text("Ou sélectionne une routine existante")
+                    .font(.satoshi(12))
+                    .foregroundColor(ColorTokens.textMuted)
+                    .padding(.vertical, SpacingTokens.sm)
+
+                ForEach(availableRoutines) { routine in
+                    routineRow(routine)
+                }
+            }
+            .padding(SpacingTokens.md)
+        }
+    }
+
+    private var createNewRoutineButton: some View {
+        Button(action: { showCreateRoutine = true }) {
+            HStack(spacing: SpacingTokens.md) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: RadiusTokens.sm)
+                        .stroke(ColorTokens.primaryStart, style: StrokeStyle(lineWidth: 2, dash: [5]))
+                        .frame(width: 44, height: 44)
+
+                    Image(systemName: "plus")
+                        .font(.satoshi(20, weight: .medium))
+                        .foregroundColor(ColorTokens.primaryStart)
+                }
+
+                Text("Créer une nouvelle routine")
+                    .font(.satoshi(14, weight: .medium))
+                    .foregroundColor(ColorTokens.primaryStart)
+
+                Spacer()
+            }
+            .padding(SpacingTokens.md)
+            .background(ColorTokens.primarySoft.opacity(0.5))
+            .cornerRadius(RadiusTokens.lg)
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
+    private func routineRow(_ routine: RoutineResponse) -> some View {
+        Button {
+            selectedRoutineId = routine.id
+        } label: {
+            Card {
+                HStack(spacing: SpacingTokens.md) {
+                    Text(routine.icon ?? "🔄")
+                        .font(.satoshi(24))
+                        .frame(width: 44, height: 44)
+                        .background(ColorTokens.primarySoft)
+                        .cornerRadius(RadiusTokens.sm)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(routine.title)
+                            .font(.satoshi(14, weight: .semibold))
+                            .foregroundColor(ColorTokens.textPrimary)
+
+                        Text(routine.frequency)
+                            .font(.satoshi(12))
+                            .foregroundColor(ColorTokens.textMuted)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: selectedRoutineId == routine.id ? "checkmark.circle.fill" : "circle")
+                        .font(.satoshi(22))
+                        .foregroundColor(selectedRoutineId == routine.id ? ColorTokens.primaryStart : ColorTokens.textMuted)
+                }
+                .padding(SpacingTokens.sm)
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 
     private func shareRoutine() {

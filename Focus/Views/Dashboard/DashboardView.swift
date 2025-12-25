@@ -7,13 +7,11 @@ struct DashboardView: View {
     @EnvironmentObject var router: AppRouter
     @State private var showCelebration = false
     @State private var celebrationCount = 0
-    @State private var showProfileSheet = false
     @State private var showImageEditor = false
     @State private var showCamera = false
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var selectedImage: UIImage?
     @State private var isUploadingPhoto = false
-    @State private var showFlameInfoSheet = false
 
     // Journal state
     @State private var showJournalRecorder = false
@@ -56,13 +54,6 @@ struct DashboardView: View {
                             mainCTASection
                                 .padding(.horizontal, SpacingTokens.lg)
                                 .padding(.bottom, SpacingTokens.xl)
-
-                            // Active Quests Section
-                            if !viewModel.activeQuests.isEmpty {
-                                activeQuestsSection
-                                    .padding(.horizontal, SpacingTokens.lg)
-                                    .padding(.bottom, SpacingTokens.xl)
-                            }
 
                             // Journal Section
                             journalSection
@@ -131,83 +122,20 @@ struct DashboardView: View {
         .padding(.vertical, SpacingTokens.md)
     }
 
-    // MARK: - Header Section (Compact with Flame Level)
+    // MARK: - Header Section
     private var headerSection: some View {
-        HStack(alignment: .center, spacing: SpacingTokens.md) {
-            // Flame level badge (tappable)
-            Button(action: {
-                HapticFeedback.light()
-                showFlameInfoSheet = true
-            }) {
-                HStack(spacing: SpacingTokens.xs) {
-                    Text(currentLevel?.icon ?? "🔥")
-                        .font(.system(size: 24))
-
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text("streak.day_count".localized(with: viewModel.currentStreak))
-                            .font(.satoshi(16, weight: .bold))
-                            .foregroundColor(.white)
-
-                        Text(currentLevel?.name.uppercased() ?? "SPARK")
-                            .font(.satoshi(10, weight: .semibold))
-                            .foregroundColor(ColorTokens.primaryStart)
-                            .tracking(1)
-                    }
-                }
-                .padding(.horizontal, SpacingTokens.md)
-                .padding(.vertical, SpacingTokens.sm)
-                .background(ColorTokens.surface)
-                .cornerRadius(RadiusTokens.lg)
-            }
-            .buttonStyle(PlainButtonStyle())
-
-            Spacer()
+        VStack(alignment: .leading, spacing: 2) {
+            Text(greeting)
+                .font(.satoshi(14))
+                .foregroundColor(ColorTokens.textMuted)
 
             if let user = viewModel.user {
-                Button(action: {
-                    showProfileSheet = true
-                }) {
-                    AvatarView(name: user.name, avatarURL: user.avatarURL, size: 40)
-                }
+                Text(user.name)
+                    .font(.satoshi(24, weight: .bold))
+                    .foregroundColor(ColorTokens.textPrimary)
             }
         }
-        .sheet(isPresented: $showProfileSheet) {
-            SettingsView(
-                user: viewModel.user,
-                selectedPhotoItem: $selectedPhotoItem,
-                isUploading: $isUploadingPhoto,
-                onPhotoSelected: { image in
-                    Task {
-                        if let imageData = image.jpegData(compressionQuality: 0.8) {
-                            await viewModel.uploadAvatar(imageData: imageData)
-                        }
-                    }
-                },
-                onDeletePhoto: {
-                    Task {
-                        await viewModel.deleteAvatar()
-                    }
-                },
-                onTakeSelfie: {
-                    showProfileSheet = false
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                        showCamera = true
-                    }
-                },
-                onSignOut: {
-                    FocusAppStore.shared.signOut()
-                }
-            )
-            .presentationDetents([.large])
-        }
-        .sheet(isPresented: $showFlameInfoSheet) {
-            FlameInfoSheet(
-                currentStreak: viewModel.currentStreak,
-                flameLevels: viewModel.flameLevels,
-                todayValidation: viewModel.todayValidation
-            )
-            .presentationDetents([.large])
-        }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .fullScreenCover(isPresented: $showCamera) {
             ZStack {
                 Color.black.ignoresSafeArea()
@@ -253,8 +181,6 @@ struct DashboardView: View {
                             await MainActor.run {
                                 selectedImage = uiImage
                                 selectedPhotoItem = nil
-                                // Dismiss profile sheet first, then show editor after delay
-                                showProfileSheet = false
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                                     showImageEditor = true
                                 }
@@ -289,309 +215,52 @@ struct DashboardView: View {
         }
     }
 
-    // MARK: - Streak Card Section with Progress Bar
-    @State private var isStreakCardPressed = false
+    // MARK: - Streak Card Section (Simple)
     @State private var flameScale: CGFloat = 1.0
-    @State private var showValidationDetails = false
 
-    // Current and next flame level helpers
-    private var currentLevel: FlameLevel? {
-        viewModel.flameLevels.first(where: { $0.isCurrent })
-    }
-
-    private var nextLevel: FlameLevel? {
-        guard let current = currentLevel else { return viewModel.flameLevels.first }
-        return viewModel.flameLevels.first(where: { $0.level == current.level + 1 })
-    }
-
-    private var progressToNextLevel: Double {
-        guard let current = currentLevel, let next = nextLevel else { return 0 }
-        let daysInRange = next.daysRequired - current.daysRequired
-        guard daysInRange > 0 else { return 1.0 }
-        let progress = viewModel.currentStreak - current.daysRequired
-        return min(1.0, max(0, Double(progress) / Double(daysInRange)))
+    private var greeting: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 5..<12:
+            return "dashboard.good_morning".localized
+        case 12..<18:
+            return "dashboard.good_afternoon".localized
+        case 18..<22:
+            return "dashboard.good_evening".localized
+        default:
+            return "dashboard.good_night".localized
+        }
     }
 
     private var streakCardSection: some View {
         VStack(spacing: SpacingTokens.lg) {
-            // Main streak display with current level + info button
-            ZStack(alignment: .topTrailing) {
-                VStack(spacing: SpacingTokens.sm) {
-                    // Current flame icon with glow
-                    Text(currentLevel?.icon ?? "🔥")
-                        .font(.system(size: 64))
-                        .scaleEffect(flameScale)
-                        .shadow(color: ColorTokens.primaryStart.opacity(0.6), radius: 20, x: 0, y: 0)
+            // Simple streak display
+            VStack(spacing: SpacingTokens.sm) {
+                // Flame icon with glow
+                Text("🔥")
+                    .font(.system(size: 64))
+                    .scaleEffect(flameScale)
+                    .shadow(color: ColorTokens.primaryStart.opacity(0.6), radius: 20, x: 0, y: 0)
 
-                    // Streak text - "Jour 0" / "Day 0" format
-                    Text("streak.day_count".localized(with: viewModel.currentStreak))
-                        .font(.satoshi(42, weight: .bold))
-                        .foregroundColor(.white)
-
-                    // Current flame level name badge
-                    if let level = currentLevel {
-                        Text(level.name.uppercased())
-                            .font(.satoshi(12, weight: .bold))
-                            .foregroundColor(ColorTokens.primaryStart)
-                            .tracking(2)
-                            .padding(.horizontal, SpacingTokens.md)
-                            .padding(.vertical, SpacingTokens.xs)
-                            .background(ColorTokens.primaryStart.opacity(0.15))
-                            .cornerRadius(RadiusTokens.sm)
-                    }
-                }
-                .frame(maxWidth: .infinity)
-                .onAppear {
-                    withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
-                        flameScale = 1.08
-                    }
-                }
-
-                // Info button with requirement status dots
-                Button(action: {
-                    HapticFeedback.light()
-                    showFlameInfoSheet = true
-                }) {
-                    HStack(spacing: 4) {
-                        // Status dots
-                        if let validation = viewModel.todayValidation {
-                            Circle()
-                                .fill(validation.meetsFocusSessions ? ColorTokens.success : ColorTokens.warning)
-                                .frame(width: 6, height: 6)
-                            Circle()
-                                .fill(validation.meetsCompletionRate ? ColorTokens.success : ColorTokens.warning)
-                                .frame(width: 6, height: 6)
-                            Circle()
-                                .fill(validation.meetsMinTasks ? ColorTokens.success : ColorTokens.warning)
-                                .frame(width: 6, height: 6)
-                        }
-                        Image(systemName: "info.circle")
-                            .font(.system(size: 16))
-                            .foregroundColor(ColorTokens.textMuted)
-                    }
-                    .padding(SpacingTokens.sm)
-                    .background(ColorTokens.surface.opacity(0.5))
-                    .cornerRadius(RadiusTokens.md)
+                // Simple day count - "Jour X" / "Day X"
+                Text("streak.day_count".localized(with: viewModel.currentStreak))
+                    .font(.satoshi(42, weight: .bold))
+                    .foregroundColor(.white)
+            }
+            .frame(maxWidth: .infinity)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+                    flameScale = 1.08
                 }
             }
 
-            // Simplified level progression (tappable)
-            simplifiedLevelProgress
-
-            // Daily task/ritual progress with clear labels
+            // Daily task/ritual progress
             dailyProgressBar
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, SpacingTokens.lg)
     }
 
-    // MARK: - Simplified Level Progress (replaces complex levelProgressionBar)
-    private var simplifiedLevelProgress: some View {
-        Button(action: {
-            HapticFeedback.light()
-            showFlameInfoSheet = true
-        }) {
-            HStack(spacing: SpacingTokens.md) {
-                // Current level
-                HStack(spacing: SpacingTokens.xs) {
-                    Text(currentLevel?.icon ?? "🔥")
-                        .font(.system(size: 18))
-                    Text(currentLevel?.name ?? "Spark")
-                        .font(.satoshi(13, weight: .bold))
-                        .foregroundColor(.white)
-                }
-
-                // Progress bar
-                GeometryReader { geometry in
-                    ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(ColorTokens.surface.opacity(0.3))
-                            .frame(height: 6)
-
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(ColorTokens.fireGradient)
-                            .frame(width: geometry.size.width * CGFloat(progressToNextLevel), height: 6)
-                    }
-                }
-                .frame(height: 6)
-
-                // Next level info
-                if let next = nextLevel {
-                    let daysToNext = next.daysRequired - viewModel.currentStreak
-                    Text("\(daysToNext) " + "days".localized)
-                        .font(.satoshi(11))
-                        .foregroundColor(ColorTokens.textMuted)
-                    Text(next.icon)
-                        .font(.system(size: 14))
-                        .opacity(0.5)
-                }
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 10))
-                    .foregroundColor(ColorTokens.textMuted)
-            }
-            .padding(.horizontal, SpacingTokens.lg)
-            .padding(.vertical, SpacingTokens.sm)
-            .background(ColorTokens.surface.opacity(0.3))
-            .cornerRadius(RadiusTokens.md)
-        }
-        .buttonStyle(PlainButtonStyle())
-        .padding(.horizontal, SpacingTokens.lg)
-    }
-
-    // MARK: - Level Progression Bar
-    private var levelProgressionBar: some View {
-        VStack(spacing: SpacingTokens.sm) {
-            // Level names on each side
-            HStack {
-                // Current level (left side - majority)
-                HStack(spacing: SpacingTokens.xs) {
-                    Text(currentLevel?.icon ?? "🔥")
-                        .font(.system(size: 20))
-                    Text(currentLevel?.name ?? "Spark")
-                        .font(.satoshi(14, weight: .bold))
-                        .foregroundColor(.white)
-                }
-
-                Spacer()
-
-                // Next level (right side - small preview)
-                if let next = nextLevel {
-                    HStack(spacing: SpacingTokens.xs) {
-                        Text(next.name)
-                            .font(.satoshi(12, weight: .medium))
-                            .foregroundColor(.white.opacity(0.5))
-                        Text(next.icon)
-                            .font(.system(size: 16))
-                            .opacity(0.5)
-                    }
-                }
-            }
-            .padding(.horizontal, SpacingTokens.lg)
-
-            // Progress bar showing current level fill + progress to next
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    // Background (next level territory)
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(ColorTokens.surface.opacity(0.2))
-                        .frame(height: 12)
-
-                    // Current level territory (filled)
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(ColorTokens.fireGradient)
-                        .frame(width: calculateLevelBarWidth(geometry: geometry), height: 12)
-                        .animation(.spring(response: 0.6, dampingFraction: 0.8), value: progressToNextLevel)
-
-                    // Divider line between current and next level at ~90%
-                    if nextLevel != nil {
-                        Rectangle()
-                            .fill(Color.white.opacity(0.3))
-                            .frame(width: 2, height: 16)
-                            .offset(x: geometry.size.width * 0.85 - 1)
-                    }
-                }
-            }
-            .frame(height: 16)
-            .padding(.horizontal, SpacingTokens.lg)
-
-            // Days info
-            HStack {
-                if let next = nextLevel {
-                    let daysToNext = next.daysRequired - viewModel.currentStreak
-                    Text("streak.days_to_next".localized(with: daysToNext))
-                        .font(.satoshi(11))
-                        .foregroundColor(.white.opacity(0.4))
-                }
-
-                Spacer()
-
-                if let next = nextLevel {
-                    Text("\(next.daysRequired) " + "streak.days_needed".localized)
-                        .font(.satoshi(11))
-                        .foregroundColor(.white.opacity(0.4))
-                }
-            }
-            .padding(.horizontal, SpacingTokens.lg)
-        }
-    }
-
-    private func calculateLevelBarWidth(geometry: GeometryProxy) -> CGFloat {
-        // Base width is 85% (current level territory)
-        // Plus progress within the remaining 15% towards next level
-        let baseWidth = geometry.size.width * 0.85
-        let progressWidth = geometry.size.width * 0.15 * CGFloat(progressToNextLevel)
-        return baseWidth + progressWidth
-    }
-
-    // MARK: - Today Validation Section
-    private var todayValidationSection: some View {
-        VStack(spacing: SpacingTokens.sm) {
-            // Toggle button
-            Button(action: {
-                withAnimation(.spring(response: 0.3)) {
-                    showValidationDetails.toggle()
-                }
-            }) {
-                HStack {
-                    // Quick status indicators
-                    if let validation = viewModel.todayValidation {
-                        HStack(spacing: SpacingTokens.xs) {
-                            Circle()
-                                .fill(validation.meetsCompletionRate ? ColorTokens.success : ColorTokens.warning)
-                                .frame(width: 6, height: 6)
-                            Circle()
-                                .fill(validation.meetsFocusSessions ? ColorTokens.success : ColorTokens.warning)
-                                .frame(width: 6, height: 6)
-                            Circle()
-                                .fill(validation.meetsMinTasks ? ColorTokens.success : ColorTokens.warning)
-                                .frame(width: 6, height: 6)
-                        }
-                    }
-
-                    Text("streak.requirements".localized)
-                        .font(.satoshi(12, weight: .medium))
-                        .foregroundColor(.white.opacity(0.6))
-
-                    Spacer()
-
-                    Image(systemName: showValidationDetails ? "chevron.up" : "chevron.down")
-                        .font(.satoshi(10))
-                        .foregroundColor(.white.opacity(0.4))
-                }
-                .padding(.horizontal, SpacingTokens.lg)
-            }
-
-            if showValidationDetails {
-                if let validation = viewModel.todayValidation {
-                    VStack(spacing: SpacingTokens.xs) {
-                        ValidationRequirementRow(
-                            icon: "checkmark.circle.fill",
-                            text: "streak.requirement_completion".localized(with: validation.requiredCompletionRate),
-                            current: "\(validation.overallRate)%",
-                            isMet: validation.meetsCompletionRate
-                        )
-
-                        ValidationRequirementRow(
-                            icon: "flame.fill",
-                            text: "streak.requirement_sessions".localized(with: validation.requiredFocusSessions),
-                            current: "\(validation.focusSessions)",
-                            isMet: validation.meetsFocusSessions
-                        )
-
-                        ValidationRequirementRow(
-                            icon: "calendar",
-                            text: "streak.requirement_tasks".localized(with: validation.requiredMinTasks),
-                            current: "\(validation.totalTasks)",
-                            isMet: validation.meetsMinTasks
-                        )
-                    }
-                    .padding(.horizontal, SpacingTokens.lg)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
-                }
-            }
-        }
-    }
 
     // MARK: - Daily Progress Bar
     private var dailyProgressBar: some View {
@@ -704,9 +373,6 @@ struct DashboardView: View {
             // Intentions list
             ForEach(viewModel.todaysIntentions) { intention in
                 HStack(spacing: SpacingTokens.sm) {
-                    Text(intention.area.emoji)
-                        .font(.system(size: 14))
-
                     Text(intention.intention)
                         .font(.satoshi(14))
                         .foregroundColor(ColorTokens.textPrimary)
@@ -1313,6 +979,16 @@ struct DashboardView: View {
 struct IntentionCard: View {
     let intention: DailyIntention
 
+    // Strip emoji prefix from intention text if it matches the area emoji
+    private var cleanIntentionText: String {
+        let text = intention.intention
+        let emojiPrefix = intention.area.emoji + " "
+        if text.hasPrefix(emojiPrefix) {
+            return String(text.dropFirst(emojiPrefix.count))
+        }
+        return text
+    }
+
     var body: some View {
         HStack(spacing: SpacingTokens.md) {
             // Area emoji
@@ -1322,9 +998,9 @@ struct IntentionCard: View {
                 .background(Color(hex: intention.area.color).opacity(0.15))
                 .cornerRadius(RadiusTokens.sm)
 
-            // Intention text
+            // Intention text (without emoji prefix since it's shown in the badge)
             VStack(alignment: .leading, spacing: 2) {
-                Text(intention.intention)
+                Text(cleanIntentionText)
                     .bodyText()
                     .foregroundColor(intention.isCompleted ? ColorTokens.textMuted : ColorTokens.textPrimary)
                     .strikethrough(intention.isCompleted)
@@ -3353,9 +3029,15 @@ struct EditIntentionsSheet: View {
         }
         .onAppear {
             editedIntentions = viewModel.todaysIntentions.map { intention in
-                EditableIntention(
+                // Remove the emoji prefix if it matches the area emoji
+                var cleanText = intention.intention
+                let emojiPrefix = intention.area.emoji + " "
+                if cleanText.hasPrefix(emojiPrefix) {
+                    cleanText = String(cleanText.dropFirst(emojiPrefix.count))
+                }
+                return EditableIntention(
                     id: intention.id,
-                    text: intention.intention,
+                    text: cleanText,
                     area: intention.area,
                     isCompleted: intention.isCompleted
                 )

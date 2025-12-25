@@ -61,12 +61,12 @@ class RitualsViewModel: ObservableObject {
         }
     }
 
-    func updateRitual(id: String, title: String, frequency: String, icon: String, scheduledTime: String? = nil, durationMinutes: Int? = nil) async -> Bool {
+    func updateRitual(id: String, areaId: String? = nil, title: String, frequency: String, icon: String, scheduledTime: String? = nil, durationMinutes: Int? = nil) async -> Bool {
         isLoading = true
         errorMessage = nil
 
         do {
-            try await store.updateRitual(id: id, title: title, frequency: frequency, icon: icon, scheduledTime: scheduledTime, durationMinutes: durationMinutes)
+            try await store.updateRitual(id: id, areaId: areaId, title: title, frequency: frequency, icon: icon, scheduledTime: scheduledTime, durationMinutes: durationMinutes)
             rituals = store.rituals
             isLoading = false
             return true
@@ -624,10 +624,12 @@ struct EditRitualSheet: View {
     // Don't observe viewModel - only use for save
     let viewModel: RitualsViewModel
     let ritual: DailyRitual
+    @EnvironmentObject var store: FocusAppStore
     @Environment(\.dismiss) var dismiss
 
     @State private var title: String
     @State private var selectedIcon: String
+    @State private var selectedAreaId: String?
     @State private var selectedFrequency: String
     @State private var scheduledTime: Date
     @State private var hasScheduledTime: Bool
@@ -656,6 +658,7 @@ struct EditRitualSheet: View {
         self.ritual = ritual
         _title = State(initialValue: ritual.title)
         _selectedIcon = State(initialValue: ritual.icon)
+        _selectedAreaId = State(initialValue: ritual.areaId)
         _selectedFrequency = State(initialValue: ritual.frequency.rawValue)
 
         // Parse existing scheduled time
@@ -678,6 +681,11 @@ struct EditRitualSheet: View {
         _durationMinutes = State(initialValue: ritual.durationMinutes ?? 30)
     }
 
+    // Filter out placeholder areas
+    private var validAreas: [Area] {
+        store.areas.filter { !$0.id.hasPrefix("placeholder-") }
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -691,6 +699,9 @@ struct EditRitualSheet: View {
 
                         // Title input
                         titleSection
+
+                        // Area selector
+                        areaSection
 
                         // Frequency selector
                         frequencySection
@@ -729,6 +740,7 @@ struct EditRitualSheet: View {
 
                                 let success = await viewModel.updateRitual(
                                     id: ritual.id,
+                                    areaId: selectedAreaId,
                                     title: title,
                                     frequency: selectedFrequency,
                                     icon: selectedIcon,
@@ -816,6 +828,45 @@ struct EditRitualSheet: View {
                 placeholder: "routines.ritual_placeholder".localized,
                 text: $title
             )
+        }
+    }
+
+    private var areaSection: some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.md) {
+            Text("Domaine de vie")
+                .subtitle()
+                .foregroundColor(ColorTokens.textPrimary)
+
+            if validAreas.isEmpty {
+                Text("Aucun domaine disponible")
+                    .caption()
+                    .foregroundColor(ColorTokens.textMuted)
+            } else {
+                FlowLayout(spacing: SpacingTokens.sm) {
+                    ForEach(validAreas) { area in
+                        Button(action: {
+                            selectedAreaId = area.id
+                            triggerHaptic()
+                        }) {
+                            HStack(spacing: SpacingTokens.xs) {
+                                Text(area.icon)
+                                    .font(.satoshi(16))
+                                Text(area.name)
+                                    .caption()
+                            }
+                            .padding(.horizontal, SpacingTokens.md)
+                            .padding(.vertical, SpacingTokens.sm)
+                            .background(selectedAreaId == area.id ? ColorTokens.primarySoft : ColorTokens.surface)
+                            .foregroundColor(selectedAreaId == area.id ? ColorTokens.primaryStart : ColorTokens.textSecondary)
+                            .cornerRadius(RadiusTokens.full)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: RadiusTokens.full)
+                                    .stroke(selectedAreaId == area.id ? ColorTokens.primaryStart : ColorTokens.border, lineWidth: 1)
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 
