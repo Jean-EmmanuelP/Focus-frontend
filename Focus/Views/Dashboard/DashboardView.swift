@@ -104,11 +104,11 @@ struct DashboardView: View {
         HStack(spacing: SpacingTokens.md) {
             if let icon = icon {
                 Text(icon)
-                    .font(.satoshi(18))
+                    .font(.inter(18))
             }
 
             Text(title)
-                .font(.satoshi(14, weight: .semibold))
+                .font(.inter(14, weight: .semibold))
                 .foregroundColor(ColorTokens.textSecondary)
 
             Spacer()
@@ -126,12 +126,12 @@ struct DashboardView: View {
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(greeting)
-                .font(.satoshi(14))
+                .font(.inter(14))
                 .foregroundColor(ColorTokens.textMuted)
 
             if let user = viewModel.user {
                 Text(user.name)
-                    .font(.satoshi(24, weight: .bold))
+                    .font(.inter(24, weight: .bold))
                     .foregroundColor(ColorTokens.textPrimary)
             }
         }
@@ -244,7 +244,7 @@ struct DashboardView: View {
 
                 // Simple day count - "Jour X" / "Day X"
                 Text("streak.day_count".localized(with: viewModel.currentStreak))
-                    .font(.satoshi(42, weight: .bold))
+                    .font(.inter(42, weight: .bold))
                     .foregroundColor(.white)
             }
             .frame(maxWidth: .infinity)
@@ -268,13 +268,13 @@ struct DashboardView: View {
             // Title with percentage
             HStack {
                 Text("dashboard.daily_progress".localized)
-                    .font(.satoshi(14, weight: .semibold))
+                    .font(.inter(14, weight: .semibold))
                     .foregroundColor(ColorTokens.textSecondary)
 
                 Spacer()
 
                 Text("\(Int(viewModel.dailyProgressPercentage * 100))%")
-                    .font(.satoshi(16, weight: .bold))
+                    .font(.inter(16, weight: .bold))
                     .foregroundColor(
                         viewModel.dailyProgressPercentage >= 1.0
                             ? ColorTokens.success
@@ -313,7 +313,7 @@ struct DashboardView: View {
                         .font(.system(size: 10))
                         .foregroundColor(ColorTokens.textMuted)
                     Text("\(viewModel.completedTasksCount)/\(viewModel.totalTasksCount) " + "tasks".localized)
-                        .font(.satoshi(11))
+                        .font(.inter(11))
                         .foregroundColor(ColorTokens.textMuted)
                 }
 
@@ -326,7 +326,7 @@ struct DashboardView: View {
                         .font(.system(size: 10))
                         .foregroundColor(ColorTokens.textMuted)
                     Text("\(viewModel.completedRitualsCount)/\(viewModel.totalRitualsCount) " + "rituals".localized)
-                        .font(.satoshi(11))
+                        .font(.inter(11))
                         .foregroundColor(ColorTokens.textMuted)
                 }
 
@@ -337,7 +337,7 @@ struct DashboardView: View {
             // Explanation text
             if viewModel.dailyProgressPercentage < 1.0 {
                 Text("dashboard.progress_hint".localized)
-                    .font(.satoshi(10))
+                    .font(.inter(10))
                     .foregroundColor(ColorTokens.textMuted.opacity(0.7))
                     .padding(.horizontal, SpacingTokens.lg)
             }
@@ -350,7 +350,7 @@ struct DashboardView: View {
             // Section header
             HStack {
                 Text("dashboard.todays_intentions".localized)
-                    .font(.satoshi(14, weight: .semibold))
+                    .font(.inter(14, weight: .semibold))
                     .foregroundColor(ColorTokens.textSecondary)
 
                 Spacer()
@@ -374,7 +374,7 @@ struct DashboardView: View {
             ForEach(viewModel.todaysIntentions) { intention in
                 HStack(spacing: SpacingTokens.sm) {
                     Text(intention.intention)
-                        .font(.satoshi(14))
+                        .font(.inter(14))
                         .foregroundColor(ColorTokens.textPrimary)
                         .lineLimit(1)
 
@@ -422,7 +422,7 @@ struct DashboardView: View {
         }) {
             HStack(spacing: SpacingTokens.md) {
                 Image(systemName: "mic.fill")
-                    .font(.satoshi(18, weight: .semibold))
+                    .font(.inter(18, weight: .semibold))
                     .foregroundColor(.white)
                     .frame(width: 40, height: 40)
                     .background(ColorTokens.fireGradient)
@@ -430,17 +430,17 @@ struct DashboardView: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("dashboard.start_day_title".localized)
-                        .font(.satoshi(16, weight: .semibold))
+                        .font(.inter(16, weight: .semibold))
                         .foregroundColor(ColorTokens.textPrimary)
                     Text("dashboard.start_day_subtitle".localized)
-                        .font(.satoshi(12))
+                        .font(.inter(12))
                         .foregroundColor(ColorTokens.textSecondary)
                 }
 
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.satoshi(14, weight: .semibold))
+                    .font(.inter(14, weight: .semibold))
                     .foregroundColor(ColorTokens.textMuted)
             }
             .padding(SpacingTokens.md)
@@ -458,7 +458,7 @@ struct DashboardView: View {
             // Section header
             HStack {
                 Text("dashboard.upcoming_task".localized)
-                    .font(.satoshi(12, weight: .semibold))
+                    .font(.inter(12, weight: .semibold))
                     .foregroundColor(ColorTokens.textSecondary)
                     .textCase(.uppercase)
 
@@ -467,7 +467,7 @@ struct DashboardView: View {
                 // Day badge for future tasks
                 if !isToday, let taskDate = task.dateAsDate {
                     Text(formatDayName(taskDate))
-                        .font(.satoshi(11, weight: .bold))
+                        .font(.inter(11, weight: .bold))
                         .foregroundColor(ColorTokens.primaryEnd)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
@@ -489,7 +489,7 @@ struct DashboardView: View {
                     // Time badge
                     if let startTime = task.scheduledStart {
                         Text(startTime)
-                            .font(.satoshi(16, weight: .bold))
+                            .font(.inter(16, weight: .bold))
                             .foregroundColor(ColorTokens.primaryStart)
                             .frame(width: 55)
                     }
@@ -497,13 +497,13 @@ struct DashboardView: View {
                     // Task info
                     VStack(alignment: .leading, spacing: 2) {
                         Text(task.title)
-                            .font(.satoshi(16, weight: .semibold))
+                            .font(.inter(16, weight: .semibold))
                             .foregroundColor(ColorTokens.textPrimary)
                             .lineLimit(1)
 
                         if let end = task.scheduledEnd, let start = task.scheduledStart {
                             Text("\(start) - \(end)")
-                                .font(.satoshi(12))
+                                .font(.inter(12))
                                 .foregroundColor(ColorTokens.textMuted)
                         }
                     }
@@ -526,7 +526,7 @@ struct DashboardView: View {
                             router.navigateToFireMode(duration: duration, questId: task.questId, description: task.title, taskId: task.id)
                         }) {
                             Image(systemName: "flame.fill")
-                                .font(.satoshi(16))
+                                .font(.inter(16))
                                 .foregroundColor(.white)
                                 .frame(width: 40, height: 40)
                                 .background(ColorTokens.fireGradient)
@@ -534,7 +534,7 @@ struct DashboardView: View {
                         }
                     } else {
                         Image(systemName: "chevron.right")
-                            .font(.satoshi(14, weight: .semibold))
+                            .font(.inter(14, weight: .semibold))
                             .foregroundColor(ColorTokens.textMuted)
                     }
                 }
@@ -572,9 +572,9 @@ struct DashboardView: View {
             // Header
             HStack {
                 Text("⏭️")
-                    .font(.satoshi(16))
+                    .font(.inter(16))
                 Text("dashboard.coming_next".localized)
-                    .font(.satoshi(12, weight: .semibold))
+                    .font(.inter(12, weight: .semibold))
                     .foregroundColor(ColorTokens.textSecondary)
                     .textCase(.uppercase)
 
@@ -582,7 +582,7 @@ struct DashboardView: View {
 
                 if let startTime = task.scheduledStart {
                     Text(startTime)
-                        .font(.satoshi(14, weight: .medium))
+                        .font(.inter(14, weight: .medium))
                         .foregroundColor(ColorTokens.primaryStart)
                 }
             }
@@ -590,16 +590,16 @@ struct DashboardView: View {
             // Task info
             VStack(alignment: .leading, spacing: SpacingTokens.xs) {
                 Text(task.title)
-                    .font(.satoshi(18, weight: .bold))
+                    .font(.inter(18, weight: .bold))
                     .foregroundColor(ColorTokens.textPrimary)
                     .lineLimit(2)
 
                 if let start = task.scheduledStart, let end = task.scheduledEnd {
                     HStack(spacing: SpacingTokens.sm) {
                         Image(systemName: "clock")
-                            .font(.satoshi(12))
+                            .font(.inter(12))
                         Text("\(start) - \(end)")
-                            .font(.satoshi(13))
+                            .font(.inter(13))
                     }
                     .foregroundColor(ColorTokens.textSecondary)
                 }
@@ -624,9 +624,9 @@ struct DashboardView: View {
             }) {
                 HStack(spacing: SpacingTokens.sm) {
                     Image(systemName: "flame.fill")
-                        .font(.satoshi(14, weight: .semibold))
+                        .font(.inter(14, weight: .semibold))
                     Text("dashboard.start_focus".localized)
-                        .font(.satoshi(16, weight: .bold))
+                        .font(.inter(16, weight: .bold))
                 }
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
@@ -644,14 +644,14 @@ struct DashboardView: View {
     private var noTasksCard: some View {
         VStack(spacing: SpacingTokens.md) {
             Text("📅")
-                .font(.satoshi(40))
+                .font(.inter(40))
 
             Text("dashboard.no_tasks_title".localized)
-                .font(.satoshi(16, weight: .semibold))
+                .font(.inter(16, weight: .semibold))
                 .foregroundColor(ColorTokens.textPrimary)
 
             Text("dashboard.no_tasks_subtitle".localized)
-                .font(.satoshi(14))
+                .font(.inter(14))
                 .foregroundColor(ColorTokens.textSecondary)
                 .multilineTextAlignment(.center)
 
@@ -662,7 +662,7 @@ struct DashboardView: View {
                     Image(systemName: "calendar.badge.plus")
                     Text("dashboard.plan_day".localized)
                 }
-                .font(.satoshi(14, weight: .semibold))
+                .font(.inter(14, weight: .semibold))
                 .foregroundColor(ColorTokens.primaryStart)
             }
         }
@@ -676,14 +676,14 @@ struct DashboardView: View {
     private var allTasksCompletedCard: some View {
         VStack(spacing: SpacingTokens.md) {
             Text("🎉")
-                .font(.satoshi(48))
+                .font(.inter(48))
 
             Text("dashboard.all_done_title".localized)
-                .font(.satoshi(18, weight: .bold))
+                .font(.inter(18, weight: .bold))
                 .foregroundColor(ColorTokens.textPrimary)
 
             Text("dashboard.all_done_subtitle".localized)
-                .font(.satoshi(14))
+                .font(.inter(14))
                 .foregroundColor(ColorTokens.textSecondary)
                 .multilineTextAlignment(.center)
         }
@@ -699,9 +699,9 @@ struct DashboardView: View {
             // Section header
             HStack {
                 Text("🎯")
-                    .font(.satoshi(16))
+                    .font(.inter(16))
                 Text("dashboard.active_quests".localized)
-                    .font(.satoshi(14, weight: .semibold))
+                    .font(.inter(14, weight: .semibold))
                     .foregroundColor(ColorTokens.textSecondary)
 
                 Spacer()
@@ -710,9 +710,9 @@ struct DashboardView: View {
                 NavigationLink(destination: QuestsView()) {
                     HStack(spacing: 4) {
                         Text("dashboard.see_all_quests".localized)
-                            .font(.satoshi(12, weight: .medium))
+                            .font(.inter(12, weight: .medium))
                         Image(systemName: "chevron.right")
-                            .font(.satoshi(10))
+                            .font(.inter(10))
                     }
                     .foregroundColor(ColorTokens.primaryStart)
                 }
@@ -733,9 +733,9 @@ struct DashboardView: View {
             // Section header
             HStack {
                 Text("📓")
-                    .font(.satoshi(16))
+                    .font(.inter(16))
                 Text("journal.section_title".localized)
-                    .font(.satoshi(14, weight: .semibold))
+                    .font(.inter(14, weight: .semibold))
                     .foregroundColor(ColorTokens.textSecondary)
 
                 Spacer()
@@ -744,9 +744,9 @@ struct DashboardView: View {
                 Button(action: { showJournalHistory = true }) {
                     HStack(spacing: 4) {
                         Text("dashboard.see_history".localized)
-                            .font(.satoshi(12, weight: .medium))
+                            .font(.inter(12, weight: .medium))
                         Image(systemName: "chevron.right")
-                            .font(.satoshi(10))
+                            .font(.inter(10))
                     }
                     .foregroundColor(ColorTokens.primaryStart)
                 }
@@ -765,7 +765,7 @@ struct DashboardView: View {
             if !viewModel.recentJournalEntries.isEmpty && viewModel.journalMoodData.count > 1 {
                 VStack(alignment: .leading, spacing: SpacingTokens.xs) {
                     Text("journal.mood_trend".localized)
-                        .font(.satoshi(12, weight: .medium))
+                        .font(.inter(12, weight: .medium))
                         .foregroundColor(ColorTokens.textMuted)
 
                     MoodGraphView(moodData: viewModel.journalMoodData, height: 60, showLabels: true)
@@ -829,24 +829,24 @@ struct DashboardView: View {
                 VStack(alignment: .leading, spacing: SpacingTokens.xs) {
                     // Title
                     Text(entry.title ?? "journal.recorded".localized)
-                        .font(.satoshi(16, weight: .semibold))
+                        .font(.inter(16, weight: .semibold))
                         .foregroundColor(ColorTokens.textPrimary)
                         .lineLimit(1)
 
                     // Preview: summary if analyzed, transcript snippet if pending
                     if let summary = entry.summary, !summary.isEmpty {
                         Text(summary.replacingOccurrences(of: "\n", with: " "))
-                            .font(.satoshi(13))
+                            .font(.inter(13))
                             .foregroundColor(ColorTokens.textSecondary)
                             .lineLimit(2)
                     } else if let transcript = entry.transcript, !transcript.isEmpty {
                         Text(transcript)
-                            .font(.satoshi(13))
+                            .font(.inter(13))
                             .foregroundColor(ColorTokens.textSecondary)
                             .lineLimit(2)
                     } else {
                         Text("journal.analysis_pending".localized)
-                            .font(.satoshi(13))
+                            .font(.inter(13))
                             .foregroundColor(ColorTokens.textMuted)
                             .italic()
                     }
@@ -854,9 +854,9 @@ struct DashboardView: View {
                     // Duration
                     HStack(spacing: SpacingTokens.xs) {
                         Image(systemName: "waveform")
-                            .font(.satoshi(10))
+                            .font(.inter(10))
                         Text(entry.formattedDuration)
-                            .font(.satoshi(11))
+                            .font(.inter(11))
                     }
                     .foregroundColor(ColorTokens.textMuted)
                 }
@@ -864,7 +864,7 @@ struct DashboardView: View {
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.satoshi(14))
+                    .font(.inter(14))
                     .foregroundColor(ColorTokens.textMuted)
             }
             .padding()
@@ -906,18 +906,18 @@ struct DashboardView: View {
 
                 VStack(alignment: .leading, spacing: SpacingTokens.xs) {
                     Text("journal.record_today".localized)
-                        .font(.satoshi(16, weight: .semibold))
+                        .font(.inter(16, weight: .semibold))
                         .foregroundColor(ColorTokens.textPrimary)
 
                     Text("journal.record_subtitle".localized)
-                        .font(.satoshi(13))
+                        .font(.inter(13))
                         .foregroundColor(ColorTokens.textSecondary)
                 }
 
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.satoshi(14))
+                    .font(.inter(14))
                     .foregroundColor(ColorTokens.textMuted)
             }
             .padding()
@@ -993,7 +993,7 @@ struct IntentionCard: View {
         HStack(spacing: SpacingTokens.md) {
             // Area emoji
             Text(intention.area.emoji)
-                .font(.satoshi(24))
+                .font(.inter(24))
                 .frame(width: 36, height: 36)
                 .background(Color(hex: intention.area.color).opacity(0.15))
                 .cornerRadius(RadiusTokens.sm)
@@ -1017,7 +1017,7 @@ struct IntentionCard: View {
             if intention.isCompleted {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundColor(ColorTokens.success)
-                    .font(.satoshi(20))
+                    .font(.inter(20))
             }
         }
         .padding(SpacingTokens.md)
@@ -1040,7 +1040,7 @@ struct ReflectionCard: View {
     var body: some View {
         HStack(alignment: .top, spacing: SpacingTokens.md) {
             Text(emoji)
-                .font(.satoshi(24))
+                .font(.inter(24))
 
             VStack(alignment: .leading, spacing: SpacingTokens.xs) {
                 Text(title)
@@ -1080,7 +1080,7 @@ struct SessionCard: View {
             // Time indicator
             VStack(alignment: .center, spacing: 2) {
                 Text(timeFormatter.string(from: session.startTime))
-                    .font(.satoshi(12, weight: .medium))
+                    .font(.inter(12, weight: .medium))
                     .foregroundColor(ColorTokens.textSecondary)
 
                 Rectangle()
@@ -1089,7 +1089,7 @@ struct SessionCard: View {
                     .cornerRadius(1)
 
                 Text(session.formattedActualDuration)
-                    .font(.satoshi(11, weight: .bold))
+                    .font(.inter(11, weight: .bold))
                     .foregroundColor(ColorTokens.primaryStart)
             }
             .frame(width: 44)
@@ -1112,9 +1112,9 @@ struct SessionCard: View {
                     // Duration badge - shows actual duration
                     HStack(spacing: 4) {
                         Image(systemName: "flame.fill")
-                            .font(.satoshi(10))
+                            .font(.inter(10))
                         Text(session.formattedActualDuration)
-                            .font(.satoshi(11, weight: .medium))
+                            .font(.inter(11, weight: .medium))
                     }
                     .foregroundColor(ColorTokens.primaryStart)
                     .padding(.horizontal, SpacingTokens.sm)
@@ -1124,7 +1124,7 @@ struct SessionCard: View {
 
                     if session.isManuallyLogged {
                         Text("Manual")
-                            .font(.satoshi(10))
+                            .font(.inter(10))
                             .foregroundColor(ColorTokens.textMuted)
                             .padding(.horizontal, SpacingTokens.xs)
                             .padding(.vertical, 2)
@@ -1164,13 +1164,13 @@ struct DayTimelineView: View {
             // Day header
             HStack {
                 Text(formatDayLabel(date))
-                    .font(.satoshi(12, weight: .semibold))
+                    .font(.inter(12, weight: .semibold))
                     .foregroundColor(ColorTokens.textPrimary)
 
                 Spacer()
 
                 Text("\(totalMinutes)m")
-                    .font(.satoshi(11, weight: .medium))
+                    .font(.inter(11, weight: .medium))
                     .foregroundColor(ColorTokens.primaryStart)
             }
 
@@ -1207,25 +1207,25 @@ struct DayTimelineView: View {
             // Time labels
             HStack {
                 Text("\(startHour):00")
-                    .font(.satoshi(9))
+                    .font(.inter(9))
                     .foregroundColor(ColorTokens.textMuted)
 
                 Spacer()
 
                 Text("12:00")
-                    .font(.satoshi(9))
+                    .font(.inter(9))
                     .foregroundColor(ColorTokens.textMuted)
 
                 Spacer()
 
                 Text("18:00")
-                    .font(.satoshi(9))
+                    .font(.inter(9))
                     .foregroundColor(ColorTokens.textMuted)
 
                 Spacer()
 
                 Text("24:00")
-                    .font(.satoshi(9))
+                    .font(.inter(9))
                     .foregroundColor(ColorTokens.textMuted)
             }
         }
@@ -1422,7 +1422,7 @@ struct StartFireModeSheet: View {
             Spacer()
 
             Text("🔥")
-                .font(.satoshi(64))
+                .font(.inter(64))
 
             Text("How long will you focus?")
                 .heading2()
@@ -1440,9 +1440,9 @@ struct StartFireModeSheet: View {
                     }) {
                         VStack(spacing: SpacingTokens.xs) {
                             Text("\(duration)")
-                                .font(.satoshi(24, weight: .bold))
+                                .font(.inter(24, weight: .bold))
                             Text("min")
-                                .font(.satoshi(12))
+                                .font(.inter(12))
                         }
                         .frame(width: 60, height: 70)
                         .background(
@@ -1471,7 +1471,7 @@ struct StartFireModeSheet: View {
             Spacer()
 
             Text("🎯")
-                .font(.satoshi(64))
+                .font(.inter(64))
 
             Text("Link to a Quest")
                 .heading2()
@@ -1573,9 +1573,9 @@ struct StartFireModeSheet: View {
                 // Duration badge
                 HStack(spacing: SpacingTokens.xs) {
                     Text("🔥")
-                        .font(.satoshi(14))
+                        .font(.inter(14))
                     Text("\(selectedDuration)min")
-                        .font(.satoshi(14, weight: .medium))
+                        .font(.inter(14, weight: .medium))
                         .foregroundColor(ColorTokens.textPrimary)
                 }
                 .padding(.horizontal, SpacingTokens.sm)
@@ -1588,9 +1588,9 @@ struct StartFireModeSheet: View {
                    let quest = quests.first(where: { $0.id == questId }) {
                     HStack(spacing: SpacingTokens.xs) {
                         Text(quest.area.emoji)
-                            .font(.satoshi(14))
+                            .font(.inter(14))
                         Text(quest.title)
-                            .font(.satoshi(14, weight: .medium))
+                            .font(.inter(14, weight: .medium))
                             .foregroundColor(ColorTokens.textPrimary)
                             .lineLimit(1)
                     }
@@ -1757,7 +1757,7 @@ struct ProfilePhotoSheet: View {
                 VStack(alignment: .leading, spacing: SpacingTokens.md) {
                     HStack {
                         Text("🌐")
-                            .font(.satoshi(20))
+                            .font(.inter(20))
                         Text("profile.language".localized)
                             .bodyText()
                             .fontWeight(.medium)
@@ -1776,7 +1776,7 @@ struct ProfilePhotoSheet: View {
                             } label: {
                                 HStack {
                                     Text(language.flag)
-                                        .font(.satoshi(20))
+                                        .font(.inter(20))
 
                                     Text(language.displayName)
                                         .bodyText()
@@ -1809,7 +1809,7 @@ struct ProfilePhotoSheet: View {
                 }) {
                     HStack {
                         Image(systemName: "rectangle.portrait.and.arrow.right")
-                            .font(.satoshi(14))
+                            .font(.inter(14))
                         Text("profile.sign_out".localized)
                             .bodyText()
                     }
@@ -2479,9 +2479,9 @@ struct SwipeableSessionCard: View {
                             ColorTokens.primaryStart
                             VStack(spacing: 4) {
                                 Image(systemName: "pencil")
-                                    .font(.satoshi(16, weight: .semibold))
+                                    .font(.inter(16, weight: .semibold))
                                 Text("Edit")
-                                    .font(.satoshi(10, weight: .medium))
+                                    .font(.inter(10, weight: .medium))
                             }
                             .foregroundColor(.white)
                             .scaleEffect(swipeProgress > 0.5 ? 1.0 : 0.5)
@@ -2500,9 +2500,9 @@ struct SwipeableSessionCard: View {
                             ColorTokens.error
                             VStack(spacing: 4) {
                                 Image(systemName: "trash")
-                                    .font(.satoshi(16, weight: .semibold))
+                                    .font(.inter(16, weight: .semibold))
                                 Text("Delete")
-                                    .font(.satoshi(10, weight: .medium))
+                                    .font(.inter(10, weight: .medium))
                             }
                             .foregroundColor(.white)
                             .scaleEffect(swipeProgress > 0.5 ? 1.0 : 0.5)
@@ -2526,7 +2526,7 @@ struct SwipeableSessionCard: View {
                 // Time indicator
                 VStack(alignment: .center, spacing: 2) {
                     Text(timeFormatter.string(from: session.startTime))
-                        .font(.satoshi(12, weight: .medium))
+                        .font(.inter(12, weight: .medium))
                         .foregroundColor(ColorTokens.textSecondary)
 
                     Rectangle()
@@ -2535,7 +2535,7 @@ struct SwipeableSessionCard: View {
                         .cornerRadius(1)
 
                     Text(session.formattedActualDuration)
-                        .font(.satoshi(11, weight: .bold))
+                        .font(.inter(11, weight: .bold))
                         .foregroundColor(ColorTokens.primaryStart)
                 }
                 .frame(width: 44)
@@ -2558,9 +2558,9 @@ struct SwipeableSessionCard: View {
                         // Duration badge
                         HStack(spacing: 4) {
                             Image(systemName: "flame.fill")
-                                .font(.satoshi(10))
+                                .font(.inter(10))
                             Text(session.formattedActualDuration)
-                                .font(.satoshi(11, weight: .medium))
+                                .font(.inter(11, weight: .medium))
                         }
                         .foregroundColor(ColorTokens.primaryStart)
                         .padding(.horizontal, SpacingTokens.sm)
@@ -2570,7 +2570,7 @@ struct SwipeableSessionCard: View {
 
                         if session.isManuallyLogged {
                             Text("Manual")
-                                .font(.satoshi(10))
+                                .font(.inter(10))
                                 .foregroundColor(ColorTokens.textMuted)
                                 .padding(.horizontal, SpacingTokens.xs)
                                 .padding(.vertical, 2)
@@ -2586,10 +2586,10 @@ struct SwipeableSessionCard: View {
                 if !isAnimating && offset == 0 {
                     HStack(spacing: 2) {
                         Image(systemName: "chevron.left")
-                            .font(.satoshi(10, weight: .medium))
+                            .font(.inter(10, weight: .medium))
                             .opacity(0.3)
                         Image(systemName: "chevron.left")
-                            .font(.satoshi(10, weight: .medium))
+                            .font(.inter(10, weight: .medium))
                             .opacity(0.5)
                     }
                     .foregroundColor(ColorTokens.textMuted)
@@ -2735,12 +2735,12 @@ struct EditSessionSheet: View {
                                 }
                             }) {
                                 Image(systemName: "minus.circle.fill")
-                                    .font(.satoshi(28))
+                                    .font(.inter(28))
                                     .foregroundColor(ColorTokens.textMuted)
                             }
 
                             Text("\(durationMinutes) minutes")
-                                .font(.satoshi(18, weight: .semibold))
+                                .font(.inter(18, weight: .semibold))
                                 .foregroundColor(ColorTokens.textPrimary)
                                 .frame(width: 120)
 
@@ -2750,7 +2750,7 @@ struct EditSessionSheet: View {
                                 }
                             }) {
                                 Image(systemName: "plus.circle.fill")
-                                    .font(.satoshi(28))
+                                    .font(.inter(28))
                                     .foregroundColor(ColorTokens.primaryStart)
                             }
                         }
@@ -2862,22 +2862,22 @@ struct ValidationRequirementRow: View {
     var body: some View {
         HStack(spacing: SpacingTokens.sm) {
             Image(systemName: icon)
-                .font(.satoshi(14))
+                .font(.inter(14))
                 .foregroundColor(isMet ? ColorTokens.success : ColorTokens.warning)
                 .frame(width: 20)
 
             Text(text)
-                .font(.satoshi(12))
+                .font(.inter(12))
                 .foregroundColor(.white.opacity(0.7))
 
             Spacer()
 
             Text(current)
-                .font(.satoshi(12, weight: .semibold))
+                .font(.inter(12, weight: .semibold))
                 .foregroundColor(isMet ? ColorTokens.success : ColorTokens.warning)
 
             Image(systemName: isMet ? "checkmark.circle.fill" : "circle")
-                .font(.satoshi(14))
+                .font(.inter(14))
                 .foregroundColor(isMet ? ColorTokens.success : .white.opacity(0.3))
         }
         .padding(.vertical, SpacingTokens.xs)
@@ -2898,7 +2898,7 @@ struct DashboardQuestCard: View {
             HStack(spacing: SpacingTokens.md) {
                 // Area emoji
                 Text(quest.area.emoji)
-                    .font(.satoshi(24))
+                    .font(.inter(24))
                     .frame(width: 40, height: 40)
                     .background(Color(hex: quest.area.color).opacity(0.15))
                     .cornerRadius(RadiusTokens.md)
@@ -2906,7 +2906,7 @@ struct DashboardQuestCard: View {
                 // Quest info
                 VStack(alignment: .leading, spacing: 4) {
                     Text(quest.title)
-                        .font(.satoshi(14, weight: .semibold))
+                        .font(.inter(14, weight: .semibold))
                         .foregroundColor(ColorTokens.textPrimary)
                         .lineLimit(1)
 
@@ -2929,12 +2929,12 @@ struct DashboardQuestCard: View {
 
                 // Progress percentage
                 Text("\(Int(quest.progress * 100))%")
-                    .font(.satoshi(14, weight: .bold))
+                    .font(.inter(14, weight: .bold))
                     .foregroundColor(Color(hex: quest.area.color))
 
                 // Fire icon to start focus
                 Image(systemName: "flame.fill")
-                    .font(.satoshi(14))
+                    .font(.inter(14))
                     .foregroundColor(ColorTokens.primaryStart)
             }
             .padding(SpacingTokens.md)
@@ -2967,7 +2967,7 @@ struct EditIntentionsSheet: View {
                         ForEach($editedIntentions) { $intention in
                             VStack(alignment: .leading, spacing: SpacingTokens.sm) {
                                 TextField("intentions.placeholder".localized, text: $intention.text)
-                                    .font(.satoshi(16))
+                                    .font(.inter(16))
                                     .foregroundColor(ColorTokens.textPrimary)
                                     .padding(SpacingTokens.md)
                                     .background(ColorTokens.surfaceElevated)
@@ -2981,7 +2981,7 @@ struct EditIntentionsSheet: View {
                                                     Text(area.emoji)
                                                         .font(.system(size: 14))
                                                     Text(area.localizedName)
-                                                        .font(.satoshi(12, weight: .medium))
+                                                        .font(.inter(12, weight: .medium))
                                                 }
                                                 .foregroundColor(intention.area == area ? .white : ColorTokens.textSecondary)
                                                 .padding(.horizontal, 12)
@@ -3007,7 +3007,7 @@ struct EditIntentionsSheet: View {
                             .progressViewStyle(CircularProgressViewStyle(tint: .white))
                     } else {
                         Text("common.save".localized)
-                            .font(.satoshi(16, weight: .semibold))
+                            .font(.inter(16, weight: .semibold))
                     }
                 }
                 .foregroundColor(.white)

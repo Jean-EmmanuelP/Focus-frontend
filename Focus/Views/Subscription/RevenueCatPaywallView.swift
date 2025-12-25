@@ -141,7 +141,7 @@ struct VoltaPaywallView: View {
             }
 
             Text("Deviens Volta Pro")
-                .font(.satoshi(isSmallScreen ? 26 : 32, weight: .bold))
+                .font(.inter(isSmallScreen ? 26 : 32, weight: .bold))
                 .foregroundColor(.white)
 
             Text("Debloque tout le potentiel de Volta")
@@ -252,12 +252,12 @@ struct VoltaPaywallView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(title)
-                            .font(.satoshi(16, weight: .bold))
+                            .font(.inter(16, weight: .bold))
                             .foregroundColor(.white)
 
                         if let pricePerWeek = package.localizedPricePerWeek {
                             Text("\(pricePerWeek)/semaine")
-                                .font(.satoshi(12))
+                                .font(.inter(12))
                                 .foregroundColor(.white.opacity(0.6))
                         }
                     }
@@ -266,16 +266,16 @@ struct VoltaPaywallView: View {
 
                     VStack(alignment: .trailing, spacing: 2) {
                         Text(package.storeProduct.localizedPriceString)
-                            .font(.satoshi(20, weight: .bold))
+                            .font(.inter(20, weight: .bold))
                             .foregroundColor(.white)
 
                         if package.packageType == .annual {
                             Text("/an")
-                                .font(.satoshi(12))
+                                .font(.inter(12))
                                 .foregroundColor(.white.opacity(0.5))
                         } else if package.packageType == .monthly {
                             Text("/mois")
-                                .font(.satoshi(12))
+                                .font(.inter(12))
                                 .foregroundColor(.white.opacity(0.5))
                         }
                     }
@@ -339,7 +339,7 @@ struct VoltaPaywallView: View {
                     await revenueCatManager.fetchOfferings()
                 }
             }
-            .font(.satoshi(14, weight: .semibold))
+            .font(.inter(14, weight: .semibold))
             .foregroundColor(.black)
             .padding(.horizontal, SpacingTokens.xl)
             .padding(.vertical, SpacingTokens.sm)
@@ -380,7 +380,7 @@ struct VoltaPaywallView: View {
                let intro = package.storeProduct.introductoryDiscount {
                 if intro.price == 0 {
                     Text("\(intro.subscriptionPeriod.periodTitle) d'essai gratuit")
-                        .font(.satoshi(12))
+                        .font(.inter(12))
                         .foregroundColor(.white.opacity(0.7))
                 }
             }
@@ -390,7 +390,7 @@ struct VoltaPaywallView: View {
                 Button("Restaurer") {
                     Task { await handleRestore() }
                 }
-                .font(.satoshi(12))
+                .font(.inter(12))
                 .foregroundColor(.white.opacity(0.5))
 
                 Text("•")
@@ -399,7 +399,7 @@ struct VoltaPaywallView: View {
                 Button("CGV") {
                     // Open terms
                 }
-                .font(.satoshi(12))
+                .font(.inter(12))
                 .foregroundColor(.white.opacity(0.5))
 
                 Text("•")
@@ -408,7 +408,7 @@ struct VoltaPaywallView: View {
                 Button("Confidentialite") {
                     // Open privacy
                 }
-                .font(.satoshi(12))
+                .font(.inter(12))
                 .foregroundColor(.white.opacity(0.5))
             }
         }

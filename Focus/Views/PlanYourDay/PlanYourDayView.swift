@@ -166,11 +166,11 @@ struct PlanYourDayView: View {
 
             VStack(spacing: SpacingTokens.lg) {
                 Text(viewModel.timeOfDayGreeting)
-                    .font(.satoshi(32, weight: .bold))
+                    .font(.inter(32, weight: .bold))
                     .foregroundColor(.white)
 
                 Text(Date().formatted(.dateTime.weekday(.wide).day().month(.abbreviated)))
-                    .font(.satoshi(15))
+                    .font(.inter(15))
                     .foregroundColor(.white.opacity(0.5))
             }
 
@@ -185,7 +185,7 @@ struct PlanYourDayView: View {
 
             VStack(spacing: SpacingTokens.xl) {
                 Text("plan_day.how_feeling".localized)
-                    .font(.satoshi(24, weight: .bold))
+                    .font(.inter(24, weight: .bold))
                     .foregroundColor(.white)
                     .multilineTextAlignment(.center)
 
@@ -245,7 +245,7 @@ struct PlanYourDayView: View {
 
             VStack(spacing: SpacingTokens.xl) {
                 Text("plan_day.sleep_quality".localized)
-                    .font(.satoshi(24, weight: .bold))
+                    .font(.inter(24, weight: .bold))
                     .foregroundColor(.white)
 
                 // Sleep display
@@ -254,7 +254,7 @@ struct PlanYourDayView: View {
                         .font(.system(size: 60))
 
                     Text("\(viewModel.sleepQuality)")
-                        .font(.satoshi(56, weight: .bold))
+                        .font(.inter(56, weight: .bold))
                         .foregroundColor(viewModel.sleepColor)
                 }
 
@@ -272,11 +272,11 @@ struct PlanYourDayView: View {
 
                     HStack {
                         Text("1")
-                            .font(.satoshi(12))
+                            .font(.inter(12))
                             .foregroundColor(.white.opacity(0.3))
                         Spacer()
                         Text("10")
-                            .font(.satoshi(12))
+                            .font(.inter(12))
                             .foregroundColor(.white.opacity(0.3))
                     }
                 }
@@ -303,13 +303,13 @@ struct PlanYourDayView: View {
                 }
 
                 Text(intentionTitle(for: index))
-                    .font(.satoshi(24, weight: .bold))
+                    .font(.inter(24, weight: .bold))
                     .foregroundColor(.white)
 
                 // Text input (minimal, elegant)
                 TextField(intentionPlaceholder(for: index), text: $viewModel.intentions[index].text)
                     .focused($isTextFieldFocused)
-                    .font(.satoshi(18))
+                    .font(.inter(18))
                     .foregroundColor(.white)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
@@ -351,7 +351,7 @@ struct PlanYourDayView: View {
                 Text(questArea.emoji)
                     .font(.system(size: 16))
                 Text(questArea.localizedName)
-                    .font(.satoshi(13, weight: .medium))
+                    .font(.inter(13, weight: .medium))
             }
             .foregroundColor(isSelected ? .white : .white.opacity(0.6))
             .padding(.horizontal, 14)
@@ -414,12 +414,12 @@ struct PlanYourDayView: View {
 
             VStack(spacing: SpacingTokens.md) {
                 Text(viewModel.isRecording ? "plan_day.listening".localized : "plan_day.voice_title".localized)
-                    .font(.satoshi(20, weight: .bold))
+                    .font(.inter(20, weight: .bold))
                     .foregroundColor(.white)
 
                 if !viewModel.transcribedText.isEmpty {
                     Text(viewModel.transcribedText)
-                        .font(.satoshi(15))
+                        .font(.inter(15))
                         .foregroundColor(.white.opacity(0.6))
                         .multilineTextAlignment(.center)
                         .lineLimit(3)
@@ -442,7 +442,7 @@ struct PlanYourDayView: View {
                     Image(systemName: viewModel.isRecording ? "checkmark" : "mic.fill")
                     Text(viewModel.isRecording ? "plan_day.validate".localized : "plan_day.start_speaking".localized)
                 }
-                .font(.satoshi(16, weight: .semibold))
+                .font(.inter(16, weight: .semibold))
                 .foregroundColor(.white)
                 .padding(.horizontal, 40)
                 .padding(.vertical, 16)
@@ -457,7 +457,7 @@ struct PlanYourDayView: View {
                 }
             }) {
                 Text("Passer cette étape")
-                    .font(.satoshi(14, weight: .medium))
+                    .font(.inter(14, weight: .medium))
                     .foregroundColor(.white.opacity(0.5))
             }
             .padding(.top, SpacingTokens.md)
@@ -480,7 +480,7 @@ struct PlanYourDayView: View {
         VStack(spacing: 0) {
             // Title
             Text("plan_day.preview_title".localized)
-                .font(.satoshi(20, weight: .bold))
+                .font(.inter(20, weight: .bold))
                 .foregroundColor(.white)
                 .padding(.top, 24)
                 .padding(.bottom, 16)
@@ -498,7 +498,7 @@ struct PlanYourDayView: View {
             // Error
             if let error = viewModel.errorMessage {
                 Text(error)
-                    .font(.satoshi(13))
+                    .font(.inter(13))
                     .foregroundColor(ColorTokens.error)
                     .padding(.horizontal, 20)
                     .padding(.top, 8)
@@ -510,7 +510,7 @@ struct PlanYourDayView: View {
                     Task { await viewModel.confirmAndSaveAll() }
                 }) {
                     Text("plan_day.confirm".localized)
-                        .font(.satoshi(16, weight: .semibold))
+                        .font(.inter(16, weight: .semibold))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
@@ -522,13 +522,13 @@ struct PlanYourDayView: View {
                 HStack(spacing: 24) {
                     Button(action: { viewModel.goToFeedback() }) {
                         Text("plan_day.adjust".localized)
-                            .font(.satoshi(14, weight: .medium))
+                            .font(.inter(14, weight: .medium))
                             .foregroundColor(.white.opacity(0.6))
                     }
 
                     Button(action: { viewModel.resetToVoicePlanning() }) {
                         Text("plan_day.redo".localized)
-                            .font(.satoshi(14, weight: .medium))
+                            .font(.inter(14, weight: .medium))
                             .foregroundColor(.white.opacity(0.4))
                     }
                 }
@@ -542,7 +542,7 @@ struct PlanYourDayView: View {
     private var feedbackStep: some View {
         VStack(spacing: 0) {
             Text("plan_day.feedback_title".localized)
-                .font(.satoshi(20, weight: .bold))
+                .font(.inter(20, weight: .bold))
                 .foregroundColor(.white)
                 .padding(.top, 32)
 
@@ -551,12 +551,12 @@ struct PlanYourDayView: View {
             // Text input only (simpler)
             VStack(spacing: SpacingTokens.md) {
                 Text("plan_day.feedback_example".localized)
-                    .font(.satoshi(13))
+                    .font(.inter(13))
                     .foregroundColor(.white.opacity(0.4))
                     .italic()
 
                 TextField("plan_day.feedback_placeholder".localized, text: $viewModel.feedbackText, axis: .vertical)
-                    .font(.satoshi(16))
+                    .font(.inter(16))
                     .foregroundColor(.white)
                     .lineLimit(4...6)
                     .padding(SpacingTokens.lg)
@@ -572,7 +572,7 @@ struct PlanYourDayView: View {
                     Task { await viewModel.applyFeedback() }
                 }) {
                     Text("plan_day.apply_feedback".localized)
-                        .font(.satoshi(16, weight: .semibold))
+                        .font(.inter(16, weight: .semibold))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
@@ -591,7 +591,7 @@ struct PlanYourDayView: View {
 
                 Button(action: { viewModel.backToPreview() }) {
                     Text("plan_day.back_to_preview".localized)
-                        .font(.satoshi(14))
+                        .font(.inter(14))
                         .foregroundColor(.white.opacity(0.5))
                 }
             }
@@ -619,11 +619,11 @@ struct PlanYourDayView: View {
 
                 VStack(spacing: 8) {
                     Text("plan_day.success_title".localized)
-                        .font(.satoshi(24, weight: .bold))
+                        .font(.inter(24, weight: .bold))
                         .foregroundColor(.white)
 
                     Text("plan_day.success_subtitle".localized(with: viewModel.addedTaskCount))
-                        .font(.satoshi(15))
+                        .font(.inter(15))
                         .foregroundColor(.white.opacity(0.6))
                 }
 
@@ -635,7 +635,7 @@ struct PlanYourDayView: View {
                                 Text(intention.area.emoji)
                                     .font(.system(size: 16))
                                 Text(intention.text)
-                                    .font(.satoshi(14))
+                                    .font(.inter(14))
                                     .foregroundColor(.white.opacity(0.8))
                                     .lineLimit(1)
                                 Spacer()
@@ -657,7 +657,7 @@ struct PlanYourDayView: View {
                 dismiss()
             }) {
                 Text("plan_day.view_calendar".localized)
-                    .font(.satoshi(16, weight: .semibold))
+                    .font(.inter(16, weight: .semibold))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
@@ -695,7 +695,7 @@ struct PlanYourDayView: View {
                 HapticFeedback.medium()
             }) {
                 Text(viewModel.currentStep == .welcome ? "plan_day.lets_go".localized : "common.continue".localized)
-                    .font(.satoshi(16, weight: .semibold))
+                    .font(.inter(16, weight: .semibold))
                     .foregroundColor(.white)
                     .padding(.horizontal, 40)
                     .padding(.vertical, 16)
@@ -728,7 +728,7 @@ struct ProposedTaskRow: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(task.title)
-                    .font(.satoshi(15, weight: .medium))
+                    .font(.inter(15, weight: .medium))
                     .foregroundColor(task.isSelected ? .white : .white.opacity(0.5))
                     .lineLimit(2)
 
@@ -737,7 +737,7 @@ struct ProposedTaskRow: View {
                         Image(systemName: "clock")
                             .font(.system(size: 11))
                         Text("\(start) - \(end)")
-                            .font(.satoshi(12))
+                            .font(.inter(12))
                     }
                     .foregroundColor(.white.opacity(0.4))
                 }
@@ -794,7 +794,7 @@ struct ProcessingSpinnerView: View {
                 }
 
                 Text("plan_day.analyzing".localized)
-                    .font(.satoshi(18, weight: .semibold))
+                    .font(.inter(18, weight: .semibold))
                     .foregroundColor(.white)
             }
 

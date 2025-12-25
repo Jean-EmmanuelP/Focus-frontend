@@ -473,7 +473,7 @@ struct EndOfDayView: View {
             // Header
             VStack(alignment: .center, spacing: SpacingTokens.md) {
                 Text(emoji)
-                    .font(.satoshi(60))
+                    .font(.inter(60))
 
                 VStack(spacing: SpacingTokens.xs) {
                     Text(title)
@@ -570,7 +570,7 @@ struct EndOfDayView: View {
                 Card {
                     VStack(spacing: SpacingTokens.sm) {
                         Text("💭")
-                            .font(.satoshi(40))
+                            .font(.inter(40))
                         Text("end_day.no_reflections".localized)
                             .bodyText()
                             .foregroundColor(ColorTokens.textMuted)
@@ -599,7 +599,7 @@ struct EndOfDayView: View {
         VStack(alignment: .leading, spacing: SpacingTokens.sm) {
             HStack {
                 Text(emoji)
-                    .font(.satoshi(20))
+                    .font(.inter(20))
                 Text(title)
                     .subtitle()
                     .fontWeight(.semibold)
@@ -685,7 +685,7 @@ struct EndOfDayView: View {
             Spacer()
 
             Text("🌙")
-                .font(.satoshi(100))
+                .font(.inter(100))
 
             VStack(spacing: SpacingTokens.md) {
                 Text("end_day.day_complete".localized)
@@ -712,7 +712,7 @@ struct EndOfDayView: View {
                 if !viewModel.tomorrowGoal.isEmpty {
                     VStack {
                         Text("🎯")
-                            .font(.satoshi(32))
+                            .font(.inter(32))
                         Text("end_day.goal_set".localized)
                             .caption()
                             .foregroundColor(ColorTokens.textMuted)
@@ -743,10 +743,10 @@ struct RitualToggleCard: View {
                 // Icon
                 if ritual.icon.count <= 2 {
                     Text(ritual.icon)
-                        .font(.satoshi(24))
+                        .font(.inter(24))
                 } else {
                     Image(systemName: ritual.icon)
-                        .font(.satoshi(20))
+                        .font(.inter(20))
                         .foregroundColor(ritual.isCompleted ? ColorTokens.success : ColorTokens.textMuted)
                 }
 
@@ -773,7 +773,7 @@ struct RitualToggleCard: View {
                             .frame(width: 28, height: 28)
 
                         Image(systemName: "checkmark")
-                            .font(.satoshi(14, weight: .bold))
+                            .font(.inter(14, weight: .bold))
                             .foregroundColor(.white)
                     }
                 }

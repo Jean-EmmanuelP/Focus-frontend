@@ -80,7 +80,7 @@ struct FocusApp: App {
             .environmentObject(store)
             .environmentObject(router)
             .environmentObject(revenueCatManager)
-            .preferredColorScheme(.dark)
+            .preferredColorScheme(.light)
             .animation(.easeInOut(duration: 0.3), value: store.hasCompletedOnboarding)
             .animation(.easeInOut(duration: 0.3), value: store.isAuthenticated)
             .animation(.easeInOut(duration: 0.3), value: store.isCheckingOnboarding)

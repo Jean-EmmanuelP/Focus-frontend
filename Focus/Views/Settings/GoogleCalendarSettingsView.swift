@@ -75,20 +75,20 @@ struct GoogleCalendarSettingsView: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Google Calendar")
-                        .font(.satoshi(16, weight: .semibold))
+                        .font(.inter(16, weight: .semibold))
                         .foregroundColor(ColorTokens.textPrimary)
 
                     if let email = googleService.config?.googleEmail {
                         Text(email)
-                            .font(.satoshi(13))
+                            .font(.inter(13))
                             .foregroundColor(ColorTokens.textSecondary)
                     } else if googleService.config?.isConnected == true {
                         Text("Connecté")
-                            .font(.satoshi(13))
+                            .font(.inter(13))
                             .foregroundColor(Color.green)
                     } else {
                         Text("Non connecté")
-                            .font(.satoshi(13))
+                            .font(.inter(13))
                             .foregroundColor(ColorTokens.textMuted)
                     }
                 }
@@ -117,7 +117,7 @@ struct GoogleCalendarSettingsView: View {
                         }
                         Text("Connecter Google Calendar")
                     }
-                    .font(.satoshi(15, weight: .semibold))
+                    .font(.inter(15, weight: .semibold))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, SpacingTokens.md)
@@ -133,7 +133,7 @@ struct GoogleCalendarSettingsView: View {
                 .disabled(isSigningIn)
 
                 Text("Synchronise automatiquement tes tâches et routines avec Google Calendar")
-                    .font(.satoshi(12))
+                    .font(.inter(12))
                     .foregroundColor(ColorTokens.textMuted)
                     .multilineTextAlignment(.center)
             } else {
@@ -141,10 +141,10 @@ struct GoogleCalendarSettingsView: View {
                 if let lastSync = googleService.config?.lastSyncAt {
                     HStack {
                         Image(systemName: "clock.arrow.circlepath")
-                            .font(.satoshi(12))
+                            .font(.inter(12))
                             .foregroundColor(ColorTokens.textMuted)
                         Text("Dernière sync: \(formatDate(lastSync))")
-                            .font(.satoshi(12))
+                            .font(.inter(12))
                             .foregroundColor(ColorTokens.textMuted)
                     }
                 }
@@ -161,7 +161,7 @@ struct GoogleCalendarSettingsView: View {
             // Header
             HStack {
                 Text("Paramètres de synchronisation")
-                    .font(.satoshi(14, weight: .semibold))
+                    .font(.inter(14, weight: .semibold))
                     .foregroundColor(ColorTokens.textSecondary)
                 Spacer()
             }
@@ -177,10 +177,10 @@ struct GoogleCalendarSettingsView: View {
             )) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Synchronisation activée")
-                        .font(.satoshi(15, weight: .medium))
+                        .font(.inter(15, weight: .medium))
                         .foregroundColor(ColorTokens.textPrimary)
                     Text("Synchroniser automatiquement les changements")
-                        .font(.satoshi(12))
+                        .font(.inter(12))
                         .foregroundColor(ColorTokens.textMuted)
                 }
             }
@@ -192,7 +192,7 @@ struct GoogleCalendarSettingsView: View {
             // Sync Direction
             VStack(alignment: .leading, spacing: SpacingTokens.sm) {
                 Text("Direction de sync")
-                    .font(.satoshi(14, weight: .medium))
+                    .font(.inter(14, weight: .medium))
                     .foregroundColor(ColorTokens.textPrimary)
 
                 ForEach(SyncDirection.allCases, id: \.self) { direction in
@@ -204,10 +204,10 @@ struct GoogleCalendarSettingsView: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(direction.title)
-                                    .font(.satoshi(14, weight: .medium))
+                                    .font(.inter(14, weight: .medium))
                                     .foregroundColor(ColorTokens.textPrimary)
                                 Text(direction.subtitle)
-                                    .font(.satoshi(11))
+                                    .font(.inter(11))
                                     .foregroundColor(ColorTokens.textMuted)
                             }
                             Spacer()
@@ -260,7 +260,7 @@ struct GoogleCalendarSettingsView: View {
                 }
                 Text(googleService.isSyncing ? "Synchronisation..." : "Synchroniser maintenant")
             }
-            .font(.satoshi(15, weight: .semibold))
+            .font(.inter(15, weight: .semibold))
             .foregroundColor(ColorTokens.primaryStart)
             .frame(maxWidth: .infinity)
             .padding(.vertical, SpacingTokens.md)
@@ -281,7 +281,7 @@ struct GoogleCalendarSettingsView: View {
                     .rotationEffect(.degrees(45))
                 Text("Déconnecter")
             }
-            .font(.satoshi(14, weight: .medium))
+            .font(.inter(14, weight: .medium))
             .foregroundColor(ColorTokens.error)
         }
         .padding(.top, SpacingTokens.md)

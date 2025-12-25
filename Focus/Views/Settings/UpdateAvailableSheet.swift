@@ -22,11 +22,11 @@ struct UpdateAvailableSheet: View {
             // Title
             VStack(spacing: SpacingTokens.sm) {
                 Text("Mise à jour disponible")
-                    .font(.satoshi(24, weight: .bold))
+                    .font(.inter(24, weight: .bold))
                     .foregroundColor(ColorTokens.textPrimary)
 
                 Text("Une nouvelle version de Volta est disponible")
-                    .font(.satoshi(16))
+                    .font(.inter(16))
                     .foregroundColor(ColorTokens.textSecondary)
                     .multilineTextAlignment(.center)
             }
@@ -35,10 +35,10 @@ struct UpdateAvailableSheet: View {
             HStack(spacing: SpacingTokens.xl) {
                 VStack(spacing: SpacingTokens.xs) {
                     Text("Version actuelle")
-                        .font(.satoshi(12))
+                        .font(.inter(12))
                         .foregroundColor(ColorTokens.textMuted)
                     Text(updateService.currentVersion)
-                        .font(.satoshi(18, weight: .semibold))
+                        .font(.inter(18, weight: .semibold))
                         .foregroundColor(ColorTokens.textSecondary)
                 }
 
@@ -47,10 +47,10 @@ struct UpdateAvailableSheet: View {
 
                 VStack(spacing: SpacingTokens.xs) {
                     Text("Nouvelle version")
-                        .font(.satoshi(12))
+                        .font(.inter(12))
                         .foregroundColor(ColorTokens.textMuted)
                     Text(updateService.appStoreVersion ?? "—")
-                        .font(.satoshi(18, weight: .bold))
+                        .font(.inter(18, weight: .bold))
                         .foregroundStyle(ColorTokens.fireGradient)
                 }
             }
@@ -71,7 +71,7 @@ struct UpdateAvailableSheet: View {
                     dismiss()
                 }) {
                     Text("Plus tard")
-                        .font(.satoshi(16, weight: .medium))
+                        .font(.inter(16, weight: .medium))
                         .foregroundColor(ColorTokens.textSecondary)
                 }
                 .padding(.vertical, SpacingTokens.sm)
@@ -96,10 +96,10 @@ struct UpdateAvailableBanner: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Mise à jour disponible")
-                        .font(.satoshi(14, weight: .semibold))
+                        .font(.inter(14, weight: .semibold))
                         .foregroundColor(ColorTokens.textPrimary)
                     Text("Version \(updateService.appStoreVersion ?? "")")
-                        .font(.satoshi(12))
+                        .font(.inter(12))
                         .foregroundColor(ColorTokens.textSecondary)
                 }
 
@@ -109,7 +109,7 @@ struct UpdateAvailableBanner: View {
                     isPresented = true
                 }) {
                     Text("Voir")
-                        .font(.satoshi(13, weight: .semibold))
+                        .font(.inter(13, weight: .semibold))
                         .foregroundColor(.white)
                         .padding(.horizontal, SpacingTokens.md)
                         .padding(.vertical, SpacingTokens.xs)
@@ -123,7 +123,7 @@ struct UpdateAvailableBanner: View {
                     }
                 }) {
                     Image(systemName: "xmark")
-                        .font(.satoshi(12))
+                        .font(.inter(12))
                         .foregroundColor(ColorTokens.textMuted)
                 }
             }

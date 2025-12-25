@@ -34,7 +34,7 @@ struct MetricCard: View {
         Card(padding: SpacingTokens.md) {
             VStack(spacing: SpacingTokens.sm) {
                 Text(icon)
-                    .font(.satoshi(24))
+                    .font(.inter(24))
                 
                 Text(value)
                     .heading2()
@@ -59,10 +59,10 @@ struct RitualCard: View {
             // Icon (SF Symbol or emoji)
             if ritual.icon.count <= 2 {
                 Text(ritual.icon)
-                    .font(.satoshi(24))
+                    .font(.inter(24))
             } else {
                 Image(systemName: ritual.icon)
-                    .font(.satoshi(20))
+                    .font(.inter(20))
                     .foregroundColor(ColorTokens.primaryStart)
             }
 
@@ -97,8 +97,8 @@ struct FullScreenCelebration: View {
 
     var body: some View {
         ZStack {
-            // Dark overlay
-            Color.black.opacity(0.85)
+            // Light overlay with blur
+            ColorTokens.primaryStart.opacity(0.95)
                 .ignoresSafeArea()
                 .opacity(opacity)
 
@@ -107,19 +107,19 @@ struct FullScreenCelebration: View {
 
                 // Flame
                 Text("🔥")
-                    .font(.satoshi(80))
+                    .font(.inter(80))
                     .scaleEffect(scale)
                     .offset(y: flameOffset)
 
                 // Message
                 VStack(spacing: SpacingTokens.sm) {
                     Text("Nice!")
-                        .font(.satoshi(32, weight: .bold))
+                        .font(.inter(32, weight: .bold))
                         .foregroundColor(.white)
 
                     Text("\(completedCount)/\(totalCount) completed")
-                        .font(.satoshi(16, weight: .medium))
-                        .foregroundColor(.white.opacity(0.7))
+                        .font(.inter(16, weight: .medium))
+                        .foregroundColor(.white.opacity(0.9))
                 }
                 .offset(y: textOffset)
                 .opacity(opacity)
@@ -195,7 +195,7 @@ struct SwipeableRitualCard: View {
                             endPoint: .trailing
                         )
                         Image(systemName: "checkmark")
-                            .font(.satoshi(18, weight: .bold))
+                            .font(.inter(18, weight: .bold))
                             .foregroundColor(.white)
                             .scaleEffect(swipeProgress > 0.5 ? 1.0 : 0.5)
                             .opacity(swipeProgress)
@@ -215,7 +215,7 @@ struct SwipeableRitualCard: View {
                             endPoint: .trailing
                         )
                         Image(systemName: "arrow.uturn.backward")
-                            .font(.satoshi(16, weight: .bold))
+                            .font(.inter(16, weight: .bold))
                             .foregroundColor(.white)
                             .scaleEffect(swipeProgress > 0.5 ? 1.0 : 0.5)
                             .opacity(swipeProgress)
@@ -241,10 +241,10 @@ struct SwipeableRitualCard: View {
                     } else {
                         if ritual.icon.count <= 2 {
                             Text(ritual.icon)
-                                .font(.satoshi(22))
+                                .font(.inter(22))
                         } else {
                             Image(systemName: ritual.icon)
-                                .font(.satoshi(18))
+                                .font(.inter(18))
                                 .foregroundColor(ColorTokens.textSecondary)
                         }
                     }
@@ -253,7 +253,7 @@ struct SwipeableRitualCard: View {
 
                 // Title
                 Text(ritual.title)
-                    .font(.satoshi(15, weight: .medium))
+                    .font(.inter(15, weight: .medium))
                     .foregroundColor(ritual.isCompleted ? ColorTokens.textMuted : ColorTokens.textPrimary)
                     .lineLimit(1)
 
@@ -265,10 +265,10 @@ struct SwipeableRitualCard: View {
                         // Swipe left hint for undo
                         HStack(spacing: 2) {
                             Image(systemName: "chevron.left")
-                                .font(.satoshi(10, weight: .medium))
+                                .font(.inter(10, weight: .medium))
                                 .opacity(0.5)
                             Image(systemName: "chevron.left")
-                                .font(.satoshi(10, weight: .medium))
+                                .font(.inter(10, weight: .medium))
                                 .opacity(0.3)
                         }
                         .foregroundColor(ColorTokens.textMuted)
@@ -277,10 +277,10 @@ struct SwipeableRitualCard: View {
                         // Swipe right hint
                         HStack(spacing: 2) {
                             Image(systemName: "chevron.right")
-                                .font(.satoshi(10, weight: .medium))
+                                .font(.inter(10, weight: .medium))
                                 .opacity(0.3)
                             Image(systemName: "chevron.right")
-                                .font(.satoshi(10, weight: .medium))
+                                .font(.inter(10, weight: .medium))
                                 .opacity(0.5)
                         }
                         .foregroundColor(ColorTokens.textMuted)
@@ -469,7 +469,7 @@ struct QuestCard: View {
                         // Area tag
                         HStack(spacing: SpacingTokens.xs) {
                             Text(quest.area.emoji)
-                                .font(.satoshi(14))
+                                .font(.inter(14))
                             Text(quest.area.localizedName)
                                 .caption()
                                 .foregroundColor(ColorTokens.textSecondary)
@@ -484,7 +484,7 @@ struct QuestCard: View {
                         // Status badge
                         if quest.status == .completed {
                             Text("✓")
-                                .font(.satoshi(16))
+                                .font(.inter(16))
                                 .foregroundColor(ColorTokens.success)
                         }
                     }
@@ -540,7 +540,7 @@ struct SwipeableQuestCard: View {
                 // Area tag
                 HStack(spacing: SpacingTokens.xs) {
                     Text(quest.area.emoji)
-                        .font(.satoshi(14))
+                        .font(.inter(14))
                     Text(quest.area.localizedName)
                         .caption()
                         .foregroundColor(ColorTokens.textSecondary)
@@ -555,21 +555,21 @@ struct SwipeableQuestCard: View {
                 // Edit button
                 Button(action: onEdit) {
                     Image(systemName: "pencil.circle")
-                        .font(.satoshi(20))
+                        .font(.inter(20))
                         .foregroundColor(ColorTokens.textMuted)
                 }
 
                 // Status badge
                 if quest.status == .completed {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.satoshi(20))
+                        .font(.inter(20))
                         .foregroundColor(ColorTokens.success)
                 }
             }
 
             // Title
             Text(quest.title)
-                .font(.satoshi(15, weight: .semibold))
+                .font(.inter(15, weight: .semibold))
                 .foregroundColor(ColorTokens.textPrimary)
                 .multilineTextAlignment(.leading)
                 .lineLimit(2)
@@ -637,13 +637,13 @@ struct SwipeableQuestCard: View {
                 // Progress label
                 HStack {
                     Text("quests.swipe_to_update".localized)
-                        .font(.satoshi(10))
+                        .font(.inter(10))
                         .foregroundColor(ColorTokens.textMuted)
 
                     Spacer()
 
                     Text("\(Int(localProgress * 100))%")
-                        .font(.satoshi(14, weight: .bold))
+                        .font(.inter(14, weight: .bold))
                         .foregroundColor(Color(hex: quest.area.color))
                 }
             }
@@ -680,7 +680,7 @@ struct StreakCard: View {
                         .blur(radius: 8)
                     
                     Text("🔥")
-                        .font(.satoshi(28))
+                        .font(.inter(28))
                 }
                 
                 VStack(alignment: .leading, spacing: SpacingTokens.xs) {
@@ -715,7 +715,7 @@ struct ActionCard: View {
                     VStack(alignment: .leading, spacing: SpacingTokens.xs) {
                         if let icon = icon {
                             Text(icon)
-                                .font(.satoshi(24))
+                                .font(.inter(24))
                         }
                         
                         Text(title)
@@ -755,14 +755,14 @@ struct QuickStatCard: View {
     var body: some View {
         VStack(spacing: SpacingTokens.xs) {
             Text(icon)
-                .font(.satoshi(20))
+                .font(.inter(20))
 
             Text(value)
-                .font(.satoshi(20, weight: .bold))
+                .font(.inter(20, weight: .bold))
                 .foregroundColor(color)
 
             Text(label)
-                .font(.satoshi(10, weight: .medium))
+                .font(.inter(10, weight: .medium))
                 .foregroundColor(ColorTokens.textMuted)
                 .lineLimit(1)
         }

@@ -60,12 +60,12 @@ struct FlameInfoSheet: View {
 
             // Level name
             Text(currentLevel?.name.uppercased() ?? "SPARK")
-                .font(.satoshi(24, weight: .bold))
+                .font(.inter(24, weight: .bold))
                 .foregroundColor(ColorTokens.primaryStart)
 
             // Day count
             Text("streak.day_count".localized(with: currentStreak))
-                .font(.satoshi(18, weight: .medium))
+                .font(.inter(18, weight: .medium))
                 .foregroundColor(ColorTokens.textSecondary)
         }
         .frame(maxWidth: .infinity)
@@ -83,7 +83,7 @@ struct FlameInfoSheet: View {
         return VStack(spacing: SpacingTokens.sm) {
             HStack {
                 Text("flame.next_level".localized)
-                    .font(.satoshi(14, weight: .semibold))
+                    .font(.inter(14, weight: .semibold))
                     .foregroundColor(ColorTokens.textSecondary)
                 Spacer()
             }
@@ -94,11 +94,11 @@ struct FlameInfoSheet: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(next.name)
-                        .font(.satoshi(16, weight: .bold))
+                        .font(.inter(16, weight: .bold))
                         .foregroundColor(.white)
 
                     Text("flame.days_remaining".localized(with: daysToNext))
-                        .font(.satoshi(13))
+                        .font(.inter(13))
                         .foregroundColor(ColorTokens.textMuted)
                 }
 
@@ -106,7 +106,7 @@ struct FlameInfoSheet: View {
 
                 // Progress indicator
                 Text("\(currentStreak)/\(next.daysRequired)")
-                    .font(.satoshi(14, weight: .bold))
+                    .font(.inter(14, weight: .bold))
                     .foregroundColor(ColorTokens.primaryStart)
             }
             .padding(SpacingTokens.md)
@@ -122,7 +122,7 @@ struct FlameInfoSheet: View {
         VStack(spacing: SpacingTokens.sm) {
             HStack {
                 Text("flame.all_levels".localized)
-                    .font(.satoshi(14, weight: .semibold))
+                    .font(.inter(14, weight: .semibold))
                     .foregroundColor(ColorTokens.textSecondary)
                 Spacer()
             }
@@ -148,11 +148,11 @@ struct FlameInfoSheet: View {
             // Name and days required
             VStack(alignment: .leading, spacing: 2) {
                 Text(level.name)
-                    .font(.satoshi(14, weight: isCurrent ? .bold : .medium))
+                    .font(.inter(14, weight: isCurrent ? .bold : .medium))
                     .foregroundColor(isCurrentOrPast ? .white : ColorTokens.textMuted)
 
                 Text("flame.days_required".localized(with: level.daysRequired))
-                    .font(.satoshi(11))
+                    .font(.inter(11))
                     .foregroundColor(ColorTokens.textMuted)
             }
 
@@ -161,7 +161,7 @@ struct FlameInfoSheet: View {
             // Status indicator
             if isCurrent {
                 Text("flame.current".localized)
-                    .font(.satoshi(11, weight: .bold))
+                    .font(.inter(11, weight: .bold))
                     .foregroundColor(ColorTokens.primaryStart)
                     .padding(.horizontal, SpacingTokens.sm)
                     .padding(.vertical, SpacingTokens.xs)
@@ -194,7 +194,7 @@ struct FlameInfoSheet: View {
                 Image(systemName: "info.circle.fill")
                     .foregroundColor(ColorTokens.primaryStart)
                 Text("flame.how_to_maintain".localized)
-                    .font(.satoshi(14, weight: .semibold))
+                    .font(.inter(14, weight: .semibold))
                     .foregroundColor(ColorTokens.textSecondary)
                 Spacer()
             }
@@ -217,7 +217,7 @@ struct FlameInfoSheet: View {
                 } else {
                     // Default requirements when data not loaded
                     Text("flame.requirements_loading".localized)
-                        .font(.satoshi(13))
+                        .font(.inter(13))
                         .foregroundColor(ColorTokens.textMuted)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(SpacingTokens.md)
@@ -238,13 +238,13 @@ struct FlameInfoSheet: View {
                 .frame(width: 20)
 
             Text(text)
-                .font(.satoshi(13))
+                .font(.inter(13))
                 .foregroundColor(ColorTokens.textPrimary)
 
             Spacer()
 
             Text(current)
-                .font(.satoshi(13, weight: .bold))
+                .font(.inter(13, weight: .bold))
                 .foregroundColor(isMet ? ColorTokens.success : ColorTokens.warning)
 
             Image(systemName: isMet ? "checkmark.circle.fill" : "circle")

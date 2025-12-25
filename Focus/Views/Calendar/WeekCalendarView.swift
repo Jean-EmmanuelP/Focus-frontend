@@ -145,7 +145,7 @@ struct WeekCalendarView: View {
                     .shadow(color: ColorTokens.primaryStart.opacity(0.4), radius: 8, x: 0, y: 4)
 
                 Image(systemName: "plus")
-                    .font(.satoshi(24, weight: .semibold))
+                    .font(.inter(24, weight: .semibold))
                     .foregroundColor(.white)
                     .rotationEffect(.degrees(showAddMenu ? 45 : 0))
                     .animation(.spring(response: 0.3), value: showAddMenu)
@@ -184,14 +184,14 @@ struct WeekCalendarView: View {
                 // Date info
                 VStack(alignment: .leading, spacing: 2) {
                     Text(viewModel.formattedSelectedDate)
-                        .font(.satoshi(16, weight: .bold))
+                        .font(.inter(16, weight: .bold))
                         .foregroundColor(ColorTokens.textPrimary)
 
                     // Task count summary
                     let allTasks = viewModel.tasksForSelectedDate
                     let completed = allTasks.filter { $0.isCompleted }.count
                     Text("\(completed)/\(allTasks.count) done")
-                        .font(.satoshi(12))
+                        .font(.inter(12))
                         .foregroundColor(ColorTokens.textMuted)
                 }
 
@@ -206,9 +206,9 @@ struct WeekCalendarView: View {
                     }) {
                         HStack(spacing: 4) {
                             Image(systemName: "calendar")
-                                .font(.satoshi(12))
+                                .font(.inter(12))
                             Text("Calendar")
-                                .font(.satoshi(12, weight: .medium))
+                                .font(.inter(12, weight: .medium))
                         }
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
@@ -224,9 +224,9 @@ struct WeekCalendarView: View {
                     }) {
                         HStack(spacing: 4) {
                             Image(systemName: "checklist")
-                                .font(.satoshi(12))
+                                .font(.inter(12))
                             Text("Tasks")
-                                .font(.satoshi(12, weight: .medium))
+                                .font(.inter(12, weight: .medium))
                         }
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
@@ -246,7 +246,7 @@ struct WeekCalendarView: View {
                 if !Calendar.current.isDateInToday(viewModel.selectedDate) {
                     Button(action: { viewModel.goToCurrentWeek(); viewModel.selectDate(Date()) }) {
                         Text("Today")
-                            .font(.satoshi(12, weight: .semibold))
+                            .font(.inter(12, weight: .semibold))
                             .foregroundColor(ColorTokens.primaryStart)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
@@ -264,7 +264,7 @@ struct WeekCalendarView: View {
                 // Previous week button
                 Button(action: { viewModel.goToPreviousWeek() }) {
                     Image(systemName: "chevron.left")
-                        .font(.satoshi(12, weight: .semibold))
+                        .font(.inter(12, weight: .semibold))
                         .foregroundColor(ColorTokens.textMuted)
                         .frame(width: 28, height: 40)
                 }
@@ -281,7 +281,7 @@ struct WeekCalendarView: View {
                         Button(action: { viewModel.selectDate(date) }) {
                             VStack(spacing: 2) {
                                 Text(date.formatted(.dateTime.weekday(.narrow)).uppercased())
-                                    .font(.satoshi(10, weight: .medium))
+                                    .font(.inter(10, weight: .medium))
                                     .foregroundColor(isToday ? ColorTokens.primaryStart : ColorTokens.textMuted)
 
                                 ZStack {
@@ -318,7 +318,7 @@ struct WeekCalendarView: View {
                 // Next week button
                 Button(action: { viewModel.goToNextWeek() }) {
                     Image(systemName: "chevron.right")
-                        .font(.satoshi(12, weight: .semibold))
+                        .font(.inter(12, weight: .semibold))
                         .foregroundColor(ColorTokens.textMuted)
                         .frame(width: 28, height: 40)
                 }
@@ -340,14 +340,14 @@ struct WeekCalendarView: View {
             // Sidebar header
             HStack {
                 Text("Tasks")
-                    .font(.satoshi(14, weight: .bold))
+                    .font(.inter(14, weight: .bold))
                     .foregroundColor(ColorTokens.textPrimary)
 
                 Spacer()
 
                 Button(action: { showCreateTaskSheet = true }) {
                     Image(systemName: "plus")
-                        .font(.satoshi(14, weight: .semibold))
+                        .font(.inter(14, weight: .semibold))
                         .foregroundColor(ColorTokens.primaryStart)
                 }
             }
@@ -363,10 +363,10 @@ struct WeekCalendarView: View {
                         // Empty state
                         VStack(spacing: 8) {
                             Image(systemName: "checkmark.circle")
-                                .font(.satoshi(24))
+                                .font(.inter(24))
                                 .foregroundColor(ColorTokens.textMuted)
                             Text("All planned!")
-                                .font(.satoshi(12, weight: .medium))
+                                .font(.inter(12, weight: .medium))
                                 .foregroundColor(ColorTokens.textMuted)
                         }
                         .frame(maxWidth: .infinity)
@@ -464,7 +464,7 @@ struct WeekCalendarView: View {
                             .font(.system(size: 40))
                             .foregroundColor(ColorTokens.textMuted.opacity(0.5))
                         Text("No tasks for this day")
-                            .font(.satoshi(14))
+                            .font(.inter(14))
                             .foregroundColor(ColorTokens.textMuted)
                     }
                     .frame(maxWidth: .infinity)
@@ -491,7 +491,7 @@ struct WeekCalendarView: View {
                         .padding(.vertical, 8)
 
                     Text("Rituals")
-                        .font(.satoshi(12, weight: .semibold))
+                        .font(.inter(12, weight: .semibold))
                         .foregroundColor(ColorTokens.textMuted)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 16)
@@ -594,7 +594,7 @@ struct WeekCalendarView: View {
                 // Previous week button
                 Button(action: { viewModel.goToPreviousWeek() }) {
                     Image(systemName: "chevron.left")
-                        .font(.satoshi(14, weight: .semibold))
+                        .font(.inter(14, weight: .semibold))
                         .foregroundColor(ColorTokens.textMuted)
                         .frame(width: 32, height: 44)
                 }
@@ -614,7 +614,7 @@ struct WeekCalendarView: View {
                             VStack(spacing: 3) {
                                 // Day name
                                 Text(date.formatted(.dateTime.weekday(.narrow)).uppercased())
-                                    .font(.satoshi(11, weight: .medium))
+                                    .font(.inter(11, weight: .medium))
                                     .foregroundColor(isToday ? ColorTokens.primaryStart : ColorTokens.textMuted)
 
                                 // Day number with indicator
@@ -651,7 +651,7 @@ struct WeekCalendarView: View {
                                         // Show checkmark if all completed
                                         if allCompleted && totalCount <= 3 {
                                             Image(systemName: "checkmark")
-                                                .font(.satoshi(6, weight: .bold))
+                                                .font(.inter(6, weight: .bold))
                                                 .foregroundColor(Color.green)
                                         }
                                     }
@@ -668,7 +668,7 @@ struct WeekCalendarView: View {
                 // Next week button
                 Button(action: { viewModel.goToNextWeek() }) {
                     Image(systemName: "chevron.right")
-                        .font(.satoshi(14, weight: .semibold))
+                        .font(.inter(14, weight: .semibold))
                         .foregroundColor(ColorTokens.textMuted)
                         .frame(width: 32, height: 44)
                 }
@@ -727,7 +727,7 @@ struct WeekCalendarView: View {
                                 .foregroundColor(ColorTokens.primaryStart.opacity(0.6))
                         }
                         Text(String(format: "%02d", hour))
-                            .font(.satoshi(10, weight: isPeakHour ? .medium : .regular))
+                            .font(.inter(10, weight: isPeakHour ? .medium : .regular))
                             .foregroundColor(isPeakHour ? ColorTokens.primaryStart.opacity(0.8) : ColorTokens.textMuted.opacity(0.6))
                     }
                     .frame(width: 28, alignment: .trailing)
@@ -1171,7 +1171,7 @@ struct SidebarTaskCard: View {
         VStack(alignment: .leading, spacing: 6) {
             // Task title
             Text(task.title)
-                .font(.satoshi(13, weight: .medium))
+                .font(.inter(13, weight: .medium))
                 .foregroundColor(task.isCompleted ? ColorTokens.textMuted : ColorTokens.textPrimary)
                 .strikethrough(task.isCompleted)
                 .lineLimit(2)
@@ -1180,7 +1180,7 @@ struct SidebarTaskCard: View {
             // Quest tag if available
             if let questTitle = task.questTitle {
                 Text(questTitle)
-                    .font(.satoshi(10, weight: .medium))
+                    .font(.inter(10, weight: .medium))
                     .foregroundColor(taskColor.opacity(0.8))
                     .lineLimit(1)
             }
@@ -1188,9 +1188,9 @@ struct SidebarTaskCard: View {
             // Time block indicator
             HStack(spacing: 4) {
                 Image(systemName: timeBlockIcon)
-                    .font(.satoshi(9))
+                    .font(.inter(9))
                 Text(task.timeBlock.capitalized)
-                    .font(.satoshi(10))
+                    .font(.inter(10))
             }
             .foregroundColor(ColorTokens.textMuted)
         }
@@ -1274,7 +1274,7 @@ struct DayTaskBlockView: View {
                         }
                     }) {
                         Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
-                            .font(.satoshi(24))
+                            .font(.inter(24))
                             .foregroundColor(task.isCompleted ? .white : .white.opacity(0.7))
                             .frame(width: 44, height: 44)
                             .contentShape(Rectangle())
@@ -1284,7 +1284,7 @@ struct DayTaskBlockView: View {
                     // Center: Task info
                     VStack(alignment: .leading, spacing: 2) {
                         Text(task.title)
-                            .font(.satoshi(15, weight: .semibold))
+                            .font(.inter(15, weight: .semibold))
                             .foregroundColor(.white)
                             .strikethrough(task.isCompleted)
                             .lineLimit(2)
@@ -1292,13 +1292,13 @@ struct DayTaskBlockView: View {
                         HStack(spacing: 8) {
                             // Time range
                             Text(task.formattedTimeRange)
-                                .font(.satoshi(12, weight: .medium))
+                                .font(.inter(12, weight: .medium))
                                 .foregroundColor(.white.opacity(0.8))
 
                             // Quest name if available
                             if let questTitle = task.questTitle {
                                 Text("• \(questTitle)")
-                                    .font(.satoshi(12, weight: .medium))
+                                    .font(.inter(12, weight: .medium))
                                     .foregroundColor(.white.opacity(0.7))
                                     .lineLimit(1)
                             }
@@ -1307,9 +1307,9 @@ struct DayTaskBlockView: View {
                             if let photosCount = task.photosCount, photosCount > 0 {
                                 HStack(spacing: 2) {
                                     Image(systemName: "camera.fill")
-                                        .font(.satoshi(10))
+                                        .font(.inter(10))
                                     Text("\(photosCount)")
-                                        .font(.satoshi(10, weight: .medium))
+                                        .font(.inter(10, weight: .medium))
                                 }
                                 .foregroundColor(.white.opacity(0.8))
                                 .padding(.horizontal, 6)
@@ -1329,9 +1329,9 @@ struct DayTaskBlockView: View {
                         }) {
                             HStack(spacing: 4) {
                                 Image(systemName: "flame.fill")
-                                    .font(.satoshi(14))
+                                    .font(.inter(14))
                                 Text("Focus")
-                                    .font(.satoshi(12, weight: .semibold))
+                                    .font(.inter(12, weight: .semibold))
                             }
                             .foregroundColor(.white)
                             .padding(.horizontal, 12)
@@ -1413,7 +1413,7 @@ struct DayRitualBlockView: View {
                         onToggle()
                     }) {
                         Image(systemName: isCompletedOnDate ? "checkmark.circle.fill" : "circle")
-                            .font(.satoshi(22))
+                            .font(.inter(22))
                             .foregroundColor(isCompletedOnDate ? .white : .white.opacity(0.7))
                             .frame(width: 40, height: 40)
                             .contentShape(Rectangle())
@@ -1422,12 +1422,12 @@ struct DayRitualBlockView: View {
 
                     // Icon
                     Text(ritual.icon)
-                        .font(.satoshi(18))
+                        .font(.inter(18))
 
                     // Ritual info
                     VStack(alignment: .leading, spacing: 2) {
                         Text(ritual.title)
-                            .font(.satoshi(14, weight: .semibold))
+                            .font(.inter(14, weight: .semibold))
                             .foregroundColor(.white)
                             .strikethrough(isCompletedOnDate)
                             .lineLimit(1)
@@ -1435,12 +1435,12 @@ struct DayRitualBlockView: View {
                         HStack(spacing: 6) {
                             if let time = ritual.formattedScheduledTime {
                                 Text(time)
-                                    .font(.satoshi(11, weight: .medium))
+                                    .font(.inter(11, weight: .medium))
                                     .foregroundColor(.white.opacity(0.8))
                             }
 
                             Text("• \(ritual.frequency.displayName)")
-                                .font(.satoshi(11, weight: .medium))
+                                .font(.inter(11, weight: .medium))
                                 .foregroundColor(.white.opacity(0.7))
                         }
                     }
@@ -1455,9 +1455,9 @@ struct DayRitualBlockView: View {
                         }) {
                             HStack(spacing: 4) {
                                 Image(systemName: "flame.fill")
-                                    .font(.satoshi(12))
+                                    .font(.inter(12))
                                 Text("Focus")
-                                    .font(.satoshi(11, weight: .semibold))
+                                    .font(.inter(11, weight: .semibold))
                             }
                             .foregroundColor(.white)
                             .padding(.horizontal, 10)
@@ -1521,7 +1521,7 @@ struct TaskDetailSheet: View {
                         HStack(alignment: .top, spacing: SpacingTokens.md) {
                             if let areaIcon = task.areaIcon {
                                 Text(areaIcon)
-                                    .font(.satoshi(40))
+                                    .font(.inter(40))
                                     .frame(width: 56, height: 56)
                                     .background(ColorTokens.surface)
                                     .cornerRadius(RadiusTokens.md)
@@ -1530,12 +1530,12 @@ struct TaskDetailSheet: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 if isEditing {
                                     TextField("Titre", text: $editedTitle)
-                                        .font(.satoshi(20, weight: .bold))
+                                        .font(.inter(20, weight: .bold))
                                         .foregroundColor(ColorTokens.textPrimary)
                                         .textFieldStyle(RoundedBorderTextFieldStyle())
                                 } else {
                                     Text(task.title)
-                                        .font(.satoshi(22, weight: .bold))
+                                        .font(.inter(22, weight: .bold))
                                         .foregroundColor(ColorTokens.textPrimary)
                                 }
 
@@ -1543,7 +1543,7 @@ struct TaskDetailSheet: View {
                                 if isEditing {
                                     HStack(spacing: 8) {
                                         Image(systemName: "clock")
-                                            .font(.satoshi(12))
+                                            .font(.inter(12))
                                             .foregroundColor(ColorTokens.textSecondary)
 
                                         // Start time picker
@@ -1592,9 +1592,9 @@ struct TaskDetailSheet: View {
                                 } else {
                                     HStack(spacing: 6) {
                                         Image(systemName: "clock")
-                                            .font(.satoshi(12))
+                                            .font(.inter(12))
                                         Text(task.formattedTimeRange)
-                                            .font(.satoshi(14))
+                                            .font(.inter(14))
                                     }
                                     .foregroundColor(ColorTokens.textSecondary)
                                 }
@@ -1606,7 +1606,7 @@ struct TaskDetailSheet: View {
                             if !isEditing {
                                 Button(action: { startEditing() }) {
                                     Image(systemName: "pencil")
-                                        .font(.satoshi(16))
+                                        .font(.inter(16))
                                         .foregroundColor(ColorTokens.primaryStart)
                                         .padding(8)
                                         .background(ColorTokens.primarySoft)
@@ -1618,7 +1618,7 @@ struct TaskDetailSheet: View {
                         // Priority & Status badges
                         HStack(spacing: SpacingTokens.sm) {
                             Text(priorityLabel)
-                                .font(.satoshi(12, weight: .medium))
+                                .font(.inter(12, weight: .medium))
                                 .foregroundColor(.white)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 4)
@@ -1628,10 +1628,10 @@ struct TaskDetailSheet: View {
                             if task.isCompleted {
                                 HStack(spacing: 4) {
                                     Image(systemName: "checkmark.circle.fill")
-                                        .font(.satoshi(10))
+                                        .font(.inter(10))
                                     Text("common.completed".localized)
                                 }
-                                .font(.satoshi(12, weight: .medium))
+                                .font(.inter(12, weight: .medium))
                                 .foregroundColor(.white)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 4)
@@ -1649,12 +1649,12 @@ struct TaskDetailSheet: View {
                     if let description = task.description, !description.isEmpty {
                         VStack(alignment: .leading, spacing: SpacingTokens.sm) {
                             Text("task.description".localized)
-                                .font(.satoshi(12, weight: .semibold))
+                                .font(.inter(12, weight: .semibold))
                                 .foregroundColor(ColorTokens.textMuted)
                                 .textCase(.uppercase)
 
                             Text(description)
-                                .font(.satoshi(14))
+                                .font(.inter(14))
                                 .foregroundColor(ColorTokens.textPrimary)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1667,13 +1667,13 @@ struct TaskDetailSheet: View {
                     if let questTitle = task.questTitle {
                         VStack(alignment: .leading, spacing: SpacingTokens.sm) {
                             Text("task.linked_quest".localized)
-                                .font(.satoshi(12, weight: .semibold))
+                                .font(.inter(12, weight: .semibold))
                                 .foregroundColor(ColorTokens.textMuted)
                                 .textCase(.uppercase)
 
                             HStack(spacing: SpacingTokens.md) {
                                 Image(systemName: "target")
-                                    .font(.satoshi(18))
+                                    .font(.inter(18))
                                     .foregroundColor(ColorTokens.primaryStart)
                                     .frame(width: 36, height: 36)
                                     .background(ColorTokens.primarySoft)
@@ -1681,12 +1681,12 @@ struct TaskDetailSheet: View {
 
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(questTitle)
-                                        .font(.satoshi(15, weight: .semibold))
+                                        .font(.inter(15, weight: .semibold))
                                         .foregroundColor(ColorTokens.textPrimary)
 
                                     if let areaName = task.areaName {
                                         Text(areaName)
-                                            .font(.satoshi(12))
+                                            .font(.inter(12))
                                             .foregroundColor(ColorTokens.textMuted)
                                     }
                                 }
@@ -1694,7 +1694,7 @@ struct TaskDetailSheet: View {
                                 Spacer()
 
                                 Image(systemName: "chevron.right")
-                                    .font(.satoshi(12))
+                                    .font(.inter(12))
                                     .foregroundColor(ColorTokens.textMuted)
                             }
                         }
@@ -1709,7 +1709,7 @@ struct TaskDetailSheet: View {
                         Button(action: { showPhotosSheet = true }) {
                             HStack(spacing: SpacingTokens.md) {
                                 Image(systemName: "photo.stack.fill")
-                                    .font(.satoshi(18))
+                                    .font(.inter(18))
                                     .foregroundColor(ColorTokens.primaryStart)
                                     .frame(width: 36, height: 36)
                                     .background(ColorTokens.primarySoft)
@@ -1717,18 +1717,18 @@ struct TaskDetailSheet: View {
 
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("community.view_photos".localized)
-                                        .font(.satoshi(15, weight: .semibold))
+                                        .font(.inter(15, weight: .semibold))
                                         .foregroundColor(ColorTokens.textPrimary)
 
                                     Text(String(format: "community.photos_count".localized, photosCount))
-                                        .font(.satoshi(12))
+                                        .font(.inter(12))
                                         .foregroundColor(ColorTokens.textMuted)
                                 }
 
                                 Spacer()
 
                                 Image(systemName: "chevron.right")
-                                    .font(.satoshi(12))
+                                    .font(.inter(12))
                                     .foregroundColor(ColorTokens.textMuted)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -2010,10 +2010,10 @@ struct TaskPhotoCard: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(post.authorPseudo ?? "User")
-                        .font(.satoshi(14, weight: .semibold))
+                        .font(.inter(14, weight: .semibold))
                         .foregroundColor(ColorTokens.textPrimary)
                     Text(post.createdAt.timeAgoDisplay())
-                        .font(.satoshi(12))
+                        .font(.inter(12))
                         .foregroundColor(ColorTokens.textSecondary)
                 }
 
@@ -2052,7 +2052,7 @@ struct TaskPhotoCard: View {
             // Caption
             if let caption = post.caption, !caption.isEmpty {
                 Text(caption)
-                    .font(.satoshi(14))
+                    .font(.inter(14))
                     .foregroundColor(ColorTokens.textPrimary)
                     .lineLimit(3)
             }
@@ -2061,10 +2061,10 @@ struct TaskPhotoCard: View {
             if post.likesCount > 0 {
                 HStack(spacing: 4) {
                     Image(systemName: "heart.fill")
-                        .font(.satoshi(12))
+                        .font(.inter(12))
                         .foregroundColor(.red)
                     Text(String(format: "community.liked_by".localized, post.likesCount))
-                        .font(.satoshi(12))
+                        .font(.inter(12))
                         .foregroundColor(ColorTokens.textSecondary)
                 }
             }
@@ -2090,15 +2090,15 @@ struct VoiceInputSheet: View {
                 // AI Assistant Header
                 VStack(spacing: SpacingTokens.md) {
                     Image(systemName: "waveform.circle.fill")
-                        .font(.satoshi(64))
+                        .font(.inter(64))
                         .foregroundColor(ColorTokens.primaryStart)
 
                     Text("voice.assistant_title".localized)
-                        .font(.satoshi(20, weight: .bold))
+                        .font(.inter(20, weight: .bold))
                         .foregroundColor(ColorTokens.textPrimary)
 
                     Text("voice.assistant_subtitle".localized)
-                        .font(.satoshi(14))
+                        .font(.inter(14))
                         .foregroundColor(ColorTokens.textSecondary)
                         .multilineTextAlignment(.center)
                 }
@@ -2109,12 +2109,12 @@ struct VoiceInputSheet: View {
                     VStack(alignment: .leading, spacing: SpacingTokens.sm) {
                         HStack {
                             Text("voice.ai_response".localized)
-                                .font(.satoshi(12, weight: .semibold))
+                                .font(.inter(12, weight: .semibold))
                                 .foregroundColor(ColorTokens.textMuted)
                         }
 
                         Text(response)
-                            .font(.satoshi(14))
+                            .font(.inter(14))
                             .foregroundColor(ColorTokens.textPrimary)
                     }
                     .padding()
@@ -2127,7 +2127,7 @@ struct VoiceInputSheet: View {
                 // Text Input
                 VStack(spacing: SpacingTokens.md) {
                     TextField("voice.input_placeholder".localized, text: $userInput, axis: .vertical)
-                        .font(.satoshi(16))
+                        .font(.inter(16))
                         .padding()
                         .background(ColorTokens.surface)
                         .cornerRadius(RadiusTokens.md)
@@ -2255,7 +2255,7 @@ struct QuickCreateTaskSheet: View {
                 VStack(spacing: SpacingTokens.lg) {
                     // Title input
                     TextField("calendar.task_title_placeholder".localized, text: $title)
-                        .font(.satoshi(18))
+                        .font(.inter(18))
                         .padding()
                         .background(ColorTokens.surface)
                         .cornerRadius(RadiusTokens.md)
@@ -2264,7 +2264,7 @@ struct QuickCreateTaskSheet: View {
                     // Quest picker
                     VStack(alignment: .leading, spacing: SpacingTokens.sm) {
                         Text("Quête (optionnel)")
-                            .font(.satoshi(14, weight: .semibold))
+                            .font(.inter(14, weight: .semibold))
                             .foregroundColor(ColorTokens.textSecondary)
 
                         Menu {
@@ -2280,21 +2280,21 @@ struct QuickCreateTaskSheet: View {
                             HStack {
                                 if let quest = selectedQuest {
                                     Text(quest.area.emoji)
-                                        .font(.satoshi(18))
+                                        .font(.inter(18))
                                     Text(quest.title)
-                                        .font(.satoshi(14, weight: .medium))
+                                        .font(.inter(14, weight: .medium))
                                         .foregroundColor(ColorTokens.textPrimary)
                                 } else {
                                     Image(systemName: "flag")
-                                        .font(.satoshi(16))
+                                        .font(.inter(16))
                                         .foregroundColor(ColorTokens.textMuted)
                                     Text("Sélectionner une quête")
-                                        .font(.satoshi(14))
+                                        .font(.inter(14))
                                         .foregroundColor(ColorTokens.textMuted)
                                 }
                                 Spacer()
                                 Image(systemName: "chevron.down")
-                                    .font(.satoshi(12))
+                                    .font(.inter(12))
                                     .foregroundColor(ColorTokens.textMuted)
                             }
                             .padding()
@@ -2306,14 +2306,14 @@ struct QuickCreateTaskSheet: View {
                     // Time picker
                     VStack(alignment: .leading, spacing: SpacingTokens.sm) {
                         Text("Horaire")
-                            .font(.satoshi(14, weight: .semibold))
+                            .font(.inter(14, weight: .semibold))
                             .foregroundColor(ColorTokens.textSecondary)
 
                         HStack(spacing: SpacingTokens.md) {
                             // Start time
                             VStack(spacing: 4) {
                                 Text("Debut")
-                                    .font(.satoshi(12))
+                                    .font(.inter(12))
                                     .foregroundColor(ColorTokens.textMuted)
                                 Picker("", selection: $startSlot) {
                                     ForEach(startSlots) { slot in
@@ -2327,13 +2327,13 @@ struct QuickCreateTaskSheet: View {
                             .frame(maxWidth: .infinity)
 
                             Text("-")
-                                .font(.satoshi(20, weight: .medium))
+                                .font(.inter(20, weight: .medium))
                                 .foregroundColor(ColorTokens.textMuted)
 
                             // End time
                             VStack(spacing: 4) {
                                 Text("Fin")
-                                    .font(.satoshi(12))
+                                    .font(.inter(12))
                                     .foregroundColor(ColorTokens.textMuted)
                                 Picker("", selection: $endSlot) {
                                     ForEach(endSlots.filter { $0 > startSlot }) { slot in
@@ -2466,7 +2466,7 @@ struct QuickCreateTaskSheetWithTime: View {
                 // Title input at top - big and focused
                 VStack(spacing: SpacingTokens.sm) {
                     TextField("Que vas-tu faire ?", text: $title)
-                        .font(.satoshi(20, weight: .medium))
+                        .font(.inter(20, weight: .medium))
                         .foregroundColor(ColorTokens.textPrimary)
                         .focused($isTitleFocused)
                         .submitLabel(.done)
@@ -2484,7 +2484,7 @@ struct QuickCreateTaskSheetWithTime: View {
                     // Time selector - compact
                     HStack(spacing: SpacingTokens.md) {
                         Image(systemName: "clock")
-                            .font(.satoshi(16))
+                            .font(.inter(16))
                             .foregroundColor(ColorTokens.textMuted)
                             .frame(width: 24)
 
@@ -2504,7 +2504,7 @@ struct QuickCreateTaskSheetWithTime: View {
                             }
                         } label: {
                             Text(selectedStartSlot.displayString)
-                                .font(.satoshi(16, weight: .medium))
+                                .font(.inter(16, weight: .medium))
                                 .foregroundColor(ColorTokens.textPrimary)
                                 .padding(.horizontal, SpacingTokens.md)
                                 .padding(.vertical, SpacingTokens.sm)
@@ -2524,7 +2524,7 @@ struct QuickCreateTaskSheetWithTime: View {
                             }
                         } label: {
                             Text(selectedEndSlot.displayString)
-                                .font(.satoshi(16, weight: .medium))
+                                .font(.inter(16, weight: .medium))
                                 .foregroundColor(ColorTokens.textPrimary)
                                 .padding(.horizontal, SpacingTokens.md)
                                 .padding(.vertical, SpacingTokens.sm)
@@ -2538,7 +2538,7 @@ struct QuickCreateTaskSheetWithTime: View {
                         let durationMinutes = selectedEndSlot.totalMinutes - selectedStartSlot.totalMinutes
                         let durationText = durationMinutes >= 60 ? "\(durationMinutes / 60)h\(durationMinutes % 60 > 0 ? String(durationMinutes % 60) : "")" : "\(durationMinutes)m"
                         Text(durationText)
-                            .font(.satoshi(13, weight: .medium))
+                            .font(.inter(13, weight: .medium))
                             .foregroundColor(ColorTokens.primaryStart)
                             .padding(.horizontal, SpacingTokens.sm)
                             .padding(.vertical, 4)
@@ -2550,7 +2550,7 @@ struct QuickCreateTaskSheetWithTime: View {
                     // Quest selector
                     HStack(spacing: SpacingTokens.md) {
                         Image(systemName: "target")
-                            .font(.satoshi(16))
+                            .font(.inter(16))
                             .foregroundColor(ColorTokens.textMuted)
                             .frame(width: 24)
 
@@ -2564,21 +2564,21 @@ struct QuickCreateTaskSheetWithTime: View {
                             HStack {
                                 if let quest = selectedQuest {
                                     Text(quest.area.emoji)
-                                        .font(.satoshi(16))
+                                        .font(.inter(16))
                                     Text(quest.title)
-                                        .font(.satoshi(15))
+                                        .font(.inter(15))
                                         .foregroundColor(ColorTokens.textPrimary)
                                         .lineLimit(1)
                                 } else {
                                     Text("Lier à une quête")
-                                        .font(.satoshi(15))
+                                        .font(.inter(15))
                                         .foregroundColor(ColorTokens.textMuted)
                                 }
 
                                 Spacer()
 
                                 Image(systemName: "chevron.right")
-                                    .font(.satoshi(12))
+                                    .font(.inter(12))
                                     .foregroundColor(ColorTokens.textMuted)
                             }
                             .padding(.horizontal, SpacingTokens.md)
@@ -2593,15 +2593,15 @@ struct QuickCreateTaskSheetWithTime: View {
                     if let quest = selectedQuest {
                         HStack(spacing: SpacingTokens.md) {
                             Image(systemName: "folder")
-                                .font(.satoshi(16))
+                                .font(.inter(16))
                                 .foregroundColor(ColorTokens.textMuted)
                                 .frame(width: 24)
 
                             HStack(spacing: SpacingTokens.sm) {
                                 Text(quest.area.emoji)
-                                    .font(.satoshi(14))
+                                    .font(.inter(14))
                                 Text(quest.area.localizedName)
-                                    .font(.satoshi(14))
+                                    .font(.inter(14))
                                     .foregroundColor(ColorTokens.textSecondary)
                             }
                             .padding(.horizontal, SpacingTokens.md)
@@ -2740,7 +2740,7 @@ struct QuestPickerSheet: View {
                             }) {
                                 HStack {
                                     Text(quest.area.emoji)
-                                        .font(.satoshi(20))
+                                        .font(.inter(20))
                                     Text(quest.title)
                                         .foregroundColor(ColorTokens.textPrimary)
                                     Spacer()
@@ -2912,7 +2912,7 @@ struct AddRitualFromCalendarSheet: View {
                 Spacer()
 
                 Text(selectedIcon)
-                    .font(.satoshi(32))
+                    .font(.inter(32))
             }
 
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: SpacingTokens.sm) {
@@ -2922,7 +2922,7 @@ struct AddRitualFromCalendarSheet: View {
                         triggerHaptic()
                     }) {
                         Text(icon)
-                            .font(.satoshi(24))
+                            .font(.inter(24))
                             .frame(width: 44, height: 44)
                             .background(selectedIcon == icon ? ColorTokens.primarySoft : ColorTokens.surface)
                             .cornerRadius(RadiusTokens.md)
@@ -2976,9 +2976,9 @@ struct AddRitualFromCalendarSheet: View {
                         }) {
                             HStack(spacing: SpacingTokens.xs) {
                                 Text(area.icon)
-                                    .font(.satoshi(14))
+                                    .font(.inter(14))
                                 Text(area.name)
-                                    .font(.satoshi(13))
+                                    .font(.inter(13))
                             }
                             .padding(.horizontal, SpacingTokens.md)
                             .padding(.vertical, SpacingTokens.sm)
@@ -3010,7 +3010,7 @@ struct AddRitualFromCalendarSheet: View {
                             triggerHaptic()
                         }) {
                             Text(label)
-                                .font(.satoshi(13, weight: selectedFrequency == freq ? .semibold : .regular))
+                                .font(.inter(13, weight: selectedFrequency == freq ? .semibold : .regular))
                                 .padding(.horizontal, SpacingTokens.md)
                                 .padding(.vertical, SpacingTokens.sm)
                                 .background(selectedFrequency == freq ? ColorTokens.primarySoft : ColorTokens.surface)
@@ -3052,7 +3052,7 @@ struct AddRitualFromCalendarSheet: View {
             }
 
             Text("calendar.routine_time_hint".localized)
-                .font(.satoshi(12))
+                .font(.inter(12))
                 .foregroundColor(ColorTokens.textMuted)
         }
     }
@@ -3088,7 +3088,7 @@ struct TaskListRow: View {
                 onToggle()
             }) {
                 Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .font(.satoshi(24))
+                    .font(.inter(24))
                     .foregroundColor(task.isCompleted ? ColorTokens.success : ColorTokens.textMuted)
             }
             .buttonStyle(PlainButtonStyle())
@@ -3096,7 +3096,7 @@ struct TaskListRow: View {
             // Task info
             VStack(alignment: .leading, spacing: 4) {
                 Text(task.title)
-                    .font(.satoshi(15, weight: .medium))
+                    .font(.inter(15, weight: .medium))
                     .foregroundColor(task.isCompleted ? ColorTokens.textMuted : ColorTokens.textPrimary)
                     .strikethrough(task.isCompleted)
                     .lineLimit(2)
@@ -3106,9 +3106,9 @@ struct TaskListRow: View {
                     if let time = task.scheduledStart {
                         HStack(spacing: 4) {
                             Image(systemName: "clock")
-                                .font(.satoshi(10))
+                                .font(.inter(10))
                             Text(time)
-                                .font(.satoshi(12))
+                                .font(.inter(12))
                         }
                         .foregroundColor(ColorTokens.textMuted)
                     }
@@ -3116,7 +3116,7 @@ struct TaskListRow: View {
                     // Quest badge
                     if let questTitle = task.questTitle {
                         Text(questTitle)
-                            .font(.satoshi(11, weight: .medium))
+                            .font(.inter(11, weight: .medium))
                             .foregroundColor(taskColor)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
@@ -3134,7 +3134,7 @@ struct TaskListRow: View {
                 onStartFocus()
             }) {
                 Image(systemName: "flame.fill")
-                    .font(.satoshi(16))
+                    .font(.inter(16))
                     .foregroundColor(ColorTokens.primaryStart)
                     .frame(width: 36, height: 36)
                     .background(ColorTokens.primaryStart.opacity(0.1))
@@ -3165,7 +3165,7 @@ struct RitualListRow: View {
                 onToggle()
             }) {
                 Image(systemName: isCompleted ? "checkmark.circle.fill" : "circle")
-                    .font(.satoshi(24))
+                    .font(.inter(24))
                     .foregroundColor(isCompleted ? ColorTokens.success : ColorTokens.textMuted)
             }
             .buttonStyle(PlainButtonStyle())
@@ -3174,9 +3174,9 @@ struct RitualListRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Text(ritual.icon ?? "🔄")
-                        .font(.satoshi(16))
+                        .font(.inter(16))
                     Text(ritual.title)
-                        .font(.satoshi(15, weight: .medium))
+                        .font(.inter(15, weight: .medium))
                         .foregroundColor(isCompleted ? ColorTokens.textMuted : ColorTokens.textPrimary)
                         .strikethrough(isCompleted)
                 }
@@ -3184,9 +3184,9 @@ struct RitualListRow: View {
                 if let time = ritual.scheduledTime {
                     HStack(spacing: 4) {
                         Image(systemName: "clock")
-                            .font(.satoshi(10))
+                            .font(.inter(10))
                         Text(time)
-                            .font(.satoshi(12))
+                            .font(.inter(12))
                     }
                     .foregroundColor(ColorTokens.textMuted)
                 }
@@ -3200,7 +3200,7 @@ struct RitualListRow: View {
                 onStartFocus()
             }) {
                 Image(systemName: "flame.fill")
-                    .font(.satoshi(16))
+                    .font(.inter(16))
                     .foregroundColor(ColorTokens.primaryStart)
                     .frame(width: 36, height: 36)
                     .background(ColorTokens.primaryStart.opacity(0.1))

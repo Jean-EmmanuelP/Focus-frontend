@@ -31,11 +31,11 @@ struct WelcomeLoadingView: View {
                     // Top text section
                     VStack(spacing: SpacingTokens.md) {
                         Text(welcomeText + ",")
-                            .font(.system(size: titleSize, weight: .medium))
-                            .foregroundColor(.white)
+                            .font(.inter(titleSize, weight: .medium))
+                            .foregroundColor(ColorTokens.textPrimary)
 
                         Text(subtitleText + ".")
-                            .font(.system(size: titleSize, weight: .medium))
+                            .font(.inter(titleSize, weight: .medium))
                             .foregroundColor(ColorTokens.primaryStart)
                     }
                     .multilineTextAlignment(.center)

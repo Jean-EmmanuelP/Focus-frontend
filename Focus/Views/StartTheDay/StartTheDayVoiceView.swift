@@ -73,7 +73,7 @@ struct StartTheDayVoiceView: View {
         HStack {
             Button(action: { dismiss() }) {
                 Image(systemName: "xmark")
-                    .font(.satoshi(18, weight: .medium))
+                    .font(.inter(18, weight: .medium))
                     .foregroundColor(ColorTokens.textSecondary)
                     .frame(width: 44, height: 44)
                     .background(Color.white.opacity(0.1))
@@ -83,7 +83,7 @@ struct StartTheDayVoiceView: View {
             Spacer()
 
             Text(stepTitle)
-                .font(.satoshi(16, weight: .semibold))
+                .font(.inter(16, weight: .semibold))
                 .foregroundColor(ColorTokens.textPrimary)
 
             Spacer()
@@ -144,11 +144,11 @@ struct StartTheDayVoiceView: View {
 
                     // Mic icon
                     Image(systemName: "mic.fill")
-                        .font(.satoshi(48))
+                        .font(.inter(48))
                         .foregroundColor(.white)
                 } else {
                     Image(systemName: "mic")
-                        .font(.satoshi(48))
+                        .font(.inter(48))
                         .foregroundColor(ColorTokens.textSecondary)
                 }
             }
@@ -156,11 +156,11 @@ struct StartTheDayVoiceView: View {
             // Instructions
             VStack(spacing: 12) {
                 Text("Parle-moi de ta journee")
-                    .font(.satoshi(24, weight: .bold))
+                    .font(.inter(24, weight: .bold))
                     .foregroundColor(ColorTokens.textPrimary)
 
                 Text("Dis-moi ce que tu veux faire aujourd'hui avec les horaires")
-                    .font(.satoshi(16))
+                    .font(.inter(16))
                     .foregroundColor(ColorTokens.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
@@ -169,7 +169,7 @@ struct StartTheDayVoiceView: View {
             // Transcription
             if !viewModel.transcribedText.isEmpty {
                 Text(viewModel.transcribedText)
-                    .font(.satoshi(16))
+                    .font(.inter(16))
                     .foregroundColor(ColorTokens.textMuted)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
@@ -187,7 +187,7 @@ struct StartTheDayVoiceView: View {
                             Image(systemName: "checkmark")
                             Text("Valider")
                         }
-                        .font(.satoshi(16, weight: .semibold))
+                        .font(.inter(16, weight: .semibold))
                         .foregroundColor(.white)
                         .padding(.horizontal, 32)
                         .padding(.vertical, 16)
@@ -200,7 +200,7 @@ struct StartTheDayVoiceView: View {
                             Image(systemName: "mic.fill")
                             Text("Recommencer")
                         }
-                        .font(.satoshi(16, weight: .semibold))
+                        .font(.inter(16, weight: .semibold))
                         .foregroundColor(ColorTokens.textPrimary)
                         .padding(.horizontal, 32)
                         .padding(.vertical, 16)
@@ -231,11 +231,11 @@ struct StartTheDayVoiceView: View {
 
             VStack(spacing: 12) {
                 Text("Volta analyse ta journee...")
-                    .font(.satoshi(24, weight: .bold))
+                    .font(.inter(24, weight: .bold))
                     .foregroundColor(ColorTokens.textPrimary)
 
                 Text("Je prepare ton planning")
-                    .font(.satoshi(16))
+                    .font(.inter(16))
                     .foregroundColor(ColorTokens.textSecondary)
             }
 
@@ -249,12 +249,12 @@ struct StartTheDayVoiceView: View {
             // Summary from AI
             VStack(spacing: 8) {
                 Text("Voici ce que j'ai compris")
-                    .font(.satoshi(20, weight: .bold))
+                    .font(.inter(20, weight: .bold))
                     .foregroundColor(ColorTokens.textPrimary)
 
                 if !viewModel.aiSummary.isEmpty {
                     Text(viewModel.aiSummary)
-                        .font(.satoshi(14))
+                        .font(.inter(14))
                         .foregroundColor(ColorTokens.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 16)
@@ -275,7 +275,7 @@ struct StartTheDayVoiceView: View {
             // Error message
             if let error = viewModel.errorMessage {
                 Text(error)
-                    .font(.satoshi(14))
+                    .font(.inter(14))
                     .foregroundColor(ColorTokens.error)
                     .padding(.horizontal, 16)
             }
@@ -292,7 +292,7 @@ struct StartTheDayVoiceView: View {
                         Image(systemName: "checkmark.circle.fill")
                         Text("Ajouter au calendrier")
                     }
-                    .font(.satoshi(16, weight: .semibold))
+                    .font(.inter(16, weight: .semibold))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
@@ -309,7 +309,7 @@ struct StartTheDayVoiceView: View {
                         Image(systemName: "arrow.counterclockwise")
                         Text("Recommencer")
                     }
-                    .font(.satoshi(16, weight: .medium))
+                    .font(.inter(16, weight: .medium))
                     .foregroundColor(ColorTokens.textSecondary)
                 }
             }
@@ -330,17 +330,17 @@ struct StartTheDayVoiceView: View {
                     .frame(width: 160, height: 160)
 
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.satoshi(80))
+                    .font(.inter(80))
                     .foregroundColor(ColorTokens.success)
             }
 
             VStack(spacing: 12) {
                 Text("C'est parti !")
-                    .font(.satoshi(28, weight: .bold))
+                    .font(.inter(28, weight: .bold))
                     .foregroundColor(ColorTokens.textPrimary)
 
                 Text("\(viewModel.addedTaskCount) tache\(viewModel.addedTaskCount > 1 ? "s" : "") ajoutee\(viewModel.addedTaskCount > 1 ? "s" : "") a ton calendrier")
-                    .font(.satoshi(16))
+                    .font(.inter(16))
                     .foregroundColor(ColorTokens.textSecondary)
             }
 
@@ -349,7 +349,7 @@ struct StartTheDayVoiceView: View {
             // Done button
             Button(action: { dismiss() }) {
                 Text("Voir mon calendrier")
-                    .font(.satoshi(16, weight: .semibold))
+                    .font(.inter(16, weight: .semibold))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
@@ -371,30 +371,30 @@ struct ProposedTaskUIRow: View {
             // Selection toggle
             Button(action: { task.isSelected.toggle() }) {
                 Image(systemName: task.isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.satoshi(24))
+                    .font(.inter(24))
                     .foregroundColor(task.isSelected ? ColorTokens.primaryStart : ColorTokens.textMuted)
             }
 
             // Task info
             VStack(alignment: .leading, spacing: 4) {
                 Text(task.title)
-                    .font(.satoshi(16, weight: .medium))
+                    .font(.inter(16, weight: .medium))
                     .foregroundColor(task.isSelected ? ColorTokens.textPrimary : ColorTokens.textMuted)
 
                 HStack(spacing: 8) {
                     if let start = task.scheduledStart, let end = task.scheduledEnd {
                         HStack(spacing: 4) {
                             Image(systemName: "clock")
-                                .font(.satoshi(12))
+                                .font(.inter(12))
                             Text("\(start) - \(end)")
                         }
-                        .font(.satoshi(13))
+                        .font(.inter(13))
                         .foregroundColor(ColorTokens.textSecondary)
                     }
 
                     // Priority badge
                     Text(task.priority.capitalized)
-                        .font(.satoshi(11, weight: .medium))
+                        .font(.inter(11, weight: .medium))
                         .foregroundColor(priorityColor(task.priority))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 2)

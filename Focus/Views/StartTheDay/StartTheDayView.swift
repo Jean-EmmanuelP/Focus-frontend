@@ -254,7 +254,7 @@ struct StartTheDayView: View {
                 Button(action: { dismiss() }) {
                     Image(systemName: "xmark")
                         .foregroundColor(ColorTokens.textSecondary)
-                        .font(.satoshi(16, weight: .semibold))
+                        .font(.inter(16, weight: .semibold))
                         .frame(width: 36, height: 36)
                         .background(ColorTokens.surface)
                         .clipShape(Circle())
@@ -456,7 +456,7 @@ struct StartTheDayView: View {
         }) {
             VStack(spacing: SpacingTokens.xs) {
                 Text(feeling.rawValue)
-                    .font(.satoshi(36))
+                    .font(.inter(36))
 
                 Text(feeling.label)
                     .caption()
@@ -503,10 +503,10 @@ struct StartTheDayView: View {
             // Large sleep quality display
             VStack(spacing: SpacingTokens.lg) {
                 Text(sleepEmoji)
-                    .font(.satoshi(60))
+                    .font(.inter(60))
 
                 Text("\(viewModel.sleepQuality)/10")
-                    .font(.satoshi(48, weight: .bold))
+                    .font(.inter(48, weight: .bold))
                     .foregroundColor(sleepColor)
 
                 Text(sleepDescription)
@@ -598,7 +598,7 @@ struct StartTheDayView: View {
         return VStack(spacing: SpacingTokens.lg) {
             // Large emoji
             Text(emoji)
-                .font(.satoshi(60))
+                .font(.inter(60))
                 .padding(.top, SpacingTokens.md)
 
             // Title and subtitle
@@ -726,7 +726,7 @@ struct StartTheDayView: View {
             VStack(alignment: .leading, spacing: SpacingTokens.md) {
                 HStack {
                     Text("🎯")
-                        .font(.satoshi(24))
+                        .font(.inter(24))
                     Text("start_day.focus_areas".localized)
                         .subtitle()
                         .fontWeight(.semibold)
@@ -736,7 +736,7 @@ struct StartTheDayView: View {
                 ForEach(viewModel.intentions) { intention in
                     HStack(spacing: SpacingTokens.sm) {
                         Text(intention.area.emoji)
-                            .font(.satoshi(20))
+                            .font(.inter(20))
 
                         Text(intention.text.isEmpty ? "start_day.not_set".localized : intention.text)
                             .bodyText()
@@ -772,7 +772,7 @@ struct StartTheDayView: View {
         VStack(alignment: .leading, spacing: SpacingTokens.sm) {
             HStack {
                 Text(icon)
-                    .font(.satoshi(24))
+                    .font(.inter(24))
                 Text(title)
                     .subtitle()
                     .fontWeight(.semibold)
@@ -864,7 +864,7 @@ struct StartTheDayView: View {
             Spacer()
 
             Text("☀️")
-                .font(.satoshi(100))
+                .font(.inter(100))
 
             VStack(spacing: SpacingTokens.md) {
                 Text("start_day.youre_ready".localized)
@@ -915,7 +915,7 @@ struct AreaChip: View {
         Button(action: action) {
             HStack(spacing: SpacingTokens.xs) {
                 Text(area.emoji)
-                    .font(.satoshi(14))
+                    .font(.inter(14))
                 Text(area.localizedName)
                     .caption()
                     .fontWeight(isSelected ? .semibold : .regular)

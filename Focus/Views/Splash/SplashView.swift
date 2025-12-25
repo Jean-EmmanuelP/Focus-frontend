@@ -17,12 +17,12 @@ struct SplashView: View {
             let pulseSize: CGFloat = isSmallScreen ? 150 : 200
 
             ZStack {
-                // Gradient background
+                // Clean gradient background for light mode
                 LinearGradient(
                     colors: [
-                        Color(hex: "#0A0A0A"),
-                        Color(hex: "#1A0A00"),
-                        Color(hex: "#0A0A0A")
+                        ColorTokens.background,
+                        ColorTokens.primaryLight,
+                        ColorTokens.background
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing

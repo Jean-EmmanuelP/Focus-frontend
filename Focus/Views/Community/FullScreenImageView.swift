@@ -42,7 +42,7 @@ struct FullScreenImageView: View {
                             Image(systemName: "arrow.clockwise")
                             Text("Réessayer")
                         }
-                        .font(.satoshi(14, weight: .medium))
+                        .font(.inter(14, weight: .medium))
                         .foregroundColor(.white)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)

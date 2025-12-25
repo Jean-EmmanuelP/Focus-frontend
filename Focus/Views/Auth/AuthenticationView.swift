@@ -151,7 +151,7 @@ struct AuthenticationView: View {
     private func featureRow(icon: String, text: String) -> some View {
         HStack(spacing: SpacingTokens.md) {
             Text(icon)
-                .font(.satoshi(24))
+                .font(.inter(24))
 
             Text(text)
                 .bodyText()
@@ -169,9 +169,9 @@ struct AuthenticationView: View {
             } label: {
                 HStack(spacing: SpacingTokens.sm) {
                     Image(systemName: "apple.logo")
-                        .font(.satoshi(18, weight: .medium))
+                        .font(.inter(18, weight: .medium))
                     Text("auth.sign_in_apple".localized)
-                        .font(.satoshi(17, weight: .medium))
+                        .font(.inter(17, weight: .medium))
                 }
                 .foregroundColor(.black)
                 .frame(maxWidth: .infinity)

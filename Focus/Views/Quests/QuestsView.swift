@@ -269,17 +269,17 @@ struct QuestsView: View {
                     dismiss()
                 }) {
                     Image(systemName: "chevron.left")
-                        .font(.satoshi(18, weight: .semibold))
+                        .font(.inter(18, weight: .semibold))
                         .foregroundColor(ColorTokens.textPrimary)
                         .frame(width: 32, height: 32)
                 }
 
                 Text("🎯")
-                    .font(.satoshi(28))
+                    .font(.inter(28))
 
                 Text("quests.title".localized)
                     .label()
-                    .font(.satoshi(20, weight: .bold))
+                    .font(.inter(20, weight: .bold))
                     .foregroundColor(ColorTokens.textPrimary)
 
                 Spacer()
@@ -367,7 +367,7 @@ struct QuestsView: View {
                                 Image(systemName: "plus.circle.fill")
                                 Text("quests.add_quest".localized)
                             }
-                            .font(.satoshi(14, weight: .medium))
+                            .font(.inter(14, weight: .medium))
                             .foregroundColor(ColorTokens.primaryStart)
                         }
                     }
@@ -427,7 +427,7 @@ struct QuestsView: View {
                                 Image(systemName: "plus.circle.fill")
                                 Text("routines.add_routine".localized)
                             }
-                            .font(.satoshi(14, weight: .medium))
+                            .font(.inter(14, weight: .medium))
                             .foregroundColor(ColorTokens.primaryStart)
                         }
                     }
@@ -469,9 +469,9 @@ struct QuestsView: View {
                     if viewModel.rituals.filter({ $0.isCompleted }).count == 0 {
                         HStack(spacing: SpacingTokens.xs) {
                             Image(systemName: "hand.draw")
-                                .font(.satoshi(12))
+                                .font(.inter(12))
                             Text("quests.swipe_hint".localized)
-                                .font(.satoshi(12))
+                                .font(.inter(12))
                         }
                         .foregroundColor(ColorTokens.textMuted)
                         .padding(.top, SpacingTokens.xs)
@@ -616,7 +616,7 @@ struct AddRitualFromQuestsSheet: View {
             HStack {
                 Spacer()
                 Text(selectedIcon)
-                    .font(.satoshi(64))
+                    .font(.inter(64))
                 Spacer()
             }
             .padding(.vertical, SpacingTokens.md)
@@ -628,7 +628,7 @@ struct AddRitualFromQuestsSheet: View {
                         triggerHaptic()
                     }) {
                         Text(icon)
-                            .font(.satoshi(28))
+                            .font(.inter(28))
                             .frame(width: 48, height: 48)
                             .background(selectedIcon == icon ? ColorTokens.primarySoft : ColorTokens.surface)
                             .cornerRadius(RadiusTokens.md)
@@ -682,7 +682,7 @@ struct AddRitualFromQuestsSheet: View {
                             Image(systemName: "arrow.clockwise")
                             Text("common.retry".localized)
                         }
-                        .font(.satoshi(14, weight: .medium))
+                        .font(.inter(14, weight: .medium))
                         .foregroundColor(ColorTokens.primaryStart)
                     }
                 }
@@ -699,7 +699,7 @@ struct AddRitualFromQuestsSheet: View {
                         }) {
                             HStack(spacing: SpacingTokens.xs) {
                                 Text(area.icon)
-                                    .font(.satoshi(16))
+                                    .font(.inter(16))
                                 Text(area.name)
                                     .caption()
                             }
@@ -849,7 +849,7 @@ struct AddQuestSheet: View {
                                         }) {
                                             HStack(spacing: SpacingTokens.xs) {
                                                 Text(area.icon)
-                                                    .font(.satoshi(16))
+                                                    .font(.inter(16))
                                                 Text(area.name)
                                                     .caption()
                                             }
@@ -1014,7 +1014,7 @@ struct EditQuestSheet: View {
                         // Quest info header
                         VStack(spacing: SpacingTokens.md) {
                             Text(quest.area.emoji)
-                                .font(.satoshi(48))
+                                .font(.inter(48))
 
                             HStack(spacing: SpacingTokens.xs) {
                                 Text(quest.area.localizedName)
@@ -1053,7 +1053,7 @@ struct EditQuestSheet: View {
                                 )
 
                                 Text("\(Int(quest.progress * 100))%")
-                                    .font(.satoshi(16, weight: .bold))
+                                    .font(.inter(16, weight: .bold))
                                     .foregroundColor(Color(hex: quest.area.color))
                             }
                             .padding(SpacingTokens.md)
@@ -1121,7 +1121,7 @@ struct EditQuestSheet: View {
                                 Image(systemName: "trash")
                                 Text("quests.delete_quest".localized)
                             }
-                            .font(.satoshi(14, weight: .medium))
+                            .font(.inter(14, weight: .medium))
                             .foregroundColor(ColorTokens.error)
                         }
                         .padding(.top, SpacingTokens.lg)
@@ -1172,7 +1172,7 @@ struct QuestDetailView: View {
                     VStack(alignment: .leading, spacing: SpacingTokens.md) {
                         HStack {
                             Text(quest.area.emoji)
-                                .font(.satoshi(32))
+                                .font(.inter(32))
 
                             VStack(alignment: .leading, spacing: SpacingTokens.xs) {
                                 Text(quest.area.localizedName)
@@ -1337,7 +1337,7 @@ struct EditRitualFromQuestsSheet: View {
                                         hapticGenerator.impactOccurred()
                                     }) {
                                         Text(icon)
-                                            .font(.satoshi(28))
+                                            .font(.inter(28))
                                             .frame(width: 48, height: 48)
                                             .background(selectedIcon == icon ? ColorTokens.primarySoft : ColorTokens.surface)
                                             .cornerRadius(RadiusTokens.md)
@@ -1468,7 +1468,7 @@ struct EditRitualFromQuestsSheet: View {
                                 Image(systemName: "trash")
                                 Text("routines.delete_ritual".localized)
                             }
-                            .font(.satoshi(14, weight: .medium))
+                            .font(.inter(14, weight: .medium))
                             .foregroundColor(ColorTokens.error)
                         }
                         .padding(.top, SpacingTokens.md)

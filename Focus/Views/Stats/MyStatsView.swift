@@ -28,7 +28,7 @@ struct MyStatsView: View {
                 } else if let error = errorMessage {
                     VStack(spacing: SpacingTokens.md) {
                         Image(systemName: "exclamationmark.triangle")
-                            .font(.satoshi(40))
+                            .font(.inter(40))
                             .foregroundColor(ColorTokens.warning)
                         Text(error)
                             .bodyText()

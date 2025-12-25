@@ -76,11 +76,11 @@ struct AppBlockerSettingsView: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Temps d'écran")
-                        .font(.satoshi(16, weight: .semibold))
+                        .font(.inter(16, weight: .semibold))
                         .foregroundColor(ColorTokens.textPrimary)
 
                     Text(viewModel.authorizationStatus.displayText)
-                        .font(.satoshi(13))
+                        .font(.inter(13))
                         .foregroundColor(viewModel.isAuthorized ? Color.green : ColorTokens.textMuted)
                 }
 
@@ -108,7 +108,7 @@ struct AppBlockerSettingsView: View {
                             Text("Autoriser l'accès")
                         }
                     }
-                    .font(.satoshi(15, weight: .semibold))
+                    .font(.inter(15, weight: .semibold))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, SpacingTokens.md)
@@ -129,16 +129,16 @@ struct AppBlockerSettingsView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Apps à bloquer")
-                        .font(.satoshi(16, weight: .semibold))
+                        .font(.inter(16, weight: .semibold))
                         .foregroundColor(ColorTokens.textPrimary)
 
                     if viewModel.hasSelectedApps {
                         Text("\(viewModel.selectedAppsCount) sélectionnée(s)")
-                            .font(.satoshi(13))
+                            .font(.inter(13))
                             .foregroundColor(ColorTokens.textSecondary)
                     } else {
                         Text("Aucune app sélectionnée")
-                            .font(.satoshi(13))
+                            .font(.inter(13))
                             .foregroundColor(ColorTokens.textMuted)
                     }
                 }
@@ -180,7 +180,7 @@ struct AppBlockerSettingsView: View {
                             .frame(width: 32, height: 32)
                             .overlay(
                                 Text("+\(viewModel.selectedAppsCount - 5)")
-                                    .font(.satoshi(10, weight: .bold))
+                                    .font(.inter(10, weight: .bold))
                                     .foregroundColor(ColorTokens.textSecondary)
                             )
                             .overlay(
@@ -201,7 +201,7 @@ struct AppBlockerSettingsView: View {
                     Image(systemName: viewModel.hasSelectedApps ? "pencil" : "plus.circle")
                     Text(viewModel.hasSelectedApps ? "Modifier la sélection" : "Choisir les apps")
                 }
-                .font(.satoshi(15, weight: .semibold))
+                .font(.inter(15, weight: .semibold))
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, SpacingTokens.md)
@@ -220,11 +220,11 @@ struct AppBlockerSettingsView: View {
             Toggle(isOn: $viewModel.enableBlockingDuringFocus) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Bloquer pendant le Focus")
-                        .font(.satoshi(16, weight: .semibold))
+                        .font(.inter(16, weight: .semibold))
                         .foregroundColor(ColorTokens.textPrimary)
 
                     Text("Active automatiquement le blocage pendant les sessions de focus")
-                        .font(.satoshi(13))
+                        .font(.inter(13))
                         .foregroundColor(ColorTokens.textMuted)
                 }
             }
@@ -244,11 +244,11 @@ struct AppBlockerSettingsView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Blocage actif")
-                    .font(.satoshi(16, weight: .bold))
+                    .font(.inter(16, weight: .bold))
                     .foregroundColor(ColorTokens.success)
 
                 Text("\(viewModel.selectedAppsCount) app(s) bloquée(s)")
-                    .font(.satoshi(13))
+                    .font(.inter(13))
                     .foregroundColor(ColorTokens.textSecondary)
             }
 
@@ -258,7 +258,7 @@ struct AppBlockerSettingsView: View {
                 viewModel.stopBlocking()
             }) {
                 Text("Arrêter")
-                    .font(.satoshi(13, weight: .semibold))
+                    .font(.inter(13, weight: .semibold))
                     .foregroundColor(ColorTokens.error)
                     .padding(.horizontal, SpacingTokens.md)
                     .padding(.vertical, SpacingTokens.sm)
@@ -282,7 +282,7 @@ struct AppBlockerSettingsView: View {
                 Image(systemName: "info.circle.fill")
                     .foregroundColor(ColorTokens.primaryStart)
                 Text("Comment ça marche")
-                    .font(.satoshi(14, weight: .semibold))
+                    .font(.inter(14, weight: .semibold))
                     .foregroundColor(ColorTokens.textSecondary)
             }
 
@@ -293,7 +293,7 @@ struct AppBlockerSettingsView: View {
             }
 
             Text("Les apps bloquées afficheront un écran 'Shield' jusqu'à la fin de ta session de focus.")
-                .font(.satoshi(12))
+                .font(.inter(12))
                 .foregroundColor(ColorTokens.textMuted)
                 .padding(.top, SpacingTokens.xs)
         }
@@ -310,7 +310,7 @@ struct AppBlockerSettingsView: View {
                 .frame(width: 20)
 
             Text(text)
-                .font(.satoshi(13))
+                .font(.inter(13))
                 .foregroundColor(ColorTokens.textSecondary)
         }
     }
