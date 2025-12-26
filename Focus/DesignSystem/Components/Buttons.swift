@@ -33,7 +33,7 @@ struct PrimaryButton: View {
                         // Check if it's a SF Symbol (no emoji characters) or emoji
                         if icon.unicodeScalars.allSatisfy({ $0.isASCII }) {
                             Image(systemName: icon)
-                                .font(.inter(16, weight: .semibold))
+                                .font(.satoshi(16, weight: .semibold))
                         } else {
                             Text(icon)
                         }
@@ -43,7 +43,7 @@ struct PrimaryButton: View {
                         .fontWeight(.semibold)
                 }
             }
-            .foregroundColor(.white)
+            .foregroundColor(ColorTokens.textPrimary)
             .frame(maxWidth: .infinity)
             .frame(height: 56)
             .background(
@@ -142,7 +142,7 @@ struct IconButton: View {
     var body: some View {
         Button(action: action) {
             Text(icon)
-                .font(.inter(20))
+                .font(.satoshi(20))
                 .frame(width: size, height: size)
                 .background(ColorTokens.surface)
                 .cornerRadius(style == .circular ? size / 2 : RadiusTokens.sm)

@@ -95,7 +95,7 @@ struct LevelBadge: View {
                     .foregroundColor(ColorTokens.textMuted)
                 
                 Text("\(level)")
-                    .font(.inter(36, weight: .bold))
+                    .font(.satoshi(36, weight: .bold))
                     .foregroundColor(ColorTokens.textPrimary)
             }
         }
@@ -342,7 +342,7 @@ struct ZoomablePhotoView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.inter(30))
+                            .font(.satoshi(30))
                             .foregroundColor(.white.opacity(0.8))
                     }
                     .padding()
@@ -371,7 +371,7 @@ struct ZoomablePhotoView: View {
                 .frame(width: 200, height: 200)
 
             Text(initials)
-                .font(.inter(80, weight: .bold))
+                .font(.satoshi(80, weight: .bold))
                 .foregroundColor(.white)
         }
     }
@@ -421,7 +421,7 @@ struct EmptyStateView: View {
     var body: some View {
         VStack(spacing: SpacingTokens.lg) {
             Text(icon)
-                .font(.inter(64))
+                .font(.satoshi(64))
             
             VStack(spacing: SpacingTokens.sm) {
                 Text(title)

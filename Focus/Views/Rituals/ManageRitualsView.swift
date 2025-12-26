@@ -127,7 +127,7 @@ struct ManageRitualsView: View {
                     viewModel.showingAddSheet = true
                 }) {
                     Image(systemName: "plus.circle.fill")
-                        .font(.inter(22))
+                        .font(.satoshi(22))
                         .foregroundColor(ColorTokens.primaryStart)
                 }
             }
@@ -283,16 +283,16 @@ struct SimpleRitualRow: View {
                     // Icon
                     if ritual.icon.count <= 2 {
                         Text(ritual.icon)
-                            .font(.inter(20))
+                            .font(.satoshi(20))
                     } else {
                         Image(systemName: ritual.icon)
-                            .font(.inter(16))
+                            .font(.satoshi(16))
                             .foregroundColor(ColorTokens.textSecondary)
                     }
 
                     // Title
                     Text(ritual.title)
-                        .font(.inter(15, weight: .medium))
+                        .font(.satoshi(15, weight: .medium))
                         .foregroundColor(ritual.isCompleted ? ColorTokens.textMuted : ColorTokens.textPrimary)
                         .strikethrough(ritual.isCompleted, color: ColorTokens.textMuted)
                         .lineLimit(1)
@@ -302,7 +302,7 @@ struct SimpleRitualRow: View {
                     // Scheduled time if any
                     if let time = ritual.scheduledTime {
                         Text(time)
-                            .font(.inter(12))
+                            .font(.satoshi(12))
                             .foregroundColor(ColorTokens.textMuted)
                     }
                 }
@@ -468,7 +468,7 @@ struct AddRitualSheet: View {
             HStack {
                 Spacer()
                 Text(selectedIcon)
-                    .font(.inter(64))
+                    .font(.satoshi(64))
                 Spacer()
             }
             .padding(.vertical, SpacingTokens.md)
@@ -481,7 +481,7 @@ struct AddRitualSheet: View {
                         triggerHaptic()
                     }) {
                         Text(icon)
-                            .font(.inter(28))
+                            .font(.satoshi(28))
                             .frame(width: 48, height: 48)
                             .background(selectedIcon == icon ? ColorTokens.primarySoft : ColorTokens.surface)
                             .cornerRadius(RadiusTokens.md)
@@ -539,7 +539,7 @@ struct AddRitualSheet: View {
                         }) {
                             HStack(spacing: SpacingTokens.xs) {
                                 Text(area.icon)
-                                    .font(.inter(16))
+                                    .font(.satoshi(16))
                                 Text(area.name)
                                     .caption()
                             }
@@ -791,7 +791,7 @@ struct EditRitualSheet: View {
             HStack {
                 Spacer()
                 Text(selectedIcon)
-                    .font(.inter(64))
+                    .font(.satoshi(64))
                 Spacer()
             }
             .padding(.vertical, SpacingTokens.md)
@@ -804,7 +804,7 @@ struct EditRitualSheet: View {
                         triggerHaptic()
                     }) {
                         Text(icon)
-                            .font(.inter(28))
+                            .font(.satoshi(28))
                             .frame(width: 48, height: 48)
                             .background(selectedIcon == icon ? ColorTokens.primarySoft : ColorTokens.surface)
                             .cornerRadius(RadiusTokens.md)
@@ -850,7 +850,7 @@ struct EditRitualSheet: View {
                         }) {
                             HStack(spacing: SpacingTokens.xs) {
                                 Text(area.icon)
-                                    .font(.inter(16))
+                                    .font(.satoshi(16))
                                 Text(area.name)
                                     .caption()
                             }

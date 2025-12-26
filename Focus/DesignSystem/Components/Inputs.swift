@@ -10,7 +10,7 @@ struct CustomTextField: View {
         HStack(spacing: SpacingTokens.md) {
             if let icon = icon {
                 Text(icon)
-                    .font(.inter(20))
+                    .font(.satoshi(20))
             }
             
             TextField(placeholder, text: $text)
@@ -87,7 +87,7 @@ struct CheckboxView: View {
                         .frame(width: 24, height: 24)
                     
                     Text("✓")
-                        .font(.inter(14, weight: .bold))
+                        .font(.satoshi(14, weight: .bold))
                         .foregroundColor(.white)
                 }
             }
@@ -148,7 +148,7 @@ struct EmojiSelector: View {
                 }) {
                     VStack(spacing: SpacingTokens.xs) {
                         Text(feeling.rawValue)
-                            .font(.inter(32))
+                            .font(.satoshi(32))
                         
                         Text(feeling.label)
                             .caption()

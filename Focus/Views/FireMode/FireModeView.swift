@@ -114,7 +114,7 @@ struct FireModeView: View {
                     router.dismissFireMode()
                 }) {
                     Image(systemName: "xmark")
-                        .font(.inter(16, weight: .medium))
+                        .font(.satoshi(16, weight: .medium))
                         .foregroundColor(ColorTokens.textSecondary)
                         .frame(width: 32, height: 32)
                         .background(ColorTokens.surface)
@@ -122,10 +122,10 @@ struct FireModeView: View {
                 }
 
                 Text("🔥")
-                    .font(.inter(28))
+                    .font(.satoshi(28))
 
                 Text("fire.title".localized)
-                    .font(.inter(20, weight: .bold))
+                    .font(.satoshi(20, weight: .bold))
                     .foregroundColor(ColorTokens.textPrimary)
 
                 Spacer()
@@ -248,14 +248,14 @@ struct FireModeView: View {
                         if let selectedId = viewModel.selectedQuestId,
                            let quest = viewModel.quests.first(where: { $0.id == selectedId }) {
                             Text(quest.area.emoji)
-                                .font(.inter(16))
+                                .font(.satoshi(16))
                             Text(quest.title)
                                 .bodyText()
                                 .foregroundColor(ColorTokens.textPrimary)
                                 .lineLimit(1)
                         } else {
                             Image(systemName: "link")
-                                .font(.inter(14))
+                                .font(.satoshi(14))
                                 .foregroundColor(ColorTokens.textMuted)
                             Text("fire.select_quest".localized)
                                 .bodyText()
@@ -265,7 +265,7 @@ struct FireModeView: View {
                         Spacer()
 
                         Image(systemName: "chevron.up.chevron.down")
-                            .font(.inter(10, weight: .medium))
+                            .font(.satoshi(10, weight: .medium))
                             .foregroundColor(ColorTokens.textMuted)
                     }
                     .padding(SpacingTokens.sm)
@@ -281,7 +281,7 @@ struct FireModeView: View {
         VStack(alignment: .leading, spacing: SpacingTokens.md) {
             HStack {
                 Text("🔥")
-                    .font(.inter(20))
+                    .font(.satoshi(20))
                 Text("fire.sessions_today".localized)
                     .subtitle()
                     .fontWeight(.semibold)
@@ -312,10 +312,10 @@ struct FireModeView: View {
             // Minimal header
             HStack {
                 Text("🔥")
-                    .font(.inter(24))
+                    .font(.satoshi(24))
 
                 Text("fire.title".localized)
-                    .font(.inter(16, weight: .bold))
+                    .font(.satoshi(16, weight: .bold))
                     .foregroundColor(ColorTokens.textPrimary)
 
                 Spacer()
@@ -326,7 +326,7 @@ struct FireModeView: View {
                         router.dismissFireMode()
                     }) {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.inter(28))
+                            .font(.satoshi(28))
                             .foregroundColor(ColorTokens.textMuted)
                     }
                 } else {
@@ -335,7 +335,7 @@ struct FireModeView: View {
                         viewModel.stopTimer()
                     }) {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.inter(28))
+                            .font(.satoshi(28))
                             .foregroundColor(ColorTokens.textMuted)
                     }
                 }
@@ -354,7 +354,7 @@ struct FireModeView: View {
             if let quest = viewModel.quests.first(where: { $0.id == viewModel.selectedQuestId }) {
                 VStack(spacing: SpacingTokens.sm) {
                     Text(quest.area.emoji)
-                        .font(.inter(24))
+                        .font(.satoshi(24))
 
                     Text(quest.title)
                         .bodyText()
@@ -418,14 +418,14 @@ struct FireModeView: View {
             VStack(spacing: SpacingTokens.sm) {
                 if viewModel.timerState == .completed {
                     Text("🎉")
-                        .font(.inter(48))
+                        .font(.satoshi(48))
 
                     Text("fire.complete".localized)
                         .heading1()
                         .foregroundColor(ColorTokens.success)
                 } else {
                     Text(viewModel.formattedTimeRemaining)
-                        .font(.inter(64, weight: .bold))
+                        .font(.satoshi(64, weight: .bold))
                         .foregroundColor(ColorTokens.textPrimary)
 
                     Text(viewModel.timerState == .paused ? "fire.paused".localized : "fire.focus".localized)
@@ -547,7 +547,7 @@ struct LogManualSessionSheet: View {
                                         if let selectedId = viewModel.selectedQuestId,
                                            let quest = viewModel.quests.first(where: { $0.id == selectedId }) {
                                             Text(quest.area.emoji)
-                                                .font(.inter(18))
+                                                .font(.satoshi(18))
                                             Text(quest.title)
                                                 .bodyText()
                                                 .foregroundColor(ColorTokens.textPrimary)
@@ -561,7 +561,7 @@ struct LogManualSessionSheet: View {
                                         Spacer()
 
                                         Image(systemName: "chevron.down")
-                                            .font(.inter(12, weight: .medium))
+                                            .font(.satoshi(12, weight: .medium))
                                             .foregroundColor(ColorTokens.textMuted)
                                     }
                                     .padding(SpacingTokens.md)
@@ -639,7 +639,7 @@ struct SessionLogCard: View {
             // Time and duration
             VStack(alignment: .center, spacing: 4) {
                 Text(timeFormatter.string(from: session.startTime))
-                    .font(.inter(12, weight: .medium))
+                    .font(.satoshi(12, weight: .medium))
                     .foregroundColor(ColorTokens.textSecondary)
 
                 ZStack {
@@ -648,11 +648,11 @@ struct SessionLogCard: View {
                         .frame(width: 40, height: 40)
 
                     Text("🔥")
-                        .font(.inter(18))
+                        .font(.satoshi(18))
                 }
 
                 Text(session.formattedActualDuration)
-                    .font(.inter(11, weight: .bold))
+                    .font(.satoshi(11, weight: .bold))
                     .foregroundColor(ColorTokens.primaryStart)
             }
             .frame(width: 50)
@@ -675,9 +675,9 @@ struct SessionLogCard: View {
                     // Duration badge (actual duration)
                     HStack(spacing: 4) {
                         Image(systemName: "clock.fill")
-                            .font(.inter(10))
+                            .font(.satoshi(10))
                         Text(session.formattedActualDuration)
-                            .font(.inter(11, weight: .medium))
+                            .font(.satoshi(11, weight: .medium))
                     }
                     .foregroundColor(ColorTokens.primaryStart)
                     .padding(.horizontal, SpacingTokens.sm)
@@ -689,16 +689,16 @@ struct SessionLogCard: View {
                     if session.status == .completed {
                         HStack(spacing: 2) {
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.inter(10))
+                                .font(.satoshi(10))
                             Text("common.done".localized)
-                                .font(.inter(10))
+                                .font(.satoshi(10))
                         }
                         .foregroundColor(ColorTokens.success)
                     }
 
                     if session.isManuallyLogged {
                         Text("fire.manual".localized)
-                            .font(.inter(10))
+                            .font(.satoshi(10))
                             .foregroundColor(ColorTokens.textMuted)
                             .padding(.horizontal, SpacingTokens.xs)
                             .padding(.vertical, 2)
@@ -729,11 +729,11 @@ struct CompactStat: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: icon)
-                .font(.inter(10))
+                .font(.satoshi(10))
                 .foregroundColor(color)
 
             Text(value)
-                .font(.inter(12, weight: .bold))
+                .font(.satoshi(12, weight: .bold))
                 .foregroundColor(color)
         }
         .padding(.horizontal, SpacingTokens.sm)

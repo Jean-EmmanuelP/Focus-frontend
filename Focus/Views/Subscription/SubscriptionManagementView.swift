@@ -98,7 +98,7 @@ struct SubscriptionManagementView: View {
 
             // Plan name
             Text(currentPlanName)
-                .font(.inter(24, weight: .bold))
+                .font(.satoshi(24, weight: .bold))
                 .foregroundColor(ColorTokens.textPrimary)
 
             // Status badge
@@ -108,7 +108,7 @@ struct SubscriptionManagementView: View {
                     .frame(width: 8, height: 8)
 
                 Text(statusText)
-                    .font(.inter(14))
+                    .font(.satoshi(14))
                     .foregroundColor(ColorTokens.textSecondary)
             }
             .padding(.horizontal, SpacingTokens.md)
@@ -119,7 +119,7 @@ struct SubscriptionManagementView: View {
             // Expiration date (if applicable)
             if let expirationDate = revenueCatManager.customerInfo?.entitlements["Volta Pro"]?.expirationDate {
                 Text("Renouvellement le \(formattedDate(expirationDate))")
-                    .font(.inter(12))
+                    .font(.satoshi(12))
                     .foregroundColor(ColorTokens.textMuted)
             }
         }
@@ -207,11 +207,11 @@ struct SubscriptionManagementView: View {
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Passer a Volta Pro")
-                            .font(.inter(16, weight: .bold))
+                            .font(.satoshi(16, weight: .bold))
                             .foregroundColor(.black)
 
                         Text("Debloquer toutes les fonctionnalites")
-                            .font(.inter(12))
+                            .font(.satoshi(12))
                             .foregroundColor(.black.opacity(0.7))
                     }
 
@@ -261,7 +261,7 @@ struct SubscriptionManagementView: View {
     private var featuresComparisonSection: some View {
         VStack(alignment: .leading, spacing: SpacingTokens.md) {
             Text("Fonctionnalites")
-                .font(.inter(18, weight: .bold))
+                .font(.satoshi(18, weight: .bold))
                 .foregroundColor(ColorTokens.textPrimary)
 
             VStack(spacing: SpacingTokens.sm) {
@@ -288,12 +288,12 @@ struct SubscriptionManagementView: View {
 
             HStack(spacing: SpacingTokens.lg) {
                 Text(free)
-                    .font(.inter(12))
+                    .font(.satoshi(12))
                     .foregroundColor(ColorTokens.textMuted)
                     .frame(width: 60, alignment: .center)
 
                 Text(pro)
-                    .font(.inter(12, weight: .semibold))
+                    .font(.satoshi(12, weight: .semibold))
                     .foregroundColor(Color(hex: "#FFD700"))
                     .frame(width: 60, alignment: .center)
             }
@@ -304,7 +304,7 @@ struct SubscriptionManagementView: View {
     private var helpSection: some View {
         VStack(alignment: .leading, spacing: SpacingTokens.md) {
             Text("Aide")
-                .font(.inter(18, weight: .bold))
+                .font(.satoshi(18, weight: .bold))
                 .foregroundColor(ColorTokens.textPrimary)
 
             VStack(spacing: 0) {
@@ -322,7 +322,7 @@ struct SubscriptionManagementView: View {
     private func helpRow(icon: String, title: String, subtitle: String) -> some View {
         HStack(spacing: SpacingTokens.md) {
             Image(systemName: icon)
-                .font(.inter(18))
+                .font(.satoshi(18))
                 .foregroundColor(ColorTokens.textSecondary)
                 .frame(width: 24)
 
@@ -339,7 +339,7 @@ struct SubscriptionManagementView: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.inter(14))
+                .font(.satoshi(14))
                 .foregroundColor(ColorTokens.textMuted)
         }
         .padding(SpacingTokens.lg)
@@ -443,7 +443,7 @@ struct ManageSubscriptionsView: View {
 
                 VStack(spacing: SpacingTokens.sm) {
                     Text("Gestion de l'abonnement")
-                        .font(.inter(20, weight: .bold))
+                        .font(.satoshi(20, weight: .bold))
                         .foregroundColor(ColorTokens.textPrimary)
 
                     Text("Pour modifier ou annuler votre abonnement, utilisez les parametres de votre compte Apple.")

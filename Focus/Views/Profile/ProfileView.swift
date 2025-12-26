@@ -104,13 +104,13 @@ struct ProfileView: View {
 
             // Name
             Text(displayName)
-                .font(.inter(24, weight: .bold))
+                .font(.satoshi(24, weight: .bold))
                 .foregroundColor(ColorTokens.textPrimary)
 
             // Email or pseudo
             if let email = store.user?.email {
                 Text(email)
-                    .font(.inter(14))
+                    .font(.satoshi(14))
                     .foregroundColor(ColorTokens.textMuted)
             }
         }
@@ -118,7 +118,7 @@ struct ProfileView: View {
 
     private var userInitials: some View {
         Text(initials)
-            .font(.inter(36, weight: .bold))
+            .font(.satoshi(36, weight: .bold))
             .foregroundColor(.white)
     }
 
@@ -133,11 +133,11 @@ struct ProfileView: View {
                 // Streak count
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(store.streakData?.currentStreak ?? 0) jours")
-                        .font(.inter(18, weight: .bold))
+                        .font(.satoshi(18, weight: .bold))
                         .foregroundColor(ColorTokens.textPrimary)
 
                     Text(currentLevel?.name ?? "Spark")
-                        .font(.inter(13))
+                        .font(.satoshi(13))
                         .foregroundColor(ColorTokens.textMuted)
                 }
 
@@ -145,7 +145,7 @@ struct ProfileView: View {
 
                 // Chevron to see more
                 Image(systemName: "chevron.right")
-                    .font(.inter(14))
+                    .font(.satoshi(14))
                     .foregroundColor(ColorTokens.textMuted)
             }
             .padding(SpacingTokens.md)
@@ -160,13 +160,13 @@ struct ProfileView: View {
         VStack(alignment: .leading, spacing: SpacingTokens.sm) {
             HStack {
                 Text("Quêtes actives")
-                    .font(.inter(18, weight: .bold))
+                    .font(.satoshi(18, weight: .bold))
                     .foregroundColor(ColorTokens.textPrimary)
 
                 Spacer()
 
                 Text("\(activeQuests.count)")
-                    .font(.inter(14, weight: .medium))
+                    .font(.satoshi(14, weight: .medium))
                     .foregroundColor(ColorTokens.textMuted)
             }
 
@@ -185,7 +185,7 @@ struct ProfileView: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(quest.title)
-                        .font(.inter(16, weight: .semibold))
+                        .font(.satoshi(16, weight: .semibold))
                         .foregroundColor(ColorTokens.textPrimary)
                 }
 
@@ -203,13 +203,13 @@ struct ProfileView: View {
         VStack(alignment: .leading, spacing: SpacingTokens.sm) {
             HStack {
                 Text("Mes routines")
-                    .font(.inter(18, weight: .bold))
+                    .font(.satoshi(18, weight: .bold))
                     .foregroundColor(ColorTokens.textPrimary)
 
                 Spacer()
 
                 Text("\(ritualsViewModel.rituals.count)")
-                    .font(.inter(14, weight: .medium))
+                    .font(.satoshi(14, weight: .medium))
                     .foregroundColor(ColorTokens.textMuted)
             }
 
@@ -221,11 +221,11 @@ struct ProfileView: View {
                             .font(.system(size: 40))
 
                         Text("Aucune routine")
-                            .font(.inter(16, weight: .medium))
+                            .font(.satoshi(16, weight: .medium))
                             .foregroundColor(ColorTokens.textPrimary)
 
                         Text("Ajoute des routines quotidiennes depuis les paramètres")
-                            .font(.inter(13))
+                            .font(.satoshi(13))
                             .foregroundColor(ColorTokens.textMuted)
                             .multilineTextAlignment(.center)
                     }
@@ -252,7 +252,7 @@ struct ProfileView: View {
     private var statisticsSection: some View {
         VStack(alignment: .leading, spacing: SpacingTokens.sm) {
             Text("Statistiques")
-                .font(.inter(18, weight: .bold))
+                .font(.satoshi(18, weight: .bold))
                 .foregroundColor(ColorTokens.textPrimary)
 
             LazyVGrid(columns: [
@@ -298,11 +298,11 @@ struct ProfileView: View {
                     .foregroundColor(iconColor)
 
                 Text(value)
-                    .font(.inter(24, weight: .bold))
+                    .font(.satoshi(24, weight: .bold))
                     .foregroundColor(ColorTokens.textPrimary)
 
                 Text(label)
-                    .font(.inter(12))
+                    .font(.satoshi(12))
                     .foregroundColor(ColorTokens.textMuted)
                     .multilineTextAlignment(.center)
             }
@@ -383,7 +383,7 @@ struct CircularProgressView: View {
                 .rotationEffect(.degrees(-90))
 
             Text("\(Int(progress * 100))%")
-                .font(.inter(10, weight: .bold))
+                .font(.satoshi(10, weight: .bold))
                 .foregroundColor(ColorTokens.textPrimary)
         }
         .frame(width: size, height: size)
@@ -400,7 +400,7 @@ struct ProfileRoutineRow: View {
             HStack(spacing: SpacingTokens.md) {
                 // Icon
                 Text(ritual.icon)
-                    .font(.inter(24))
+                    .font(.satoshi(24))
                     .frame(width: 40, height: 40)
                     .background(ColorTokens.primarySoft)
                     .cornerRadius(RadiusTokens.sm)
@@ -408,21 +408,21 @@ struct ProfileRoutineRow: View {
                 // Title & frequency
                 VStack(alignment: .leading, spacing: 2) {
                     Text(ritual.title)
-                        .font(.inter(15, weight: .medium))
+                        .font(.satoshi(15, weight: .medium))
                         .foregroundColor(ColorTokens.textPrimary)
                         .lineLimit(1)
 
                     HStack(spacing: SpacingTokens.xs) {
                         Text(ritual.frequency.displayName)
-                            .font(.inter(12))
+                            .font(.satoshi(12))
                             .foregroundColor(ColorTokens.textMuted)
 
                         if let time = ritual.scheduledTime {
                             Text("•")
-                                .font(.inter(12))
+                                .font(.satoshi(12))
                                 .foregroundColor(ColorTokens.textMuted)
                             Text(time)
-                                .font(.inter(12))
+                                .font(.satoshi(12))
                                 .foregroundColor(ColorTokens.textMuted)
                         }
                     }
@@ -432,7 +432,7 @@ struct ProfileRoutineRow: View {
 
                 // Edit chevron
                 Image(systemName: "chevron.right")
-                    .font(.inter(12, weight: .medium))
+                    .font(.satoshi(12, weight: .medium))
                     .foregroundColor(ColorTokens.textMuted)
             }
             .padding(SpacingTokens.md)

@@ -26,7 +26,7 @@ struct TutorialVideoView: View {
                                     .foregroundColor(ColorTokens.textMuted)
 
                                 Text("tutorial.video_error".localized)
-                                    .font(.inter(14))
+                                    .font(.satoshi(14))
                                     .foregroundColor(ColorTokens.textSecondary)
                                     .multilineTextAlignment(.center)
 
@@ -39,7 +39,7 @@ struct TutorialVideoView: View {
                                         Image(systemName: "arrow.up.right.square")
                                         Text("tutorial.open_youtube".localized)
                                     }
-                                    .font(.inter(14, weight: .semibold))
+                                    .font(.satoshi(14, weight: .semibold))
                                     .foregroundColor(.white)
                                     .padding(.horizontal, SpacingTokens.lg)
                                     .padding(.vertical, SpacingTokens.sm)
@@ -85,7 +85,7 @@ struct TutorialVideoView: View {
                         VStack(alignment: .leading, spacing: SpacingTokens.lg) {
                             // Title
                             Text("tutorial.title".localized)
-                                .font(.inter(24, weight: .bold))
+                                .font(.satoshi(24, weight: .bold))
                                 .foregroundColor(ColorTokens.textPrimary)
 
                             // Description
@@ -148,17 +148,17 @@ struct TutorialFeatureRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: SpacingTokens.md) {
             Image(systemName: icon)
-                .font(.inter(18))
+                .font(.satoshi(18))
                 .foregroundColor(ColorTokens.primaryStart)
                 .frame(width: 28, height: 28)
 
             VStack(alignment: .leading, spacing: SpacingTokens.xs) {
                 Text(title)
-                    .font(.inter(15, weight: .semibold))
+                    .font(.satoshi(15, weight: .semibold))
                     .foregroundColor(ColorTokens.textPrimary)
 
                 Text(description)
-                    .font(.inter(13))
+                    .font(.satoshi(13))
                     .foregroundColor(ColorTokens.textSecondary)
             }
         }
@@ -318,7 +318,7 @@ struct OnboardingTutorialModal: View {
                     // Header with close button
                     HStack {
                         Text("tutorial.welcome".localized)
-                            .font(.inter(20, weight: .bold))
+                            .font(.satoshi(20, weight: .bold))
                             .foregroundColor(ColorTokens.textPrimary)
 
                         Spacer()
@@ -330,7 +330,7 @@ struct OnboardingTutorialModal: View {
                             markTutorialAsSeen()
                         }) {
                             Image(systemName: "xmark.circle.fill")
-                                .font(.inter(24))
+                                .font(.satoshi(24))
                                 .foregroundColor(ColorTokens.textMuted)
                         }
                     }
@@ -347,7 +347,7 @@ struct OnboardingTutorialModal: View {
                                     .foregroundColor(ColorTokens.textMuted)
 
                                 Text("tutorial.video_error".localized)
-                                    .font(.inter(13))
+                                    .font(.satoshi(13))
                                     .foregroundColor(ColorTokens.textSecondary)
                                     .multilineTextAlignment(.center)
 
@@ -360,7 +360,7 @@ struct OnboardingTutorialModal: View {
                                         Image(systemName: "arrow.up.right.square")
                                         Text("tutorial.open_youtube".localized)
                                     }
-                                    .font(.inter(13, weight: .semibold))
+                                    .font(.satoshi(13, weight: .semibold))
                                     .foregroundColor(.white)
                                     .padding(.horizontal, SpacingTokens.md)
                                     .padding(.vertical, SpacingTokens.xs)
@@ -391,7 +391,7 @@ struct OnboardingTutorialModal: View {
 
                     // Description
                     Text("tutorial.onboarding_desc".localized)
-                        .font(.inter(14))
+                        .font(.satoshi(14))
                         .foregroundColor(ColorTokens.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, SpacingTokens.lg)
@@ -406,7 +406,7 @@ struct OnboardingTutorialModal: View {
                             markTutorialAsSeen()
                         }) {
                             Text("tutorial.watch_later".localized)
-                                .font(.inter(16, weight: .semibold))
+                                .font(.satoshi(16, weight: .semibold))
                                 .foregroundColor(ColorTokens.primaryStart)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, SpacingTokens.md)

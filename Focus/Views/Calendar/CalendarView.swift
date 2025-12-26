@@ -85,10 +85,10 @@ struct CalendarView: View {
         HStack {
             VStack(alignment: .leading, spacing: SpacingTokens.xs) {
                 Text("📅")
-                    .font(.inter(28))
+                    .font(.satoshi(28))
                 +
                 Text(" " + "calendar.title".localized)
-                    .font(.inter(20, weight: .bold))
+                    .font(.satoshi(20, weight: .bold))
                     .foregroundColor(ColorTokens.textPrimary)
 
                 Text("calendar.subtitle".localized)
@@ -104,7 +104,7 @@ struct CalendarView: View {
                 showCreateTaskSheet = true
             }) {
                 Image(systemName: "plus.circle.fill")
-                    .font(.inter(28))
+                    .font(.satoshi(28))
                     .foregroundColor(ColorTokens.primaryStart)
             }
         }
@@ -115,7 +115,7 @@ struct CalendarView: View {
         HStack {
             Button(action: { viewModel.goToPreviousDay() }) {
                 Image(systemName: "chevron.left")
-                    .font(.inter(16, weight: .semibold))
+                    .font(.satoshi(16, weight: .semibold))
                     .foregroundColor(ColorTokens.textSecondary)
                     .frame(width: 40, height: 40)
                     .background(ColorTokens.surface)
@@ -126,12 +126,12 @@ struct CalendarView: View {
 
             VStack(spacing: 2) {
                 Text(viewModel.formattedSelectedDate)
-                    .font(.inter(16, weight: .semibold))
+                    .font(.satoshi(16, weight: .semibold))
                     .foregroundColor(ColorTokens.textPrimary)
 
                 if Calendar.current.isDateInToday(viewModel.selectedDate) {
                     Text("calendar.today".localized)
-                        .font(.inter(12))
+                        .font(.satoshi(12))
                         .foregroundColor(ColorTokens.primaryStart)
                 }
             }
@@ -143,7 +143,7 @@ struct CalendarView: View {
 
             Button(action: { viewModel.goToNextDay() }) {
                 Image(systemName: "chevron.right")
-                    .font(.inter(16, weight: .semibold))
+                    .font(.satoshi(16, weight: .semibold))
                     .foregroundColor(ColorTokens.textSecondary)
                     .frame(width: 40, height: 40)
                     .background(ColorTokens.surface)
@@ -158,22 +158,22 @@ struct CalendarView: View {
             VStack(spacing: SpacingTokens.md) {
                 HStack {
                     Text("🔥")
-                        .font(.inter(24))
+                        .font(.satoshi(24))
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text("calendar.day_progress".localized)
-                            .font(.inter(14, weight: .semibold))
+                            .font(.satoshi(14, weight: .semibold))
                             .foregroundColor(ColorTokens.textPrimary)
 
                         Text("\(viewModel.completedTasksCount)/\(viewModel.totalTasksCount) " + "calendar.tasks_completed".localized)
-                            .font(.inter(12))
+                            .font(.satoshi(12))
                             .foregroundColor(ColorTokens.textSecondary)
                     }
 
                     Spacer()
 
                     Text("\(viewModel.dayProgress)%")
-                        .font(.inter(28, weight: .bold))
+                        .font(.satoshi(28, weight: .bold))
                         .foregroundColor(ColorTokens.primaryStart)
                 }
 
@@ -201,15 +201,15 @@ struct CalendarView: View {
         Card {
             HStack(alignment: .top, spacing: SpacingTokens.md) {
                 Text("✨")
-                    .font(.inter(20))
+                    .font(.satoshi(20))
 
                 VStack(alignment: .leading, spacing: SpacingTokens.xs) {
                     Text("calendar.ai_summary".localized)
-                        .font(.inter(12, weight: .semibold))
+                        .font(.satoshi(12, weight: .semibold))
                         .foregroundColor(ColorTokens.textMuted)
 
                     Text(summary)
-                        .font(.inter(14))
+                        .font(.satoshi(14))
                         .foregroundColor(ColorTokens.textPrimary)
                 }
 
@@ -282,16 +282,16 @@ struct CalendarView: View {
     private var startDayCTA: some View {
         VStack(spacing: SpacingTokens.xl) {
             Image(systemName: "calendar.badge.plus")
-                .font(.inter(64))
+                .font(.satoshi(64))
                 .foregroundColor(ColorTokens.textMuted)
 
             VStack(spacing: SpacingTokens.sm) {
                 Text("calendar.no_plan_title".localized)
-                    .font(.inter(20, weight: .bold))
+                    .font(.satoshi(20, weight: .bold))
                     .foregroundColor(ColorTokens.textPrimary)
 
                 Text("calendar.no_plan_subtitle".localized)
-                    .font(.inter(14))
+                    .font(.satoshi(14))
                     .foregroundColor(ColorTokens.textSecondary)
                     .multilineTextAlignment(.center)
             }
@@ -326,16 +326,16 @@ struct TimeBlockSection: View {
             Button(action: { withAnimation { isExpanded.toggle() } }) {
                 HStack {
                     Text(emoji)
-                        .font(.inter(18))
+                        .font(.satoshi(18))
                     Text(title)
-                        .font(.inter(14, weight: .semibold))
+                        .font(.satoshi(14, weight: .semibold))
                         .foregroundColor(ColorTokens.textSecondary)
 
                     Spacer()
 
                     if !tasks.isEmpty {
                         Text("\(completedCount)/\(tasks.count)")
-                            .font(.inter(12, weight: .bold))
+                            .font(.satoshi(12, weight: .bold))
                             .foregroundColor(completedCount == tasks.count ? ColorTokens.success : ColorTokens.textMuted)
                             .padding(.horizontal, SpacingTokens.sm)
                             .padding(.vertical, 4)
@@ -344,7 +344,7 @@ struct TimeBlockSection: View {
                     }
 
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.inter(12, weight: .medium))
+                        .font(.satoshi(12, weight: .medium))
                         .foregroundColor(ColorTokens.textMuted)
                 }
             }
@@ -356,9 +356,9 @@ struct TimeBlockSection: View {
                     Button(action: onAddTask) {
                         HStack {
                             Image(systemName: "plus.circle")
-                                .font(.inter(14))
+                                .font(.satoshi(14))
                             Text("calendar.add_task".localized)
-                                .font(.inter(13))
+                                .font(.satoshi(13))
                         }
                         .foregroundColor(ColorTokens.textMuted)
                         .padding(SpacingTokens.md)
@@ -380,9 +380,9 @@ struct TimeBlockSection: View {
                     Button(action: onAddTask) {
                         HStack(spacing: 4) {
                             Image(systemName: "plus")
-                                .font(.inter(12))
+                                .font(.satoshi(12))
                             Text("calendar.add_task".localized)
-                                .font(.inter(12))
+                                .font(.satoshi(12))
                         }
                         .foregroundColor(ColorTokens.textMuted)
                     }
@@ -404,31 +404,31 @@ struct TaskRowCard: View {
             // Checkbox
             Button(action: onToggle) {
                 Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .font(.inter(22))
+                    .font(.satoshi(22))
                     .foregroundColor(task.isCompleted ? ColorTokens.success : ColorTokens.textMuted)
             }
 
             // Task content
             VStack(alignment: .leading, spacing: 2) {
                 Text(task.title)
-                    .font(.inter(14, weight: .medium))
+                    .font(.satoshi(14, weight: .medium))
                     .foregroundColor(task.isCompleted ? ColorTokens.textMuted : ColorTokens.textPrimary)
                     .strikethrough(task.isCompleted)
 
                 HStack(spacing: SpacingTokens.sm) {
                     if let start = task.scheduledStart, let end = task.scheduledEnd {
                         Text("\(start) - \(end)")
-                            .font(.inter(11))
+                            .font(.satoshi(11))
                             .foregroundColor(ColorTokens.textMuted)
                     } else if let minutes = task.estimatedMinutes {
                         Text("\(minutes)min")
-                            .font(.inter(11))
+                            .font(.satoshi(11))
                             .foregroundColor(ColorTokens.textMuted)
                     }
 
                     if let questTitle = task.questTitle {
                         Text("• \(questTitle)")
-                            .font(.inter(11))
+                            .font(.satoshi(11))
                             .foregroundColor(ColorTokens.primaryStart)
                             .lineLimit(1)
                     }
@@ -440,7 +440,7 @@ struct TaskRowCard: View {
             // AI badge
             if task.isAiGenerated {
                 Text("✨")
-                    .font(.inter(12))
+                    .font(.satoshi(12))
             }
 
             // Priority indicator

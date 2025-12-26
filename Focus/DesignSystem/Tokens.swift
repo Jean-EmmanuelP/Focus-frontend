@@ -1,42 +1,36 @@
 // MARK: - Design System Tokens
 // Centralized design tokens for easy theming
-// Light Mode - Professional Blue/White Theme with Inter font
 
 import SwiftUI
 import UIKit
 
-/// All color tokens for the app - Light Mode Professional Theme
+/// All color tokens for the app
 enum ColorTokens {
-    // MARK: - Backgrounds (Light)
-    static let background = Color(hex: "#FFFFFF")
-    static let surface = Color(hex: "#F8FAFC")
-    static let surfaceElevated = Color(hex: "#FFFFFF")
-
-    // MARK: - Primary (Professional Blue)
-    static let primaryStart = Color(hex: "#2563EB")  // Blue 600
-    static let primaryEnd = Color(hex: "#3B82F6")    // Blue 500
-    static let primarySoft = Color(hex: "#2563EB").opacity(0.08)
-    static let primaryGlow = Color(hex: "#2563EB").opacity(0.15)
-    static let primaryLight = Color(hex: "#DBEAFE") // Blue 100
-
-    // MARK: - Text (Dark on Light)
-    static let textPrimary = Color(hex: "#0F172A")   // Slate 900
-    static let textSecondary = Color(hex: "#475569") // Slate 600
-    static let textMuted = Color(hex: "#94A3B8")     // Slate 400
-
+    // MARK: - Backgrounds
+    static let background = Color(hex: "#0A0A0A")
+    static let surface = Color(hex: "#1A1A1A")
+    static let surfaceElevated = Color(hex: "#242424")
+    
+    // MARK: - Primary (Fire gradient)
+    static let primaryStart = Color(hex: "#FF5C00")
+    static let primaryEnd = Color(hex: "#FFB200")
+    static let primarySoft = Color(hex: "#FF5C00").opacity(0.15)
+    static let primaryGlow = Color(hex: "#FF5C00").opacity(0.4)
+    
+    // MARK: - Text
+    static let textPrimary = Color.white
+    static let textSecondary = Color(hex: "#B8B8B8")
+    static let textMuted = Color(hex: "#6B6B6B")
+    
     // MARK: - States
-    static let success = Color(hex: "#10B981")       // Emerald 500
-    static let warning = Color(hex: "#F59E0B")       // Amber 500
-    static let error = Color(hex: "#EF4444")         // Red 500
-
+    static let success = Color(hex: "#4CAF50")
+    static let warning = Color(hex: "#FFA726")
+    static let error = Color(hex: "#F44336")
+    
     // MARK: - Borders
-    static let border = Color(hex: "#E2E8F0")        // Slate 200
-    static let borderActive = Color(hex: "#2563EB").opacity(0.3)
-
-    // MARK: - Shadows
-    static let shadowLight = Color.black.opacity(0.04)
-    static let shadowMedium = Color.black.opacity(0.08)
-
+    static let border = Color.white.opacity(0.1)
+    static let borderActive = Color(hex: "#FF5C00").opacity(0.3)
+    
     // MARK: - Gradients
     static let fireGradient = LinearGradient(
         colors: [primaryStart, primaryEnd],
@@ -66,30 +60,26 @@ enum ColorTokens {
 
     // Success gradient (green)
     static let successGradient = LinearGradient(
-        colors: [success, Color(hex: "#34D399")],
+        colors: [success, Color(hex: "#66BB6A")],
         startPoint: .leading,
         endPoint: .trailing
     )
-
-    // MARK: - Accent Colors
-    static let accentBlue = Color(hex: "#2563EB")
-    static let accentIndigo = Color(hex: "#4F46E5")
-    static let accentPurple = Color(hex: "#7C3AED")
 }
 
-/// Typography tokens using Inter font (Google Fonts)
+/// Typography tokens using Satoshi font
 enum TypographyTokens {
-    // MARK: - Inter Font Names
-    enum Inter {
-        static let thin = "Inter-Thin"
-        static let extraLight = "Inter-ExtraLight"
-        static let light = "Inter-Light"
-        static let regular = "Inter-Regular"
-        static let medium = "Inter-Medium"
-        static let semiBold = "Inter-SemiBold"
-        static let bold = "Inter-Bold"
-        static let extraBold = "Inter-ExtraBold"
-        static let black = "Inter-Black"
+    // MARK: - Satoshi Font Names
+    enum Satoshi {
+        static let light = "Satoshi-Light"
+        static let regular = "Satoshi-Regular"
+        static let medium = "Satoshi-Medium"
+        static let bold = "Satoshi-Bold"
+        static let black = "Satoshi-Black"
+        static let italic = "Satoshi-Italic"
+        static let lightItalic = "Satoshi-LightItalic"
+        static let mediumItalic = "Satoshi-MediumItalic"
+        static let boldItalic = "Satoshi-BoldItalic"
+        static let blackItalic = "Satoshi-BlackItalic"
     }
 
     struct FontStyle {
@@ -99,86 +89,62 @@ enum TypographyTokens {
         let letterSpacing: CGFloat?
 
         var font: Font {
-            // Map weight to Inter font name
+            // Map weight to Satoshi font name
             let fontName: String
             switch weight {
-            case .thin:
-                fontName = Inter.thin
-            case .ultraLight:
-                fontName = Inter.extraLight
-            case .light:
-                fontName = Inter.light
+            case .light, .thin, .ultraLight:
+                fontName = Satoshi.light
             case .regular:
-                fontName = Inter.regular
+                fontName = Satoshi.regular
             case .medium:
-                fontName = Inter.medium
-            case .semibold:
-                fontName = Inter.semiBold
-            case .bold:
-                fontName = Inter.bold
-            case .heavy:
-                fontName = Inter.extraBold
-            case .black:
-                fontName = Inter.black
+                fontName = Satoshi.medium
+            case .semibold, .bold:
+                fontName = Satoshi.bold
+            case .heavy, .black:
+                fontName = Satoshi.black
             default:
-                fontName = Inter.regular
+                fontName = Satoshi.regular
             }
 
             // Try custom font, fallback to system
             if let _ = UIFont(name: fontName, size: size) {
                 return Font.custom(fontName, size: size)
             }
-            // Fallback to SF Pro (system font) which looks similar to Inter
-            return Font.system(size: size, weight: weight, design: .default)
+            return Font.system(size: size, weight: weight)
         }
     }
 
-    static let heading1 = FontStyle(size: 28, weight: .bold, lineHeight: 36, letterSpacing: -0.5)
-    static let heading2 = FontStyle(size: 22, weight: .semibold, lineHeight: 28, letterSpacing: -0.3)
-    static let subtitle = FontStyle(size: 17, weight: .semibold, lineHeight: 24, letterSpacing: nil)
-    static let body = FontStyle(size: 15, weight: .regular, lineHeight: 22, letterSpacing: nil)
-    static let caption = FontStyle(size: 13, weight: .regular, lineHeight: 18, letterSpacing: nil)
-    static let label = FontStyle(size: 11, weight: .medium, lineHeight: 14, letterSpacing: 0.5)
+    static let heading1 = FontStyle(size: 32, weight: .bold, lineHeight: 40, letterSpacing: -0.5)
+    static let heading2 = FontStyle(size: 24, weight: .semibold, lineHeight: 32, letterSpacing: nil)
+    static let subtitle = FontStyle(size: 18, weight: .medium, lineHeight: 24, letterSpacing: nil)
+    static let body = FontStyle(size: 16, weight: .regular, lineHeight: 22, letterSpacing: nil)
+    static let caption = FontStyle(size: 14, weight: .regular, lineHeight: 18, letterSpacing: nil)
+    static let label = FontStyle(size: 12, weight: .medium, lineHeight: 16, letterSpacing: 0.5)
 }
 
-// MARK: - Font Extension for Inter
+// MARK: - Font Extension for Satoshi
 extension Font {
-    /// Creates an Inter font with the specified size and weight
-    /// Falls back to SF Pro (system) if Inter is not available
-    static func inter(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
+    static func satoshi(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
         let fontName: String
         switch weight {
-        case .thin:
-            fontName = TypographyTokens.Inter.thin
-        case .ultraLight:
-            fontName = TypographyTokens.Inter.extraLight
-        case .light:
-            fontName = TypographyTokens.Inter.light
+        case .light, .thin, .ultraLight:
+            fontName = TypographyTokens.Satoshi.light
         case .regular:
-            fontName = TypographyTokens.Inter.regular
+            fontName = TypographyTokens.Satoshi.regular
         case .medium:
-            fontName = TypographyTokens.Inter.medium
-        case .semibold:
-            fontName = TypographyTokens.Inter.semiBold
-        case .bold:
-            fontName = TypographyTokens.Inter.bold
-        case .heavy:
-            fontName = TypographyTokens.Inter.extraBold
-        case .black:
-            fontName = TypographyTokens.Inter.black
+            fontName = TypographyTokens.Satoshi.medium
+        case .semibold, .bold:
+            fontName = TypographyTokens.Satoshi.bold
+        case .heavy, .black:
+            fontName = TypographyTokens.Satoshi.black
         default:
-            fontName = TypographyTokens.Inter.regular
+            fontName = TypographyTokens.Satoshi.regular
         }
 
         if let _ = UIFont(name: fontName, size: size) {
             return Font.custom(fontName, size: size)
         }
-        return Font.system(size: size, weight: weight, design: .default)
-    }
-
-    /// Alias for backward compatibility - maps to Inter
-    static func satoshi(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
-        return inter(size, weight: weight)
+        return Font.system(size: size, weight: weight)
     }
 }
 
@@ -197,7 +163,7 @@ enum RadiusTokens {
     static let sm: CGFloat = 8
     static let md: CGFloat = 12
     static let lg: CGFloat = 16
-    static let xl: CGFloat = 20
+    static let xl: CGFloat = 24
     static let full: CGFloat = 9999
 }
 
@@ -218,7 +184,7 @@ extension Color {
         default:
             (a, r, g, b) = (255, 0, 0, 0)
         }
-
+        
         self.init(
             .sRGB,
             red: Double(r) / 255,
@@ -234,42 +200,30 @@ extension View {
     func typography(_ style: TypographyTokens.FontStyle) -> some View {
         self.font(style.font)
     }
-
+    
     func heading1() -> some View {
         self.typography(TypographyTokens.heading1)
     }
-
+    
     func heading2() -> some View {
         self.typography(TypographyTokens.heading2)
     }
-
+    
     func subtitle() -> some View {
         self.typography(TypographyTokens.subtitle)
     }
-
+    
     func bodyText() -> some View {
         self.typography(TypographyTokens.body)
     }
-
+    
     func caption() -> some View {
         self.typography(TypographyTokens.caption)
             .foregroundColor(ColorTokens.textSecondary)
     }
-
+    
     func label() -> some View {
         self.typography(TypographyTokens.label)
             .textCase(.uppercase)
-    }
-}
-
-// MARK: - Shadow Extensions
-extension View {
-    func cardShadow() -> some View {
-        self.shadow(color: ColorTokens.shadowLight, radius: 8, x: 0, y: 2)
-            .shadow(color: ColorTokens.shadowMedium, radius: 1, x: 0, y: 1)
-    }
-
-    func elevatedShadow() -> some View {
-        self.shadow(color: ColorTokens.shadowMedium, radius: 16, x: 0, y: 4)
     }
 }

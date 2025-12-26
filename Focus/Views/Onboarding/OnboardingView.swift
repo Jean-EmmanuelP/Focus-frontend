@@ -548,7 +548,7 @@ struct SignInStepView: View {
     private func featureRow(icon: String, text: String) -> some View {
         HStack(spacing: SpacingTokens.md) {
             Text(icon)
-                .font(.inter(24))
+                .font(.satoshi(24))
 
             Text(text)
                 .bodyText()
@@ -600,7 +600,7 @@ struct ProjectStatusStepView: View {
 
                 VStack(spacing: SpacingTokens.sm) {
                     Text("Tu es...")
-                        .font(.inter(isSmallScreen ? 24 : 28, weight: .bold))
+                        .font(.satoshi(isSmallScreen ? 24 : 28, weight: .bold))
                         .foregroundColor(ColorTokens.textPrimary)
 
                     Text("On adapte l'experience pour toi")
@@ -648,7 +648,7 @@ struct TimeAvailableStepView: View {
 
                 VStack(spacing: SpacingTokens.sm) {
                     Text("Combien de temps par jour ?")
-                        .font(.inter(isSmallScreen ? 24 : 28, weight: .bold))
+                        .font(.satoshi(isSmallScreen ? 24 : 28, weight: .bold))
                         .foregroundColor(ColorTokens.textPrimary)
                         .multilineTextAlignment(.center)
 
@@ -697,7 +697,7 @@ struct GoalsStepView: View {
 
                 VStack(spacing: SpacingTokens.sm) {
                     Text("Tes objectifs ?")
-                        .font(.inter(isSmallScreen ? 24 : 28, weight: .bold))
+                        .font(.satoshi(isSmallScreen ? 24 : 28, weight: .bold))
                         .foregroundColor(ColorTokens.textPrimary)
 
                     Text("Choisis jusqu'a 3 priorites")
@@ -778,7 +778,7 @@ struct ProblemStepView: View {
 
                 VStack(spacing: SpacingTokens.lg) {
                     Text(title)
-                        .font(.inter(isSmallScreen ? 26 : 32, weight: .bold))
+                        .font(.satoshi(isSmallScreen ? 26 : 32, weight: .bold))
                         .foregroundColor(.white)
                         .multilineTextAlignment(.center)
                         .minimumScaleFactor(0.8)
@@ -852,7 +852,7 @@ struct SolutionStepView: View {
 
                 VStack(spacing: SpacingTokens.lg) {
                     Text(title)
-                        .font(.inter(isSmallScreen ? 26 : 32, weight: .bold))
+                        .font(.satoshi(isSmallScreen ? 26 : 32, weight: .bold))
                         .foregroundColor(.white)
                         .multilineTextAlignment(.center)
                         .minimumScaleFactor(0.8)
@@ -916,7 +916,7 @@ struct ReviewsStepView: View {
                 // Header
                 VStack(spacing: SpacingTokens.sm) {
                     Text("Give us a rating")
-                        .font(.inter(isSmallScreen ? 24 : 28, weight: .bold))
+                        .font(.satoshi(isSmallScreen ? 24 : 28, weight: .bold))
                         .foregroundColor(ColorTokens.textPrimary)
 
                     // Stars
@@ -1002,7 +1002,7 @@ struct ReviewCard: View {
                 HStack(spacing: 2) {
                     ForEach(0..<review.rating, id: \.self) { _ in
                         Text("⭐")
-                            .font(.inter(12))
+                            .font(.satoshi(12))
                     }
                 }
             }
@@ -1046,7 +1046,7 @@ struct FeaturesRecapStepView: View {
                         .font(.system(size: isSmallScreen ? 50 : 60))
 
                     Text("Tout ce dont tu as besoin")
-                        .font(.inter(isSmallScreen ? 24 : 28, weight: .bold))
+                        .font(.satoshi(isSmallScreen ? 24 : 28, weight: .bold))
                         .foregroundColor(.white)
                         .multilineTextAlignment(.center)
 
@@ -1066,11 +1066,11 @@ struct FeaturesRecapStepView: View {
                                 .font(.system(size: 32))
 
                             Text(feature.title)
-                                .font(.inter(14, weight: .bold))
+                                .font(.satoshi(14, weight: .bold))
                                 .foregroundColor(.white)
 
                             Text(feature.desc)
-                                .font(.inter(11))
+                                .font(.satoshi(11))
                                 .foregroundColor(.white.opacity(0.6))
                                 .multilineTextAlignment(.center)
                                 .lineLimit(2)
@@ -1213,11 +1213,11 @@ struct PaywallStepView: View {
             }
 
             Text("Rejoins la communaute")
-                .font(.inter(isSmallScreen ? 24 : 28, weight: .bold))
+                .font(.satoshi(isSmallScreen ? 24 : 28, weight: .bold))
                 .foregroundColor(.white)
 
             Text("des personnes qui passent a l'action")
-                .font(.inter(isSmallScreen ? 16 : 18, weight: .medium))
+                .font(.satoshi(isSmallScreen ? 16 : 18, weight: .medium))
                 .foregroundColor(Color(hex: "#FFD700"))
         }
     }
@@ -1256,14 +1256,14 @@ struct PaywallStepView: View {
                     .frame(width: 36, height: 36)
                     .overlay(
                         Text("+2K")
-                            .font(.inter(10, weight: .bold))
+                            .font(.satoshi(10, weight: .bold))
                             .foregroundColor(.white)
                     )
                     .overlay(Circle().stroke(Color(hex: "#0A0A1A"), lineWidth: 2))
             }
 
             Text("2,847 membres actifs")
-                .font(.inter(14, weight: .semibold))
+                .font(.satoshi(14, weight: .semibold))
                 .foregroundColor(.white.opacity(0.7))
 
             // Rating stars
@@ -1274,7 +1274,7 @@ struct PaywallStepView: View {
                         .foregroundColor(Color(hex: "#FFD700"))
                 }
                 Text("4.9")
-                    .font(.inter(12, weight: .bold))
+                    .font(.satoshi(12, weight: .bold))
                     .foregroundColor(.white)
             }
         }
@@ -1307,7 +1307,7 @@ struct PaywallStepView: View {
                 .foregroundColor(color)
 
             Text(title)
-                .font(.inter(14, weight: .semibold))
+                .font(.satoshi(14, weight: .semibold))
                 .foregroundColor(.white)
 
             Spacer()
@@ -1328,7 +1328,7 @@ struct PaywallStepView: View {
                 .progressViewStyle(CircularProgressViewStyle(tint: .white))
                 .scaleEffect(1.2)
             Text("Chargement...")
-                .font(.inter(14))
+                .font(.satoshi(14))
                 .foregroundColor(.white.opacity(0.6))
         }
         .padding(.vertical, SpacingTokens.xl)
@@ -1372,7 +1372,7 @@ struct PaywallStepView: View {
             VStack(spacing: 0) {
                 if let badge = badge {
                     Text(badge)
-                        .font(.inter(11, weight: .bold))
+                        .font(.satoshi(11, weight: .bold))
                         .foregroundColor(.black)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 6)
@@ -1382,11 +1382,11 @@ struct PaywallStepView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(title)
-                            .font(.inter(18, weight: .bold))
+                            .font(.satoshi(18, weight: .bold))
                             .foregroundColor(.white)
 
                         Text(subtitle)
-                            .font(.inter(13))
+                            .font(.satoshi(13))
                             .foregroundColor(.white.opacity(0.6))
                     }
 
@@ -1394,11 +1394,11 @@ struct PaywallStepView: View {
 
                     VStack(alignment: .trailing, spacing: 2) {
                         Text(package.storeProduct.localizedPriceString)
-                            .font(.inter(24, weight: .bold))
+                            .font(.satoshi(24, weight: .bold))
                             .foregroundColor(.white)
 
                         Text(periodText(for: package))
-                            .font(.inter(12))
+                            .font(.satoshi(12))
                             .foregroundColor(.white.opacity(0.5))
                     }
 
@@ -1462,7 +1462,7 @@ struct PaywallStepView: View {
             VStack(spacing: 0) {
                 if let badge = badge {
                     Text(badge)
-                        .font(.inter(11, weight: .bold))
+                        .font(.satoshi(11, weight: .bold))
                         .foregroundColor(.black)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 6)
@@ -1472,11 +1472,11 @@ struct PaywallStepView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(title)
-                            .font(.inter(18, weight: .bold))
+                            .font(.satoshi(18, weight: .bold))
                             .foregroundColor(.white)
 
                         Text(subtitle)
-                            .font(.inter(13))
+                            .font(.satoshi(13))
                             .foregroundColor(.white.opacity(0.6))
                     }
 
@@ -1484,11 +1484,11 @@ struct PaywallStepView: View {
 
                     VStack(alignment: .trailing, spacing: 2) {
                         Text(price)
-                            .font(.inter(24, weight: .bold))
+                            .font(.satoshi(24, weight: .bold))
                             .foregroundColor(.white)
 
                         Text(period)
-                            .font(.inter(12))
+                            .font(.satoshi(12))
                             .foregroundColor(.white.opacity(0.5))
                     }
 
@@ -1526,7 +1526,7 @@ struct PaywallStepView: View {
             Button(action: handlePurchase) {
                 HStack(spacing: SpacingTokens.sm) {
                     Text("Rejoindre la communaute")
-                        .font(.inter(17, weight: .bold))
+                        .font(.satoshi(17, weight: .bold))
                     Image(systemName: "arrow.right")
                         .font(.system(size: 16, weight: .bold))
                 }
@@ -1551,7 +1551,7 @@ struct PaywallStepView: View {
                     .foregroundColor(.green)
                     .font(.system(size: 14))
                 Text("Satisfait ou rembourse • Annule quand tu veux")
-                    .font(.inter(12))
+                    .font(.satoshi(12))
                     .foregroundColor(.white.opacity(0.6))
             }
 
@@ -1560,19 +1560,19 @@ struct PaywallStepView: View {
                 Button("Restaurer") {
                     Task { await handleRestore() }
                 }
-                .font(.inter(12))
+                .font(.satoshi(12))
                 .foregroundColor(.white.opacity(0.4))
 
                 Text("•").foregroundColor(.white.opacity(0.2))
 
                 Button("CGV") { }
-                .font(.inter(12))
+                .font(.satoshi(12))
                 .foregroundColor(.white.opacity(0.4))
 
                 Text("•").foregroundColor(.white.opacity(0.2))
 
                 Button("Confidentialite") { }
-                .font(.inter(12))
+                .font(.satoshi(12))
                 .foregroundColor(.white.opacity(0.4))
             }
         }
@@ -1592,7 +1592,7 @@ struct PaywallStepView: View {
                     .scaleEffect(1.5)
 
                 Text("Traitement en cours...")
-                    .font(.inter(16, weight: .medium))
+                    .font(.satoshi(16, weight: .medium))
                     .foregroundColor(.white)
             }
             .padding(SpacingTokens.xxl)
@@ -1674,7 +1674,7 @@ struct CommitmentStepView: View {
                         viewModel.previousStep()
                     }) {
                         Image(systemName: "chevron.left")
-                            .font(.inter(20, weight: .semibold))
+                            .font(.satoshi(20, weight: .semibold))
                             .foregroundColor(ColorTokens.textSecondary)
                     }
                     Spacer()
@@ -1684,7 +1684,7 @@ struct CommitmentStepView: View {
 
                 VStack(spacing: SpacingTokens.sm) {
                     Text("Sign your commitment")
-                        .font(.inter(isSmallScreen ? 24 : 28, weight: .bold))
+                        .font(.satoshi(isSmallScreen ? 24 : 28, weight: .bold))
                         .foregroundColor(ColorTokens.textPrimary)
 
                     Text("Finally, promise yourself that you will stay consistent and build your discipline.")
@@ -1960,7 +1960,7 @@ struct QuickSelectCard: View {
         Button(action: action) {
             HStack(spacing: SpacingTokens.md) {
                 Text(icon)
-                    .font(.inter(28))
+                    .font(.satoshi(28))
 
                 Text(label)
                     .bodyText()
@@ -1971,7 +1971,7 @@ struct QuickSelectCard: View {
 
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.inter(24))
+                        .font(.satoshi(24))
                         .foregroundColor(ColorTokens.primaryStart)
                 }
             }
@@ -1996,7 +1996,7 @@ struct QuickSelectGridCard: View {
         Button(action: action) {
             VStack(spacing: SpacingTokens.sm) {
                 Text(icon)
-                    .font(.inter(36))
+                    .font(.satoshi(36))
 
                 Text(label)
                     .subtitle()
@@ -2025,7 +2025,7 @@ struct GoalSelectCard: View {
         Button(action: action) {
             VStack(spacing: SpacingTokens.xs) {
                 Text(icon)
-                    .font(.inter(28))
+                    .font(.satoshi(28))
 
                 Text(label)
                     .caption()

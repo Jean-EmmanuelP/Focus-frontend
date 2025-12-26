@@ -113,7 +113,7 @@ struct SettingsView: View {
                             Image(systemName: "rectangle.portrait.and.arrow.right")
                             Text("settings.sign_out".localized)
                         }
-                        .font(.inter(16, weight: .medium))
+                        .font(.satoshi(16, weight: .medium))
                         .foregroundColor(ColorTokens.error)
                     }
                     .padding(.bottom, SpacingTokens.xxl)
@@ -198,7 +198,7 @@ struct SettingsView: View {
                         .frame(width: 32, height: 32)
                         .overlay {
                             Image(systemName: "camera.fill")
-                                .font(.inter(14))
+                                .font(.satoshi(14))
                                 .foregroundColor(.white)
                         }
                 }
@@ -207,12 +207,12 @@ struct SettingsView: View {
             // User info
             VStack(spacing: SpacingTokens.xs) {
                 Text(user?.name ?? "User")
-                    .font(.inter(22, weight: .bold))
+                    .font(.satoshi(22, weight: .bold))
                     .foregroundColor(ColorTokens.textPrimary)
 
                 if let email = user?.email {
                     Text(email)
-                        .font(.inter(14))
+                        .font(.satoshi(14))
                         .foregroundColor(ColorTokens.textSecondary)
                 }
             }
@@ -223,7 +223,7 @@ struct SettingsView: View {
                     Image(systemName: "pencil")
                     Text("settings.edit_profile".localized)
                 }
-                .font(.inter(14, weight: .medium))
+                .font(.satoshi(14, weight: .medium))
                 .foregroundColor(ColorTokens.primaryStart)
                 .padding(.horizontal, SpacingTokens.lg)
                 .padding(.vertical, SpacingTokens.sm)
@@ -236,7 +236,7 @@ struct SettingsView: View {
                 HStack(spacing: SpacingTokens.sm) {
                     Text("🔥")
                     Text("\(streak) " + "settings.day_streak".localized)
-                        .font(.inter(14, weight: .semibold))
+                        .font(.satoshi(14, weight: .semibold))
                         .foregroundColor(ColorTokens.primaryStart)
                 }
                 .padding(.horizontal, SpacingTokens.md)
@@ -257,11 +257,11 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: SpacingTokens.sm) {
             HStack {
                 Text("👁")
-                    .font(.inter(24))
+                    .font(.satoshi(24))
                 VStack(alignment: .leading, spacing: 2) {
                     HStack {
                         Text("profile.day_visibility".localized)
-                            .font(.inter(16, weight: .semibold))
+                            .font(.satoshi(16, weight: .semibold))
                             .foregroundColor(ColorTokens.textPrimary)
                         Spacer()
                         if isUpdatingVisibility {
@@ -270,7 +270,7 @@ struct SettingsView: View {
                         }
                     }
                     Text("profile.visibility_description".localized)
-                        .font(.inter(13))
+                        .font(.satoshi(13))
                         .foregroundColor(ColorTokens.textSecondary)
                 }
             }
@@ -285,17 +285,17 @@ struct SettingsView: View {
                     } label: {
                         HStack {
                             Image(systemName: visibility.icon)
-                                .font(.inter(16))
+                                .font(.satoshi(16))
                                 .foregroundColor(selectedVisibility == visibility ? ColorTokens.primaryStart : ColorTokens.textMuted)
                                 .frame(width: 24)
 
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(visibility.displayName)
-                                    .font(.inter(14))
+                                    .font(.satoshi(14))
                                     .foregroundColor(selectedVisibility == visibility ? ColorTokens.textPrimary : ColorTokens.textSecondary)
 
                                 Text(visibility.description)
-                                    .font(.inter(11))
+                                    .font(.satoshi(11))
                                     .foregroundColor(ColorTokens.textMuted)
                             }
 
@@ -329,11 +329,11 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: SpacingTokens.sm) {
             HStack {
                 Text("⚡")
-                    .font(.inter(24))
+                    .font(.satoshi(24))
                 VStack(alignment: .leading, spacing: 2) {
                     HStack {
                         Text("settings.productivity_peak".localized)
-                            .font(.inter(16, weight: .semibold))
+                            .font(.satoshi(16, weight: .semibold))
                             .foregroundColor(ColorTokens.textPrimary)
                         Spacer()
                         if isUpdatingProductivity {
@@ -342,7 +342,7 @@ struct SettingsView: View {
                         }
                     }
                     Text("settings.productivity_peak_description".localized)
-                        .font(.inter(13))
+                        .font(.satoshi(13))
                         .foregroundColor(ColorTokens.textSecondary)
                 }
             }
@@ -357,17 +357,17 @@ struct SettingsView: View {
                     } label: {
                         HStack {
                             Image(systemName: peak.icon)
-                                .font(.inter(16))
+                                .font(.satoshi(16))
                                 .foregroundColor(selectedProductivityPeak == peak ? ColorTokens.primaryStart : ColorTokens.textMuted)
                                 .frame(width: 24)
 
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(peak.displayName)
-                                    .font(.inter(14))
+                                    .font(.satoshi(14))
                                     .foregroundColor(selectedProductivityPeak == peak ? ColorTokens.textPrimary : ColorTokens.textSecondary)
 
                                 Text(peak.description)
-                                    .font(.inter(11))
+                                    .font(.satoshi(11))
                                     .foregroundColor(ColorTokens.textMuted)
                             }
 
@@ -480,22 +480,22 @@ struct SettingsMenuItem: View {
         Button(action: action) {
             HStack(spacing: SpacingTokens.md) {
                 Text(icon)
-                    .font(.inter(24))
+                    .font(.satoshi(24))
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.inter(16, weight: .semibold))
+                        .font(.satoshi(16, weight: .semibold))
                         .foregroundColor(ColorTokens.textPrimary)
 
                     Text(subtitle)
-                        .font(.inter(13))
+                        .font(.satoshi(13))
                         .foregroundColor(ColorTokens.textSecondary)
                 }
 
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.inter(14, weight: .medium))
+                    .font(.satoshi(14, weight: .medium))
                     .foregroundColor(ColorTokens.textMuted)
             }
             .padding(SpacingTokens.lg)
@@ -532,9 +532,9 @@ struct StatisticsView: View {
         VStack(spacing: SpacingTokens.lg) {
             HStack {
                 Text("📊")
-                    .font(.inter(20))
+                    .font(.satoshi(20))
                 Text("stats.this_week".localized)
-                    .font(.inter(16, weight: .semibold))
+                    .font(.satoshi(16, weight: .semibold))
                     .foregroundColor(ColorTokens.textPrimary)
                 Spacer()
             }
@@ -568,14 +568,14 @@ struct StatisticsView: View {
     private var sessionsListSection: some View {
         VStack(alignment: .leading, spacing: SpacingTokens.md) {
             Text("stats.recent_sessions".localized)
-                .font(.inter(14, weight: .semibold))
+                .font(.satoshi(14, weight: .semibold))
                 .foregroundColor(ColorTokens.textSecondary)
 
             ForEach(sessionsByDay, id: \.date) { day in
                 VStack(alignment: .leading, spacing: SpacingTokens.sm) {
                     // Day header
                     Text(formatDayHeader(day.date))
-                        .font(.inter(12, weight: .medium))
+                        .font(.satoshi(12, weight: .medium))
                         .foregroundColor(ColorTokens.textMuted)
 
                     // Sessions for this day
@@ -630,12 +630,12 @@ struct StatBox: View {
     var body: some View {
         VStack(spacing: SpacingTokens.xs) {
             Text(icon)
-                .font(.inter(20))
+                .font(.satoshi(20))
             Text(value)
-                .font(.inter(20, weight: .bold))
+                .font(.satoshi(20, weight: .bold))
                 .foregroundColor(ColorTokens.textPrimary)
             Text(label)
-                .font(.inter(11))
+                .font(.satoshi(11))
                 .foregroundColor(ColorTokens.textSecondary)
         }
         .frame(maxWidth: .infinity)
@@ -650,13 +650,13 @@ struct SessionRow: View {
         HStack(spacing: SpacingTokens.md) {
             // Time
             Text(formatTime(session.startTime))
-                .font(.inter(13, weight: .medium))
+                .font(.satoshi(13, weight: .medium))
                 .foregroundColor(ColorTokens.textMuted)
                 .frame(width: 50, alignment: .leading)
 
             // Description or default
             Text(session.description ?? "Focus Session")
-                .font(.inter(14))
+                .font(.satoshi(14))
                 .foregroundColor(ColorTokens.textPrimary)
                 .lineLimit(1)
 
@@ -664,7 +664,7 @@ struct SessionRow: View {
 
             // Duration
             Text(session.formattedActualDuration)
-                .font(.inter(13, weight: .semibold))
+                .font(.satoshi(13, weight: .semibold))
                 .foregroundColor(ColorTokens.primaryStart)
         }
         .padding(SpacingTokens.sm)

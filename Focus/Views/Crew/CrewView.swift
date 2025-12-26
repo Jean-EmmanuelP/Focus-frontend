@@ -100,11 +100,11 @@ struct CrewView: View {
         VStack(alignment: .leading, spacing: SpacingTokens.xs) {
             HStack {
                 Text("👥")
-                    .font(.inter(28))
+                    .font(.satoshi(28))
 
                 Text("crew.title".localized)
                     .label()
-                    .font(.inter(20, weight: .bold))
+                    .font(.satoshi(20, weight: .bold))
                     .foregroundColor(ColorTokens.textPrimary)
 
                 Spacer()
@@ -116,7 +116,7 @@ struct CrewView: View {
                     }
                 } label: {
                     Image(systemName: "magnifyingglass")
-                        .font(.inter(20, weight: .medium))
+                        .font(.satoshi(20, weight: .medium))
                         .foregroundColor(ColorTokens.textPrimary)
                         .frame(width: 44, height: 44)
                         .background(ColorTokens.surface)
@@ -172,7 +172,7 @@ struct CrewView: View {
                 // Badge for requests (friend requests + group invitations)
                 if tab == .requests && viewModel.hasNewRequests {
                     Text("\(viewModel.totalPendingCount)")
-                        .font(.inter(10, weight: .bold))
+                        .font(.satoshi(10, weight: .bold))
                         .foregroundColor(.white)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 2)
@@ -193,7 +193,7 @@ struct CrewView: View {
             VStack(alignment: .leading, spacing: SpacingTokens.xs) {
                 HStack {
                     Text("🏆")
-                        .font(.inter(20))
+                        .font(.satoshi(20))
                     Text("crew.top_builders".localized)
                         .subtitle()
                         .fontWeight(.semibold)
@@ -202,7 +202,7 @@ struct CrewView: View {
                 }
 
                 Text("crew.ranking_hint".localized)
-                    .font(.inter(12))
+                    .font(.satoshi(12))
                     .foregroundColor(ColorTokens.textSecondary)
             }
 
@@ -254,7 +254,7 @@ struct CrewView: View {
         VStack(alignment: .leading, spacing: SpacingTokens.md) {
             HStack {
                 Text("🤝")
-                    .font(.inter(20))
+                    .font(.satoshi(20))
                 Text("crew.your_crew".localized)
                     .subtitle()
                     .fontWeight(.semibold)
@@ -303,7 +303,7 @@ struct CrewView: View {
             VStack(alignment: .leading, spacing: SpacingTokens.md) {
                 HStack {
                     Text("📥")
-                        .font(.inter(20))
+                        .font(.satoshi(20))
                     Text("crew.inbox".localized)
                         .subtitle()
                         .fontWeight(.semibold)
@@ -312,7 +312,7 @@ struct CrewView: View {
 
                     if viewModel.totalReceivedCount > 0 {
                         Text("\(viewModel.totalReceivedCount)")
-                            .font(.inter(12, weight: .bold))
+                            .font(.satoshi(12, weight: .bold))
                             .foregroundColor(.white)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
@@ -380,20 +380,20 @@ struct CrewView: View {
                     }) {
                         HStack {
                             Text("📤")
-                                .font(.inter(20))
+                                .font(.satoshi(20))
                             Text("crew.sent".localized)
                                 .subtitle()
                                 .fontWeight(.semibold)
                                 .foregroundColor(ColorTokens.textPrimary)
 
                             Text("\(viewModel.sentRequests.count + viewModel.sentGroupInvitations.count)")
-                                .font(.inter(12))
+                                .font(.satoshi(12))
                                 .foregroundColor(ColorTokens.textMuted)
 
                             Spacer()
 
                             Image(systemName: showSentRequests ? "chevron.up" : "chevron.down")
-                                .font(.inter(14))
+                                .font(.satoshi(14))
                                 .foregroundColor(ColorTokens.textMuted)
                         }
                     }
@@ -443,11 +443,11 @@ struct CrewView: View {
 
             VStack(spacing: SpacingTokens.xs) {
                 Text("crew.inbox_empty".localized)
-                    .font(.inter(16, weight: .semibold))
+                    .font(.satoshi(16, weight: .semibold))
                     .foregroundColor(ColorTokens.textPrimary)
 
                 Text("crew.inbox_empty_hint".localized)
-                    .font(.inter(13))
+                    .font(.satoshi(13))
                     .foregroundColor(ColorTokens.textMuted)
                     .multilineTextAlignment(.center)
             }
@@ -477,7 +477,7 @@ struct CrewView: View {
                     // Header with close button
                     HStack {
                         Text("crew.search_friends".localized)
-                            .font(.inter(20, weight: .bold))
+                            .font(.satoshi(20, weight: .bold))
                             .foregroundColor(ColorTokens.textPrimary)
 
                         Spacer()
@@ -507,7 +507,7 @@ struct CrewView: View {
                             .foregroundColor(ColorTokens.textMuted)
 
                         TextField("crew.search_placeholder".localized, text: $viewModel.searchQuery)
-                            .font(.inter(16))
+                            .font(.satoshi(16))
                             .foregroundColor(ColorTokens.textPrimary)
                             .autocapitalization(.none)
                             .disableAutocorrection(true)
@@ -548,7 +548,7 @@ struct CrewView: View {
                                         .progressViewStyle(CircularProgressViewStyle(tint: ColorTokens.primaryStart))
                                         .scaleEffect(1.2)
                                     Text("crew.searching".localized)
-                                        .font(.inter(14))
+                                        .font(.satoshi(14))
                                         .foregroundColor(ColorTokens.textMuted)
                                 }
                                 .frame(maxWidth: .infinity)
@@ -576,10 +576,10 @@ struct CrewView: View {
                                         .font(.system(size: 48))
                                         .foregroundColor(ColorTokens.textMuted.opacity(0.5))
                                     Text("crew.no_users_found".localized)
-                                        .font(.inter(16, weight: .medium))
+                                        .font(.satoshi(16, weight: .medium))
                                         .foregroundColor(ColorTokens.textSecondary)
                                     Text("crew.try_different_search".localized)
-                                        .font(.inter(14))
+                                        .font(.satoshi(14))
                                         .foregroundColor(ColorTokens.textMuted)
                                 }
                                 .frame(maxWidth: .infinity)
@@ -589,10 +589,10 @@ struct CrewView: View {
                                 // Suggestions header
                                 VStack(alignment: .leading, spacing: SpacingTokens.xs) {
                                     Text("crew.suggested".localized)
-                                        .font(.inter(14, weight: .semibold))
+                                        .font(.satoshi(14, weight: .semibold))
                                         .foregroundColor(ColorTokens.textSecondary)
                                     Text("crew.suggested_hint".localized)
-                                        .font(.inter(12))
+                                        .font(.satoshi(12))
                                         .foregroundColor(ColorTokens.textMuted)
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -620,7 +620,7 @@ struct CrewView: View {
                                         .font(.system(size: 48))
                                         .foregroundColor(ColorTokens.textMuted.opacity(0.5))
                                     Text("crew.search_hint".localized)
-                                        .font(.inter(16, weight: .medium))
+                                        .font(.satoshi(16, weight: .medium))
                                         .foregroundColor(ColorTokens.textSecondary)
                                         .multilineTextAlignment(.center)
                                 }
@@ -648,7 +648,7 @@ struct CrewView: View {
     private var accountSection: some View {
         // Version info
         Text("profile.version".localized)
-            .font(.inter(10))
+            .font(.satoshi(10))
             .foregroundColor(ColorTokens.textMuted.opacity(0.6))
             .padding(.top, SpacingTokens.xs)
     }
@@ -668,7 +668,7 @@ struct CrewView: View {
         Card {
             VStack(spacing: SpacingTokens.md) {
                 Image(systemName: icon)
-                    .font(.inter(40))
+                    .font(.satoshi(40))
                     .foregroundColor(ColorTokens.textMuted)
 
                 Text(title)
@@ -730,7 +730,7 @@ struct LeaderboardEntryRow: View {
                     VStack(alignment: .leading, spacing: SpacingTokens.xs) {
                         HStack(spacing: SpacingTokens.xs) {
                             Text(entry.displayName)
-                                .font(.inter(15, weight: .semibold))
+                                .font(.satoshi(15, weight: .semibold))
                                 .foregroundColor(ColorTokens.textPrimary)
                                 .lineLimit(1)
 
@@ -747,7 +747,7 @@ struct LeaderboardEntryRow: View {
                                 .font(.system(size: 12))
                                 .foregroundColor(entry.safeCurrentStreak > 0 ? .orange : ColorTokens.textMuted)
                             Text("\(entry.safeCurrentStreak)j")
-                                .font(.inter(12, weight: .medium))
+                                .font(.satoshi(12, weight: .medium))
                                 .foregroundColor(entry.safeCurrentStreak > 0 ? .orange : ColorTokens.textMuted)
                         }
                     }
@@ -797,7 +797,7 @@ struct LeaderboardEntryRow: View {
                     )
             } else {
                 Text("#\(entry.safeRank)")
-                    .font(.inter(14, weight: .bold))
+                    .font(.satoshi(14, weight: .bold))
                     .foregroundColor(ColorTokens.textMuted)
                     .frame(width: 32)
             }
@@ -814,7 +814,7 @@ struct LeaderboardEntryRow: View {
                 .modifier(PulsingAnimation())
 
             Text(formattedLiveTime)
-                .font(.inter(13, weight: .bold))
+                .font(.satoshi(13, weight: .bold))
                 .foregroundColor(.green)
                 .monospacedDigit()
         }
@@ -827,7 +827,7 @@ struct LeaderboardEntryRow: View {
     // MARK: - Weekly Focus Time View
     private var weeklyFocusView: some View {
         Text(entry.formattedFocusTime)
-            .font(.inter(14, weight: .bold))
+            .font(.satoshi(14, weight: .bold))
             .foregroundColor(ColorTokens.primaryStart)
             .padding(.horizontal, SpacingTokens.sm)
             .padding(.vertical, SpacingTokens.xs)
@@ -927,14 +927,14 @@ struct CrewMemberRow: View {
                         if let sessions = member.totalSessions7d, let minutes = member.totalMinutes7d {
                             HStack(spacing: SpacingTokens.sm) {
                                 Label("\(sessions) \("crew.sessions".localized)", systemImage: "flame.fill")
-                                    .font(.inter(11))
+                                    .font(.satoshi(11))
                                     .foregroundColor(ColorTokens.textMuted)
 
                                 let hours = minutes / 60
                                 let mins = minutes % 60
                                 let timeStr = hours > 0 ? "\(hours)h \(mins)m" : "\(mins)m"
                                 Label(timeStr, systemImage: "clock")
-                                    .font(.inter(11))
+                                    .font(.satoshi(11))
                                     .foregroundColor(ColorTokens.textMuted)
                             }
                         }
@@ -945,7 +945,7 @@ struct CrewMemberRow: View {
                     // Visibility indicator
                     if let visibility = member.dayVisibility {
                         Image(systemName: visibilityIcon(visibility))
-                            .font(.inter(14))
+                            .font(.satoshi(14))
                             .foregroundColor(ColorTokens.textMuted)
                     }
 
@@ -954,7 +954,7 @@ struct CrewMemberRow: View {
                         showingRemoveAlert = true
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.inter(14))
+                            .font(.satoshi(14))
                             .foregroundColor(ColorTokens.textMuted)
                             .frame(width: 30, height: 30)
                     }
@@ -1027,7 +1027,7 @@ struct CrewRequestRow: View {
                             onReject()
                         } label: {
                             Image(systemName: "xmark")
-                                .font(.inter(14, weight: .medium))
+                                .font(.satoshi(14, weight: .medium))
                                 .foregroundColor(ColorTokens.error)
                                 .frame(width: 36, height: 36)
                                 .background(ColorTokens.error.opacity(0.1))
@@ -1038,7 +1038,7 @@ struct CrewRequestRow: View {
                             onAccept()
                         } label: {
                             Image(systemName: "checkmark")
-                                .font(.inter(14, weight: .medium))
+                                .font(.satoshi(14, weight: .medium))
                                 .foregroundColor(ColorTokens.success)
                                 .frame(width: 36, height: 36)
                                 .background(ColorTokens.success.opacity(0.1))
@@ -1086,7 +1086,7 @@ struct GroupInvitationRow: View {
                         .frame(width: 44, height: 44)
 
                     Text(invitation.group?.icon ?? "👥")
-                        .font(.inter(20))
+                        .font(.satoshi(20))
                 }
 
                 // Info
@@ -1120,7 +1120,7 @@ struct GroupInvitationRow: View {
                             onReject()
                         } label: {
                             Image(systemName: "xmark")
-                                .font(.inter(14, weight: .medium))
+                                .font(.satoshi(14, weight: .medium))
                                 .foregroundColor(ColorTokens.error)
                                 .frame(width: 36, height: 36)
                                 .background(ColorTokens.error.opacity(0.1))
@@ -1131,7 +1131,7 @@ struct GroupInvitationRow: View {
                             onAccept()
                         } label: {
                             Image(systemName: "checkmark")
-                                .font(.inter(14, weight: .medium))
+                                .font(.satoshi(14, weight: .medium))
                                 .foregroundColor(ColorTokens.success)
                                 .frame(width: 36, height: 36)
                                 .background(ColorTokens.success.opacity(0.1))
@@ -1205,14 +1205,14 @@ struct SearchResultRow: View {
 
                         if result.isCrewMember {
                             Image(systemName: "checkmark.seal.fill")
-                                .font(.inter(12))
+                                .font(.satoshi(12))
                                 .foregroundColor(ColorTokens.success)
                         }
                     }
 
                     if let sessions = result.totalSessions7d {
                         Label("\(sessions) \("crew.sessions".localized) \("crew.this_week".localized)", systemImage: "flame.fill")
-                            .font(.inter(11))
+                            .font(.satoshi(11))
                             .foregroundColor(ColorTokens.textMuted)
                     }
                 }
@@ -1319,7 +1319,7 @@ struct MemberDayDetailView: View {
                     // Private or no permission
                     VStack(spacing: SpacingTokens.lg) {
                         Image(systemName: "lock.fill")
-                            .font(.inter(60))
+                            .font(.satoshi(60))
                             .foregroundColor(ColorTokens.textMuted)
 
                         Text("crew.day_not_visible".localized)
@@ -1386,7 +1386,7 @@ struct MemberDayDetailView: View {
                     viewModel.changeSelectedDate(by: -7)
                 } label: {
                     Image(systemName: "chevron.left")
-                        .font(.inter(14, weight: .medium))
+                        .font(.satoshi(14, weight: .medium))
                         .foregroundColor(ColorTokens.textPrimary)
                         .frame(width: 32, height: 32)
                         .background(ColorTokens.surface)
@@ -1409,7 +1409,7 @@ struct MemberDayDetailView: View {
                     }
                 } label: {
                     Image(systemName: "chevron.right")
-                        .font(.inter(14, weight: .medium))
+                        .font(.satoshi(14, weight: .medium))
                         .foregroundColor(calendar.isDate(viewModel.selectedDate, equalTo: today, toGranularity: .weekOfYear) ? ColorTokens.textMuted : ColorTokens.textPrimary)
                         .frame(width: 32, height: 32)
                         .background(ColorTokens.surface)
@@ -1436,11 +1436,11 @@ struct MemberDayDetailView: View {
                     } label: {
                         VStack(spacing: 4) {
                             Text(dayOfWeekLetter(from: date))
-                                .font(.inter(10, weight: .medium))
+                                .font(.satoshi(10, weight: .medium))
                                 .foregroundColor(isSelected ? .white : ColorTokens.textMuted)
 
                             Text("\(calendar.component(.day, from: date))")
-                                .font(.inter(14, weight: isSelected ? .bold : .medium))
+                                .font(.satoshi(14, weight: isSelected ? .bold : .medium))
                                 .foregroundColor(isSelected ? .white : (isFuture ? ColorTokens.textMuted.opacity(0.5) : ColorTokens.textPrimary))
 
                             // Indicator dot for today
@@ -1479,9 +1479,9 @@ struct MemberDayDetailView: View {
                 } label: {
                     HStack(spacing: SpacingTokens.xs) {
                         Image(systemName: tab.icon)
-                            .font(.inter(12))
+                            .font(.satoshi(12))
                         Text(tab.title)
-                            .font(.inter(12, weight: .medium))
+                            .font(.satoshi(12, weight: .medium))
                     }
                     .foregroundColor(selectedTab == tab ? .white : ColorTokens.textMuted)
                     .padding(.horizontal, SpacingTokens.md)
@@ -1499,7 +1499,7 @@ struct MemberDayDetailView: View {
             // Daily schedule header
             HStack {
                 Text("📅")
-                    .font(.inter(18))
+                    .font(.satoshi(18))
                 Text("crew.member.daily_schedule".localized)
                     .subtitle()
                     .fontWeight(.semibold)
@@ -1551,16 +1551,16 @@ struct MemberDayDetailView: View {
                         // Area icon or lock for private tasks
                         if task.isPrivate == true {
                             Image(systemName: "lock.fill")
-                                .font(.inter(18))
+                                .font(.satoshi(18))
                                 .foregroundColor(ColorTokens.textMuted)
                         } else {
                             Text(task.areaIcon ?? "📋")
-                                .font(.inter(20))
+                                .font(.satoshi(20))
                         }
 
                         VStack(alignment: .leading, spacing: 4) {
                             Text(task.title)
-                                .font(.inter(14, weight: .medium))
+                                .font(.satoshi(14, weight: .medium))
                                 .foregroundColor(task.isPrivate == true ? ColorTokens.textMuted : ColorTokens.textPrimary)
                                 .lineLimit(1)
                                 .italic(task.isPrivate == true)
@@ -1616,7 +1616,7 @@ struct MemberDayDetailView: View {
                 Card {
                     VStack(spacing: SpacingTokens.md) {
                         Image(systemName: "checkmark.circle")
-                            .font(.inter(40))
+                            .font(.satoshi(40))
                             .foregroundColor(ColorTokens.textMuted)
 
                         Text("crew.member.no_routines_scheduled".localized)
@@ -1645,7 +1645,7 @@ struct MemberDayDetailView: View {
                         HStack(spacing: SpacingTokens.lg) {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(formatMinutes(stats.weeklyTotalFocus ?? 0))
-                                    .font(.inter(24, weight: .bold))
+                                    .font(.satoshi(24, weight: .bold))
                                     .foregroundColor(ColorTokens.primaryStart)
                                 Text("stats.focus_time".localized)
                                     .caption()
@@ -1657,7 +1657,7 @@ struct MemberDayDetailView: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 let routineRate = (stats.weeklyTotalRoutines ?? 0) > 0 ? (stats.weeklyRoutineRate ?? 0) : 0
                                 Text("\(routineRate)%")
-                                    .font(.inter(24, weight: .bold))
+                                    .font(.satoshi(24, weight: .bold))
                                     .foregroundColor(ColorTokens.success)
                                 Text("stats.routines".localized)
                                     .caption()
@@ -1690,7 +1690,7 @@ struct MemberDayDetailView: View {
                 Card {
                     VStack(spacing: SpacingTokens.md) {
                         Image(systemName: "chart.bar")
-                            .font(.inter(40))
+                            .font(.satoshi(40))
                             .foregroundColor(ColorTokens.textMuted)
 
                         Text("stats.no_sessions".localized)
@@ -1712,7 +1712,7 @@ struct MemberDayDetailView: View {
         return VStack(alignment: .leading, spacing: SpacingTokens.md) {
             HStack {
                 Text("✨")
-                    .font(.inter(18))
+                    .font(.satoshi(18))
                 Text("crew.member.routines".localized)
                     .subtitle()
                     .fontWeight(.semibold)
@@ -1722,7 +1722,7 @@ struct MemberDayDetailView: View {
 
                 // Progress pill
                 Text("\(completedCount)/\(totalCount)")
-                    .font(.inter(12, weight: .semibold))
+                    .font(.satoshi(12, weight: .semibold))
                     .foregroundColor(completedCount == totalCount ? .white : ColorTokens.textPrimary)
                     .padding(.horizontal, SpacingTokens.sm)
                     .padding(.vertical, 4)
@@ -1736,12 +1736,12 @@ struct MemberDayDetailView: View {
                         HStack(spacing: SpacingTokens.sm) {
                             // Completion indicator
                             Image(systemName: routine.completed ? "checkmark.circle.fill" : "circle")
-                                .font(.inter(20))
+                                .font(.satoshi(20))
                                 .foregroundColor(routine.completed ? ColorTokens.success : ColorTokens.textMuted)
 
                             // Icon
                             Text(routine.icon ?? "✨")
-                                .font(.inter(18))
+                                .font(.satoshi(18))
 
                             // Title
                             Text(routine.title)
@@ -1797,7 +1797,7 @@ struct MemberDayDetailView: View {
         VStack(alignment: .leading, spacing: SpacingTokens.md) {
             HStack {
                 Text("🎯")
-                    .font(.inter(18))
+                    .font(.satoshi(18))
                 Text("crew.intentions".localized)
                     .subtitle()
                     .fontWeight(.semibold)
@@ -1829,7 +1829,7 @@ struct MemberDayDetailView: View {
         return VStack(alignment: .leading, spacing: SpacingTokens.md) {
             HStack {
                 Text("🔥")
-                    .font(.inter(18))
+                    .font(.satoshi(18))
                 Text("crew.focus_sessions".localized)
                     .subtitle()
                     .fontWeight(.semibold)
@@ -1877,7 +1877,7 @@ struct MemberDayDetailView: View {
                                 .caption()
                                 .fontWeight(.medium)
                             Image(systemName: showAllSessions ? "chevron.up" : "chevron.down")
-                                .font(.inter(10))
+                                .font(.satoshi(10))
                         }
                         .foregroundColor(ColorTokens.primaryStart)
                         .frame(maxWidth: .infinity)
@@ -1905,7 +1905,7 @@ struct MemberDayDetailView: View {
                                 .fontWeight(.semibold)
                                 .foregroundColor(ColorTokens.textPrimary)
                             Text("crew.focus_this_week".localized)
-                                .font(.inter(10))
+                                .font(.satoshi(10))
                                 .foregroundColor(ColorTokens.textMuted)
                         }
 
@@ -1917,7 +1917,7 @@ struct MemberDayDetailView: View {
                                 .fontWeight(.semibold)
                                 .foregroundColor(ColorTokens.textPrimary)
                             Text("crew.routines_done".localized)
-                                .font(.inter(10))
+                                .font(.satoshi(10))
                                 .foregroundColor(ColorTokens.textMuted)
                         }
                     }
@@ -1929,7 +1929,7 @@ struct MemberDayDetailView: View {
                             .caption()
                             .foregroundColor(ColorTokens.primaryStart)
                         Image(systemName: "chart.bar.fill")
-                            .font(.inter(12))
+                            .font(.satoshi(12))
                             .foregroundColor(ColorTokens.primaryStart)
                     }
                 }
@@ -1976,7 +1976,7 @@ struct MemberDayDetailView: View {
         VStack(alignment: .leading, spacing: SpacingTokens.md) {
             HStack {
                 Text("✅")
-                    .font(.inter(18))
+                    .font(.satoshi(18))
                 Text("crew.completed_routines".localized)
                     .subtitle()
                     .fontWeight(.semibold)
@@ -1994,7 +1994,7 @@ struct MemberDayDetailView: View {
                     ForEach(routines) { routine in
                         HStack(spacing: SpacingTokens.sm) {
                             Text(routine.icon ?? "✓")
-                                .font(.inter(16))
+                                .font(.satoshi(16))
 
                             Text(routine.title)
                                 .bodyText()
@@ -2028,7 +2028,7 @@ struct MemberDayDetailView: View {
         return VStack(alignment: .leading, spacing: SpacingTokens.md) {
             HStack {
                 Text("📋")
-                    .font(.inter(18))
+                    .font(.satoshi(18))
                 Text("stats.routines".localized)
                     .subtitle()
                     .fontWeight(.semibold)
@@ -2047,12 +2047,12 @@ struct MemberDayDetailView: View {
                         HStack(spacing: SpacingTokens.sm) {
                             // Completion indicator
                             Image(systemName: routine.completed ? "checkmark.circle.fill" : "circle")
-                                .font(.inter(18))
+                                .font(.satoshi(18))
                                 .foregroundColor(routine.completed ? ColorTokens.success : ColorTokens.textMuted)
 
                             // Icon
                             Text(routine.icon ?? "✨")
-                                .font(.inter(16))
+                                .font(.satoshi(16))
 
                             // Title
                             Text(routine.title)
@@ -2088,7 +2088,7 @@ struct MemberDayDetailView: View {
         Card {
             VStack(spacing: SpacingTokens.md) {
                 Image(systemName: "moon.zzz")
-                    .font(.inter(40))
+                    .font(.satoshi(40))
                     .foregroundColor(ColorTokens.textMuted)
 
                 Text("crew.no_activity".localized)
@@ -2120,13 +2120,13 @@ struct StatSummaryCard: View {
             VStack(alignment: .leading, spacing: SpacingTokens.sm) {
                 HStack {
                     Image(systemName: icon)
-                        .font(.inter(14))
+                        .font(.satoshi(14))
                         .foregroundColor(color)
                     Spacer()
                 }
 
                 Text(value)
-                    .font(.inter(22, weight: .bold))
+                    .font(.satoshi(22, weight: .bold))
                     .foregroundColor(ColorTokens.textPrimary)
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -2135,7 +2135,7 @@ struct StatSummaryCard: View {
                         .fontWeight(.medium)
                         .foregroundColor(ColorTokens.textPrimary)
                     Text(subtitle)
-                        .font(.inter(10))
+                        .font(.satoshi(10))
                         .foregroundColor(ColorTokens.textMuted)
                 }
             }
@@ -2165,7 +2165,7 @@ struct WeeklyBarChart: View {
 
                     // Day label
                     Text(dayLabel(from: stat.date))
-                        .font(.inter(10, weight: .medium))
+                        .font(.satoshi(10, weight: .medium))
                         .foregroundColor(ColorTokens.textMuted)
                 }
             }
@@ -2398,7 +2398,7 @@ extension CrewView {
         VStack(alignment: .leading, spacing: SpacingTokens.md) {
             HStack {
                 Text("👥")
-                    .font(.inter(20))
+                    .font(.satoshi(20))
                 Text("crew.groups.title".localized)
                     .subtitle()
                     .fontWeight(.semibold)
@@ -2412,7 +2412,7 @@ extension CrewView {
                 } label: {
                     HStack(spacing: SpacingTokens.xs) {
                         Image(systemName: "plus")
-                            .font(.inter(14, weight: .semibold))
+                            .font(.satoshi(14, weight: .semibold))
                         Text("crew.groups.create".localized)
                             .caption()
                             .fontWeight(.medium)
@@ -2460,7 +2460,7 @@ struct CrewGroupRow: View {
                 HStack(spacing: SpacingTokens.md) {
                     // Group icon
                     Text(group.icon)
-                        .font(.inter(24))
+                        .font(.satoshi(24))
                         .frame(width: 44, height: 44)
                         .background(Color(hex: group.color).opacity(0.2))
                         .cornerRadius(RadiusTokens.md)
@@ -2479,7 +2479,7 @@ struct CrewGroupRow: View {
                     Spacer()
 
                     Image(systemName: "chevron.right")
-                        .font(.inter(14))
+                        .font(.satoshi(14))
                         .foregroundColor(ColorTokens.textMuted)
                 }
             }
@@ -2537,7 +2537,7 @@ struct CreateGroupView: View {
                                         selectedIcon = icon
                                     } label: {
                                         Text(icon)
-                                            .font(.inter(24))
+                                            .font(.satoshi(24))
                                             .frame(width: 50, height: 50)
                                             .background(selectedIcon == icon ? ColorTokens.primarySoft : ColorTokens.surface)
                                             .cornerRadius(RadiusTokens.md)
@@ -2593,7 +2593,7 @@ struct CreateGroupView: View {
                                 Card {
                                     VStack(spacing: SpacingTokens.md) {
                                         Image(systemName: "person.2")
-                                            .font(.inter(30))
+                                            .font(.satoshi(30))
                                             .foregroundColor(ColorTokens.textMuted)
                                         Text("crew.groups.no_friends".localized)
                                             .caption()
@@ -2690,7 +2690,7 @@ struct SelectableMemberRow: View {
                     Spacer()
 
                     Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                        .font(.inter(22))
+                        .font(.satoshi(22))
                         .foregroundColor(isSelected ? ColorTokens.primaryStart : ColorTokens.textMuted)
                 }
             }
@@ -2868,7 +2868,7 @@ struct GroupDetailView: View {
                         Image(systemName: "plus.circle.fill")
                         Text("crew.groups.share_routine".localized)
                     }
-                    .font(.inter(14, weight: .medium))
+                    .font(.satoshi(14, weight: .medium))
                     .foregroundColor(ColorTokens.primaryStart)
                 }
             }
@@ -2884,13 +2884,13 @@ struct GroupDetailView: View {
                 Card {
                     VStack(spacing: SpacingTokens.md) {
                         Image(systemName: "arrow.triangle.2.circlepath")
-                            .font(.inter(30))
+                            .font(.satoshi(30))
                             .foregroundColor(ColorTokens.textMuted)
                         Text("crew.groups.no_shared_routines".localized)
                             .caption()
                             .foregroundColor(ColorTokens.textMuted)
                         Text("crew.groups.share_routine_hint".localized)
-                            .font(.inter(12))
+                            .font(.satoshi(12))
                             .foregroundColor(ColorTokens.textMuted)
                             .multilineTextAlignment(.center)
                     }
@@ -2953,7 +2953,7 @@ struct GroupDetailView: View {
         Card {
             VStack(spacing: SpacingTokens.md) {
                 Text(group.icon)
-                    .font(.inter(50))
+                    .font(.satoshi(50))
                     .frame(width: 80, height: 80)
                     .background(Color(hex: group.color).opacity(0.2))
                     .cornerRadius(RadiusTokens.lg)
@@ -2965,7 +2965,7 @@ struct GroupDetailView: View {
                     } label: {
                         HStack(spacing: SpacingTokens.xs) {
                             Text(group.name)
-                                .font(.inter(22, weight: .bold))
+                                .font(.satoshi(22, weight: .bold))
                                 .foregroundColor(ColorTokens.textPrimary)
                             Image(systemName: "pencil")
                                 .font(.system(size: 14))
@@ -2974,7 +2974,7 @@ struct GroupDetailView: View {
                     }
                 } else {
                     Text(group.name)
-                        .font(.inter(22, weight: .bold))
+                        .font(.satoshi(22, weight: .bold))
                         .foregroundColor(ColorTokens.textPrimary)
                 }
 
@@ -3043,7 +3043,7 @@ struct GroupDetailView: View {
                 Card {
                     VStack(spacing: SpacingTokens.md) {
                         Image(systemName: "person.2.slash")
-                            .font(.inter(30))
+                            .font(.satoshi(30))
                             .foregroundColor(ColorTokens.textMuted)
                         Text("crew.groups.no_members".localized)
                             .caption()
@@ -3084,7 +3084,7 @@ struct GroupMemberRow: View {
                 // View day button
                 Button(action: onViewDay) {
                     Image(systemName: "calendar")
-                        .font(.inter(16))
+                        .font(.satoshi(16))
                         .foregroundColor(ColorTokens.primaryStart)
                         .frame(width: 36, height: 36)
                         .background(ColorTokens.primarySoft)
@@ -3096,7 +3096,7 @@ struct GroupMemberRow: View {
                     showingRemoveAlert = true
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.inter(14))
+                        .font(.satoshi(14))
                         .foregroundColor(ColorTokens.textMuted)
                         .frame(width: 30, height: 30)
                 }
@@ -3136,7 +3136,7 @@ struct AddMembersToGroupView: View {
                 if availableMembers.isEmpty {
                     VStack(spacing: SpacingTokens.lg) {
                         Image(systemName: "person.badge.plus")
-                            .font(.inter(50))
+                            .font(.satoshi(50))
                             .foregroundColor(ColorTokens.textMuted)
 
                         Text("crew.groups.all_members_added".localized)
@@ -3233,7 +3233,7 @@ struct EditGroupSheet: View {
                             .foregroundColor(ColorTokens.textMuted)
 
                         TextField("crew.groups.name_placeholder".localized, text: $groupName)
-                            .font(.inter(16))
+                            .font(.satoshi(16))
                             .padding(SpacingTokens.md)
                             .background(ColorTokens.surface)
                             .cornerRadius(RadiusTokens.md)
@@ -3259,7 +3259,7 @@ struct EditGroupSheet: View {
                                 Text("common.save".localized)
                             }
                         }
-                        .font(.inter(16, weight: .semibold))
+                        .font(.satoshi(16, weight: .semibold))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
@@ -3350,7 +3350,7 @@ struct GroupMemberDayDetailView: View {
                     // Private or no permission
                     VStack(spacing: SpacingTokens.lg) {
                         Image(systemName: "lock.fill")
-                            .font(.inter(60))
+                            .font(.satoshi(60))
                             .foregroundColor(ColorTokens.textMuted)
 
                         Text("crew.day_not_visible".localized)
@@ -3434,7 +3434,7 @@ struct GroupMemberDayDetailView: View {
                     changeSelectedDate(by: -7)
                 } label: {
                     Image(systemName: "chevron.left")
-                        .font(.inter(14, weight: .medium))
+                        .font(.satoshi(14, weight: .medium))
                         .foregroundColor(ColorTokens.textPrimary)
                         .frame(width: 32, height: 32)
                         .background(ColorTokens.surface)
@@ -3444,7 +3444,7 @@ struct GroupMemberDayDetailView: View {
                 Spacer()
 
                 Text(selectedDate, style: .date)
-                    .font(.inter(14, weight: .medium))
+                    .font(.satoshi(14, weight: .medium))
                     .foregroundColor(ColorTokens.textPrimary)
 
                 Spacer()
@@ -3453,7 +3453,7 @@ struct GroupMemberDayDetailView: View {
                     changeSelectedDate(by: 7)
                 } label: {
                     Image(systemName: "chevron.right")
-                        .font(.inter(14, weight: .medium))
+                        .font(.satoshi(14, weight: .medium))
                         .foregroundColor(selectedDate > today ? ColorTokens.textMuted : ColorTokens.textPrimary)
                         .frame(width: 32, height: 32)
                         .background(ColorTokens.surface)
@@ -3478,11 +3478,11 @@ struct GroupMemberDayDetailView: View {
                     } label: {
                         VStack(spacing: 4) {
                             Text(dayOfWeekLetter(date))
-                                .font(.inter(10, weight: .medium))
+                                .font(.satoshi(10, weight: .medium))
                                 .foregroundColor(isSelected ? .white : ColorTokens.textMuted)
 
                             Text("\(calendar.component(.day, from: date))")
-                                .font(.inter(14, weight: isSelected ? .bold : .medium))
+                                .font(.satoshi(14, weight: isSelected ? .bold : .medium))
                                 .foregroundColor(isSelected ? .white : (isFuture ? ColorTokens.textMuted : ColorTokens.textPrimary))
                         }
                         .frame(width: 40, height: 50)
@@ -3521,7 +3521,7 @@ struct GroupMemberDayDetailView: View {
             // Daily schedule header
             HStack {
                 Text("📅")
-                    .font(.inter(18))
+                    .font(.satoshi(18))
                 Text("crew.member.daily_schedule".localized)
                     .subtitle()
                     .fontWeight(.semibold)
@@ -3573,16 +3573,16 @@ struct GroupMemberDayDetailView: View {
                         // Area icon or lock for private tasks
                         if task.isPrivate == true {
                             Image(systemName: "lock.fill")
-                                .font(.inter(18))
+                                .font(.satoshi(18))
                                 .foregroundColor(ColorTokens.textMuted)
                         } else {
                             Text(task.areaIcon ?? "📋")
-                                .font(.inter(20))
+                                .font(.satoshi(20))
                         }
 
                         VStack(alignment: .leading, spacing: 4) {
                             Text(task.title)
-                                .font(.inter(14, weight: .medium))
+                                .font(.satoshi(14, weight: .medium))
                                 .foregroundColor(task.isPrivate == true ? ColorTokens.textMuted : ColorTokens.textPrimary)
                                 .lineLimit(1)
                                 .italic(task.isPrivate == true)
@@ -3700,7 +3700,7 @@ struct GroupMemberDayDetailView: View {
             ForEach(routines) { routine in
                 HStack(spacing: SpacingTokens.md) {
                     Text(routine.icon ?? "✨")
-                        .font(.inter(18))
+                        .font(.satoshi(18))
 
                     Text(routine.title)
                         .bodyText()
@@ -3711,7 +3711,7 @@ struct GroupMemberDayDetailView: View {
 
                     Image(systemName: routine.completed ? "checkmark.circle.fill" : "circle")
                         .foregroundColor(routine.completed ? ColorTokens.success : ColorTokens.textMuted)
-                        .font(.inter(16))
+                        .font(.satoshi(16))
                 }
                 .padding(SpacingTokens.md)
                 .background(ColorTokens.surface)
@@ -3725,7 +3725,7 @@ struct GroupMemberDayDetailView: View {
         Card {
             VStack(spacing: SpacingTokens.md) {
                 Image(systemName: "calendar.badge.clock")
-                    .font(.inter(40))
+                    .font(.satoshi(40))
                     .foregroundColor(ColorTokens.textMuted)
 
                 Text("crew.member.no_activity".localized)
@@ -3817,7 +3817,7 @@ struct InviteToGroupView: View {
                             Spacer()
                             VStack(spacing: SpacingTokens.lg) {
                                 Image(systemName: "person.badge.plus")
-                                    .font(.inter(50))
+                                    .font(.satoshi(50))
                                     .foregroundColor(ColorTokens.textMuted)
 
                                 Text("crew.groups.no_members_to_invite".localized)
@@ -3956,7 +3956,7 @@ struct InviteUserRow: View {
                     Spacer()
 
                     Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                        .font(.inter(22))
+                        .font(.satoshi(22))
                         .foregroundColor(isSelected ? ColorTokens.primaryStart : ColorTokens.textMuted)
                 }
             }
@@ -3997,7 +3997,7 @@ struct InviteCrewMemberRow: View {
                     Spacer()
 
                     Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                        .font(.inter(22))
+                        .font(.satoshi(22))
                         .foregroundColor(isSelected ? ColorTokens.primaryStart : ColorTokens.textMuted)
                 }
             }
@@ -4022,13 +4022,13 @@ struct RoutineLikeButton: View {
         }) {
             HStack(spacing: 4) {
                 Text(isLiked ? "❤️" : "🤍")
-                    .font(.inter(16))
+                    .font(.satoshi(16))
                     .scaleEffect(isLiked ? 1.1 : 1.0)
                     .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isLiked)
 
                 if likeCount > 0 {
                     Text("\(likeCount)")
-                        .font(.inter(12, weight: .medium))
+                        .font(.satoshi(12, weight: .medium))
                         .foregroundColor(isLiked ? ColorTokens.primaryStart : ColorTokens.textMuted)
                 }
             }
@@ -4072,7 +4072,7 @@ struct GroupRoutineRow: View {
         HStack(spacing: SpacingTokens.md) {
             // Icon
             Text(routine.icon ?? "🔄")
-                .font(.inter(20))
+                .font(.satoshi(20))
                 .frame(width: 36, height: 36)
                 .background(isCompletedByMe ? ColorTokens.success.opacity(0.15) : ColorTokens.primarySoft)
                 .cornerRadius(RadiusTokens.sm)
@@ -4080,13 +4080,13 @@ struct GroupRoutineRow: View {
             // Title (with strikethrough if completed by me)
             VStack(alignment: .leading, spacing: 2) {
                 Text(routine.title)
-                    .font(.inter(14, weight: isCompletedByMe ? .medium : .semibold))
+                    .font(.satoshi(14, weight: isCompletedByMe ? .medium : .semibold))
                     .foregroundColor(isCompletedByMe ? ColorTokens.textMuted : ColorTokens.textPrimary)
                     .strikethrough(isCompletedByMe, color: ColorTokens.textMuted)
 
                 if let time = routine.scheduledTime {
                     Text(time)
-                        .font(.inter(11))
+                        .font(.satoshi(11))
                         .foregroundColor(ColorTokens.textMuted)
                 }
             }
@@ -4109,7 +4109,7 @@ struct GroupRoutineRow: View {
                 // Show +N if more than 4
                 if completedMembers.count > 4 {
                     Text("+\(completedMembers.count - 4)")
-                        .font(.inter(10, weight: .bold))
+                        .font(.satoshi(10, weight: .bold))
                         .foregroundColor(ColorTokens.textPrimary)
                         .frame(width: 24, height: 24)
                         .background(ColorTokens.surfaceElevated)
@@ -4190,19 +4190,19 @@ struct GroupRoutineDetailRow: View {
             VStack(spacing: SpacingTokens.sm) {
                 HStack(spacing: SpacingTokens.md) {
                     Text(routine.icon ?? "🔄")
-                        .font(.inter(24))
+                        .font(.satoshi(24))
                         .frame(width: 40, height: 40)
                         .background(ColorTokens.primarySoft)
                         .cornerRadius(RadiusTokens.sm)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(routine.title)
-                            .font(.inter(14, weight: .semibold))
+                            .font(.satoshi(14, weight: .semibold))
                             .foregroundColor(ColorTokens.textPrimary)
 
                         if let time = routine.scheduledTime {
                             Text(time)
-                                .font(.inter(12))
+                                .font(.satoshi(12))
                                 .foregroundColor(ColorTokens.textMuted)
                         }
                     }
@@ -4211,11 +4211,11 @@ struct GroupRoutineDetailRow: View {
 
                     VStack(alignment: .trailing, spacing: 2) {
                         Text("\(routine.safeCompletionCount)/\(routine.safeTotalMembers)")
-                            .font(.inter(14, weight: .semibold))
+                            .font(.satoshi(14, weight: .semibold))
                             .foregroundColor(routine.safeCompletionCount == routine.safeTotalMembers ? ColorTokens.success : ColorTokens.textSecondary)
 
                         Text("fait")
-                            .font(.inter(10))
+                            .font(.satoshi(10))
                             .foregroundColor(ColorTokens.textMuted)
                     }
 
@@ -4260,18 +4260,18 @@ struct GroupRoutineDetailRow: View {
                                 )
 
                                 Text(member.displayName)
-                                    .font(.inter(13))
+                                    .font(.satoshi(13))
                                     .foregroundColor(ColorTokens.textPrimary)
 
                                 Spacer()
 
                                 if member.completed {
                                     Image(systemName: "checkmark.circle.fill")
-                                        .font(.inter(18))
+                                        .font(.satoshi(18))
                                         .foregroundColor(ColorTokens.success)
                                 } else {
                                     Image(systemName: "circle")
-                                        .font(.inter(18))
+                                        .font(.satoshi(18))
                                         .foregroundColor(ColorTokens.textMuted)
                                 }
                             }
@@ -4282,10 +4282,10 @@ struct GroupRoutineDetailRow: View {
                     if let sharer = routine.sharedBy {
                         HStack {
                             Text("crew.groups.shared_by".localized)
-                                .font(.inter(11))
+                                .font(.satoshi(11))
                                 .foregroundColor(ColorTokens.textMuted)
                             Text(sharer.displayName)
-                                .font(.inter(11, weight: .medium))
+                                .font(.satoshi(11, weight: .medium))
                                 .foregroundColor(ColorTokens.textSecondary)
                             Spacer()
 
@@ -4293,7 +4293,7 @@ struct GroupRoutineDetailRow: View {
                             if sharer.id == currentUserId {
                                 Button(action: onRemove) {
                                     Text("common.remove".localized)
-                                        .font(.inter(11))
+                                        .font(.satoshi(11))
                                         .foregroundColor(ColorTokens.error)
                                 }
                             }
@@ -4394,7 +4394,7 @@ struct ShareRoutineSheet: View {
     private var emptyStateView: some View {
         VStack(spacing: SpacingTokens.lg) {
             Image(systemName: "sparkles")
-                .font(.inter(50))
+                .font(.satoshi(50))
                 .foregroundColor(ColorTokens.primaryStart)
 
             Text("Aucune routine")
@@ -4417,7 +4417,7 @@ struct ShareRoutineSheet: View {
     private var allSharedStateView: some View {
         VStack(spacing: SpacingTokens.lg) {
             Image(systemName: "checkmark.circle")
-                .font(.inter(50))
+                .font(.satoshi(50))
                 .foregroundColor(ColorTokens.success)
 
             Text("crew.groups.all_shared".localized)
@@ -4430,7 +4430,7 @@ struct ShareRoutineSheet: View {
                     Image(systemName: "plus.circle")
                     Text("Créer une nouvelle routine")
                 }
-                .font(.inter(14, weight: .medium))
+                .font(.satoshi(14, weight: .medium))
                 .foregroundColor(ColorTokens.primaryStart)
             }
             .padding(.top, SpacingTokens.md)
@@ -4443,7 +4443,7 @@ struct ShareRoutineSheet: View {
                 createNewRoutineButton
 
                 Text("Ou sélectionne une routine existante")
-                    .font(.inter(12))
+                    .font(.satoshi(12))
                     .foregroundColor(ColorTokens.textMuted)
                     .padding(.vertical, SpacingTokens.sm)
 
@@ -4464,12 +4464,12 @@ struct ShareRoutineSheet: View {
                         .frame(width: 44, height: 44)
 
                     Image(systemName: "plus")
-                        .font(.inter(20, weight: .medium))
+                        .font(.satoshi(20, weight: .medium))
                         .foregroundColor(ColorTokens.primaryStart)
                 }
 
                 Text("Créer une nouvelle routine")
-                    .font(.inter(14, weight: .medium))
+                    .font(.satoshi(14, weight: .medium))
                     .foregroundColor(ColorTokens.primaryStart)
 
                 Spacer()
@@ -4488,25 +4488,25 @@ struct ShareRoutineSheet: View {
             Card {
                 HStack(spacing: SpacingTokens.md) {
                     Text(routine.icon ?? "🔄")
-                        .font(.inter(24))
+                        .font(.satoshi(24))
                         .frame(width: 44, height: 44)
                         .background(ColorTokens.primarySoft)
                         .cornerRadius(RadiusTokens.sm)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(routine.title)
-                            .font(.inter(14, weight: .semibold))
+                            .font(.satoshi(14, weight: .semibold))
                             .foregroundColor(ColorTokens.textPrimary)
 
                         Text(routine.frequency)
-                            .font(.inter(12))
+                            .font(.satoshi(12))
                             .foregroundColor(ColorTokens.textMuted)
                     }
 
                     Spacer()
 
                     Image(systemName: selectedRoutineId == routine.id ? "checkmark.circle.fill" : "circle")
-                        .font(.inter(22))
+                        .font(.satoshi(22))
                         .foregroundColor(selectedRoutineId == routine.id ? ColorTokens.primaryStart : ColorTokens.textMuted)
                 }
                 .padding(SpacingTokens.sm)

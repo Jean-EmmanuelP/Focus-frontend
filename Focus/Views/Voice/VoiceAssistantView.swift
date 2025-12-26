@@ -40,7 +40,7 @@ struct VoiceAssistantView: View {
                 HStack {
                     Button(action: { dismiss() }) {
                         Image(systemName: "xmark")
-                            .font(.inter(18, weight: .medium))
+                            .font(.satoshi(18, weight: .medium))
                             .foregroundColor(ColorTokens.textSecondary)
                             .frame(width: 44, height: 44)
                             .background(Color.white.opacity(0.1))
@@ -60,7 +60,7 @@ struct VoiceAssistantView: View {
                 // Current text display
                 if let text = viewModel.currentDisplayText {
                     Text(text)
-                        .font(.inter(18, weight: .medium))
+                        .font(.satoshi(18, weight: .medium))
                         .foregroundColor(ColorTokens.textPrimary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 32)
@@ -74,7 +74,7 @@ struct VoiceAssistantView: View {
                 VStack(spacing: 16) {
                     if viewModel.isRecording && !viewModel.transcribedText.isEmpty {
                         Text(viewModel.transcribedText)
-                            .font(.inter(16))
+                            .font(.satoshi(16))
                             .foregroundColor(ColorTokens.textSecondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 32)
@@ -89,7 +89,7 @@ struct VoiceAssistantView: View {
                             .frame(width: 8, height: 8)
 
                         Text(statusText)
-                            .font(.inter(14))
+                            .font(.satoshi(14))
                             .foregroundColor(ColorTokens.textMuted)
                     }
                     .padding(.bottom, 40)

@@ -120,7 +120,7 @@ struct JournalRecorderView: View {
                         Image(systemName: mode.icon)
                             .font(.system(size: 14, weight: .medium))
                         Text(mode.label)
-                            .font(.inter(14, weight: .medium))
+                            .font(.satoshi(14, weight: .medium))
                     }
                     .foregroundColor(recordingMode == mode ? .white : ColorTokens.textSecondary)
                     .padding(.horizontal, SpacingTokens.lg)
