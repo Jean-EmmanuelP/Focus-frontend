@@ -376,6 +376,17 @@ enum APIConfiguration {
         case generateWeeklyBilan
         case generateMonthlyBilan
 
+        // Motivation - Notification phrases
+        case motivationMorning(lang: String)
+        case motivationTask(lang: String, taskName: String)
+
+        // Push Notifications (FCM)
+        case registerFCMToken
+        case unregisterFCMToken
+        case trackNotification
+        case notificationPreferences
+        case updateNotificationPreferences
+
         var path: String {
             switch self {
             // Health
@@ -694,6 +705,23 @@ enum APIConfiguration {
                 return "/journal/bilans/weekly"
             case .generateMonthlyBilan:
                 return "/journal/bilans/monthly"
+
+            // Motivation
+            case .motivationMorning(let lang):
+                return "/motivation/morning?lang=\(lang)"
+            case .motivationTask(let lang, let taskName):
+                let encodedTaskName = taskName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? taskName
+                return "/motivation/task?lang=\(lang)&task_name=\(encodedTaskName)"
+
+            // Push Notifications
+            case .registerFCMToken:
+                return "/notifications/token"
+            case .unregisterFCMToken:
+                return "/notifications/token/unregister"
+            case .trackNotification:
+                return "/notifications/track"
+            case .notificationPreferences, .updateNotificationPreferences:
+                return "/notifications/preferences"
             }
         }
 

@@ -8,15 +8,21 @@
 import SwiftUI
 import GoogleSignIn
 import RevenueCat
+import UserNotifications
+import FirebaseCore
+import FirebaseMessaging
+import FirebaseAnalytics
 
 @main
 struct FocusApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var store = FocusAppStore.shared
     @StateObject private var router = AppRouter.shared
     @ObservedObject private var revenueCatManager = RevenueCatManager.shared
     @StateObject private var updateService = AppUpdateService.shared
     @State private var appState: AppLaunchState = .splash
     @State private var showUpdateSheet = false
+    @Environment(\.scenePhase) private var scenePhase
 
     init() {
         // Configure RevenueCat on app launch
@@ -98,6 +104,14 @@ struct FocusApp: App {
                 UpdateAvailableSheet(updateService: updateService)
                     .presentationDetents([.medium])
             }
+            .onChange(of: scenePhase) { oldPhase, newPhase in
+                if newPhase == .active && store.isAuthenticated {
+                    // Refresh morning notifications with new phrases when app becomes active
+                    Task {
+                        await NotificationService.shared.scheduleMorningNotification()
+                    }
+                }
+            }
             // Note: Onboarding status is checked in FocusAppStore.handleAuthServiceUpdate()
         }
     }
@@ -146,8 +160,112 @@ struct FocusApp: App {
         case "endofday":
             router.navigateToEndOfDay()
 
+        case "calendar":
+            router.navigateToCalendar()
+
         default:
             break
         }
+    }
+}
+
+// MARK: - App Delegate for Notifications & Firebase
+
+class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
+
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        // Configure Firebase
+        FirebaseApp.configure()
+
+        // Set up notification delegate
+        UNUserNotificationCenter.current().delegate = self
+
+        // Set up Firebase Messaging delegate
+        Messaging.messaging().delegate = self
+
+        // Register for remote notifications
+        application.registerForRemoteNotifications()
+
+        // Log app open event for analytics
+        Analytics.logEvent(AnalyticsEventAppOpen, parameters: nil)
+
+        return true
+    }
+
+    // MARK: - APNs Token Registration
+
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        // Pass device token to Firebase
+        Messaging.messaging().apnsToken = deviceToken
+        print("📱 APNs token registered")
+    }
+
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        print("❌ Failed to register for remote notifications: \(error)")
+    }
+
+    // MARK: - Firebase Messaging Delegate
+
+    func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
+        guard let token = fcmToken else { return }
+        print("🔥 FCM Token: \(token)")
+
+        // Send token to backend
+        Task {
+            await PushNotificationService.shared.registerFCMToken(token)
+        }
+    }
+
+    // MARK: - Notification Presentation (Foreground)
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        let userInfo = notification.request.content.userInfo
+
+        // Log notification received event
+        Analytics.logEvent("notification_received_foreground", parameters: [
+            "notification_id": userInfo["notification_id"] as? String ?? "unknown"
+        ])
+
+        // Show notification even when app is in foreground
+        completionHandler([.banner, .sound, .badge])
+    }
+
+    // MARK: - Notification Tap Handler
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        let userInfo = response.notification.request.content.userInfo
+
+        // Log notification opened event
+        let notificationId = userInfo["notification_id"] as? String ?? "unknown"
+        let notificationType = userInfo["type"] as? String ?? "unknown"
+
+        Analytics.logEvent("notification_opened", parameters: [
+            "notification_id": notificationId,
+            "notification_type": notificationType
+        ])
+
+        // Track in our backend
+        Task {
+            await PushNotificationService.shared.trackNotificationOpened(notificationId: notificationId)
+        }
+
+        // Handle deep link
+        if let deepLink = userInfo["deepLink"] as? String,
+           let url = URL(string: deepLink) {
+            DispatchQueue.main.async {
+                UIApplication.shared.open(url)
+            }
+        }
+
+        completionHandler()
+    }
+
+    // MARK: - Handle Remote Notification (Background/Terminated)
+
+    func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+        // Handle silent push or data-only notification
+        print("📬 Received remote notification: \(userInfo)")
+
+        completionHandler(.newData)
     }
 }

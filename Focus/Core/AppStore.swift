@@ -176,6 +176,9 @@ final class FocusAppStore: ObservableObject {
             await RevenueCatManager.shared.configureWithUser(userId: userId)
         }
 
+        // Register FCM token for push notifications
+        await PushNotificationService.shared.registerTokenAfterLogin()
+
         // Check onboarding status from cache/API (await - blocks until done)
         await checkOnboardingStatus()
 
