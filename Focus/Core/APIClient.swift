@@ -387,6 +387,13 @@ enum APIConfiguration {
         case notificationPreferences
         case updateNotificationPreferences
 
+        // Referral / Parrainage
+        case referralStats
+        case referralList
+        case referralEarnings
+        case referralApply
+        case referralActivate
+
         var path: String {
             switch self {
             // Health
@@ -722,6 +729,18 @@ enum APIConfiguration {
                 return "/notifications/track"
             case .notificationPreferences, .updateNotificationPreferences:
                 return "/notifications/preferences"
+
+            // Referral / Parrainage
+            case .referralStats:
+                return "/referral/stats"
+            case .referralList:
+                return "/referral/list"
+            case .referralEarnings:
+                return "/referral/earnings"
+            case .referralApply:
+                return "/referral/apply"
+            case .referralActivate:
+                return "/referral/activate"
             }
         }
 

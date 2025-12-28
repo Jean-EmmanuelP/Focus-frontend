@@ -179,6 +179,9 @@ final class FocusAppStore: ObservableObject {
         // Register FCM token for push notifications
         await PushNotificationService.shared.registerTokenAfterLogin()
 
+        // Apply pending referral code if user came from a referral link
+        await ReferralService.shared.applyPendingCodeIfNeeded()
+
         // Check onboarding status from cache/API (await - blocks until done)
         await checkOnboardingStatus()
 

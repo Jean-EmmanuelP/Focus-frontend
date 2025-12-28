@@ -21,6 +21,8 @@ struct SettingsView: View {
     @State private var showTutorial = false
     @State private var showGoogleCalendar = false
     @State private var showAppBlocker = false
+    @State private var showNotifications = false
+    @State private var showReferral = false
     @State private var selectedVisibility: DayVisibility = .crewOnly
     @State private var isUpdatingVisibility = false
     @State private var selectedProductivityPeak: ProductivityPeak?
@@ -35,6 +37,10 @@ struct SettingsView: View {
                 VStack(spacing: SpacingTokens.lg) {
                     // Profile Header
                     profileHeader
+
+                    // Referral Banner (Prominent)
+                    referralBanner
+                        .padding(.horizontal, SpacingTokens.lg)
 
                     // Menu Items
                     VStack(spacing: SpacingTokens.sm) {
@@ -81,6 +87,15 @@ struct SettingsView: View {
                             subtitle: "Bloquer les apps pendant le Focus"
                         ) {
                             showAppBlocker = true
+                        }
+
+                        // Notifications
+                        SettingsMenuItem(
+                            icon: "🔔",
+                            title: "Notifications",
+                            subtitle: "Rappels matinaux et de taches"
+                        ) {
+                            showNotifications = true
                         }
 
                         // Day Visibility
@@ -172,6 +187,12 @@ struct SettingsView: View {
             .navigationDestination(isPresented: $showAppBlocker) {
                 AppBlockerSettingsView()
             }
+            .navigationDestination(isPresented: $showNotifications) {
+                NotificationSettingsView()
+            }
+            .navigationDestination(isPresented: $showReferral) {
+                ReferralView()
+            }
             .sheet(isPresented: $showTutorial) {
                 TutorialVideoView()
             }
@@ -249,6 +270,63 @@ struct SettingsView: View {
         .onAppear {
             updateSelectedVisibilityFromStore()
             updateSelectedProductivityFromStore()
+        }
+    }
+
+    // MARK: - Referral Banner
+    private var referralBanner: some View {
+        Button {
+            showReferral = true
+        } label: {
+            HStack(spacing: SpacingTokens.md) {
+                // Gift icon with gradient background
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [ColorTokens.primaryStart, ColorTokens.primaryEnd],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 48, height: 48)
+
+                    Text("🎁")
+                        .font(.system(size: 24))
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Parraine tes amis")
+                        .font(.satoshi(16, weight: .bold))
+                        .foregroundColor(ColorTokens.textPrimary)
+
+                    Text("Gagne 20% chaque mois !")
+                        .font(.satoshi(13))
+                        .foregroundColor(ColorTokens.primaryStart)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.satoshi(14, weight: .medium))
+                    .foregroundColor(ColorTokens.primaryStart)
+            }
+            .padding(SpacingTokens.md)
+            .background(
+                RoundedRectangle(cornerRadius: RadiusTokens.lg)
+                    .fill(ColorTokens.surface)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: RadiusTokens.lg)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [ColorTokens.primaryStart.opacity(0.5), ColorTokens.primaryEnd.opacity(0.5)],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                ),
+                                lineWidth: 1.5
+                            )
+                    )
+            )
         }
     }
 
