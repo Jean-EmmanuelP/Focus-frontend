@@ -1026,6 +1026,7 @@ struct FeaturesRecapStepView: View {
     @State private var referralCode = ""
     @State private var isValidatingCode = false
     @State private var codeValidationResult: CodeValidationResult?
+    @State private var hasCodeFromDeepLink = false
     @FocusState private var isCodeFieldFocused: Bool
 
     enum CodeValidationResult {
@@ -1097,14 +1098,16 @@ struct FeaturesRecapStepView: View {
 
                 Spacer()
 
-                // Referral Code Section
-                referralCodeSection
-                    .padding(.horizontal, SpacingTokens.xl)
-                    .padding(.bottom, SpacingTokens.md)
+                // Referral Code Section (only if NOT from deep link)
+                if !hasCodeFromDeepLink {
+                    referralCodeSection
+                        .padding(.horizontal, SpacingTokens.xl)
+                        .padding(.bottom, SpacingTokens.md)
+                }
 
                 // CTA
                 Button(action: {
-                    // Store the referral code if valid
+                    // Store the referral code if valid (manual entry)
                     if !referralCode.isEmpty && codeValidationResult == .valid {
                         ReferralService.shared.storePendingCode(referralCode.uppercased())
                     }
@@ -1135,15 +1138,15 @@ struct FeaturesRecapStepView: View {
         }
         .onAppear {
             // Check if there's a pending code from deep link
-            if let pendingCode = ReferralService.shared.pendingReferralCode {
+            if let pendingCode = ReferralService.shared.pendingReferralCode, !pendingCode.isEmpty {
+                hasCodeFromDeepLink = true
                 referralCode = pendingCode
-                showReferralField = true
-                validateCode()
+                // Code is already stored, no need to show input
             }
         }
     }
 
-    // MARK: - Referral Code Section
+    // MARK: - Referral Code Section (only for manual entry)
     @ViewBuilder
     private var referralCodeSection: some View {
         VStack(spacing: SpacingTokens.sm) {
@@ -1325,6 +1328,12 @@ struct PaywallStepView: View {
                             fallbackPlansSection
                         }
 
+                        // MARK: - Referral Thank You (if from referral)
+                        if let referralCode = ReferralService.shared.pendingReferralCode, !referralCode.isEmpty {
+                            referralThankYouSection(code: referralCode)
+                                .padding(.top, SpacingTokens.md)
+                        }
+
                         Spacer().frame(height: SpacingTokens.lg)
 
                         // MARK: - CTA
@@ -1479,6 +1488,52 @@ struct PaywallStepView: View {
         .padding(SpacingTokens.md)
         .background(Color.white.opacity(0.05))
         .cornerRadius(RadiusTokens.md)
+    }
+
+    // MARK: - Referral Thank You
+    private func referralThankYouSection(code: String) -> some View {
+        HStack(spacing: SpacingTokens.md) {
+            // Gift icon
+            ZStack {
+                Circle()
+                    .fill(Color(hex: "#FFD700").opacity(0.2))
+                    .frame(width: 44, height: 44)
+
+                Text("🎁")
+                    .font(.system(size: 22))
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Invite par un ami")
+                    .font(.satoshi(14, weight: .bold))
+                    .foregroundColor(.white)
+
+                Text("Merci a ton parrain pour la confiance !")
+                    .font(.satoshi(12))
+                    .foregroundColor(.white.opacity(0.7))
+            }
+
+            Spacer()
+
+            // Code badge
+            Text(code)
+                .font(.satoshi(11, weight: .bold))
+                .foregroundColor(Color(hex: "#FFD700"))
+                .padding(.horizontal, SpacingTokens.sm)
+                .padding(.vertical, 4)
+                .background(Color(hex: "#FFD700").opacity(0.15))
+                .cornerRadius(RadiusTokens.sm)
+        }
+        .padding(SpacingTokens.md)
+        .background(
+            RoundedRectangle(cornerRadius: RadiusTokens.lg)
+                .fill(Color.white.opacity(0.05))
+                .overlay(
+                    RoundedRectangle(cornerRadius: RadiusTokens.lg)
+                        .stroke(Color(hex: "#FFD700").opacity(0.3), lineWidth: 1)
+                )
+        )
+        .padding(.horizontal, SpacingTokens.xl)
     }
 
     // MARK: - Loading
