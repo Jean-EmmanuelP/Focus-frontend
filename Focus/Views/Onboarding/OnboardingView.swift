@@ -1022,6 +1022,17 @@ struct ReviewCard: View {
 // MARK: - Features Recap Step
 struct FeaturesRecapStepView: View {
     @ObservedObject var viewModel: OnboardingViewModel
+    @State private var showReferralField = false
+    @State private var referralCode = ""
+    @State private var isValidatingCode = false
+    @State private var codeValidationResult: CodeValidationResult?
+    @FocusState private var isCodeFieldFocused: Bool
+
+    enum CodeValidationResult {
+        case valid
+        case invalid
+        case alreadyUsed
+    }
 
     private let features: [(emoji: String, title: String, desc: String)] = [
         ("🔥", "FireMode", "Sessions de deep work chronometrees"),
@@ -1038,46 +1049,46 @@ struct FeaturesRecapStepView: View {
 
             VStack(spacing: 0) {
                 Spacer()
-                    .frame(height: isSmallScreen ? SpacingTokens.lg : SpacingTokens.xl)
+                    .frame(height: isSmallScreen ? SpacingTokens.md : SpacingTokens.lg)
 
                 // Header
                 VStack(spacing: SpacingTokens.sm) {
                     Text("🚀")
-                        .font(.system(size: isSmallScreen ? 50 : 60))
+                        .font(.system(size: isSmallScreen ? 44 : 54))
 
                     Text("Tout ce dont tu as besoin")
-                        .font(.satoshi(isSmallScreen ? 24 : 28, weight: .bold))
+                        .font(.satoshi(isSmallScreen ? 22 : 26, weight: .bold))
                         .foregroundColor(.white)
                         .multilineTextAlignment(.center)
 
                     Text("Pour enfin atteindre tes objectifs")
-                        .bodyText()
+                        .font(.satoshi(isSmallScreen ? 14 : 16))
                         .foregroundColor(.white.opacity(0.7))
                 }
 
                 Spacer()
-                    .frame(height: SpacingTokens.xl)
+                    .frame(height: isSmallScreen ? SpacingTokens.md : SpacingTokens.lg)
 
                 // Features grid
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: SpacingTokens.md) {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: SpacingTokens.sm) {
                     ForEach(features, id: \.title) { feature in
                         VStack(spacing: SpacingTokens.xs) {
                             Text(feature.emoji)
-                                .font(.system(size: 32))
+                                .font(.system(size: isSmallScreen ? 26 : 30))
 
                             Text(feature.title)
-                                .font(.satoshi(14, weight: .bold))
+                                .font(.satoshi(isSmallScreen ? 12 : 14, weight: .bold))
                                 .foregroundColor(.white)
 
                             Text(feature.desc)
-                                .font(.satoshi(11))
+                                .font(.satoshi(isSmallScreen ? 9 : 10))
                                 .foregroundColor(.white.opacity(0.6))
                                 .multilineTextAlignment(.center)
                                 .lineLimit(2)
                         }
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, SpacingTokens.md)
-                        .padding(.horizontal, SpacingTokens.sm)
+                        .padding(.vertical, isSmallScreen ? SpacingTokens.sm : SpacingTokens.md)
+                        .padding(.horizontal, SpacingTokens.xs)
                         .background(Color.white.opacity(0.1))
                         .cornerRadius(RadiusTokens.md)
                     }
@@ -1086,8 +1097,17 @@ struct FeaturesRecapStepView: View {
 
                 Spacer()
 
+                // Referral Code Section
+                referralCodeSection
+                    .padding(.horizontal, SpacingTokens.xl)
+                    .padding(.bottom, SpacingTokens.md)
+
                 // CTA
                 Button(action: {
+                    // Store the referral code if valid
+                    if !referralCode.isEmpty && codeValidationResult == .valid {
+                        ReferralService.shared.storePendingCode(referralCode.uppercased())
+                    }
                     viewModel.nextStep()
                     HapticFeedback.medium()
                 }) {
@@ -1112,6 +1132,146 @@ struct FeaturesRecapStepView: View {
                 .padding(.horizontal, SpacingTokens.xl)
                 .padding(.bottom, geometry.safeAreaInsets.bottom > 0 ? SpacingTokens.md : SpacingTokens.xl)
             }
+        }
+        .onAppear {
+            // Check if there's a pending code from deep link
+            if let pendingCode = ReferralService.shared.pendingReferralCode {
+                referralCode = pendingCode
+                showReferralField = true
+                validateCode()
+            }
+        }
+    }
+
+    // MARK: - Referral Code Section
+    @ViewBuilder
+    private var referralCodeSection: some View {
+        VStack(spacing: SpacingTokens.sm) {
+            if showReferralField {
+                // Code input field
+                HStack(spacing: SpacingTokens.sm) {
+                    HStack {
+                        Image(systemName: "ticket.fill")
+                            .foregroundColor(.white.opacity(0.5))
+                            .font(.system(size: 14))
+
+                        TextField("", text: $referralCode, prompt: Text("CODE-PARRAIN").foregroundColor(.white.opacity(0.3)))
+                            .font(.satoshi(16, weight: .semibold))
+                            .foregroundColor(.white)
+                            .textInputAutocapitalization(.characters)
+                            .autocorrectionDisabled()
+                            .focused($isCodeFieldFocused)
+                            .onChange(of: referralCode) { _, newValue in
+                                // Reset validation when code changes
+                                if codeValidationResult != nil {
+                                    codeValidationResult = nil
+                                }
+                            }
+                            .onSubmit {
+                                validateCode()
+                            }
+
+                        // Validation indicator
+                        if isValidatingCode {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .scaleEffect(0.7)
+                        } else if let result = codeValidationResult {
+                            Image(systemName: result == .valid ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                .foregroundColor(result == .valid ? .green : .red)
+                        }
+                    }
+                    .padding(.horizontal, SpacingTokens.md)
+                    .padding(.vertical, SpacingTokens.sm + 2)
+                    .background(Color.white.opacity(0.1))
+                    .cornerRadius(RadiusTokens.md)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: RadiusTokens.md)
+                            .stroke(
+                                codeValidationResult == .valid ? Color.green.opacity(0.5) :
+                                codeValidationResult == .invalid ? Color.red.opacity(0.5) :
+                                Color.white.opacity(0.2),
+                                lineWidth: 1
+                            )
+                    )
+
+                    // Validate button
+                    Button(action: validateCode) {
+                        Text("OK")
+                            .font(.satoshi(14, weight: .bold))
+                            .foregroundColor(.black)
+                            .padding(.horizontal, SpacingTokens.md)
+                            .padding(.vertical, SpacingTokens.sm + 2)
+                            .background(Color.white)
+                            .cornerRadius(RadiusTokens.md)
+                    }
+                    .disabled(referralCode.isEmpty || isValidatingCode)
+                    .opacity(referralCode.isEmpty ? 0.5 : 1)
+                }
+
+                // Validation message
+                if let result = codeValidationResult {
+                    HStack(spacing: SpacingTokens.xs) {
+                        Image(systemName: result == .valid ? "checkmark.circle" : "info.circle")
+                            .font(.system(size: 12))
+                        Text(validationMessage(for: result))
+                            .font(.satoshi(12))
+                    }
+                    .foregroundColor(result == .valid ? .green : .red.opacity(0.8))
+                }
+            } else {
+                // Toggle button to show referral field
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showReferralField = true
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        isCodeFieldFocused = true
+                    }
+                }) {
+                    HStack(spacing: SpacingTokens.xs) {
+                        Image(systemName: "gift.fill")
+                            .font(.system(size: 14))
+                        Text("J'ai un code parrain")
+                            .font(.satoshi(14, weight: .medium))
+                    }
+                    .foregroundColor(Color(hex: "#FFD700"))
+                    .padding(.vertical, SpacingTokens.sm)
+                }
+            }
+        }
+    }
+
+    private func validateCode() {
+        guard !referralCode.isEmpty else { return }
+
+        isValidatingCode = true
+        isCodeFieldFocused = false
+
+        Task {
+            let isValid = await ReferralService.shared.validateCode(referralCode.uppercased())
+
+            await MainActor.run {
+                isValidatingCode = false
+                codeValidationResult = isValid ? .valid : .invalid
+
+                if isValid {
+                    HapticFeedback.success()
+                } else {
+                    HapticFeedback.error()
+                }
+            }
+        }
+    }
+
+    private func validationMessage(for result: CodeValidationResult) -> String {
+        switch result {
+        case .valid:
+            return "Code valide ! Tu seras lie a ton parrain."
+        case .invalid:
+            return "Code invalide. Verifie l'orthographe."
+        case .alreadyUsed:
+            return "Tu as deja un parrain."
         }
     }
 }
