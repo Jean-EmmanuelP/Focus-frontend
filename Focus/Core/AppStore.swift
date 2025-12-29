@@ -10,9 +10,7 @@ final class FocusAppStore: ObservableObject {
     // MARK: - Authentication State
     @Published var isAuthenticated = false
     @Published var authUserId: String?
-    // TEMPORARY: Skip onboarding for all users (onboarding has bugs)
-    // Change back to `false` when onboarding is fixed
-    @Published var hasCompletedOnboarding = true
+    @Published var hasCompletedOnboarding = false
     @Published var isCheckingOnboarding = false
     private var hasLoadedInitialData = false
     private var isCurrentlyLoadingData = false  // Prevents concurrent loads
@@ -260,16 +258,7 @@ final class FocusAppStore: ObservableObject {
 
     // MARK: - Onboarding
     /// Check onboarding status - first from local cache, then from backend
-    /// TEMPORARY: Onboarding is disabled, always mark as completed
     func checkOnboardingStatus() async {
-        // TEMPORARY: Skip onboarding entirely (onboarding has bugs)
-        // Remove this block and uncomment the code below when onboarding is fixed
-        hasCompletedOnboarding = true
-        isCheckingOnboarding = false
-        print("📋 Onboarding DISABLED - skipping for all users")
-        return
-
-        /* ORIGINAL CODE - Uncomment when onboarding is fixed:
         isCheckingOnboarding = true
 
         // 1. Check local cache first (for same user)
@@ -313,7 +302,6 @@ final class FocusAppStore: ObservableObject {
             }
         }
         isCheckingOnboarding = false
-        */
     }
 
     /// Mark onboarding as completed and load initial data
