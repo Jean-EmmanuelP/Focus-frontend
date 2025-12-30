@@ -188,6 +188,13 @@ final class RevenueCatManager: ObservableObject {
                 self.customerInfo = result.customerInfo
                 updateSubscriptionState(from: result.customerInfo)
                 print("✅ Purchase successful!")
+
+                // Activate referral if user was referred (apply + activate)
+                Task {
+                    await ReferralService.shared.applyPendingCodeIfNeeded()
+                    await ReferralService.shared.activateReferral()
+                }
+
                 return true
             } else {
                 print("ℹ️ Purchase cancelled by user")
