@@ -2,6 +2,7 @@ import Foundation
 import Combine
 
 // MARK: - Referral Models
+// Note: APIClient uses .convertFromSnakeCase, so no CodingKeys needed
 
 struct ReferralStats: Codable {
     let code: String
@@ -11,16 +12,6 @@ struct ReferralStats: Codable {
     let totalEarned: Double
     let currentBalance: Double
     let commissionRate: Double
-
-    enum CodingKeys: String, CodingKey {
-        case code
-        case shareLink = "share_link"
-        case totalReferrals = "total_referrals"
-        case activeReferrals = "active_referrals"
-        case totalEarned = "total_earned"
-        case currentBalance = "current_balance"
-        case commissionRate = "commission_rate"
-    }
 
     var commissionPercentage: Int {
         Int(commissionRate * 100)
@@ -43,15 +34,6 @@ struct ReferralItem: Codable, Identifiable {
     let referredAt: String
     let activatedAt: String?
 
-    enum CodingKeys: String, CodingKey {
-        case id
-        case referredName = "referred_name"
-        case referredAvatar = "referred_avatar"
-        case status
-        case referredAt = "referred_at"
-        case activatedAt = "activated_at"
-    }
-
     var statusEmoji: String {
         switch status {
         case "active": return "✅"
@@ -63,9 +45,9 @@ struct ReferralItem: Codable, Identifiable {
 
     var statusText: String {
         switch status {
-        case "active": return "Abonne"
+        case "active": return "Abonné"
         case "pending": return "En attente"
-        case "churned": return "Desabonne"
+        case "churned": return "Désabonné"
         default: return status
         }
     }
@@ -78,14 +60,6 @@ struct ReferralEarning: Codable, Identifiable {
     let subscriptionAmount: Double
     let commissionAmount: Double
     let status: String
-
-    enum CodingKeys: String, CodingKey {
-        case month
-        case referredName = "referred_name"
-        case subscriptionAmount = "subscription_amount"
-        case commissionAmount = "commission_amount"
-        case status
-    }
 
     var formattedCommission: String {
         String(format: "%.2f", commissionAmount) + "€"
@@ -107,12 +81,6 @@ struct ApplyCodeResponse: Codable {
     let success: Bool
     let message: String
     let referrerName: String?
-
-    enum CodingKeys: String, CodingKey {
-        case success
-        case message
-        case referrerName = "referrer_name"
-    }
 }
 
 struct ValidateCodeResponse: Codable {
@@ -163,13 +131,15 @@ class ReferralService: ObservableObject {
 
     func fetchReferrals() async {
         do {
-            let response: [ReferralItem] = try await apiClient.request(
+            // API may return null instead of empty array
+            let response: [ReferralItem]? = try await apiClient.requestOptional(
                 endpoint: .referralList,
                 method: .get
             )
-            self.referrals = response
+            self.referrals = response ?? []
         } catch {
             print("❌ Failed to fetch referrals: \(error)")
+            self.referrals = []
         }
     }
 
@@ -177,13 +147,15 @@ class ReferralService: ObservableObject {
 
     func fetchEarnings() async {
         do {
-            let response: [ReferralEarning] = try await apiClient.request(
+            // API may return null instead of empty array
+            let response: [ReferralEarning]? = try await apiClient.requestOptional(
                 endpoint: .referralEarnings,
                 method: .get
             )
-            self.earnings = response
+            self.earnings = response ?? []
         } catch {
             print("❌ Failed to fetch earnings: \(error)")
+            self.earnings = []
         }
     }
 
@@ -271,21 +243,31 @@ class ReferralService: ObservableObject {
     // MARK: - Share Link
 
     func getShareLink() -> String {
-        return stats?.shareLink ?? "https://focus.app"
+        guard let code = stats?.code else {
+            return "https://apps.apple.com/app/focus-fire-level/id6743387301"
+        }
+        return "https://apps.apple.com/app/focus-fire-level/id6743387301"
     }
 
     func getShareMessage() -> String {
         guard let code = stats?.code else {
-            return "Decouvre Focus, l'app qui t'aide a rester concentre et atteindre tes objectifs ! Telecharge-la ici : https://focus.app"
+            return """
+            Découvre Focus, l'app qui t'aide à rester concentré et atteindre tes objectifs ! 🔥
+
+            Télécharge-la ici :
+            https://apps.apple.com/app/focus-fire-level/id6743387301
+            """
         }
 
         return """
         Rejoins-moi sur Focus ! 🔥
 
-        L'app qui m'aide a rester concentre et atteindre mes objectifs.
+        L'app qui m'aide à rester concentré et atteindre mes objectifs.
 
-        Utilise mon code \(code) pour t'inscrire :
-        https://focus.app/r/\(code)
+        📲 Télécharge l'app : https://apps.apple.com/app/focus-fire-level/id6743387301
+
+        🎁 Utilise mon code de parrainage : \(code)
+        (Entre-le lors de ton inscription pour profiter de l'offre)
         """
     }
 }

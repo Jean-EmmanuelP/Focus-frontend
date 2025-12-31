@@ -38,6 +38,7 @@ final class FocusAppStore: ObservableObject {
     @Published var upcomingWeekTasks: [CalendarTask] = []  // Tasks for the next 7 days
     @Published var morningCheckIn: MorningCheckIn?
     @Published var eveningReview: EveningReview?
+    @Published var currentWeekGoals: WeeklyGoal?
     @Published var isLoading = false
 
     // MARK: - Computed Properties
@@ -95,6 +96,7 @@ final class FocusAppStore: ObservableObject {
     private let streakService = StreakService()
     private let onboardingService = OnboardingService()
     private let calendarService = CalendarService()
+    private let weeklyGoalsService = WeeklyGoalsService()
 
     // Default area definitions (for creating if none exist)
     private static let defaultAreaDefinitions: [(name: String, slug: String, icon: String)] = [
@@ -482,6 +484,12 @@ final class FocusAppStore: ObservableObject {
                 self.todaysTasks = []
                 self.upcomingWeekTasks = []
             }
+
+            // Load weekly goals
+            await loadWeeklyGoals()
+
+            // Sync any pending widget toggles with backend
+            await syncPendingWeeklyGoalToggles()
 
             // Note: All data now comes from dashboard - no separate calls needed
 
@@ -1238,6 +1246,119 @@ final class FocusAppStore: ObservableObject {
         // Reload widgets
         WidgetCenter.shared.reloadAllTimelines()
         print("📱 Widget session ended")
+    }
+
+    // MARK: - Weekly Goals
+
+    /// Load current week's goals
+    func loadWeeklyGoals() async {
+        do {
+            let response = try await weeklyGoalsService.fetchCurrent()
+            // Check if response has items - empty items means no goals set yet
+            if response.items.isEmpty {
+                self.currentWeekGoals = nil
+                print("🎯 No weekly goals set for current week")
+            } else {
+                self.currentWeekGoals = WeeklyGoal(from: response)
+                print("🎯 Weekly goals loaded: \(response.items.count) items")
+            }
+            syncWeeklyGoalsWidgetData()
+        } catch {
+            // 404 means no goals set for this week - not an error
+            if let apiError = error as? APIError {
+                switch apiError {
+                case .notFound, .serverError(404, _):
+                    self.currentWeekGoals = nil
+                    print("🎯 No weekly goals for this week")
+                default:
+                    print("⚠️ Failed to load weekly goals: \(error)")
+                }
+            } else {
+                print("⚠️ Failed to load weekly goals: \(error)")
+            }
+        }
+    }
+
+    /// Update weekly goals in store (called after saving in WeeklyGoalsView)
+    func updateWeeklyGoals(_ goals: WeeklyGoal?) {
+        self.currentWeekGoals = goals
+        syncWeeklyGoalsWidgetData()
+        print("🎯 Weekly goals updated in store: \(goals?.items.count ?? 0) items")
+    }
+
+    /// Toggle a weekly goal item
+    func toggleWeeklyGoalItem(itemId: String, isCompleted: Bool) async throws {
+        _ = try await weeklyGoalsService.toggleItem(itemId: itemId, isCompleted: isCompleted)
+        // Update local state
+        if var goals = currentWeekGoals,
+           let index = goals.items.firstIndex(where: { $0.id == itemId }) {
+            goals.items[index].isCompleted = isCompleted
+            self.currentWeekGoals = goals
+            syncWeeklyGoalsWidgetData()
+        }
+    }
+
+    /// Sync weekly goals data to widget
+    private func syncWeeklyGoalsWidgetData() {
+        let defaults = UserDefaults(suiteName: "group.com.jep.volta")
+
+        if let goals = currentWeekGoals {
+            let widgetData = WeeklyGoalsWidgetData(
+                items: goals.items.map { item in
+                    // Find area emoji if available
+                    let areaEmoji = item.areaId.flatMap { areaId in
+                        areas.first { $0.id == areaId }?.icon
+                    } ?? "🎯"
+
+                    return WeeklyGoalsWidgetItem(
+                        id: item.id,
+                        areaEmoji: areaEmoji,
+                        content: item.content,
+                        isCompleted: item.isCompleted
+                    )
+                },
+                weekRange: goals.weekRangeString,
+                completedCount: goals.completedCount,
+                totalCount: goals.totalCount
+            )
+
+            if let encoded = try? JSONEncoder().encode(widgetData) {
+                defaults?.set(encoded, forKey: "weeklyGoalsData")
+            }
+        } else {
+            defaults?.removeObject(forKey: "weeklyGoalsData")
+        }
+
+        WidgetCenter.shared.reloadTimelines(ofKind: "WeeklyGoalsWidget")
+    }
+
+    /// Sync pending widget toggles with backend
+    func syncPendingWeeklyGoalToggles() async {
+        let defaults = UserDefaults(suiteName: "group.com.jep.volta")
+        guard let pendingToggles = defaults?.array(forKey: "pendingWeeklyGoalToggles") as? [[String: Any]],
+              !pendingToggles.isEmpty else {
+            return
+        }
+
+        print("🔄 Syncing \(pendingToggles.count) pending weekly goal toggles from widget...")
+
+        for toggle in pendingToggles {
+            guard let goalId = toggle["goalId"] as? String,
+                  let isCompleted = toggle["isCompleted"] as? Bool else {
+                continue
+            }
+
+            do {
+                try await toggleWeeklyGoalItem(itemId: goalId, isCompleted: isCompleted)
+                print("✅ Synced toggle for goal \(goalId): \(isCompleted)")
+            } catch {
+                print("⚠️ Failed to sync toggle for goal \(goalId): \(error)")
+            }
+        }
+
+        // Clear pending toggles after sync
+        defaults?.removeObject(forKey: "pendingWeeklyGoalToggles")
+        print("🔄 Pending toggles cleared")
     }
 }
 

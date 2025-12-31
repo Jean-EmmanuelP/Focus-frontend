@@ -394,6 +394,15 @@ enum APIConfiguration {
         case referralApply
         case referralActivate
 
+        // Weekly Goals
+        case weeklyGoals
+        case weeklyGoalsCurrent
+        case weeklyGoalsNeedsSetup
+        case weeklyGoalsByWeek(weekStartDate: String)
+        case upsertWeeklyGoals(weekStartDate: String)
+        case deleteWeeklyGoals(weekStartDate: String)
+        case toggleWeeklyGoalItem(itemId: String)
+
         var path: String {
             switch self {
             // Health
@@ -741,6 +750,18 @@ enum APIConfiguration {
                 return "/referral/apply"
             case .referralActivate:
                 return "/referral/activate"
+
+            // Weekly Goals
+            case .weeklyGoals:
+                return "/weekly-goals"
+            case .weeklyGoalsCurrent:
+                return "/weekly-goals/current"
+            case .weeklyGoalsNeedsSetup:
+                return "/weekly-goals/needs-setup"
+            case .weeklyGoalsByWeek(let weekStartDate), .upsertWeeklyGoals(let weekStartDate), .deleteWeeklyGoals(let weekStartDate):
+                return "/weekly-goals/\(weekStartDate)"
+            case .toggleWeeklyGoalItem(let itemId):
+                return "/weekly-goals/items/\(itemId)/toggle"
             }
         }
 
@@ -882,6 +903,118 @@ class APIClient {
     ) async throws {
         let bodyData = try encoder.encode(body)
         let _: EmptyResponse = try await performRequest(endpoint: endpoint, method: method, bodyData: bodyData, headers: headers)
+    }
+
+    /// Request that can return null - returns nil instead of throwing decode error
+    func requestOptional<T: Decodable>(
+        endpoint: APIConfiguration.Endpoint,
+        method: HTTPMethod = .get,
+        headers: [String: String]? = nil
+    ) async throws -> T? {
+        try await performRequestOptional(endpoint: endpoint, method: method, bodyData: nil, headers: headers)
+    }
+
+    private func performRequestOptional<T: Decodable>(
+        endpoint: APIConfiguration.Endpoint,
+        method: HTTPMethod,
+        bodyData: Data?,
+        headers: [String: String]?
+    ) async throws -> T? {
+        let logger = APILogger.shared
+        let requestId = logger.nextRequestId()
+        let startTime = Date()
+
+        var request = URLRequest(url: endpoint.url)
+        request.httpMethod = method.rawValue
+
+        // Build headers dictionary for logging
+        var allHeaders: [String: String] = ["Content-Type": "application/json"]
+        headers?.forEach { allHeaders[$0] = $1 }
+
+        // Add headers to request
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        headers?.forEach { request.setValue($1, forHTTPHeaderField: $0) }
+
+        // Add authentication token from Supabase session
+        if let token = await getAuthToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            allHeaders["Authorization"] = "Bearer \(token)"
+        }
+
+        request.httpBody = bodyData
+
+        // Log request
+        logger.logRequest(
+            id: requestId,
+            method: method.rawValue,
+            url: endpoint.url,
+            headers: allHeaders,
+            body: bodyData
+        )
+
+        let (data, response) = try await session.data(for: request)
+        let duration = Date().timeIntervalSince(startTime)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            let error = APIError.invalidResponse
+            logger.logError(
+                id: requestId,
+                method: method.rawValue,
+                url: endpoint.url,
+                error: error,
+                duration: duration
+            )
+            throw error
+        }
+
+        // Log response
+        logger.logResponse(
+            id: requestId,
+            method: method.rawValue,
+            url: endpoint.url,
+            statusCode: httpResponse.statusCode,
+            duration: duration,
+            headers: httpResponse.allHeaderFields,
+            body: data
+        )
+
+        guard (200...299).contains(httpResponse.statusCode) else {
+            let errorMessage = String(data: data, encoding: .utf8) ?? "Unknown error"
+            let error = APIError.serverError(statusCode: httpResponse.statusCode, message: errorMessage)
+            logger.logError(
+                id: requestId,
+                method: method.rawValue,
+                url: endpoint.url,
+                error: error,
+                duration: duration,
+                responseBody: data
+            )
+            throw error
+        }
+
+        // Handle null response - return nil instead of throwing
+        if let jsonString = String(data: data, encoding: .utf8), jsonString.trimmingCharacters(in: .whitespacesAndNewlines) == "null" {
+            return nil
+        }
+
+        // Handle empty response
+        if data.isEmpty {
+            return nil
+        }
+
+        do {
+            return try decoder.decode(T.self, from: data)
+        } catch {
+            logger.logError(
+                id: requestId,
+                method: method.rawValue,
+                url: endpoint.url,
+                error: APIError.decodingError(error),
+                duration: duration,
+                responseBody: data
+            )
+            throw APIError.decodingError(error)
+        }
     }
 
     private func performRequest<T: Decodable>(

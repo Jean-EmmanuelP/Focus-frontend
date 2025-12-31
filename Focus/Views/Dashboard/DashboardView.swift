@@ -50,6 +50,12 @@ struct DashboardView: View {
                                     .padding(.bottom, SpacingTokens.lg)
                             }
 
+                            // Weekly Goals Section
+                            WeeklyGoalsDashboardCard()
+                                .id("weekly-goals-card")
+                                .padding(.horizontal, SpacingTokens.lg)
+                                .padding(.bottom, SpacingTokens.lg)
+
                             // Main CTA: Start the Day OR Next Task with Focus
                             mainCTASection
                                 .padding(.horizontal, SpacingTokens.lg)
@@ -3055,6 +3061,182 @@ struct EditIntentionsSheet: View {
                 isSaving = false
                 dismiss()
             }
+        }
+    }
+}
+
+// MARK: - Weekly Goals Dashboard Card
+struct WeeklyGoalsDashboardCard: View {
+    @ObservedObject private var store = FocusAppStore.shared
+    @EnvironmentObject var router: AppRouter
+
+    private var hasGoalsThisWeek: Bool {
+        store.currentWeekGoals != nil && !(store.currentWeekGoals?.items.isEmpty ?? true)
+    }
+
+    private var completedCount: Int {
+        store.currentWeekGoals?.completedCount ?? 0
+    }
+
+    private var totalCount: Int {
+        store.currentWeekGoals?.totalCount ?? 0
+    }
+
+    private var progress: Double {
+        store.currentWeekGoals?.progress ?? 0
+    }
+
+    var body: some View {
+        Button(action: {
+            HapticFeedback.light()
+            router.navigate(to: .weeklyGoals)
+        }) {
+            VStack(alignment: .leading, spacing: SpacingTokens.md) {
+                // Header row
+                HStack {
+                    Text("🎯")
+                        .font(.satoshi(24))
+
+                    Text("weekly_goals.title".localized)
+                        .font(.satoshi(16, weight: .bold))
+                        .foregroundColor(ColorTokens.textPrimary)
+
+                    Spacer()
+
+                    if hasGoalsThisWeek {
+                        // Progress badge
+                        Text("\(completedCount)/\(totalCount)")
+                            .font(.satoshi(14, weight: .semibold))
+                            .foregroundColor(ColorTokens.primaryStart)
+                            .padding(.horizontal, SpacingTokens.sm)
+                            .padding(.vertical, 4)
+                            .background(ColorTokens.primaryStart.opacity(0.15))
+                            .cornerRadius(RadiusTokens.sm)
+                    }
+
+                    Image(systemName: "chevron.right")
+                        .font(.satoshi(14))
+                        .foregroundColor(ColorTokens.textMuted)
+                }
+
+                if hasGoalsThisWeek, let goals = store.currentWeekGoals {
+                    // Show first 3 goals
+                    VStack(spacing: SpacingTokens.sm) {
+                        ForEach(goals.items.prefix(3)) { item in
+                            WeeklyGoalDashboardRow(item: item, areas: store.areas)
+                        }
+
+                        if goals.items.count > 3 {
+                            Text("+\(goals.items.count - 3) " + "weekly_goals.more".localized)
+                                .font(.satoshi(12))
+                                .foregroundColor(ColorTokens.textMuted)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+
+                    // Progress bar
+                    if totalCount > 0 {
+                        GeometryReader { geometry in
+                            ZStack(alignment: .leading) {
+                                RoundedRectangle(cornerRadius: 3)
+                                    .fill(ColorTokens.surface.opacity(0.5))
+                                    .frame(height: 4)
+
+                                RoundedRectangle(cornerRadius: 3)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [ColorTokens.primaryStart, ColorTokens.primaryEnd],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
+                                    .frame(width: max(0, geometry.size.width * progress), height: 4)
+                            }
+                        }
+                        .frame(height: 4)
+                        .padding(.top, SpacingTokens.xs)
+                    }
+                } else {
+                    // Empty state
+                    VStack(spacing: SpacingTokens.sm) {
+                        Text("weekly_goals.empty_state".localized)
+                            .font(.satoshi(14))
+                            .foregroundColor(ColorTokens.textSecondary)
+                            .multilineTextAlignment(.center)
+
+                        HStack {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.satoshi(12))
+                            Text("weekly_goals.set_goals".localized)
+                                .font(.satoshi(12, weight: .semibold))
+                        }
+                        .foregroundColor(ColorTokens.primaryStart)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, SpacingTokens.sm)
+                }
+            }
+            .padding(SpacingTokens.md)
+            .background(ColorTokens.surface)
+            .cornerRadius(RadiusTokens.lg)
+            .overlay(
+                RoundedRectangle(cornerRadius: RadiusTokens.lg)
+                    .stroke(ColorTokens.border, lineWidth: 1)
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - Weekly Goal Dashboard Row
+private struct WeeklyGoalDashboardRow: View {
+    let item: WeeklyGoalItem
+    let areas: [Area]
+
+    private var areaEmoji: String {
+        if let areaId = item.areaId,
+           let area = areas.first(where: { $0.id == areaId }) {
+            return area.icon
+        }
+        return "🎯"
+    }
+
+    var body: some View {
+        HStack(spacing: SpacingTokens.sm) {
+            // Checkbox
+            ZStack {
+                Circle()
+                    .strokeBorder(
+                        item.isCompleted ? Color.clear : ColorTokens.border,
+                        lineWidth: 1.5
+                    )
+                    .background(
+                        Circle()
+                            .fill(
+                                item.isCompleted
+                                    ? ColorTokens.success
+                                    : Color.clear
+                            )
+                    )
+                    .frame(width: 20, height: 20)
+
+                if item.isCompleted {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.white)
+                }
+            }
+
+            Text(areaEmoji)
+                .font(.satoshi(14))
+
+            Text(item.content)
+                .font(.satoshi(14))
+                .foregroundColor(item.isCompleted ? ColorTokens.textMuted : ColorTokens.textPrimary)
+                .strikethrough(item.isCompleted)
+                .lineLimit(1)
+
+            Spacer()
         }
     }
 }
