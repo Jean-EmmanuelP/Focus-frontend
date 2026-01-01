@@ -403,6 +403,10 @@ enum APIConfiguration {
         case deleteWeeklyGoals(weekStartDate: String)
         case toggleWeeklyGoalItem(itemId: String)
 
+        // Chat Coach
+        case chatMessage
+        case chatHistory
+
         var path: String {
             switch self {
             // Health
@@ -762,6 +766,12 @@ enum APIConfiguration {
                 return "/weekly-goals/\(weekStartDate)"
             case .toggleWeeklyGoalItem(let itemId):
                 return "/weekly-goals/items/\(itemId)/toggle"
+
+            // Chat Coach
+            case .chatMessage:
+                return "/chat/message"
+            case .chatHistory:
+                return "/chat/history"
             }
         }
 
