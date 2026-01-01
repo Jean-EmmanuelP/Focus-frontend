@@ -6,6 +6,7 @@ struct ProfileView: View {
     @StateObject private var ritualsViewModel = RitualsViewModel()
     @State private var showSettings = false
     @State private var showFlameInfo = false
+    @State private var showWeeklyGoals = false
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var isUploadingPhoto = false
     @State private var editingRitual: DailyRitual?
@@ -19,6 +20,12 @@ struct ProfileView: View {
 
                 // Level & Streak Section
                 levelSection
+
+                // Weekly Overview (NEW)
+                weeklyOverviewSection
+
+                // Weekly Goals (NEW)
+                weeklyGoalsSection
 
                 // Daily Routines Section
                 routinesSection
@@ -67,9 +74,162 @@ struct ProfileView: View {
         .sheet(item: $editingRitual) { ritual in
             EditRitualSheet(viewModel: ritualsViewModel, ritual: ritual)
         }
+        .sheet(isPresented: $showWeeklyGoals) {
+            NavigationStack {
+                WeeklyGoalsView()
+            }
+        }
         .onAppear {
             ritualsViewModel.refresh()
         }
+    }
+
+    // MARK: - Weekly Overview Section (NEW)
+    private var weeklyOverviewSection: some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.sm) {
+            Text("Cette semaine")
+                .font(.satoshi(18, weight: .bold))
+                .foregroundColor(ColorTokens.textPrimary)
+
+            // Stats row
+            HStack(spacing: SpacingTokens.md) {
+                weeklyStatItem(
+                    icon: "flame.fill",
+                    value: "\(totalFocusMinutesThisWeek)",
+                    label: "min focus",
+                    color: ColorTokens.primaryStart
+                )
+
+                weeklyStatItem(
+                    icon: "checkmark.circle.fill",
+                    value: "\(completedTasksThisWeek)/\(totalTasksThisWeek)",
+                    label: "tâches",
+                    color: ColorTokens.success
+                )
+
+                weeklyStatItem(
+                    icon: "arrow.clockwise",
+                    value: "\(completedRitualsToday)/\(store.rituals.count)",
+                    label: "rituels",
+                    color: ColorTokens.accent
+                )
+            }
+            .padding(SpacingTokens.md)
+            .background(ColorTokens.surface)
+            .cornerRadius(RadiusTokens.lg)
+
+            // Weekly chart
+            weeklyChart
+        }
+    }
+
+    private func weeklyStatItem(icon: String, value: String, label: String, color: Color) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 18))
+                .foregroundColor(color)
+
+            Text(value)
+                .font(.satoshi(18, weight: .bold))
+                .foregroundColor(ColorTokens.textPrimary)
+
+            Text(label)
+                .font(.satoshi(11))
+                .foregroundColor(ColorTokens.textMuted)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var weeklyChart: some View {
+        WeeklyChartView(days: store.weeklyProgress)
+    }
+
+    // MARK: - Weekly Goals Section (NEW)
+    private var weeklyGoalsSection: some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.sm) {
+            HStack {
+                Text("Objectifs de la semaine")
+                    .font(.satoshi(18, weight: .bold))
+                    .foregroundColor(ColorTokens.textPrimary)
+
+                Spacer()
+
+                Button {
+                    showWeeklyGoals = true
+                } label: {
+                    Text("Voir tout")
+                        .font(.satoshi(14, weight: .medium))
+                        .foregroundColor(ColorTokens.primaryStart)
+                }
+            }
+
+            if let goals = store.currentWeekGoals, !goals.items.isEmpty {
+                VStack(spacing: SpacingTokens.xs) {
+                    ForEach(goals.items.prefix(3)) { item in
+                        weeklyGoalRow(item)
+                    }
+
+                    if goals.items.count > 3 {
+                        Text("+\(goals.items.count - 3) autres")
+                            .font(.satoshi(13))
+                            .foregroundColor(ColorTokens.textMuted)
+                            .padding(.top, SpacingTokens.xs)
+                    }
+                }
+            } else {
+                // Empty state
+                Button {
+                    showWeeklyGoals = true
+                } label: {
+                    HStack {
+                        Image(systemName: "target")
+                            .font(.system(size: 20))
+                            .foregroundColor(ColorTokens.primaryStart)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Définir tes objectifs")
+                                .font(.satoshi(15, weight: .medium))
+                                .foregroundColor(ColorTokens.textPrimary)
+
+                            Text("Qu'est-ce que tu veux accomplir cette semaine ?")
+                                .font(.satoshi(13))
+                                .foregroundColor(ColorTokens.textMuted)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14))
+                            .foregroundColor(ColorTokens.textMuted)
+                    }
+                    .padding(SpacingTokens.md)
+                    .background(ColorTokens.surface)
+                    .cornerRadius(RadiusTokens.lg)
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+        }
+    }
+
+    private func weeklyGoalRow(_ item: WeeklyGoalItem) -> some View {
+        HStack(spacing: SpacingTokens.md) {
+            // Checkbox
+            Image(systemName: item.isCompleted ? "checkmark.circle.fill" : "circle")
+                .font(.system(size: 20))
+                .foregroundColor(item.isCompleted ? ColorTokens.success : ColorTokens.textMuted)
+
+            // Title
+            Text(item.content)
+                .font(.satoshi(15))
+                .foregroundColor(item.isCompleted ? ColorTokens.textMuted : ColorTokens.textPrimary)
+                .strikethrough(item.isCompleted)
+                .lineLimit(1)
+
+            Spacer()
+        }
+        .padding(SpacingTokens.md)
+        .background(ColorTokens.surface)
+        .cornerRadius(RadiusTokens.md)
     }
 
     // MARK: - Profile Header
@@ -357,6 +517,24 @@ struct ProfileView: View {
     private var completedQuestsCount: Int {
         store.quests.filter { $0.status == .completed }.count
     }
+
+    // Weekly stats computed properties
+    private var totalFocusMinutesThisWeek: Int {
+        store.weeklyProgress.reduce(0) { $0 + $1.minutes }
+    }
+
+    private var completedTasksThisWeek: Int {
+        store.todaysTasks.filter { $0.status == "completed" }.count +
+        store.upcomingWeekTasks.filter { $0.status == "completed" }.count
+    }
+
+    private var totalTasksThisWeek: Int {
+        store.todaysTasks.count + store.upcomingWeekTasks.count
+    }
+
+    private var completedRitualsToday: Int {
+        store.rituals.filter { $0.isCompleted }.count
+    }
 }
 
 // MARK: - Circular Progress View
@@ -440,6 +618,52 @@ struct ProfileRoutineRow: View {
             .cornerRadius(RadiusTokens.md)
         }
         .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - Weekly Chart View (Extracted for type-check)
+struct WeeklyChartView: View {
+    let days: [DayProgress]
+
+    private var maxMinutes: Int {
+        max(days.map { $0.minutes }.max() ?? 60, 60)
+    }
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: SpacingTokens.xs) {
+            ForEach(Array(days.enumerated()), id: \.offset) { index, day in
+                WeeklyChartBar(day: day, maxMinutes: maxMinutes)
+            }
+        }
+        .frame(height: 100)
+        .padding(SpacingTokens.md)
+        .background(ColorTokens.surface)
+        .cornerRadius(RadiusTokens.lg)
+    }
+}
+
+struct WeeklyChartBar: View {
+    let day: DayProgress
+    let maxMinutes: Int
+
+    private var barHeight: CGFloat {
+        max(4, CGFloat(day.minutes) / CGFloat(maxMinutes) * 80)
+    }
+
+    private var isToday: Bool {
+        Calendar.current.isDateInToday(day.date)
+    }
+
+    var body: some View {
+        VStack(spacing: 4) {
+            RoundedRectangle(cornerRadius: 4)
+                .fill(isToday ? ColorTokens.primaryStart : ColorTokens.primarySoft)
+                .frame(width: 32, height: barHeight)
+
+            Text(day.day)
+                .font(.satoshi(11, weight: isToday ? .bold : .regular))
+                .foregroundColor(isToday ? ColorTokens.primaryStart : ColorTokens.textMuted)
+        }
     }
 }
 

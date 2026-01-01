@@ -881,3 +881,14 @@
 // Intentions Edit
 "intentions.edit_title" = "Modifier les intentions";
 "intentions.placeholder" = "Que veux-tu accomplir ?";
+
+// MARK: - Weekly Goals
+"weekly_goals.title" = "Objectifs de la semaine";
+"weekly_goals.empty_state" = "Pas d'objectifs définis cette semaine";
+"weekly_goals.set_goals" = "Définir tes objectifs";
+"weekly_goals.more" = "de plus";
+"weekly_goals.completed" = "complétés";
+
+// MARK: - Notifications
+"notification.morning.title" = "Bonjour !";
+"notification.task.title" = "Rappel de tache";

@@ -1418,3 +1418,87 @@ class JournalService {
         )
     }
 }
+
+// MARK: - Weekly Goals Service
+@MainActor
+class WeeklyGoalsService {
+    private let apiClient = APIClient.shared
+
+    /// Get all weekly goals (last 10 weeks)
+    func fetchAll() async throws -> [WeeklyGoalResponse] {
+        return try await apiClient.request(
+            endpoint: .weeklyGoals,
+            method: .get
+        )
+    }
+
+    /// Get current week's goals
+    func fetchCurrent() async throws -> WeeklyGoalResponse {
+        return try await apiClient.request(
+            endpoint: .weeklyGoalsCurrent,
+            method: .get
+        )
+    }
+
+    /// Check if user needs to set up weekly goals
+    func checkNeedsSetup() async throws -> NeedsSetupResponse {
+        return try await apiClient.request(
+            endpoint: .weeklyGoalsNeedsSetup,
+            method: .get
+        )
+    }
+
+    /// Get weekly goals for a specific week
+    func fetchByWeek(weekStartDate: String) async throws -> WeeklyGoalResponse {
+        return try await apiClient.request(
+            endpoint: .weeklyGoalsByWeek(weekStartDate: weekStartDate),
+            method: .get
+        )
+    }
+
+    /// Create or update weekly goals
+    func upsert(weekStartDate: String, items: [WeeklyGoalItemInput]) async throws -> WeeklyGoalResponse {
+        let request = UpsertWeeklyGoalRequest(items: items)
+        return try await apiClient.request(
+            endpoint: .upsertWeeklyGoals(weekStartDate: weekStartDate),
+            method: .put,
+            body: request
+        )
+    }
+
+    /// Delete weekly goals for a specific week
+    func delete(weekStartDate: String) async throws {
+        try await apiClient.request(
+            endpoint: .deleteWeeklyGoals(weekStartDate: weekStartDate),
+            method: .delete
+        )
+    }
+
+    /// Toggle completion status of a goal item
+    func toggleItem(itemId: String, isCompleted: Bool) async throws -> WeeklyGoalItemResponse {
+        let request = ToggleWeeklyGoalItemRequest(isCompleted: isCompleted)
+        return try await apiClient.request(
+            endpoint: .toggleWeeklyGoalItem(itemId: itemId),
+            method: .post,
+            body: request
+        )
+    }
+
+    // MARK: - Helper Methods
+
+    /// Get the Monday of the current week
+    static func currentWeekStartDate() -> String {
+        let today = Date()
+        let calendar = Calendar.current
+        var weekday = calendar.component(.weekday, from: today)
+        // Adjust for Sunday = 1 in Calendar
+        if weekday == 1 {
+            weekday = 8
+        }
+        let daysToMonday = weekday - 2
+        let monday = calendar.date(byAdding: .day, value: -daysToMonday, to: today)!
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: monday)
+    }
+}

@@ -408,6 +408,11 @@ class CalendarViewModel: ObservableObject {
             dayPlan = response.dayPlan
             tasks = response.tasks
             dayProgress = response.progress
+
+            // Schedule notifications for today's tasks
+            if Calendar.current.isDateInToday(selectedDate) {
+                await NotificationService.shared.scheduleAllTaskReminders(tasks: tasks)
+            }
         } catch {
             dayPlan = nil
             tasks = []

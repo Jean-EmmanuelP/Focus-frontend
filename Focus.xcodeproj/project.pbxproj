@@ -68,6 +68,7 @@
 		629D62F02EF0B0890023C568 /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
 		629D641E2EF1D7150023C568 /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
 		629D651B2EF417E60023C568 /* Volta.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = Volta.storekit; sourceTree = "<group>"; };
+		62C2AA232F043CCA0043FD06 /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -270,6 +271,13 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		62C2AA8C2F043CCA0043FD06 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -372,6 +380,10 @@
 				{
 					ProductGroup = 629B56D22EED9D2D00CF0149 /* Products */;
 					ProjectRef = 629B56972EED9D2D00CF0149 /* TextParticle.xcodeproj */;
+				},
+				{
+					ProductGroup = 62C2AA8C2F043CCA0043FD06 /* Products */;
+					ProjectRef = 62C2AA232F043CCA0043FD06 /* TextParticle.xcodeproj */;
 				},
 				{
 					ProductGroup = 629D645F2EF1D7150023C568 /* Products */;
