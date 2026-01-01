@@ -5,15 +5,20 @@ import Combine
 enum AppTab: Int, CaseIterable {
     case dashboard = 0
     case calendar = 1
-    case community = 2
+    // case community = 2  // COMMENTED OUT - Feed disabled for now
     case crew = 3
     case profile = 4
+
+    // Define which tabs are currently active (excluding community)
+    static var activeCases: [AppTab] {
+        [.dashboard, .calendar, .crew, .profile]
+    }
 
     var title: String {
         switch self {
         case .dashboard: return "tab.dashboard".localized
         case .calendar: return "tab.calendar".localized
-        case .community: return "tab.community".localized
+        // case .community: return "tab.community".localized
         case .crew: return "tab.crew".localized
         case .profile: return "tab.profile".localized
         }
@@ -23,7 +28,7 @@ enum AppTab: Int, CaseIterable {
         switch self {
         case .dashboard: return "house.fill"
         case .calendar: return "calendar"
-        case .community: return "photo.stack"
+        // case .community: return "photo.stack"
         case .crew: return "person.3.fill"
         case .profile: return "person.circle.fill"
         }
@@ -156,10 +161,11 @@ struct MainTabView: View {
                                 destinationView(for: destination)
                             }
                     }
-                case .community:
-                    NavigationStack {
-                        CommunityView()
-                    }
+                // COMMENTED OUT - Community feed disabled for now
+                // case .community:
+                //     NavigationStack {
+                //         CommunityView()
+                //     }
                 case .crew:
                     NavigationStack {
                         CrewView()
@@ -232,7 +238,8 @@ struct FloatingTabBar: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            ForEach(AppTab.allCases, id: \.self) { tab in
+            // Only show active tabs (excluding community for now)
+            ForEach(AppTab.activeCases, id: \.self) { tab in
                 Button {
                     withAnimation(.easeInOut(duration: 0.2)) {
                         selectedTab = tab
@@ -247,21 +254,11 @@ struct FloatingTabBar: View {
                 }
             }
         }
-        .padding(.horizontal, SpacingTokens.lg)
+        .frame(maxWidth: .infinity)
         .background(
-            RoundedRectangle(cornerRadius: 25)
-                .fill(Color.white.opacity(0.08))
-                .background(
-                    RoundedRectangle(cornerRadius: 25)
-                        .fill(.ultraThinMaterial.opacity(0.3))
-                )
+            ColorTokens.background
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: 25)
-                .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
-        )
-        .padding(.horizontal, SpacingTokens.lg)
-        .padding(.bottom, 8)
+        .padding(.bottom, -10)
     }
 }
 

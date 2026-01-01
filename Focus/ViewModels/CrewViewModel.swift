@@ -54,7 +54,7 @@ class CrewViewModel: ObservableObject {
     @Published var selectedDate = Date()
 
     // UI State
-    @Published var activeTab: CrewTab = .leaderboard
+    @Published var activeTab: CrewTab = .myCrew  // Default to myCrew (leaderboard disabled)
     @Published var showingMemberDetail = false
     @Published var showingSettings = false
     @Published var showingSearch = false
@@ -203,30 +203,31 @@ class CrewViewModel: ObservableObject {
         }
     }
 
+    // COMMENTED OUT - Leaderboard disabled for now
     /// Start auto-refreshing leaderboard to show live focus updates
     func startLeaderboardAutoRefresh() {
-        stopLeaderboardAutoRefresh()
-
-        leaderboardRefreshTask = Task {
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: leaderboardRefreshInterval * 1_000_000_000)
-                if !Task.isCancelled && activeTab == .leaderboard {
-                    // Silently refresh without showing loading indicator
-                    do {
-                        let updatedLeaderboard = try await crewService.fetchLeaderboard(limit: 50)
-                        await MainActor.run {
-                            // Only update if there are changes to avoid UI flicker
-                            if self.hasLeaderboardChanges(updatedLeaderboard) {
-                                self.leaderboard = updatedLeaderboard
-                            }
-                        }
-                    } catch {
-                        // Silently ignore refresh errors
-                        print("⚠️ Leaderboard auto-refresh failed: \(error.localizedDescription)")
-                    }
-                }
-            }
-        }
+        // stopLeaderboardAutoRefresh()
+        //
+        // leaderboardRefreshTask = Task {
+        //     while !Task.isCancelled {
+        //         try? await Task.sleep(nanoseconds: leaderboardRefreshInterval * 1_000_000_000)
+        //         if !Task.isCancelled && activeTab == .leaderboard {
+        //             // Silently refresh without showing loading indicator
+        //             do {
+        //                 let updatedLeaderboard = try await crewService.fetchLeaderboard(limit: 50)
+        //                 await MainActor.run {
+        //                     // Only update if there are changes to avoid UI flicker
+        //                     if self.hasLeaderboardChanges(updatedLeaderboard) {
+        //                         self.leaderboard = updatedLeaderboard
+        //                     }
+        //                 }
+        //             } catch {
+        //                 // Silently ignore refresh errors
+        //                 print("⚠️ Leaderboard auto-refresh failed: \(error.localizedDescription)")
+        //             }
+        //         }
+        //     }
+        // }
     }
 
     /// Stop auto-refreshing leaderboard
@@ -795,14 +796,19 @@ class CrewViewModel: ObservableObject {
 // MARK: - Tab Enum
 
 enum CrewTab: String, CaseIterable {
-    case leaderboard
+    // case leaderboard  // COMMENTED OUT - Leaderboard disabled for now
     case myCrew
     case groups
     case requests
 
+    // Active tabs (excluding leaderboard)
+    static var activeCases: [CrewTab] {
+        [.myCrew, .groups, .requests]
+    }
+
     var displayName: String {
         switch self {
-        case .leaderboard: return "crew.leaderboard".localized
+        // case .leaderboard: return "crew.leaderboard".localized
         case .myCrew: return "crew.my_crew".localized
         case .groups: return "crew.groups".localized
         case .requests: return "crew.requests".localized
@@ -811,7 +817,7 @@ enum CrewTab: String, CaseIterable {
 
     var icon: String {
         switch self {
-        case .leaderboard: return "chart.bar.fill"
+        // case .leaderboard: return "chart.bar.fill"
         case .myCrew: return "person.2.fill"
         case .groups: return "person.3.fill"
         case .requests: return "envelope.fill"

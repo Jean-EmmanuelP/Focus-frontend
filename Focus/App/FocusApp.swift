@@ -31,7 +31,6 @@ struct FocusApp: App {
 
     enum AppLaunchState {
         case splash
-        case welcome
         case ready
     }
 
@@ -43,13 +42,6 @@ struct FocusApp: App {
                     switch appState {
                     case .splash:
                         SplashView {
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                appState = .welcome
-                            }
-                        }
-
-                    case .welcome:
-                        WelcomeLoadingView {
                             withAnimation(.easeInOut(duration: 0.3)) {
                                 appState = .ready
                             }
@@ -170,6 +162,9 @@ struct FocusApp: App {
 
         case "calendar":
             router.navigateToCalendar()
+
+        case "weekly-goals":
+            router.navigateToWeeklyGoals()
 
         case "referral":
             // Extract code from query parameters

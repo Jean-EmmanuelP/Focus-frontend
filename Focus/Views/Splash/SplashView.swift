@@ -1,69 +1,31 @@
 import SwiftUI
 
-/// Animated splash screen with growing flame effect
+/// Minimal splash screen with focus text effect
 struct SplashView: View {
-    @State private var flameScale: CGFloat = 0.3
-    @State private var flameOpacity: Double = 0
-    @State private var glowRadius: CGFloat = 0
-    @State private var showPulse: Bool = false
+    @State private var textOpacities: [Double] = Array(repeating: 0.15, count: 9)
+    @State private var centerLineOpacity: Double = 0.15
+    @State private var animationComplete = false
 
     let onComplete: () -> Void
 
-    var body: some View {
-        GeometryReader { geometry in
-            let isSmallScreen = geometry.size.height < 700
-            let flameSize: CGFloat = isSmallScreen ? 60 : 80
-            let glowSize: CGFloat = isSmallScreen ? 220 : 300
-            let pulseSize: CGFloat = isSmallScreen ? 150 : 200
+    private let focusText = "FOCUS ON THE MISSION"
+    private let lineCount = 9
+    private let centerIndex = 4
 
-            ZStack {
-                // Gradient background
-                LinearGradient(
-                    colors: [
-                        Color(hex: "#0A0A0A"),
-                        Color(hex: "#1A0A00"),
-                        Color(hex: "#0A0A0A")
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
+    var body: some View {
+        ZStack {
+            // Pure black background
+            Color(hex: "#050508")
                 .ignoresSafeArea()
 
-                // Radial glow behind flame
-                RadialGradient(
-                    colors: [
-                        ColorTokens.primaryStart.opacity(0.4),
-                        ColorTokens.primaryEnd.opacity(0.2),
-                        Color.clear
-                    ],
-                    center: .center,
-                    startRadius: 20,
-                    endRadius: glowRadius
-                )
-                .frame(width: glowSize, height: glowSize)
-                .blur(radius: 30)
-
-                // Pulse effect
-                if showPulse {
-                    Circle()
-                        .stroke(ColorTokens.primaryStart.opacity(0.3), lineWidth: 2)
-                        .frame(width: pulseSize, height: pulseSize)
-                        .scaleEffect(showPulse ? 2 : 1)
-                        .opacity(showPulse ? 0 : 0.5)
-                        .animation(
-                            .easeOut(duration: 1.0),
-                            value: showPulse
-                        )
-                }
-
-                // Main flame
-                VStack(spacing: SpacingTokens.lg) {
-                    Text("🔥")
-                        .font(.system(size: flameSize))
-                        .scaleEffect(flameScale)
-                        .opacity(flameOpacity)
-                        .shadow(color: ColorTokens.primaryStart.opacity(0.8), radius: 20, x: 0, y: 0)
-                        .shadow(color: ColorTokens.primaryEnd.opacity(0.5), radius: 40, x: 0, y: 10)
+            // Stacked text effect
+            VStack(spacing: 4) {
+                ForEach(0..<lineCount, id: \.self) { index in
+                    Text(focusText)
+                        .font(.system(size: 16, weight: index == centerIndex ? .bold : .medium, design: .monospaced))
+                        .tracking(3)
+                        .foregroundColor(.white)
+                        .opacity(textOpacities[index])
                 }
             }
         }
@@ -73,47 +35,61 @@ struct SplashView: View {
     }
 
     private func startAnimation() {
-        // Phase 1: Fade in and grow
-        withAnimation(.easeOut(duration: 0.6)) {
-            flameOpacity = 1
-            flameScale = 1.0
-            glowRadius = 150
-        }
-
-        // Phase 2: Heartbeat pulse
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-            withAnimation(.easeInOut(duration: 0.3)) {
-                flameScale = 1.15
+        // Phase 1: Show all lines faintly
+        withAnimation(.easeIn(duration: 0.3)) {
+            for i in 0..<lineCount {
+                textOpacities[i] = 0.15
             }
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
-            withAnimation(.easeInOut(duration: 0.3)) {
-                flameScale = 1.0
+        // Phase 2: Wave animation from top to center
+        for i in 0...centerIndex {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3 + Double(i) * 0.08) {
+                withAnimation(.easeOut(duration: 0.15)) {
+                    textOpacities[i] = 0.4
+                }
+                // Fade back
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    if i != centerIndex {
+                        withAnimation(.easeIn(duration: 0.2)) {
+                            textOpacities[i] = 0.15
+                        }
+                    }
+                }
             }
         }
 
-        // Phase 3: Second heartbeat
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-            withAnimation(.easeInOut(duration: 0.25)) {
-                flameScale = 1.2
-                glowRadius = 200
+        // Phase 3: Wave animation from bottom to center
+        for i in (centerIndex..<lineCount).reversed() {
+            let delay = Double(lineCount - 1 - i) * 0.08
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3 + delay) {
+                withAnimation(.easeOut(duration: 0.15)) {
+                    textOpacities[i] = 0.4
+                }
+                // Fade back
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    if i != centerIndex {
+                        withAnimation(.easeIn(duration: 0.2)) {
+                            textOpacities[i] = 0.15
+                        }
+                    }
+                }
             }
-            showPulse = true
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.45) {
-            withAnimation(.easeInOut(duration: 0.25)) {
-                flameScale = 1.0
+        // Phase 4: Center line brightens and stays
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            withAnimation(.easeOut(duration: 0.3)) {
+                textOpacities[centerIndex] = 1.0
             }
         }
 
-        // Phase 4: Final grow and fade out
+        // Phase 5: Hold, then fade out
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
-            withAnimation(.easeIn(duration: 0.5)) {
-                flameScale = 3.0
-                flameOpacity = 0
-                glowRadius = 400
+            withAnimation(.easeIn(duration: 0.4)) {
+                for i in 0..<lineCount {
+                    textOpacities[i] = 0
+                }
             }
         }
 

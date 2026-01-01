@@ -21,8 +21,9 @@ struct CrewView: View {
 
                     // Content based on selected tab
                     switch viewModel.activeTab {
-                    case .leaderboard:
-                        leaderboardSection
+                    // COMMENTED OUT - Leaderboard disabled for now
+                    // case .leaderboard:
+                    //     leaderboardSection
                     case .myCrew:
                         myCrewSection
                     case .groups:
@@ -79,19 +80,21 @@ struct CrewView: View {
         .onAppear {
             // Connect to WebSocket for real-time focus updates
             viewModel.connectWebSocket()
-            // Start auto-refresh as fallback
-            viewModel.startLeaderboardAutoRefresh()
+            // COMMENTED OUT - Leaderboard disabled for now
+            // viewModel.startLeaderboardAutoRefresh()
         }
         .onDisappear {
-            viewModel.stopLeaderboardAutoRefresh()
+            // COMMENTED OUT - Leaderboard disabled for now
+            // viewModel.stopLeaderboardAutoRefresh()
             // Keep WebSocket connected for background updates
         }
-        .onChange(of: viewModel.activeTab) { _, newTab in
-            // Restart auto-refresh when switching to leaderboard tab
-            if newTab == .leaderboard {
-                viewModel.startLeaderboardAutoRefresh()
-            }
-        }
+        // COMMENTED OUT - Leaderboard disabled for now
+        // .onChange(of: viewModel.activeTab) { _, newTab in
+        //     // Restart auto-refresh when switching to leaderboard tab
+        //     if newTab == .leaderboard {
+        //         viewModel.startLeaderboardAutoRefresh()
+        //     }
+        // }
         .id(localization.currentLanguage) // Force refresh when language changes
     }
 
@@ -133,8 +136,8 @@ struct CrewView: View {
     // MARK: - Tab Selector (Segmented Control)
     private var tabSelector: some View {
         GeometryReader { geometry in
-            let tabWidth = (geometry.size.width - SpacingTokens.xs * 2) / CGFloat(CrewTab.allCases.count)
-            let selectedIndex = CGFloat(CrewTab.allCases.firstIndex(of: viewModel.activeTab) ?? 0)
+            let tabWidth = (geometry.size.width - SpacingTokens.xs * 2) / CGFloat(CrewTab.activeCases.count)
+            let selectedIndex = CGFloat(CrewTab.activeCases.firstIndex(of: viewModel.activeTab) ?? 0)
 
             ZStack(alignment: .leading) {
                 // Background
@@ -150,7 +153,7 @@ struct CrewView: View {
 
                 // Tab buttons
                 HStack(spacing: 0) {
-                    ForEach(CrewTab.allCases, id: \.self) { tab in
+                    ForEach(CrewTab.activeCases, id: \.self) { tab in
                         segmentedTabButton(tab, width: tabWidth)
                     }
                 }
