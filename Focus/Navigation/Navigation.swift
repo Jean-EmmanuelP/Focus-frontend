@@ -37,6 +37,7 @@ enum NavigationDestination: Hashable {
     case focusSession
     case questDetail(Quest)
     case manageRituals
+    case weeklyGoals
 }
 
 // MARK: - App Router (Navigation State)
@@ -119,6 +120,15 @@ class AppRouter: ObservableObject {
         showStartTheDay = false
         showEndOfDay = false
     }
+
+    func navigate(to destination: NavigationDestination) {
+        selectedTab = .dashboard
+        dashboardPath.append(destination)
+    }
+
+    func navigateToWeeklyGoals() {
+        navigate(to: .weeklyGoals)
+    }
 }
 
 // MARK: - Main Tab View
@@ -128,59 +138,43 @@ struct MainTabView: View {
     @State private var showOnboardingTutorial = false
 
     var body: some View {
-        TabView(selection: $router.selectedTab) {
-            // Dashboard
-            NavigationStack(path: $router.dashboardPath) {
-                DashboardView()
-                    .navigationDestination(for: NavigationDestination.self) { destination in
-                        destinationView(for: destination)
+        ZStack(alignment: .bottom) {
+            // Content based on selected tab
+            Group {
+                switch router.selectedTab {
+                case .dashboard:
+                    NavigationStack(path: $router.dashboardPath) {
+                        DashboardView()
+                            .navigationDestination(for: NavigationDestination.self) { destination in
+                                destinationView(for: destination)
+                            }
                     }
-            }
-            .tabItem {
-                Label(AppTab.dashboard.title, systemImage: AppTab.dashboard.icon)
-            }
-            .tag(AppTab.dashboard)
-
-            // Calendar
-            NavigationStack {
-                WeekCalendarView()
-                    .navigationDestination(for: NavigationDestination.self) { destination in
-                        destinationView(for: destination)
+                case .calendar:
+                    NavigationStack {
+                        WeekCalendarView()
+                            .navigationDestination(for: NavigationDestination.self) { destination in
+                                destinationView(for: destination)
+                            }
                     }
+                case .community:
+                    NavigationStack {
+                        CommunityView()
+                    }
+                case .crew:
+                    NavigationStack {
+                        CrewView()
+                    }
+                case .profile:
+                    NavigationStack {
+                        ProfileView()
+                    }
+                }
             }
-            .tabItem {
-                Label(AppTab.calendar.title, systemImage: AppTab.calendar.icon)
-            }
-            .tag(AppTab.calendar)
 
-            // Community
-            NavigationStack {
-                CommunityView()
-            }
-            .tabItem {
-                Label(AppTab.community.title, systemImage: AppTab.community.icon)
-            }
-            .tag(AppTab.community)
-
-            // Crew
-            NavigationStack {
-                CrewView()
-            }
-            .tabItem {
-                Label(AppTab.crew.title, systemImage: AppTab.crew.icon)
-            }
-            .tag(AppTab.crew)
-
-            // Profile
-            NavigationStack {
-                ProfileView()
-            }
-            .tabItem {
-                Label(AppTab.profile.title, systemImage: AppTab.profile.icon)
-            }
-            .tag(AppTab.profile)
+            // Custom floating tab bar (Opal style)
+            FloatingTabBar(selectedTab: $router.selectedTab)
         }
-        .accentColor(ColorTokens.primaryStart)
+        .ignoresSafeArea(.keyboard)
         .fullScreenCover(isPresented: $router.showStartTheDay) {
             PlanYourDayView()
         }
@@ -226,7 +220,48 @@ struct MainTabView: View {
             QuestDetailView(quest: quest)
         case .manageRituals:
             ManageRitualsView()
+        case .weeklyGoals:
+            WeeklyGoalsView()
         }
+    }
+}
+
+// MARK: - Floating Tab Bar (Opal Style)
+struct FloatingTabBar: View {
+    @Binding var selectedTab: AppTab
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(AppTab.allCases, id: \.self) { tab in
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        selectedTab = tab
+                    }
+                    HapticFeedback.light()
+                } label: {
+                    Image(systemName: tab.icon)
+                        .font(.system(size: 22, weight: .light))
+                        .foregroundColor(selectedTab == tab ? .white : .white.opacity(0.4))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                }
+            }
+        }
+        .padding(.horizontal, SpacingTokens.lg)
+        .background(
+            RoundedRectangle(cornerRadius: 25)
+                .fill(Color.white.opacity(0.08))
+                .background(
+                    RoundedRectangle(cornerRadius: 25)
+                        .fill(.ultraThinMaterial.opacity(0.3))
+                )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 25)
+                .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
+        )
+        .padding(.horizontal, SpacingTokens.lg)
+        .padding(.bottom, 8)
     }
 }
 
