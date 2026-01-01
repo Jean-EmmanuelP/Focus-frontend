@@ -123,12 +123,12 @@ enum QuestArea: String, Codable, CaseIterable {
     
     var color: String {
         switch self {
-        case .health: return "#4CAF50"
-        case .learning: return "#2196F3"
-        case .career: return "#FF9800"
-        case .relationships: return "#E91E63"
-        case .creativity: return "#9C27B0"
-        case .other: return "#607D8B"
+        case .health: return "#34C759"      // iOS Green
+        case .learning: return "#5AC8FA"    // Sky Blue
+        case .career: return "#4ECDC4"      // Teal
+        case .relationships: return "#FF6B9D" // Soft Pink
+        case .creativity: return "#BF5AF2"  // Purple
+        case .other: return "#8E8E93"       // Gray
         }
     }
 

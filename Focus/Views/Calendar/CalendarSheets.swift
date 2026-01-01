@@ -36,13 +36,13 @@ struct PriorityButton: View {
         if isSelected {
             switch priority {
             case .low:
-                return LinearGradient(colors: [.gray, .gray.opacity(0.8)], startPoint: .top, endPoint: .bottom)
+                return LinearGradient(colors: [ColorTokens.textMuted, ColorTokens.textMuted.opacity(0.8)], startPoint: .top, endPoint: .bottom)
             case .medium:
-                return LinearGradient(colors: [.blue, .blue.opacity(0.8)], startPoint: .top, endPoint: .bottom)
+                return LinearGradient(colors: [ColorTokens.primaryStart, ColorTokens.primaryStart.opacity(0.8)], startPoint: .top, endPoint: .bottom)
             case .high:
-                return LinearGradient(colors: [.orange, .orange.opacity(0.8)], startPoint: .top, endPoint: .bottom)
+                return LinearGradient(colors: [ColorTokens.warning, ColorTokens.warning.opacity(0.8)], startPoint: .top, endPoint: .bottom)
             case .urgent:
-                return LinearGradient(colors: [.red, .red.opacity(0.8)], startPoint: .top, endPoint: .bottom)
+                return LinearGradient(colors: [ColorTokens.error, ColorTokens.error.opacity(0.8)], startPoint: .top, endPoint: .bottom)
             }
         } else {
             return LinearGradient(colors: [ColorTokens.surface], startPoint: .top, endPoint: .bottom)

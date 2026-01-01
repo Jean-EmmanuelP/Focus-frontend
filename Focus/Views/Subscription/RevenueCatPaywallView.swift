@@ -155,10 +155,10 @@ struct VoltaPaywallView: View {
     // MARK: - Benefits
     private var benefitsSection: some View {
         VStack(alignment: .leading, spacing: SpacingTokens.md) {
-            benefitRow(icon: "flame.fill", text: "Sessions FireMode illimitees", color: .orange)
-            benefitRow(icon: "person.3.fill", text: "Rejoins la communaute", color: .blue)
+            benefitRow(icon: "flame.fill", text: "Sessions FireMode illimitees", color: ColorTokens.primaryStart)
+            benefitRow(icon: "person.3.fill", text: "Rejoins la communaute", color: ColorTokens.accent)
             benefitRow(icon: "star.fill", text: "Gamifie ta vie", color: .yellow)
-            benefitRow(icon: "chart.bar.fill", text: "Statistiques avancees", color: .green)
+            benefitRow(icon: "chart.bar.fill", text: "Statistiques avancees", color: ColorTokens.success)
             benefitRow(icon: "target", text: "Quests & objectifs illimites", color: .purple)
             benefitRow(icon: "bell.fill", text: "Rappels intelligents", color: .cyan)
         }

@@ -455,10 +455,10 @@ struct TaskRowCard: View {
 
     private func priorityColor(_ priority: TaskPriority) -> Color {
         switch priority {
-        case .low: return Color.gray
-        case .medium: return Color.blue
-        case .high: return Color.orange
-        case .urgent: return Color.red
+        case .low: return ColorTokens.textMuted
+        case .medium: return ColorTokens.primaryStart
+        case .high: return ColorTokens.warning
+        case .urgent: return ColorTokens.error
         }
     }
 }

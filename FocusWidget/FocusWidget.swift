@@ -9,6 +9,12 @@
 import WidgetKit
 import SwiftUI
 
+// MARK: - Widget Theme Colors (Sky Blue)
+private extension Color {
+    static let focusAccent = Color(red: 0.35, green: 0.78, blue: 0.98) // #5AC8FA Sky Blue
+    static let focusAccentEnd = Color(red: 0.39, green: 0.82, blue: 1.0) // #64D2FF
+}
+
 // MARK: - Shared Data Keys
 struct WidgetDataKeys {
     static let suiteName = "group.com.jep.volta"
@@ -187,7 +193,7 @@ struct SmallFocusWidgetView: View {
             // Real-time countdown timer
             Text(endDate, style: .timer)
                 .font(.system(size: 32, weight: .bold, design: .monospaced))
-                .foregroundColor(.orange)
+                .foregroundColor(.focusAccent)
                 .multilineTextAlignment(.leading)
 
             // Progress bar
@@ -198,7 +204,7 @@ struct SmallFocusWidgetView: View {
                         .frame(height: 6)
 
                     RoundedRectangle(cornerRadius: 3)
-                        .fill(LinearGradient(colors: [.orange, .red], startPoint: .leading, endPoint: .trailing))
+                        .fill(LinearGradient(colors: [.focusAccent, .focusAccentEnd], startPoint: .leading, endPoint: .trailing))
                         .frame(width: geo.size.width * entry.progress, height: 6)
                 }
             }
@@ -231,7 +237,7 @@ struct SmallFocusWidgetView: View {
                             Text("\(entry.streakDays)")
                                 .font(.system(size: 11, weight: .semibold))
                         }
-                        .foregroundColor(.orange)
+                        .foregroundColor(.focusAccent)
                     }
                 }
 
@@ -241,7 +247,7 @@ struct SmallFocusWidgetView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(entry.minutesToday)")
                         .font(.system(size: 28, weight: .bold))
-                        .foregroundColor(.orange)
+                        .foregroundColor(.focusAccent)
                     Text("min today")
                         .font(.system(size: 12))
                         .foregroundColor(.secondary)
@@ -258,7 +264,7 @@ struct SmallFocusWidgetView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
                 .background(
-                    LinearGradient(colors: [.orange, .red], startPoint: .leading, endPoint: .trailing)
+                    LinearGradient(colors: [.focusAccent, .focusAccentEnd], startPoint: .leading, endPoint: .trailing)
                 )
                 .cornerRadius(16)
             }
@@ -290,7 +296,7 @@ struct MediumFocusWidgetView: View {
 
                     Text("FOCUSING")
                         .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(.orange)
+                        .foregroundColor(.focusAccent)
 
                     Spacer()
 
@@ -308,7 +314,7 @@ struct MediumFocusWidgetView: View {
                 // Real-time countdown timer
                 Text(endDate, style: .timer)
                     .font(.system(size: 42, weight: .bold, design: .monospaced))
-                    .foregroundColor(.orange)
+                    .foregroundColor(.focusAccent)
 
                 // Progress bar
                 GeometryReader { geo in
@@ -318,7 +324,7 @@ struct MediumFocusWidgetView: View {
                             .frame(height: 8)
 
                         RoundedRectangle(cornerRadius: 4)
-                            .fill(LinearGradient(colors: [.orange, .red], startPoint: .leading, endPoint: .trailing))
+                            .fill(LinearGradient(colors: [.focusAccent, .focusAccentEnd], startPoint: .leading, endPoint: .trailing))
                             .frame(width: geo.size.width * entry.progress, height: 8)
                     }
                 }
@@ -378,7 +384,7 @@ struct MediumFocusWidgetView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("\(entry.minutesToday)")
                             .font(.system(size: 36, weight: .bold))
-                            .foregroundColor(.orange)
+                            .foregroundColor(.focusAccent)
                         Text("minutes focused today")
                             .font(.system(size: 13))
                             .foregroundColor(.secondary)
@@ -394,7 +400,7 @@ struct MediumFocusWidgetView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("\(entry.sessionsToday)")
                                 .font(.system(size: 18, weight: .bold))
-                                .foregroundColor(.orange)
+                                .foregroundColor(.focusAccent)
                             Text("sessions")
                                 .font(.system(size: 11))
                                 .foregroundColor(.secondary)
@@ -403,7 +409,7 @@ struct MediumFocusWidgetView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("\(entry.streakDays)")
                                 .font(.system(size: 18, weight: .bold))
-                                .foregroundColor(.orange)
+                                .foregroundColor(.focusAccent)
                             Text("day streak")
                                 .font(.system(size: 11))
                                 .foregroundColor(.secondary)
@@ -423,7 +429,7 @@ struct MediumFocusWidgetView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
                     .background(
-                        LinearGradient(colors: [.orange, .red], startPoint: .leading, endPoint: .trailing)
+                        LinearGradient(colors: [.focusAccent, .focusAccentEnd], startPoint: .leading, endPoint: .trailing)
                     )
                     .cornerRadius(20)
                 }
@@ -447,7 +453,7 @@ struct CircularFocusWidgetView: View {
 
                 Circle()
                     .trim(from: 0, to: entry.progress)
-                    .stroke(Color.orange, lineWidth: 4)
+                    .stroke(Color.focusAccent, lineWidth: 4)
                     .rotationEffect(.degrees(-90))
 
                 VStack(spacing: 0) {
@@ -499,7 +505,7 @@ struct RectangularFocusWidgetView: View {
                                 .frame(height: 3)
 
                             RoundedRectangle(cornerRadius: 2)
-                                .fill(Color.orange)
+                                .fill(Color.focusAccent)
                                 .frame(width: geo.size.width * entry.progress, height: 3)
                         }
                     }
@@ -528,7 +534,7 @@ struct RectangularFocusWidgetView: View {
 
                     Image(systemName: "play.circle.fill")
                         .font(.system(size: 20))
-                        .foregroundColor(.orange)
+                        .foregroundColor(.focusAccent)
                 }
             }
         }

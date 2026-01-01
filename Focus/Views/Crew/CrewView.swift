@@ -745,10 +745,10 @@ struct LeaderboardEntryRow: View {
                         HStack(spacing: 3) {
                             Image(systemName: "flame.fill")
                                 .font(.system(size: 12))
-                                .foregroundColor(entry.safeCurrentStreak > 0 ? .orange : ColorTokens.textMuted)
+                                .foregroundColor(entry.safeCurrentStreak > 0 ? ColorTokens.primaryStart : ColorTokens.textMuted)
                             Text("\(entry.safeCurrentStreak)j")
                                 .font(.satoshi(12, weight: .medium))
-                                .foregroundColor(entry.safeCurrentStreak > 0 ? .orange : ColorTokens.textMuted)
+                                .foregroundColor(entry.safeCurrentStreak > 0 ? ColorTokens.primaryStart : ColorTokens.textMuted)
                         }
                     }
 
@@ -840,7 +840,7 @@ struct LeaderboardEntryRow: View {
         switch entry.safeRank {
         case 1: return Color.yellow
         case 2: return Color.gray
-        case 3: return Color.orange
+        case 3: return ColorTokens.accent  // Bronze replaced with teal accent
         default: return ColorTokens.textMuted
         }
     }

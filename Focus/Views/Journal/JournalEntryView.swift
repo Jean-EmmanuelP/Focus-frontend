@@ -336,12 +336,12 @@ struct JournalEntryView: View {
 
     private var moodColor: Color {
         switch entry.mood {
-        case "great": return .green
-        case "good": return .blue
-        case "neutral": return .gray
-        case "low": return .orange
-        case "bad": return .red
-        default: return .gray
+        case "great": return ColorTokens.success
+        case "good": return ColorTokens.primaryStart
+        case "neutral": return ColorTokens.textMuted
+        case "low": return ColorTokens.warning
+        case "bad": return ColorTokens.error
+        default: return ColorTokens.textMuted
         }
     }
 

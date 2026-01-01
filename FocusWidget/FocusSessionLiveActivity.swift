@@ -2,6 +2,12 @@ import ActivityKit
 import WidgetKit
 import SwiftUI
 
+// MARK: - Live Activity Theme Colors (Sky Blue)
+private extension Color {
+    static let liveAccent = Color(red: 0.35, green: 0.78, blue: 0.98) // #5AC8FA Sky Blue
+    static let liveAccentEnd = Color(red: 0.39, green: 0.82, blue: 1.0) // #64D2FF
+}
+
 // Import the shared ActivityAttributes from the main app
 // Note: In a real project, these would be in a shared framework
 
@@ -39,7 +45,7 @@ struct FocusSessionLiveActivity: Widget {
                     VStack(alignment: .trailing, spacing: 2) {
                         Text(formatTime(context.state.timeRemaining))
                             .font(.system(size: 20, weight: .bold, design: .monospaced))
-                            .foregroundColor(.orange)
+                            .foregroundColor(.liveAccent)
 
                         Text(context.state.isPaused ? "Paused" : "Focusing")
                             .font(.system(size: 11))
@@ -72,7 +78,7 @@ struct FocusSessionLiveActivity: Widget {
                                 RoundedRectangle(cornerRadius: 4)
                                     .fill(
                                         LinearGradient(
-                                            colors: [.orange, .red],
+                                            colors: [.liveAccent, .liveAccentEnd],
                                             startPoint: .leading,
                                             endPoint: .trailing
                                         )
@@ -97,18 +103,18 @@ struct FocusSessionLiveActivity: Widget {
                     if context.state.isPaused {
                         Image(systemName: "pause.fill")
                             .font(.system(size: 10))
-                            .foregroundColor(.orange)
+                            .foregroundColor(.liveAccent)
                     }
                 }
             } compactTrailing: {
                 Text(formatTimeShort(context.state.timeRemaining))
                     .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                    .foregroundColor(.orange)
+                    .foregroundColor(.liveAccent)
             } minimal: {
                 ZStack {
                     Circle()
                         .trim(from: 0, to: context.state.progress)
-                        .stroke(Color.orange, lineWidth: 2)
+                        .stroke(Color.liveAccent, lineWidth: 2)
                         .rotationEffect(.degrees(-90))
 
                     Text(context.attributes.questEmoji ?? "🔥")
@@ -175,7 +181,7 @@ struct LockScreenLiveActivityView: View {
                         RoundedRectangle(cornerRadius: 3)
                             .fill(
                                 LinearGradient(
-                                    colors: [.orange, .red],
+                                    colors: [.liveAccent, .liveAccentEnd],
                                     startPoint: .leading,
                                     endPoint: .trailing
                                 )
@@ -192,7 +198,7 @@ struct LockScreenLiveActivityView: View {
             VStack(alignment: .trailing, spacing: 2) {
                 Text(formatTime(context.state.timeRemaining))
                     .font(.system(size: 28, weight: .bold, design: .monospaced))
-                    .foregroundColor(.orange)
+                    .foregroundColor(.liveAccent)
 
                 Text("remaining")
                     .font(.system(size: 11))

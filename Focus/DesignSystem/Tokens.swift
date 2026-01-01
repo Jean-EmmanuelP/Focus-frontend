@@ -4,45 +4,53 @@
 import SwiftUI
 import UIKit
 
-/// All color tokens for the app
+/// All color tokens for the app - Opal-inspired calm design
 enum ColorTokens {
-    // MARK: - Backgrounds
-    static let background = Color(hex: "#0A0A0A")
-    static let surface = Color(hex: "#1A1A1A")
-    static let surfaceElevated = Color(hex: "#242424")
-    
-    // MARK: - Primary (Fire gradient)
-    static let primaryStart = Color(hex: "#FF5C00")
-    static let primaryEnd = Color(hex: "#FFB200")
-    static let primarySoft = Color(hex: "#FF5C00").opacity(0.15)
-    static let primaryGlow = Color(hex: "#FF5C00").opacity(0.4)
-    
+    // MARK: - Backgrounds (Deep black for sacred space feel)
+    static let background = Color(hex: "#050508")
+    static let surface = Color(hex: "#0F1014")
+    static let surfaceElevated = Color(hex: "#1A1B21")
+
+    // MARK: - Primary (Sky blue - calm, serene)
+    static let primaryStart = Color(hex: "#5AC8FA")  // iOS Sky Blue
+    static let primaryEnd = Color(hex: "#64D2FF")    // Lighter sky blue
+    static let primarySoft = Color(hex: "#5AC8FA").opacity(0.12)
+    static let primaryGlow = Color(hex: "#5AC8FA").opacity(0.3)
+
+    // MARK: - Accent (Subtle teal for variety)
+    static let accent = Color(hex: "#4ECDC4")
+    static let accentSoft = Color(hex: "#4ECDC4").opacity(0.12)
+
     // MARK: - Text
     static let textPrimary = Color.white
-    static let textSecondary = Color(hex: "#B8B8B8")
-    static let textMuted = Color(hex: "#6B6B6B")
-    
+    static let textSecondary = Color(hex: "#A0A0A8")
+    static let textMuted = Color(hex: "#5A5A64")
+
     // MARK: - States
-    static let success = Color(hex: "#4CAF50")
-    static let warning = Color(hex: "#FFA726")
-    static let error = Color(hex: "#F44336")
-    
+    static let success = Color(hex: "#34C759")  // iOS Green
+    static let warning = Color(hex: "#FFD60A")  // iOS Yellow
+    static let error = Color(hex: "#FF453A")    // iOS Red
+
     // MARK: - Borders
-    static let border = Color.white.opacity(0.1)
-    static let borderActive = Color(hex: "#FF5C00").opacity(0.3)
-    
-    // MARK: - Gradients
-    static let fireGradient = LinearGradient(
+    static let border = Color.white.opacity(0.08)
+    static let borderActive = Color(hex: "#5AC8FA").opacity(0.4)
+
+    // MARK: - Gradients (Serene blue gradients)
+    static let primaryGradient = LinearGradient(
         colors: [primaryStart, primaryEnd],
         startPoint: .leading,
         endPoint: .trailing
     )
 
-    static let fireGradientVertical = LinearGradient(
+    static let primaryGradientVertical = LinearGradient(
         colors: [primaryStart, primaryEnd],
         startPoint: .top,
         endPoint: .bottom
     )
+
+    // Legacy aliases for compatibility
+    static let fireGradient = primaryGradient
+    static let fireGradientVertical = primaryGradientVertical
 
     // Disabled gradient for buttons
     static let disabledGradient = LinearGradient(
@@ -60,7 +68,14 @@ enum ColorTokens {
 
     // Success gradient (green)
     static let successGradient = LinearGradient(
-        colors: [success, Color(hex: "#66BB6A")],
+        colors: [success, Color(hex: "#30D158")],
+        startPoint: .leading,
+        endPoint: .trailing
+    )
+
+    // Accent gradient (teal)
+    static let accentGradient = LinearGradient(
+        colors: [accent, Color(hex: "#5FE3D9")],
         startPoint: .leading,
         endPoint: .trailing
     )

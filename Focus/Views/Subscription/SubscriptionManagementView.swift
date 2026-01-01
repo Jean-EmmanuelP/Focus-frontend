@@ -363,8 +363,8 @@ struct SubscriptionManagementView: View {
 
     private var statusColor: Color {
         switch revenueCatManager.subscriptionState {
-        case .subscribed: return .green
-        case .expired: return .orange
+        case .subscribed: return ColorTokens.success
+        case .expired: return ColorTokens.warning
         case .notSubscribed, .unknown: return ColorTokens.textMuted
         }
     }

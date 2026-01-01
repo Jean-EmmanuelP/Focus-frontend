@@ -261,7 +261,7 @@ struct ProfileView: View {
             ], spacing: SpacingTokens.sm) {
                 statCard(
                     icon: "flame.fill",
-                    iconColor: .orange,
+                    iconColor: ColorTokens.primaryStart,
                     value: "\(store.streakData?.currentStreak ?? 0)",
                     label: "Streak actuel"
                 )

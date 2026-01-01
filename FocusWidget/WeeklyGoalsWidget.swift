@@ -9,6 +9,11 @@ import WidgetKit
 import SwiftUI
 import AppIntents
 
+// MARK: - Widget Color Theme (Sky Blue)
+extension Color {
+    static let widgetAccent = Color(red: 0.35, green: 0.78, blue: 0.98) // #5AC8FA Sky Blue
+}
+
 // MARK: - Widget Data Model
 struct WeeklyGoalsWidgetData: Codable {
     let items: [WeeklyGoalsWidgetItem]
@@ -197,7 +202,7 @@ struct SmallWeeklyGoalsView: View {
                     if entry.totalCount > 0 {
                         Text("\(entry.completedCount)/\(entry.totalCount)")
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(.orange)
+                            .foregroundColor(.widgetAccent)
                     }
                 }
             }
@@ -211,7 +216,7 @@ struct SmallWeeklyGoalsView: View {
                             .foregroundColor(.secondary)
                         Text("Tap to set your goals")
                             .font(.system(size: 11))
-                            .foregroundColor(.orange)
+                            .foregroundColor(.widgetAccent)
                     }
                     .frame(maxWidth: .infinity)
                 }
@@ -288,7 +293,7 @@ struct MediumWeeklyGoalsView: View {
                 if entry.totalCount > 0 {
                     Text("\(entry.completedCount)/\(entry.totalCount)")
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.orange)
+                        .foregroundColor(.widgetAccent)
                 }
             }
 
@@ -304,7 +309,7 @@ struct MediumWeeklyGoalsView: View {
                                 .foregroundColor(.secondary)
                             Text("+ Add goals")
                                 .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(.orange)
+                                .foregroundColor(.widgetAccent)
                         }
                         Spacer()
                     }

@@ -1231,15 +1231,15 @@ struct SidebarTaskCard: View {
     }
 
     private var taskColor: Color {
-        if task.isCompleted { return .green }
+        if task.isCompleted { return ColorTokens.success }
         if let areaName = task.areaName?.lowercased() {
             switch areaName {
-            case "health", "santé": return Color(hex: "#4CAF50") ?? .green
-            case "learning", "apprentissage": return Color(hex: "#2196F3") ?? .blue
-            case "career", "carrière": return Color(hex: "#FF9800") ?? .orange
-            case "relationships", "relations": return Color(hex: "#E91E63") ?? .pink
-            case "creativity", "créativité": return Color(hex: "#9C27B0") ?? .purple
-            default: return Color(hex: "#607D8B") ?? .gray
+            case "health", "santé": return Color(hex: "#34C759") ?? ColorTokens.success
+            case "learning", "apprentissage": return Color(hex: "#5AC8FA") ?? ColorTokens.primaryStart
+            case "career", "carrière": return Color(hex: "#4ECDC4") ?? ColorTokens.accent
+            case "relationships", "relations": return Color(hex: "#FF6B9D") ?? .pink
+            case "creativity", "créativité": return Color(hex: "#BF5AF2") ?? .purple
+            default: return Color(hex: "#8E8E93") ?? ColorTokens.textMuted
             }
         }
         return ColorTokens.primaryStart
@@ -1367,17 +1367,17 @@ struct DayTaskBlockView: View {
         if let areaName = task.areaName?.lowercased() {
             switch areaName {
             case "health", "santé":
-                return Color(hex: "#4CAF50") ?? .green // Green
+                return Color(hex: "#34C759") ?? ColorTokens.success
             case "learning", "apprentissage":
-                return Color(hex: "#2196F3") ?? .blue // Blue
+                return Color(hex: "#5AC8FA") ?? ColorTokens.primaryStart
             case "career", "carrière":
-                return Color(hex: "#FF9800") ?? .orange // Orange
+                return Color(hex: "#4ECDC4") ?? ColorTokens.accent
             case "relationships", "relations":
-                return Color(hex: "#E91E63") ?? .pink // Pink
+                return Color(hex: "#FF6B9D") ?? .pink
             case "creativity", "créativité":
-                return Color(hex: "#9C27B0") ?? .purple // Purple
+                return Color(hex: "#BF5AF2") ?? .purple
             default:
-                return Color(hex: "#607D8B") ?? .gray // Gray for other
+                return Color(hex: "#8E8E93") ?? ColorTokens.textMuted
             }
         }
 
@@ -1897,10 +1897,10 @@ struct TaskDetailSheet: View {
 
     private var priorityColor: Color {
         switch task.priorityEnum {
-        case .urgent: return Color.red
-        case .high: return Color.red.opacity(0.8)
-        case .medium: return Color.orange
-        case .low: return Color.blue
+        case .urgent: return ColorTokens.error
+        case .high: return ColorTokens.warning
+        case .medium: return ColorTokens.primaryStart
+        case .low: return ColorTokens.textMuted
         }
     }
 
@@ -3069,12 +3069,12 @@ struct TaskListRow: View {
         if task.isCompleted { return ColorTokens.success }
         if let areaName = task.areaName?.lowercased() {
             switch areaName {
-            case "health", "santé": return Color(hex: "#4CAF50") ?? .green
-            case "learning", "apprentissage": return Color(hex: "#2196F3") ?? .blue
-            case "career", "carrière": return Color(hex: "#FF9800") ?? .orange
-            case "relationships", "relations": return Color(hex: "#E91E63") ?? .pink
-            case "creativity", "créativité": return Color(hex: "#9C27B0") ?? .purple
-            default: return Color(hex: "#607D8B") ?? .gray
+            case "health", "santé": return Color(hex: "#34C759") ?? ColorTokens.success
+            case "learning", "apprentissage": return Color(hex: "#5AC8FA") ?? ColorTokens.primaryStart
+            case "career", "carrière": return Color(hex: "#4ECDC4") ?? ColorTokens.accent
+            case "relationships", "relations": return Color(hex: "#FF6B9D") ?? .pink
+            case "creativity", "créativité": return Color(hex: "#BF5AF2") ?? .purple
+            default: return Color(hex: "#8E8E93") ?? ColorTokens.textMuted
             }
         }
         return ColorTokens.primaryStart
