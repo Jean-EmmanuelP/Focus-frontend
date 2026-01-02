@@ -3,7 +3,7 @@ import Combine
 
 // MARK: - App Navigation
 enum AppTab: Int, CaseIterable {
-    case chat = 0       // Renamed from dashboard - now the main chat coach
+    case dashboard = 0
     case calendar = 1
     // case community = 2  // COMMENTED OUT - Feed disabled for now
     case crew = 3
@@ -11,12 +11,12 @@ enum AppTab: Int, CaseIterable {
 
     // Define which tabs are currently active (excluding community)
     static var activeCases: [AppTab] {
-        [.chat, .calendar, .crew, .profile]
+        [.dashboard, .calendar, .crew, .profile]
     }
 
     var title: String {
         switch self {
-        case .chat: return "Coach"
+        case .dashboard: return "tab.dashboard".localized
         case .calendar: return "tab.calendar".localized
         // case .community: return "tab.community".localized
         case .crew: return "tab.crew".localized
@@ -26,7 +26,7 @@ enum AppTab: Int, CaseIterable {
 
     var icon: String {
         switch self {
-        case .chat: return "message.fill"
+        case .dashboard: return "flame.fill"
         case .calendar: return "calendar"
         // case .community: return "photo.stack"
         case .crew: return "person.3.fill"
@@ -58,8 +58,8 @@ enum DashboardSection: String, CaseIterable {
 class AppRouter: ObservableObject {
     static let shared = AppRouter()
 
-    @Published var selectedTab: AppTab = .chat
-    @Published var chatPath = NavigationPath()
+    @Published var selectedTab: AppTab = .dashboard
+    @Published var dashboardPath = NavigationPath()
     @Published var showStartTheDay = false
     @Published var showEndOfDay = false
     @Published var showFireModeSession = false  // Shows FireModeView as fullscreen modal
@@ -111,13 +111,8 @@ class AppRouter: ObservableObject {
         fireModePresetRitualId = nil
     }
 
-    func navigateToChat() {
-        selectedTab = .chat
-    }
-
-    // Legacy - kept for compatibility
     func navigateToDashboard(scrollTo section: DashboardSection? = nil) {
-        selectedTab = .chat
+        selectedTab = .dashboard
         dashboardScrollTarget = section
     }
 
@@ -132,8 +127,8 @@ class AppRouter: ObservableObject {
     }
 
     func navigate(to destination: NavigationDestination) {
-        selectedTab = .chat
-        chatPath.append(destination)
+        selectedTab = .dashboard
+        dashboardPath.append(destination)
     }
 
     func navigateToWeeklyGoals() {
@@ -152,9 +147,9 @@ struct MainTabView: View {
             // Content based on selected tab
             Group {
                 switch router.selectedTab {
-                case .chat:
-                    NavigationStack(path: $router.chatPath) {
-                        ChatView()
+                case .dashboard:
+                    NavigationStack(path: $router.dashboardPath) {
+                        DashboardView()
                             .navigationDestination(for: NavigationDestination.self) { destination in
                                 destinationView(for: destination)
                             }
