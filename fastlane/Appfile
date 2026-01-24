@@ -4,8 +4,8 @@
 app_identifier("com.jep.volta")  # Bundle ID
 team_id("62NW6K29QN")  # Apple Developer Team ID
 
-# Apple ID - sera demandé au premier lancement si non configuré
-# apple_id("ton.email@icloud.com")
+# Apple ID
+apple_id("jperrama@gmail.com")
 
 # For App Store Connect API (recommended for CI/CD)
 # Generate key at: https://appstoreconnect.apple.com/access/api

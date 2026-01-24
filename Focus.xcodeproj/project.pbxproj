@@ -668,7 +668,7 @@
 				CODE_SIGN_ENTITLEMENTS = Focus/Focus.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 0;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 62NW6K29QN;
 				EMIT_FRONTEND_COMMAND_LINES = YES;
 				ENABLE_APP_SANDBOX = YES;
@@ -696,7 +696,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.7;
+				MARKETING_VERSION = 1.8;
 				OTHER_LDFLAGS = "";
 				"OTHER_LDFLAGS[arch=*]" = (
 					"-Xlinker",
@@ -727,7 +727,7 @@
 				CODE_SIGN_ENTITLEMENTS = Focus/Focus.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 0;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 62NW6K29QN;
 				EMIT_FRONTEND_COMMAND_LINES = YES;
 				ENABLE_APP_SANDBOX = YES;
@@ -755,7 +755,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.7;
+				MARKETING_VERSION = 1.8;
 				OTHER_LDFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.jep.volta;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -782,7 +782,7 @@
 				CODE_SIGN_ENTITLEMENTS = FocusWidgetExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 62NW6K29QN;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = FocusWidget/Info.plist;
@@ -817,7 +817,7 @@
 				CODE_SIGN_ENTITLEMENTS = FocusWidgetExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 62NW6K29QN;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = FocusWidget/Info.plist;
