@@ -398,6 +398,11 @@ struct CreateCrewGroupDTO: Encodable {
     let icon: String?
     let color: String?
     let memberIds: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case name, description, icon, color
+        case memberIds = "member_ids"
+    }
 }
 
 /// DTO for updating an existing crew group
@@ -411,6 +416,10 @@ struct UpdateCrewGroupDTO: Encodable {
 /// DTO for adding members to a crew group
 struct AddCrewGroupMembersDTO: Encodable {
     let memberIds: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case memberIds = "member_ids"
+    }
 }
 
 // MARK: - Group Routine Models (Shared Routines)
@@ -463,6 +472,63 @@ struct GroupRoutinesResponse: Codable {
 /// DTO for sharing a routine with a group
 struct ShareRoutineWithGroupDTO: Encodable {
     let routineId: String
+}
+
+// MARK: - Group Statistics Models
+
+/// Comprehensive statistics for a group
+struct GroupStats: Codable {
+    let groupId: String
+    let period: String  // "weekly" or "monthly"
+    let memberStats: [GroupMemberStat]
+    let routineStats: [GroupRoutineStat]?
+    let dailyTrend: [DailyStat]?  // Average group completion rate by day
+    let totalRoutinesCompleted: Int
+    let averageCompletionRate: Int  // Percentage
+}
+
+/// Stats for a single member within a group
+struct GroupMemberStat: Codable, Identifiable {
+    let userId: String
+    let pseudo: String?
+    let firstName: String?
+    let avatarUrl: String?
+    let completedCount: Int          // Total routines completed in period
+    let totalPossible: Int           // Total routines they could have done
+    let completionRate: Int          // Percentage
+    let streak: Int?                 // Current streak days
+    let dailyCompletions: [DailyStat]?  // Completions by day
+
+    var id: String { userId }
+
+    var displayName: String {
+        if let pseudo = pseudo, !pseudo.isEmpty { return pseudo }
+        if let first = firstName, !first.isEmpty { return first }
+        return "User"
+    }
+}
+
+/// Stats for a single routine within a group
+struct GroupRoutineStat: Codable, Identifiable {
+    let routineId: String
+    let title: String
+    let icon: String?
+    let totalCompletions: Int        // Total times completed by all members
+    let completionRate: Int          // Average % of members who complete it
+    let dailyCompletions: [DailyStat]?  // Completions by day
+    let memberCompletions: [MemberRoutineCompletion]?  // Per-member breakdown
+
+    var id: String { routineId }
+}
+
+/// How many times a specific member completed a specific routine
+struct MemberRoutineCompletion: Codable, Identifiable {
+    let userId: String
+    let displayName: String
+    let completedCount: Int
+    let completionRate: Int  // Percentage for this user on this routine
+
+    var id: String { userId }
 }
 
 // MARK: - Group Invitation Models
@@ -779,6 +845,19 @@ class CrewService {
         try await apiClient.request(
             endpoint: .removeGroupRoutine(groupId: groupId, groupRoutineId: groupRoutineId),
             method: .delete
+        )
+    }
+
+    // MARK: - Group Statistics
+
+    /// Fetch statistics for a group (weekly or monthly)
+    /// - Parameters:
+    ///   - groupId: The group ID
+    ///   - period: "weekly" or "monthly"
+    func fetchGroupStats(groupId: String, period: String = "weekly") async throws -> GroupStats {
+        return try await apiClient.request(
+            endpoint: .groupStats(groupId: groupId, period: period),
+            method: .get
         )
     }
 

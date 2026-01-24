@@ -1,0 +1,16 @@
+# Appfile - Configuration for Fastlane
+# More info: https://docs.fastlane.tools/advanced/#appfile
+
+app_identifier("com.jep.volta")  # Bundle ID
+team_id("62NW6K29QN")  # Apple Developer Team ID
+
+# Apple ID - sera demandé au premier lancement si non configuré
+# apple_id("ton.email@icloud.com")
+
+# For App Store Connect API (recommended for CI/CD)
+# Generate key at: https://appstoreconnect.apple.com/access/api
+# app_store_connect_api_key(
+#   key_id: "YOUR_KEY_ID",
+#   issuer_id: "YOUR_ISSUER_ID",
+#   key_filepath: "./fastlane/AuthKey.p8"
+# )

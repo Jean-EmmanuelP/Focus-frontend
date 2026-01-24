@@ -26,6 +26,10 @@ class DashboardViewModel: ObservableObject {
     @Published var journalStreak: Int = 0
     @Published var isLoadingJournal: Bool = false
 
+    // MARK: - WhatsApp State
+    @Published var isWhatsAppLinked: Bool = false
+    @Published var whatsAppBannerDismissed: Bool = false
+
     init() {
         setupBindings()
     }
@@ -404,9 +408,13 @@ class DashboardViewModel: ObservableObject {
     func uploadAvatar(imageData: Data) async {
         do {
             let avatarUrl = try await userService.uploadAvatar(imageData: imageData)
-            // Update local user with new avatar URL (no full refresh needed)
+            // Update local user with new avatar URL + cache-bust parameter to force refresh
             if var updatedUser = store.user {
-                updatedUser.avatarURL = avatarUrl
+                // Add timestamp to bust AsyncImage cache
+                let cacheBustUrl = avatarUrl.contains("?")
+                    ? "\(avatarUrl)&v=\(Int(Date().timeIntervalSince1970))"
+                    : "\(avatarUrl)?v=\(Int(Date().timeIntervalSince1970))"
+                updatedUser.avatarURL = cacheBustUrl
                 store.user = updatedUser
             }
         } catch {
@@ -429,6 +437,7 @@ class DashboardViewModel: ObservableObject {
 
     // MARK: - Journal Actions
     private let journalService = JournalService()
+    private let whatsAppService = WhatsAppService.shared
 
     /// Load journal data (today's entry, recent entries, streak)
     func loadJournalData() async {
@@ -466,6 +475,32 @@ class DashboardViewModel: ObservableObject {
             journalStreak = try await journalService.fetchStreak()
         } catch {
             print("❌ Failed to load journal streak: \(error)")
+        }
+    }
+
+    // MARK: - WhatsApp
+    func loadWhatsAppStatus() async {
+        // Check if banner was dismissed this session
+        if whatsAppBannerDismissed { return }
+
+        do {
+            let status = try await whatsAppService.getStatus()
+            isWhatsAppLinked = status.isLinked
+        } catch {
+            // Not linked or error - show banner
+            isWhatsAppLinked = false
+        }
+    }
+
+    func dismissWhatsAppBanner() {
+        whatsAppBannerDismissed = true
+    }
+
+    func openWhatsApp() {
+        // Open WhatsApp with the Focus WhatsApp Business number
+        let whatsappNumber = "33612345678" // Replace with actual WhatsApp Business number
+        if let url = URL(string: "https://wa.me/\(whatsappNumber)?text=Salut%20Kai!") {
+            UIApplication.shared.open(url)
         }
     }
 

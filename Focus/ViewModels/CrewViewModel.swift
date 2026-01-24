@@ -47,6 +47,11 @@ class CrewViewModel: ObservableObject {
     @Published var showingShareRoutine = false
     @Published var userRoutines: [RoutineResponse] = []  // User's own routines for sharing
 
+    // Group Statistics
+    @Published var groupStats: GroupStats?
+    @Published var isLoadingGroupStats = false
+    @Published var selectedStatsPeriod: String = "weekly"  // "weekly" or "monthly"
+
     // Selected member's day
     @Published var selectedMember: CrewMemberResponse?
     @Published var selectedMemberDay: CrewMemberDayResponse?
@@ -483,11 +488,7 @@ class CrewViewModel: ObservableObject {
 
     func createGroup(name: String, description: String? = nil, icon: String? = nil, color: String? = nil) async -> Bool {
         let memberIds = Array(selectedMembersForGroup)
-        guard !memberIds.isEmpty else {
-            errorMessage = "crew.groups.select_members".localized
-            showError = true
-            return false
-        }
+        // Allow creating groups without members - they can be added later
 
         do {
             let newGroup = try await crewService.createCrewGroup(
@@ -760,6 +761,28 @@ class CrewViewModel: ObservableObject {
 
     func closeShareRoutine() {
         showingShareRoutine = false
+    }
+
+    // MARK: - Group Statistics
+
+    func loadGroupStats(groupId: String, period: String? = nil) async {
+        let statsPeriod = period ?? selectedStatsPeriod
+        isLoadingGroupStats = true
+        defer { isLoadingGroupStats = false }
+
+        do {
+            groupStats = try await crewService.fetchGroupStats(groupId: groupId, period: statsPeriod)
+            if let period = period {
+                selectedStatsPeriod = period
+            }
+        } catch {
+            handleError(error, context: "loading group stats", silent: true)
+        }
+    }
+
+    func changeStatsPeriod(groupId: String, to period: String) async {
+        selectedStatsPeriod = period
+        await loadGroupStats(groupId: groupId, period: period)
     }
 
     // MARK: - Error Handling

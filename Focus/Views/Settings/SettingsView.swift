@@ -1,7 +1,7 @@
 import SwiftUI
 import PhotosUI
 
-// MARK: - Settings View
+// MARK: - Settings View (V1 Minimal)
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var store: FocusAppStore
@@ -14,746 +14,432 @@ struct SettingsView: View {
     let onTakeSelfie: () -> Void
     let onSignOut: () -> Void
 
-    @State private var showEditProfile = false
-    @State private var showQuestsSection = false
-    @State private var showRitualsSection = false
-    @State private var showStatsSection = false
-    @State private var showTutorial = false
-    @State private var showGoogleCalendar = false
-    @State private var showAppBlocker = false
-    @State private var showNotifications = false
-    @State private var showReferral = false
-    @State private var selectedVisibility: DayVisibility = .crewOnly
-    @State private var isUpdatingVisibility = false
-    @State private var selectedProductivityPeak: ProductivityPeak?
-    @State private var isUpdatingProductivity = false
+    // Settings state
+    @State private var notificationsEnabled = true
+    @State private var morningReminderTime = Date()
+    @State private var selectedLanguage = "fr"
+    @State private var selectedTimezone = TimeZone.current.identifier
+    @State private var showDeleteAccountAlert = false
+    @State private var showEditName = false
+    @State private var editedName = ""
 
     private let userService = UserService()
-    private let crewService = CrewService()
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: SpacingTokens.lg) {
-                    // Profile Header
-                    profileHeader
+            List {
+                // MARK: - Profile Section
+                Section {
+                    // Photo de profil
+                    HStack {
+                        ZStack(alignment: .bottomTrailing) {
+                            if let user = user {
+                                AvatarView(name: user.name, avatarURL: user.avatarURL, size: 60)
+                            } else {
+                                Circle()
+                                    .fill(Color.gray.opacity(0.3))
+                                    .frame(width: 60, height: 60)
+                                    .overlay(Image(systemName: "person.fill").foregroundColor(.gray))
+                            }
 
-                    // Referral Banner (Prominent)
-                    referralBanner
-                        .padding(.horizontal, SpacingTokens.lg)
-
-                    // Menu Items
-                    VStack(spacing: SpacingTokens.sm) {
-                        // Quests & Areas
-                        SettingsMenuItem(
-                            icon: "🎯",
-                            title: "settings.quests_areas".localized,
-                            subtitle: "settings.quests_areas_subtitle".localized
-                        ) {
-                            showQuestsSection = true
+                            PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                                Circle()
+                                    .fill(Color.blue)
+                                    .frame(width: 24, height: 24)
+                                    .overlay(Image(systemName: "camera.fill").font(.system(size: 11)).foregroundColor(.white))
+                            }
                         }
 
-                        // Daily Rituals
-                        SettingsMenuItem(
-                            icon: "✅",
-                            title: "settings.daily_rituals".localized,
-                            subtitle: "settings.daily_rituals_subtitle".localized
-                        ) {
-                            showRitualsSection = true
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(user?.name ?? "Utilisateur")
+                                .font(.headline)
+                            if let email = user?.email {
+                                Text(email)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
                         }
+                        .padding(.leading, 12)
 
-                        // Statistics
-                        SettingsMenuItem(
-                            icon: "📊",
-                            title: "settings.statistics".localized,
-                            subtitle: "settings.statistics_subtitle".localized
-                        ) {
-                            showStatsSection = true
-                        }
-
-                        // Google Calendar
-                        SettingsMenuItem(
-                            icon: "📅",
-                            title: "Google Calendar",
-                            subtitle: "Synchroniser avec ton calendrier"
-                        ) {
-                            showGoogleCalendar = true
-                        }
-
-                        // App Blocker
-                        SettingsMenuItem(
-                            icon: "🔒",
-                            title: "Blocage d'apps",
-                            subtitle: "Bloquer les apps pendant le Focus"
-                        ) {
-                            showAppBlocker = true
-                        }
-
-                        // Notifications
-                        SettingsMenuItem(
-                            icon: "🔔",
-                            title: "Notifications",
-                            subtitle: "Rappels matinaux et de taches"
-                        ) {
-                            showNotifications = true
-                        }
-
-                        // Day Visibility
-                        dayVisibilitySection
-
-                        // Productivity Peak
-                        productivityPeakSection
-
-                        // Tutorial
-                        SettingsMenuItem(
-                            icon: "🎬",
-                            title: "settings.watch_tutorial".localized,
-                            subtitle: "settings.watch_tutorial_subtitle".localized
-                        ) {
-                            showTutorial = true
-                        }
+                        Spacer()
                     }
-                    .padding(.horizontal, SpacingTokens.lg)
+                    .padding(.vertical, 8)
 
-                    Spacer(minLength: SpacingTokens.xxl)
-
-                    // Sign Out Button
-                    Button(action: {
-                        dismiss()
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            onSignOut()
-                        }
-                    }) {
+                    // Nom d'utilisateur
+                    Button {
+                        editedName = user?.pseudo ?? user?.firstName ?? ""
+                        showEditName = true
+                    } label: {
                         HStack {
-                            Image(systemName: "rectangle.portrait.and.arrow.right")
-                            Text("settings.sign_out".localized)
+                            Label("Nom d'affichage", systemImage: "person")
+                            Spacer()
+                            Text(user?.pseudo ?? user?.firstName ?? "Non défini")
+                                .foregroundColor(.secondary)
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
                         }
-                        .font(.satoshi(16, weight: .medium))
-                        .foregroundColor(ColorTokens.error)
                     }
-                    .padding(.bottom, SpacingTokens.xxl)
+                    .foregroundColor(.primary)
+
+                    // Langue
+                    Picker(selection: $selectedLanguage) {
+                        Text("Français").tag("fr")
+                        Text("English").tag("en")
+                    } label: {
+                        Label("Langue", systemImage: "globe")
+                    }
+
+                    // Fuseau horaire
+                    NavigationLink {
+                        TimezonePickerView(selectedTimezone: $selectedTimezone)
+                    } label: {
+                        HStack {
+                            Label("Fuseau horaire", systemImage: "clock")
+                            Spacer()
+                            Text(formatTimezone(selectedTimezone))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                } header: {
+                    Text("Profil")
+                }
+
+                // MARK: - Notifications Section
+                Section {
+                    Toggle(isOn: $notificationsEnabled) {
+                        Label("Notifications", systemImage: "bell")
+                    }
+
+                    if notificationsEnabled {
+                        DatePicker(selection: $morningReminderTime, displayedComponents: .hourAndMinute) {
+                            Label("Rappel du matin", systemImage: "sun.max")
+                        }
+                    }
+                } header: {
+                    Text("Notifications")
+                } footer: {
+                    Text("Kai t'enverra tes objectifs du jour à l'heure choisie.")
+                }
+
+                // MARK: - Account Section
+                Section {
+                    Button(role: .destructive) {
+                        showDeleteAccountAlert = true
+                    } label: {
+                        Label("Supprimer mon compte", systemImage: "trash")
+                    }
+
+                    Button {
+                        onSignOut()
+                        dismiss()
+                    } label: {
+                        Label("Se déconnecter", systemImage: "rectangle.portrait.and.arrow.right")
+                            .foregroundColor(.red)
+                    }
+                } header: {
+                    Text("Compte")
+                }
+
+                // MARK: - Legal Section
+                Section {
+                    Link(destination: URL(string: "https://firelevel.app/privacy")!) {
+                        HStack {
+                            Label("Politique de confidentialité", systemImage: "hand.raised")
+                            Spacer()
+                            Image(systemName: "arrow.up.right")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .foregroundColor(.primary)
+
+                    Link(destination: URL(string: "https://firelevel.app/terms")!) {
+                        HStack {
+                            Label("Conditions d'utilisation", systemImage: "doc.text")
+                            Spacer()
+                            Image(systemName: "arrow.up.right")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .foregroundColor(.primary)
+                } header: {
+                    Text("Légal")
+                }
+
+                // Version
+                Section {
+                    HStack {
+                        Text("Version")
+                        Spacer()
+                        Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
-            .background(ColorTokens.background)
-            .navigationTitle("settings.title".localized)
+            .navigationTitle("Paramètres")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { dismiss() }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(ColorTokens.textMuted)
+                    Button("Fermer") {
+                        dismiss()
                     }
                 }
             }
-            .sheet(isPresented: $showEditProfile) {
-                EditProfileSheet(
-                    user: user,
-                    onSave: { pseudo, firstName, lastName, gender, age, description, hobbies, lifeGoal in
-                        Task {
-                            do {
-                                let updatedUser = try await userService.updateProfile(
-                                    pseudo: pseudo,
-                                    firstName: firstName,
-                                    lastName: lastName,
-                                    gender: gender,
-                                    age: age,
-                                    description: description,
-                                    hobbies: hobbies,
-                                    lifeGoal: lifeGoal
-                                )
-                                // Update the store with new user data
-                                await MainActor.run {
-                                    FocusAppStore.shared.user = User(from: updatedUser)
-                                }
-                            } catch {
-                                print("Failed to update profile: \(error)")
-                            }
-                        }
+            .alert("Supprimer le compte", isPresented: $showDeleteAccountAlert) {
+                Button("Annuler", role: .cancel) {}
+                Button("Supprimer", role: .destructive) {
+                    deleteAccount()
+                }
+            } message: {
+                Text("Cette action est irréversible. Toutes tes données seront supprimées définitivement.")
+            }
+            .sheet(isPresented: $showEditName) {
+                EditNameSheet(name: $editedName) { newName in
+                    Task {
+                        await updateName(newName)
                     }
+                }
+            }
+            .onAppear {
+                loadSettings()
+            }
+            .onChange(of: notificationsEnabled) { _, _ in
+                saveNotificationSettings()
+            }
+            .onChange(of: morningReminderTime) { _, _ in
+                saveNotificationSettings()
+            }
+            .onChange(of: selectedLanguage) { _, newValue in
+                saveLanguage(newValue)
+            }
+            .onChange(of: selectedTimezone) { _, newValue in
+                saveTimezone(newValue)
+            }
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func formatTimezone(_ identifier: String) -> String {
+        let tz = TimeZone(identifier: identifier)
+        let abbreviation = tz?.abbreviation() ?? ""
+        let offset = tz?.secondsFromGMT() ?? 0
+        let hours = offset / 3600
+        let sign = hours >= 0 ? "+" : ""
+        return "\(abbreviation) (UTC\(sign)\(hours))"
+    }
+
+    private func loadSettings() {
+        // Load from user profile if available
+        if let user = store.user {
+            // Use stored values or defaults
+            selectedLanguage = user.language ?? "fr"
+            selectedTimezone = user.timezone ?? TimeZone.current.identifier
+            notificationsEnabled = user.notificationsEnabled ?? true
+
+            // Parse morning reminder time (stored as "HH:MM")
+            if let timeString = user.morningReminderTime {
+                let parts = timeString.split(separator: ":")
+                if parts.count == 2,
+                   let hour = Int(parts[0]),
+                   let minute = Int(parts[1]) {
+                    var components = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+                    components.hour = hour
+                    components.minute = minute
+                    morningReminderTime = Calendar.current.date(from: components) ?? Date()
+                }
+            } else {
+                // Default to 8:00 AM
+                var components = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+                components.hour = 8
+                components.minute = 0
+                morningReminderTime = Calendar.current.date(from: components) ?? Date()
+            }
+        }
+    }
+
+    private func saveNotificationSettings() {
+        // Format time as "HH:MM"
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        let timeString = formatter.string(from: morningReminderTime)
+
+        Task {
+            do {
+                let updated = try await userService.updateSettings(
+                    notificationsEnabled: notificationsEnabled,
+                    morningReminderTime: timeString
                 )
-            }
-            .navigationDestination(isPresented: $showQuestsSection) {
-                QuestsView()
-            }
-            .navigationDestination(isPresented: $showRitualsSection) {
-                ManageRitualsView()
-            }
-            .navigationDestination(isPresented: $showStatsSection) {
-                StatisticsView()
-            }
-            .navigationDestination(isPresented: $showGoogleCalendar) {
-                GoogleCalendarSettingsView()
-            }
-            .navigationDestination(isPresented: $showAppBlocker) {
-                AppBlockerSettingsView()
-            }
-            .navigationDestination(isPresented: $showNotifications) {
-                NotificationSettingsView()
-            }
-            .navigationDestination(isPresented: $showReferral) {
-                ReferralView()
-            }
-            .sheet(isPresented: $showTutorial) {
-                TutorialVideoView()
+                await MainActor.run {
+                    store.user = User(from: updated)
+                }
+            } catch {
+                print("Failed to save notification settings: \(error)")
             }
         }
     }
 
-    // MARK: - Profile Header
-    private var profileHeader: some View {
-        VStack(spacing: SpacingTokens.lg) {
-            // Avatar with photo options
-            ZStack(alignment: .bottomTrailing) {
-                if let user = user {
-                    AvatarView(name: user.name, avatarURL: user.avatarURL, size: 100)
-                } else {
-                    Circle()
-                        .fill(ColorTokens.surface)
-                        .frame(width: 100, height: 100)
-                }
-
-                // Camera button
-                PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-                    Circle()
-                        .fill(ColorTokens.primaryStart)
-                        .frame(width: 32, height: 32)
-                        .overlay {
-                            Image(systemName: "camera.fill")
-                                .font(.satoshi(14))
-                                .foregroundColor(.white)
-                        }
-                }
-            }
-
-            // User info
-            VStack(spacing: SpacingTokens.xs) {
-                Text(user?.name ?? "User")
-                    .font(.satoshi(22, weight: .bold))
-                    .foregroundColor(ColorTokens.textPrimary)
-
-                if let email = user?.email {
-                    Text(email)
-                        .font(.satoshi(14))
-                        .foregroundColor(ColorTokens.textSecondary)
-                }
-            }
-
-            // Edit Profile Button
-            Button(action: { showEditProfile = true }) {
-                HStack(spacing: SpacingTokens.xs) {
-                    Image(systemName: "pencil")
-                    Text("settings.edit_profile".localized)
-                }
-                .font(.satoshi(14, weight: .medium))
-                .foregroundColor(ColorTokens.primaryStart)
-                .padding(.horizontal, SpacingTokens.lg)
-                .padding(.vertical, SpacingTokens.sm)
-                .background(ColorTokens.primaryStart.opacity(0.1))
-                .cornerRadius(RadiusTokens.lg)
-            }
-
-            // Streak info
-            if let streak = user?.currentStreak, streak > 0 {
-                HStack(spacing: SpacingTokens.sm) {
-                    Text("🔥")
-                    Text("\(streak) " + "settings.day_streak".localized)
-                        .font(.satoshi(14, weight: .semibold))
-                        .foregroundColor(ColorTokens.primaryStart)
-                }
-                .padding(.horizontal, SpacingTokens.md)
-                .padding(.vertical, SpacingTokens.xs)
-                .background(ColorTokens.surface)
-                .cornerRadius(RadiusTokens.md)
-            }
-        }
-        .padding(.vertical, SpacingTokens.xl)
-        .onAppear {
-            updateSelectedVisibilityFromStore()
-            updateSelectedProductivityFromStore()
-        }
-    }
-
-    // MARK: - Referral Banner
-    private var referralBanner: some View {
-        Button {
-            showReferral = true
-        } label: {
-            HStack(spacing: SpacingTokens.md) {
-                // Gift icon with gradient background
-                ZStack {
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [ColorTokens.primaryStart, ColorTokens.primaryEnd],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 48, height: 48)
-
-                    Text("🎁")
-                        .font(.system(size: 24))
-                }
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Parraine tes amis")
-                        .font(.satoshi(16, weight: .bold))
-                        .foregroundColor(ColorTokens.textPrimary)
-
-                    Text("Gagne 20% chaque mois !")
-                        .font(.satoshi(13))
-                        .foregroundColor(ColorTokens.primaryStart)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.satoshi(14, weight: .medium))
-                    .foregroundColor(ColorTokens.primaryStart)
-            }
-            .padding(SpacingTokens.md)
-            .background(
-                RoundedRectangle(cornerRadius: RadiusTokens.lg)
-                    .fill(ColorTokens.surface)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: RadiusTokens.lg)
-                            .stroke(
-                                LinearGradient(
-                                    colors: [ColorTokens.primaryStart.opacity(0.5), ColorTokens.primaryEnd.opacity(0.5)],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                ),
-                                lineWidth: 1.5
-                            )
-                    )
+    private func updateName(_ newName: String) async {
+        do {
+            let updatedUser = try await userService.updateProfile(
+                pseudo: newName,
+                firstName: nil,
+                lastName: nil,
+                gender: nil,
+                age: nil,
+                description: nil,
+                hobbies: nil,
+                lifeGoal: nil
             )
+            await MainActor.run {
+                FocusAppStore.shared.user = User(from: updatedUser)
+            }
+        } catch {
+            print("Failed to update name: \(error)")
         }
     }
 
-    // MARK: - Day Visibility Section
-    private var dayVisibilitySection: some View {
-        VStack(alignment: .leading, spacing: SpacingTokens.sm) {
-            HStack {
-                Text("👁")
-                    .font(.satoshi(24))
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack {
-                        Text("profile.day_visibility".localized)
-                            .font(.satoshi(16, weight: .semibold))
-                            .foregroundColor(ColorTokens.textPrimary)
-                        Spacer()
-                        if isUpdatingVisibility {
-                            ProgressView()
-                                .scaleEffect(0.8)
-                        }
-                    }
-                    Text("profile.visibility_description".localized)
-                        .font(.satoshi(13))
-                        .foregroundColor(ColorTokens.textSecondary)
-                }
-            }
-            .padding(.horizontal, SpacingTokens.lg)
-            .padding(.top, SpacingTokens.lg)
-
-            // Visibility options
-            VStack(spacing: SpacingTokens.xs) {
-                ForEach(DayVisibility.allCases, id: \.self) { visibility in
-                    Button {
-                        updateVisibility(visibility)
-                    } label: {
-                        HStack {
-                            Image(systemName: visibility.icon)
-                                .font(.satoshi(16))
-                                .foregroundColor(selectedVisibility == visibility ? ColorTokens.primaryStart : ColorTokens.textMuted)
-                                .frame(width: 24)
-
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(visibility.displayName)
-                                    .font(.satoshi(14))
-                                    .foregroundColor(selectedVisibility == visibility ? ColorTokens.textPrimary : ColorTokens.textSecondary)
-
-                                Text(visibility.description)
-                                    .font(.satoshi(11))
-                                    .foregroundColor(ColorTokens.textMuted)
-                            }
-
-                            Spacer()
-
-                            if selectedVisibility == visibility {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(ColorTokens.primaryStart)
-                            } else {
-                                Image(systemName: "circle")
-                                    .foregroundColor(ColorTokens.textMuted)
-                            }
-                        }
-                        .padding(SpacingTokens.sm)
-                        .background(selectedVisibility == visibility ? ColorTokens.primarySoft : Color.clear)
-                        .cornerRadius(RadiusTokens.sm)
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    .disabled(isUpdatingVisibility)
-                }
-            }
-            .padding(.horizontal, SpacingTokens.md)
-            .padding(.bottom, SpacingTokens.lg)
-        }
-        .background(ColorTokens.surface)
-        .cornerRadius(RadiusTokens.lg)
-    }
-
-    // MARK: - Productivity Peak Section
-    private var productivityPeakSection: some View {
-        VStack(alignment: .leading, spacing: SpacingTokens.sm) {
-            HStack {
-                Text("⚡")
-                    .font(.satoshi(24))
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack {
-                        Text("settings.productivity_peak".localized)
-                            .font(.satoshi(16, weight: .semibold))
-                            .foregroundColor(ColorTokens.textPrimary)
-                        Spacer()
-                        if isUpdatingProductivity {
-                            ProgressView()
-                                .scaleEffect(0.8)
-                        }
-                    }
-                    Text("settings.productivity_peak_description".localized)
-                        .font(.satoshi(13))
-                        .foregroundColor(ColorTokens.textSecondary)
-                }
-            }
-            .padding(.horizontal, SpacingTokens.lg)
-            .padding(.top, SpacingTokens.lg)
-
-            // Productivity options
-            VStack(spacing: SpacingTokens.xs) {
-                ForEach(ProductivityPeak.allCases, id: \.self) { peak in
-                    Button {
-                        updateProductivityPeak(peak)
-                    } label: {
-                        HStack {
-                            Image(systemName: peak.icon)
-                                .font(.satoshi(16))
-                                .foregroundColor(selectedProductivityPeak == peak ? ColorTokens.primaryStart : ColorTokens.textMuted)
-                                .frame(width: 24)
-
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(peak.displayName)
-                                    .font(.satoshi(14))
-                                    .foregroundColor(selectedProductivityPeak == peak ? ColorTokens.textPrimary : ColorTokens.textSecondary)
-
-                                Text(peak.description)
-                                    .font(.satoshi(11))
-                                    .foregroundColor(ColorTokens.textMuted)
-                            }
-
-                            Spacer()
-
-                            if selectedProductivityPeak == peak {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(ColorTokens.primaryStart)
-                            } else {
-                                Image(systemName: "circle")
-                                    .foregroundColor(ColorTokens.textMuted)
-                            }
-                        }
-                        .padding(SpacingTokens.sm)
-                        .background(selectedProductivityPeak == peak ? ColorTokens.primarySoft : Color.clear)
-                        .cornerRadius(RadiusTokens.sm)
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    .disabled(isUpdatingProductivity)
-                }
-            }
-            .padding(.horizontal, SpacingTokens.md)
-            .padding(.bottom, SpacingTokens.lg)
-        }
-        .background(ColorTokens.surface)
-        .cornerRadius(RadiusTokens.lg)
-    }
-
-    // MARK: - Visibility Helpers
-    private func updateSelectedVisibilityFromStore() {
-        if let visibility = store.user?.dayVisibility,
-           let dayVis = DayVisibility(rawValue: visibility) {
-            if selectedVisibility != dayVis {
-                selectedVisibility = dayVis
-            }
-        }
-    }
-
-    private func updateVisibility(_ visibility: DayVisibility) {
-        guard visibility != selectedVisibility else { return }
-
-        isUpdatingVisibility = true
-        let previousVisibility = selectedVisibility
-        selectedVisibility = visibility
-
+    private func saveLanguage(_ language: String) {
         Task {
             do {
-                try await crewService.updateDayVisibility(visibility)
-                // Update the store's user with the new visibility
+                let updated = try await userService.updateSettings(language: language)
                 await MainActor.run {
-                    if var user = store.user {
-                        user.dayVisibility = visibility.rawValue
-                        store.user = user
-                    }
+                    store.user = User(from: updated)
                 }
             } catch {
-                // Revert on error
-                await MainActor.run {
-                    selectedVisibility = previousVisibility
-                }
-            }
-            await MainActor.run {
-                isUpdatingVisibility = false
+                print("Failed to save language: \(error)")
             }
         }
     }
 
-    // MARK: - Productivity Helpers
-    private func updateSelectedProductivityFromStore() {
-        if let peak = store.user?.productivityPeak {
-            if selectedProductivityPeak != peak {
-                selectedProductivityPeak = peak
-            }
-        }
-    }
-
-    private func updateProductivityPeak(_ peak: ProductivityPeak) {
-        guard peak != selectedProductivityPeak else { return }
-
-        isUpdatingProductivity = true
-        let previousPeak = selectedProductivityPeak
-        selectedProductivityPeak = peak
-
+    private func saveTimezone(_ timezone: String) {
         Task {
             do {
-                let updatedUser = try await userService.updateProductivityPeak(peak)
+                let updated = try await userService.updateSettings(timezone: timezone)
                 await MainActor.run {
-                    store.user = User(from: updatedUser)
+                    store.user = User(from: updated)
                 }
             } catch {
-                await MainActor.run {
-                    selectedProductivityPeak = previousPeak
-                }
+                print("Failed to save timezone: \(error)")
             }
-            await MainActor.run {
-                isUpdatingProductivity = false
+        }
+    }
+
+    private func deleteAccount() {
+        Task {
+            do {
+                try await userService.deleteAccount()
+                await MainActor.run {
+                    onSignOut()
+                    dismiss()
+                }
+            } catch {
+                print("Failed to delete account: \(error)")
             }
         }
     }
 }
 
-// MARK: - Settings Menu Item
-struct SettingsMenuItem: View {
-    let icon: String
-    let title: String
-    let subtitle: String
-    let action: () -> Void
+// MARK: - Edit Name Sheet
+struct EditNameSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var name: String
+    let onSave: (String) -> Void
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: SpacingTokens.md) {
-                Text(icon)
-                    .font(.satoshi(24))
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.satoshi(16, weight: .semibold))
-                        .foregroundColor(ColorTokens.textPrimary)
-
-                    Text(subtitle)
-                        .font(.satoshi(13))
-                        .foregroundColor(ColorTokens.textSecondary)
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("Nom d'affichage", text: $name)
+                        .textContentType(.name)
+                        .autocorrectionDisabled()
+                } footer: {
+                    Text("Ce nom sera visible par tes amis.")
                 }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.satoshi(14, weight: .medium))
-                    .foregroundColor(ColorTokens.textMuted)
             }
-            .padding(SpacingTokens.lg)
-            .background(ColorTokens.surface)
-            .cornerRadius(RadiusTokens.lg)
+            .navigationTitle("Modifier le nom")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Annuler") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Enregistrer") {
+                        onSave(name)
+                        dismiss()
+                    }
+                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
         }
+        .presentationDetents([.medium])
     }
 }
 
-// MARK: - Statistics View
-struct StatisticsView: View {
-    @EnvironmentObject var store: FocusAppStore
+// MARK: - Timezone Picker
+struct TimezonePickerView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var selectedTimezone: String
+
+    private let commonTimezones = [
+        "Europe/Paris",
+        "Europe/London",
+        "Europe/Berlin",
+        "Europe/Brussels",
+        "Europe/Rome",
+        "Europe/Madrid",
+        "America/New_York",
+        "America/Los_Angeles",
+        "America/Chicago",
+        "America/Toronto",
+        "America/Montreal",
+        "Asia/Tokyo",
+        "Asia/Shanghai",
+        "Asia/Dubai",
+        "Australia/Sydney",
+        "Pacific/Auckland"
+    ]
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: SpacingTokens.lg) {
-                // This Week Summary
-                weekSummaryCard
-
-                // Sessions List
-                if !store.weekSessions.isEmpty {
-                    sessionsListSection
+        List {
+            ForEach(commonTimezones, id: \.self) { tz in
+                Button {
+                    selectedTimezone = tz
+                    UserDefaults.standard.set(tz, forKey: "user_timezone")
+                    dismiss()
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading) {
+                            Text(cityName(from: tz))
+                                .foregroundColor(.primary)
+                            Text(formatOffset(tz))
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        if selectedTimezone == tz {
+                            Image(systemName: "checkmark")
+                                .foregroundColor(.blue)
+                        }
+                    }
                 }
             }
-            .padding(SpacingTokens.lg)
         }
-        .background(ColorTokens.background)
-        .navigationTitle("stats.title".localized)
+        .navigationTitle("Fuseau horaire")
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    // MARK: - Week Summary Card
-    private var weekSummaryCard: some View {
-        VStack(spacing: SpacingTokens.lg) {
-            HStack {
-                Text("📊")
-                    .font(.satoshi(20))
-                Text("stats.this_week".localized)
-                    .font(.satoshi(16, weight: .semibold))
-                    .foregroundColor(ColorTokens.textPrimary)
-                Spacer()
-            }
-
-            HStack(spacing: SpacingTokens.xl) {
-                StatBox(
-                    value: "\(store.weekSessions.count)",
-                    label: "stats.sessions".localized,
-                    icon: "🔥"
-                )
-
-                StatBox(
-                    value: "\(totalMinutes)m",
-                    label: "stats.focused".localized,
-                    icon: "⏱️"
-                )
-
-                StatBox(
-                    value: "\(completedRituals)/\(totalRituals)",
-                    label: "stats.routines".localized,
-                    icon: "✅"
-                )
-            }
-        }
-        .padding(SpacingTokens.lg)
-        .background(ColorTokens.surface)
-        .cornerRadius(RadiusTokens.lg)
+    private func cityName(from identifier: String) -> String {
+        identifier.components(separatedBy: "/").last?.replacingOccurrences(of: "_", with: " ") ?? identifier
     }
 
-    // MARK: - Sessions List Section
-    private var sessionsListSection: some View {
-        VStack(alignment: .leading, spacing: SpacingTokens.md) {
-            Text("stats.recent_sessions".localized)
-                .font(.satoshi(14, weight: .semibold))
-                .foregroundColor(ColorTokens.textSecondary)
-
-            ForEach(sessionsByDay, id: \.date) { day in
-                VStack(alignment: .leading, spacing: SpacingTokens.sm) {
-                    // Day header
-                    Text(formatDayHeader(day.date))
-                        .font(.satoshi(12, weight: .medium))
-                        .foregroundColor(ColorTokens.textMuted)
-
-                    // Sessions for this day
-                    ForEach(day.sessions) { session in
-                        SessionRow(session: session)
-                    }
-                }
-            }
-        }
-    }
-
-    // MARK: - Computed Properties
-    private var totalMinutes: Int {
-        store.weekSessions.reduce(0) { $0 + $1.actualDurationMinutes }
-    }
-
-    private var completedRituals: Int {
-        store.rituals.filter { $0.isCompleted }.count
-    }
-
-    private var totalRituals: Int {
-        store.rituals.count
-    }
-
-    private var sessionsByDay: [(date: Date, sessions: [FocusSession])] {
-        let calendar = Calendar.current
-        let grouped = Dictionary(grouping: store.weekSessions) { session in
-            calendar.startOfDay(for: session.startTime)
-        }
-        return grouped.sorted { $0.key > $1.key }.map { (date: $0.key, sessions: $0.value) }
-    }
-
-    private func formatDayHeader(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        if Calendar.current.isDateInToday(date) {
-            return "stats.today".localized
-        } else if Calendar.current.isDateInYesterday(date) {
-            return "stats.yesterday".localized
-        } else {
-            formatter.dateFormat = "EEEE d MMM"
-            return formatter.string(from: date)
-        }
-    }
-}
-
-// MARK: - Stat Box
-struct StatBox: View {
-    let value: String
-    let label: String
-    let icon: String
-
-    var body: some View {
-        VStack(spacing: SpacingTokens.xs) {
-            Text(icon)
-                .font(.satoshi(20))
-            Text(value)
-                .font(.satoshi(20, weight: .bold))
-                .foregroundColor(ColorTokens.textPrimary)
-            Text(label)
-                .font(.satoshi(11))
-                .foregroundColor(ColorTokens.textSecondary)
-        }
-        .frame(maxWidth: .infinity)
-    }
-}
-
-// MARK: - Session Row
-struct SessionRow: View {
-    let session: FocusSession
-
-    var body: some View {
-        HStack(spacing: SpacingTokens.md) {
-            // Time
-            Text(formatTime(session.startTime))
-                .font(.satoshi(13, weight: .medium))
-                .foregroundColor(ColorTokens.textMuted)
-                .frame(width: 50, alignment: .leading)
-
-            // Description or default
-            Text(session.description ?? "Focus Session")
-                .font(.satoshi(14))
-                .foregroundColor(ColorTokens.textPrimary)
-                .lineLimit(1)
-
-            Spacer()
-
-            // Duration
-            Text(session.formattedActualDuration)
-                .font(.satoshi(13, weight: .semibold))
-                .foregroundColor(ColorTokens.primaryStart)
-        }
-        .padding(SpacingTokens.sm)
-        .background(ColorTokens.surface.opacity(0.5))
-        .cornerRadius(RadiusTokens.sm)
-    }
-
-    private func formatTime(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        return formatter.string(from: date)
+    private func formatOffset(_ identifier: String) -> String {
+        guard let tz = TimeZone(identifier: identifier) else { return "" }
+        let offset = tz.secondsFromGMT() / 3600
+        let sign = offset >= 0 ? "+" : ""
+        return "UTC\(sign)\(offset)"
     }
 }
 

@@ -49,13 +49,9 @@ struct FocusApp: App {
 
                     case .ready:
                         // Debug: log state changes
-                        let _ = print("📱 FocusApp ready state: isAuth=\(store.isAuthenticated), hasCompleted=\(store.hasCompletedOnboarding), isChecking=\(store.isCheckingOnboarding), forceOnboarding=\(AppConfiguration.Debug.forceShowOnboarding)")
+                        let _ = print("📱 FocusApp ready state: isAuth=\(store.isAuthenticated), hasCompleted=\(store.hasCompletedOnboarding), isChecking=\(store.isCheckingOnboarding)")
 
-                        // DEBUG: Force show onboarding if flag is set (dev only)
-                        if AppConfiguration.Debug.forceShowOnboarding && store.isAuthenticated {
-                            OnboardingView()
-                                .transition(.opacity)
-                        } else if store.isAuthenticated && store.hasCompletedOnboarding {
+                        if store.isAuthenticated && store.hasCompletedOnboarding {
                             // User is authenticated AND has completed onboarding
                             MainTabView()
                                 .transition(.opacity)
@@ -63,13 +59,15 @@ struct FocusApp: App {
                             // Checking onboarding status
                             loadingView
                                 .transition(.opacity)
-                        } else if !store.isAuthenticated {
-                            // Not authenticated: show onboarding (starts at sign in)
-                            OnboardingView()
+                        } else if store.isAuthenticated {
+                            // Authenticated but checking/completing onboarding - show main app
+                            // (onboarding is now disabled, handled by backend)
+                            MainTabView()
                                 .transition(.opacity)
                         } else {
-                            // Authenticated but hasn't completed onboarding: show onboarding
-                            OnboardingView()
+                            // Not authenticated: show chat directly (Perplexity-style)
+                            // Login modal will appear when user tries to send first message
+                            ChatOnboardingView()
                                 .transition(.opacity)
                         }
                     }
@@ -152,10 +150,12 @@ struct FocusApp: App {
             router.navigateToFireMode()
 
         case "dashboard":
-            router.navigateToDashboard()
+            // Dashboard is now chat
+            router.selectedTab = .chat
 
         case "starttheday":
-            router.navigateToStartTheDay()
+            // Redirect to chat - planning is now done via Kai
+            router.selectedTab = .chat
 
         case "endofday":
             router.navigateToEndOfDay()

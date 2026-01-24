@@ -140,6 +140,42 @@ class UserService {
         print("📊 Received productivity peak: \(response.productivityPeak ?? "nil")")
         return response
     }
+
+    /// Update user settings (language, timezone, notifications)
+    func updateSettings(
+        language: String? = nil,
+        timezone: String? = nil,
+        notificationsEnabled: Bool? = nil,
+        morningReminderTime: String? = nil
+    ) async throws -> UserResponse {
+        struct UpdateSettingsRequest: Encodable {
+            let language: String?
+            let timezone: String?
+            let notificationsEnabled: Bool?
+            let morningReminderTime: String?
+        }
+
+        let request = UpdateSettingsRequest(
+            language: language,
+            timezone: timezone,
+            notificationsEnabled: notificationsEnabled,
+            morningReminderTime: morningReminderTime
+        )
+
+        return try await apiClient.request(
+            endpoint: .me,
+            method: .patch,
+            body: request
+        )
+    }
+
+    /// Delete user account (GDPR compliant)
+    func deleteAccount() async throws {
+        try await apiClient.request(
+            endpoint: .deleteAccount,
+            method: .delete
+        )
+    }
 }
 
 // MARK: - Areas Service
@@ -790,6 +826,11 @@ struct UserResponse: Codable {
     let avatarUrl: String?
     let dayVisibility: String?
     let productivityPeak: String?
+    // V1 Settings
+    let language: String?
+    let timezone: String?
+    let notificationsEnabled: Bool?
+    let morningReminderTime: String?
 }
 
 struct Area: Codable, Identifiable {

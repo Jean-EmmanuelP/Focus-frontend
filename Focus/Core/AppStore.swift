@@ -501,14 +501,79 @@ final class FocusAppStore: ObservableObject {
             // Sync widget data after successful load
             syncWidgetData()
         } catch {
-            print("❌ Error loading dashboard data: \(error)")
-            print("❌ Error details: \(error.localizedDescription)")
+            print("❌ Dashboard endpoint failed: \(error)")
+            print("⏳ Falling back to individual endpoints...")
 
-            // No fallback - dashboard is the single source of truth
-            hasLoadedInitialData = true
-            isCurrentlyLoadingData = false
-            isLoading = false
+            // Fallback: Load from individual endpoints
+            await loadFromIndividualEndpoints()
         }
+    }
+
+    /// Fallback method when /dashboard endpoint is not available
+    private func loadFromIndividualEndpoints() async {
+        // 1. Load user profile from /me
+        do {
+            let userResponse = try await UserService().fetchMe()
+            self.user = User(from: userResponse)
+            print("✅ User loaded from /me")
+        } catch {
+            print("⚠️ Failed to load user: \(error)")
+        }
+
+        // 2. Load routines from /routines
+        do {
+            let routines: [RoutineResponse] = try await APIClient.shared.request(
+                endpoint: .routines(areaId: nil),
+                method: .get
+            )
+            self.rituals = routines.map { DailyRitual(from: $0) }
+            print("✅ Routines loaded: \(self.rituals.count)")
+        } catch {
+            print("⚠️ Failed to load routines: \(error)")
+        }
+
+        // 3. Load today's tasks
+        do {
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd"
+            let todayStr = dateFormatter.string(from: Date())
+            self.todaysTasks = try await calendarService.getTasks(date: todayStr)
+            print("✅ Tasks loaded: \(self.todaysTasks.count)")
+        } catch {
+            print("⚠️ Failed to load tasks: \(error)")
+        }
+
+        // 4. Load focus sessions
+        do {
+            let sessions: [FocusSessionResponse] = try await APIClient.shared.request(
+                endpoint: .focusSessions(questId: nil, status: nil, limit: 50),
+                method: .get
+            )
+            self.weekSessions = sessions.map { FocusSession(from: $0) }
+            self.todaysSessions = self.weekSessions.filter { Calendar.current.isDateInToday($0.startTime) }
+            print("✅ Sessions loaded: \(self.weekSessions.count)")
+        } catch {
+            print("⚠️ Failed to load sessions: \(error)")
+        }
+
+        // 5. Create default stats (DashboardStats only has focusedToday and streakDays)
+        self.stats = DashboardStats(
+            focusedToday: todaysSessions.reduce(0) { $0 + $1.actualDurationMinutes },
+            streakDays: 0
+        )
+
+        // Use placeholder areas
+        self.areas = Self.placeholderAreas
+        self.areasLoaded = true
+
+        // Mark as loaded
+        hasLoadedInitialData = true
+        isCurrentlyLoadingData = false
+        isLoading = false
+        lastDashboardLoad = Date()
+        print("✅ Fallback loading complete")
+
+        syncWidgetData()
     }
 
     /// Load firemode-specific stats (optimized endpoint)

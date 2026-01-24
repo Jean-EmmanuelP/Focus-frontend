@@ -42,6 +42,10 @@ struct WeekCalendarView: View {
     private let hours = Array(6...23)
     private let hourHeight: CGFloat = 60
 
+    // Safe accessors for first/last hour (avoids force unwraps)
+    private var firstHour: Int { hours.first ?? 6 }
+    private var lastHour: Int { hours.last ?? 23 }
+
     var body: some View {
         ZStack {
             ColorTokens.background
@@ -422,10 +426,10 @@ struct WeekCalendarView: View {
                 .dropDestination(for: String.self) { items, location in
                     guard let taskId = items.first else { return false }
                     // Calculate hour from drop location
-                    let hour = Int(location.y / hourHeight) + hours.first!
+                    let hour = Int(location.y / hourHeight) + firstHour
                     if let task = viewModel.weekTasks.first(where: { $0.id == taskId }) {
                         Task {
-                            await viewModel.scheduleTaskAtHour(task, hour: max(hours.first!, min(hour, hours.last! - 1)))
+                            await viewModel.scheduleTaskAtHour(task, hour: max(firstHour, min(hour, lastHour - 1)))
                         }
                     }
                     return true
@@ -755,7 +759,7 @@ struct WeekCalendarView: View {
         if Calendar.current.isDateInToday(viewModel.selectedDate) {
             // For today: scroll to 2 hours before current hour to center the current time indicator
             // Clamp to our visible range (6-23)
-            targetHour = max(hours.first!, min(hours.last!, currentHour - 2))
+            targetHour = max(firstHour, min(lastHour, currentHour - 2))
         } else {
             // For other days: scroll to 8am (typical start of day)
             targetHour = 8
@@ -773,7 +777,7 @@ struct WeekCalendarView: View {
         let startHour = Calendar.current.component(.hour, from: startTime)
         let startMinute = Calendar.current.component(.minute, from: startTime)
         // Offset from top of calendar (hour 6 = y position 0)
-        let offset = CGFloat(startHour - hours.first!) * hourHeight + CGFloat(startMinute) / 60.0 * hourHeight
+        let offset = CGFloat(startHour - firstHour) * hourHeight + CGFloat(startMinute) / 60.0 * hourHeight
         return offset
     }
 
@@ -784,8 +788,8 @@ struct WeekCalendarView: View {
         let endHour = Calendar.current.component(.hour, from: endTime)
         let endMinute = Calendar.current.component(.minute, from: endTime)
 
-        let startOffset = CGFloat(startHour - hours.first!) * hourHeight + CGFloat(startMinute) / 60.0 * hourHeight
-        let endOffset = CGFloat(endHour - hours.first!) * hourHeight + CGFloat(endMinute) / 60.0 * hourHeight
+        let startOffset = CGFloat(startHour - firstHour) * hourHeight + CGFloat(startMinute) / 60.0 * hourHeight
+        let endOffset = CGFloat(endHour - firstHour) * hourHeight + CGFloat(endMinute) / 60.0 * hourHeight
         // Minimum height of 56 to fit content (icon + title + time + button)
         return max(endOffset - startOffset, 56)
     }
@@ -934,7 +938,7 @@ struct WeekCalendarView: View {
                     print("   - Backend: scheduledStart=\(task.scheduledStart ?? "nil"), scheduledEnd=\(task.scheduledEnd ?? "nil")")
                     print("   - Parsed Date: start=\(displayTimes.start), end=\(displayTimes.end)")
                     print("   - Extracted hour:min = \(startHour):\(startMin)")
-                    print("   - hours.first = \(hours.first!), yOffset=\(yOffset), height=\(height)")
+                    print("   - hours.first = \(firstHour), yOffset=\(yOffset), height=\(height)")
                 }()
 
                 DayTaskBlockView(
@@ -1055,8 +1059,8 @@ struct WeekCalendarView: View {
             let minute = Calendar.current.component(.minute, from: now)
             let timeColumnWidth: CGFloat = 28
 
-            if hour >= hours.first! && hour <= hours.last! {
-                let yOffset = CGFloat(hour - hours.first!) * hourHeight + CGFloat(minute) / 60.0 * hourHeight
+            if hour >= firstHour && hour <= lastHour {
+                let yOffset = CGFloat(hour - firstHour) * hourHeight + CGFloat(minute) / 60.0 * hourHeight
 
                 HStack(spacing: 0) {
                     Circle()
@@ -1079,8 +1083,8 @@ struct WeekCalendarView: View {
         let endHour = Calendar.current.component(.hour, from: endTime)
         let endMinute = Calendar.current.component(.minute, from: endTime)
 
-        let startOffset = CGFloat(startHour - hours.first!) * hourHeight + CGFloat(startMinute) / 60.0 * hourHeight
-        let endOffset = CGFloat(endHour - hours.first!) * hourHeight + CGFloat(endMinute) / 60.0 * hourHeight
+        let startOffset = CGFloat(startHour - firstHour) * hourHeight + CGFloat(startMinute) / 60.0 * hourHeight
+        let endOffset = CGFloat(endHour - firstHour) * hourHeight + CGFloat(endMinute) / 60.0 * hourHeight
         let height = max(endOffset - startOffset, 30)
 
         let x = timeColumnWidth + CGFloat(dayIndex) * dayWidth + dayWidth / 2

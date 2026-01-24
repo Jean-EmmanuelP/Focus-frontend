@@ -1,0 +1,297 @@
+# Fastfile - Automatisation des builds et releases Focus
+# Documentation: https://docs.fastlane.tools
+
+default_platform(:ios)
+
+platform :ios do
+
+  # ============================================
+  # CONFIGURATION
+  # ============================================
+
+  SCHEME = "Focus"
+  PROJECT = "Focus.xcodeproj"
+
+  # ============================================
+  # AVANT CHAQUE LANE
+  # ============================================
+
+  before_all do
+    # Ensure we're on the right branch for releases
+    # ensure_git_status_clean  # Uncomment to enforce clean git state
+  end
+
+  # ============================================
+  # BUILD LANES
+  # ============================================
+
+  desc "Build l'app en mode Debug (pour tester)"
+  lane :build do
+    xcodebuild(
+      scheme: SCHEME,
+      project: PROJECT,
+      configuration: "Debug",
+      destination: "generic/platform=iOS Simulator",
+      xcargs: "CODE_SIGNING_ALLOWED=NO"
+    )
+    UI.success("Build Debug OK!")
+  end
+
+  desc "Build l'app en mode Release (archive)"
+  lane :build_release do
+    build_app(
+      scheme: SCHEME,
+      project: PROJECT,
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "./build",
+      output_name: "Focus.ipa"
+    )
+    UI.success("Build Release OK! IPA dans ./build/Focus.ipa")
+  end
+
+  # ============================================
+  # VERSIONING
+  # ============================================
+
+  desc "Increment build number"
+  lane :bump do
+    increment_build_number(xcodeproj: PROJECT)
+    build_number = get_build_number(xcodeproj: PROJECT)
+    UI.success("Build number: #{build_number}")
+  end
+
+  desc "Increment version number (patch: 1.0.0 -> 1.0.1)"
+  lane :bump_patch do
+    increment_version_number(xcodeproj: PROJECT, bump_type: "patch")
+    version = get_version_number(xcodeproj: PROJECT, target: SCHEME)
+    UI.success("Version: #{version}")
+  end
+
+  desc "Increment version number (minor: 1.0.0 -> 1.1.0)"
+  lane :bump_minor do
+    increment_version_number(xcodeproj: PROJECT, bump_type: "minor")
+    version = get_version_number(xcodeproj: PROJECT, target: SCHEME)
+    UI.success("Version: #{version}")
+  end
+
+  desc "Increment version number (major: 1.0.0 -> 2.0.0)"
+  lane :bump_major do
+    increment_version_number(xcodeproj: PROJECT, bump_type: "major")
+    version = get_version_number(xcodeproj: PROJECT, target: SCHEME)
+    UI.success("Version: #{version}")
+  end
+
+  # ============================================
+  # TESTFLIGHT (BETA)
+  # ============================================
+
+  desc "Push une nouvelle beta sur TestFlight"
+  desc "Usage: fastlane beta"
+  lane :beta do
+    # 1. Increment build number
+    increment_build_number(xcodeproj: PROJECT)
+
+    # 2. Build
+    build_app(
+      scheme: SCHEME,
+      project: PROJECT,
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "./build",
+      output_name: "Focus.ipa"
+    )
+
+    # 3. Upload to TestFlight
+    upload_to_testflight(
+      skip_waiting_for_build_processing: true,
+      notify_external_testers: false
+    )
+
+    # 4. Get version info
+    version = get_version_number(xcodeproj: PROJECT, target: SCHEME)
+    build = get_build_number(xcodeproj: PROJECT)
+
+    UI.success("Beta #{version} (#{build}) uploaded to TestFlight!")
+
+    # 5. Commit version bump
+    commit_version_bump(
+      xcodeproj: PROJECT,
+      message: "chore: bump build to #{build} for TestFlight"
+    )
+  end
+
+  desc "Push beta AVEC notification aux testeurs externes"
+  lane :beta_notify do
+    # 1. Increment build number
+    increment_build_number(xcodeproj: PROJECT)
+
+    # 2. Build
+    build_app(
+      scheme: SCHEME,
+      project: PROJECT,
+      configuration: "Release",
+      export_method: "app-store"
+    )
+
+    # 3. Upload and notify
+    upload_to_testflight(
+      skip_waiting_for_build_processing: false,
+      notify_external_testers: true,
+      changelog: "Nouvelle version disponible!"
+    )
+
+    version = get_version_number(xcodeproj: PROJECT, target: SCHEME)
+    build = get_build_number(xcodeproj: PROJECT)
+    UI.success("Beta #{version} (#{build}) sent to testers!")
+  end
+
+  # ============================================
+  # APP STORE RELEASE
+  # ============================================
+
+  desc "Release sur l'App Store (soumission pour review)"
+  desc "Usage: fastlane release"
+  lane :release do
+    # 1. Ensure clean state
+    ensure_git_status_clean
+
+    # 2. Increment version (patch by default)
+    increment_version_number(xcodeproj: PROJECT, bump_type: "patch")
+    increment_build_number(xcodeproj: PROJECT)
+
+    # 3. Build
+    build_app(
+      scheme: SCHEME,
+      project: PROJECT,
+      configuration: "Release",
+      export_method: "app-store"
+    )
+
+    # 4. Upload to App Store Connect
+    upload_to_app_store(
+      submit_for_review: false,  # Set to true for auto-submit
+      automatic_release: false,
+      force: true,  # Skip HTML preview
+      skip_screenshots: true,
+      skip_metadata: true
+    )
+
+    version = get_version_number(xcodeproj: PROJECT, target: SCHEME)
+    build = get_build_number(xcodeproj: PROJECT)
+
+    # 5. Commit and tag
+    commit_version_bump(
+      xcodeproj: PROJECT,
+      message: "release: v#{version} (#{build})"
+    )
+
+    add_git_tag(tag: "v#{version}")
+
+    UI.success("Version #{version} uploaded to App Store Connect!")
+    UI.important("Go to App Store Connect to submit for review")
+  end
+
+  desc "Release complète avec soumission automatique pour review"
+  lane :release_submit do
+    # Same as release but with auto-submit
+    ensure_git_status_clean
+
+    increment_version_number(xcodeproj: PROJECT, bump_type: "patch")
+    increment_build_number(xcodeproj: PROJECT)
+
+    build_app(
+      scheme: SCHEME,
+      project: PROJECT,
+      configuration: "Release",
+      export_method: "app-store"
+    )
+
+    upload_to_app_store(
+      submit_for_review: true,
+      automatic_release: true,
+      force: true,
+      skip_screenshots: true,
+      skip_metadata: true,
+      submission_information: {
+        add_id_info_uses_idfa: false
+      }
+    )
+
+    version = get_version_number(xcodeproj: PROJECT, target: SCHEME)
+    commit_version_bump(xcodeproj: PROJECT, message: "release: v#{version}")
+    add_git_tag(tag: "v#{version}")
+    push_git_tags
+
+    UI.success("Version #{version} submitted for App Store review!")
+  end
+
+  # ============================================
+  # CERTIFICATES & PROVISIONING
+  # ============================================
+
+  desc "Sync certificates et provisioning profiles avec Match"
+  lane :certs do
+    match(type: "appstore", readonly: true)
+  end
+
+  desc "Refresh certificates (development)"
+  lane :certs_dev do
+    match(type: "development", readonly: false)
+  end
+
+  desc "Refresh certificates (appstore)"
+  lane :certs_prod do
+    match(type: "appstore", readonly: false)
+  end
+
+  # ============================================
+  # UTILITAIRES
+  # ============================================
+
+  desc "Afficher la version actuelle"
+  lane :version do
+    version = get_version_number(xcodeproj: PROJECT, target: SCHEME)
+    build = get_build_number(xcodeproj: PROJECT)
+    UI.message("Current version: #{version} (#{build})")
+  end
+
+  desc "Clean build folder"
+  lane :clean do
+    clear_derived_data
+    sh("rm -rf ../build")
+    UI.success("Build folder cleaned!")
+  end
+
+  desc "Run tests"
+  lane :test do
+    run_tests(
+      scheme: SCHEME,
+      device: "iPhone 16 Pro",
+      clean: true
+    )
+  end
+
+  # ============================================
+  # QUICK COMMANDS
+  # ============================================
+
+  desc "Quick beta: bump + build + upload (one command)"
+  lane :qbeta do
+    beta
+  end
+
+  desc "Quick release: bump version + build + upload + tag"
+  lane :qrelease do
+    release
+  end
+
+  # ============================================
+  # ERROR HANDLING
+  # ============================================
+
+  error do |lane, exception|
+    UI.error("Error in lane #{lane}: #{exception.message}")
+  end
+
+end

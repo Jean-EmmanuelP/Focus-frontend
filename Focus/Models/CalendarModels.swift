@@ -36,6 +36,7 @@ struct CalendarTask: Codable, Identifiable {
     var isAiGenerated: Bool
     var aiNotes: String?
     var isPrivate: Bool?                    // If true, task content is hidden from friends
+    var blockApps: Bool?                     // If true, block distracting apps during this task
     let createdAt: Date
     var updatedAt: Date
     var questTitle: String?
@@ -155,6 +156,7 @@ struct CreateTaskRequest: Codable {
     var priority: String?
     var dueAt: Date?
     var isPrivate: Bool?
+    var blockApps: Bool?                    // Block distracting apps during task
 }
 
 struct UpdateTaskRequest: Codable {
@@ -173,6 +175,7 @@ struct UpdateTaskRequest: Codable {
     var questId: String?
     var areaId: String?
     var isPrivate: Bool?
+    var blockApps: Bool?
 }
 
 struct RescheduleTaskRequest: Codable {

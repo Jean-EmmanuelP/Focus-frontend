@@ -11,6 +11,8 @@ struct ProfileView: View {
     @State private var isUploadingPhoto = false
     @State private var editingRitual: DailyRitual?
 
+    private let userService = UserService()
+
     var body: some View {
         ScrollView {
             VStack(spacing: SpacingTokens.xl) {
@@ -43,6 +45,27 @@ struct ProfileView: View {
             .padding(.horizontal, SpacingTokens.lg)
         }
         .background(ColorTokens.background.ignoresSafeArea())
+        .overlay {
+            if isUploadingPhoto {
+                ZStack {
+                    Color.black.opacity(0.5)
+                        .ignoresSafeArea()
+
+                    VStack(spacing: SpacingTokens.md) {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .scaleEffect(1.5)
+
+                        Text("Téléchargement de la photo...")
+                            .font(.satoshi(16, weight: .medium))
+                            .foregroundColor(.white)
+                    }
+                    .padding(SpacingTokens.xl)
+                    .background(ColorTokens.surface.opacity(0.95))
+                    .cornerRadius(RadiusTokens.lg)
+                }
+            }
+        }
         .navigationTitle("Profil")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -81,6 +104,55 @@ struct ProfileView: View {
         }
         .onAppear {
             ritualsViewModel.refresh()
+        }
+        .onChange(of: selectedPhotoItem) { _, newValue in
+            guard let newValue = newValue else { return }
+            Task {
+                do {
+                    if let data = try await newValue.loadTransferable(type: Data.self),
+                       let uiImage = UIImage(data: data) {
+                        await uploadAvatar(image: uiImage)
+                    }
+                    await MainActor.run {
+                        selectedPhotoItem = nil
+                    }
+                } catch {
+                    print("❌ Photo selection error: \(error)")
+                    await MainActor.run {
+                        selectedPhotoItem = nil
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Photo Upload
+
+    private func uploadAvatar(image: UIImage) async {
+        guard let imageData = image.jpegData(compressionQuality: 0.8) else { return }
+
+        await MainActor.run {
+            isUploadingPhoto = true
+        }
+
+        do {
+            let avatarUrl = try await userService.uploadAvatar(imageData: imageData)
+            await MainActor.run {
+                if var updatedUser = store.user {
+                    // Add cache-busting parameter
+                    let cacheBustUrl = avatarUrl.contains("?")
+                        ? "\(avatarUrl)&v=\(Int(Date().timeIntervalSince1970))"
+                        : "\(avatarUrl)?v=\(Int(Date().timeIntervalSince1970))"
+                    updatedUser.avatarURL = cacheBustUrl
+                    store.user = updatedUser
+                }
+                isUploadingPhoto = false
+            }
+        } catch {
+            print("❌ Avatar upload error: \(error)")
+            await MainActor.run {
+                isUploadingPhoto = false
+            }
         }
     }
 

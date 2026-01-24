@@ -2647,7 +2647,7 @@ struct CreateGroupView: View {
                         }
                     }
                     .foregroundColor(ColorTokens.primaryStart)
-                    .disabled(groupName.isEmpty || viewModel.selectedMembersForGroup.isEmpty || isCreating)
+                    .disabled(groupName.isEmpty || isCreating)
                 }
             }
         }
@@ -2739,6 +2739,9 @@ struct GroupDetailView: View {
                             // Shared Routines
                             groupRoutinesSection(group)
 
+                            // Group Statistics
+                            groupStatsSection(group)
+
                             // Members List
                             membersSection(group)
                         }
@@ -2746,6 +2749,7 @@ struct GroupDetailView: View {
                     }
                     .task {
                         await viewModel.loadGroupRoutines(groupId: group.id)
+                        await viewModel.loadGroupStats(groupId: group.id)
                     }
                 } else {
                     ProgressView()
@@ -2949,6 +2953,168 @@ struct GroupDetailView: View {
                     }
                 }
             }
+        }
+    }
+
+    // MARK: - Group Statistics Section
+
+    private func groupStatsSection(_ group: CrewGroup) -> some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.md) {
+            HStack {
+                Text("crew.groups.statistics".localized)
+                    .subtitle()
+                    .fontWeight(.semibold)
+                    .foregroundColor(ColorTokens.textPrimary)
+                Spacer()
+
+                // Period Picker
+                Picker("", selection: Binding(
+                    get: { viewModel.selectedStatsPeriod },
+                    set: { newValue in
+                        Task {
+                            await viewModel.changeStatsPeriod(groupId: group.id, to: newValue)
+                        }
+                    }
+                )) {
+                    Text("crew.groups.weekly".localized).tag("weekly")
+                    Text("crew.groups.monthly".localized).tag("monthly")
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 160)
+            }
+
+            if viewModel.isLoadingGroupStats {
+                HStack {
+                    Spacer()
+                    ProgressView()
+                    Spacer()
+                }
+                .padding(.vertical, SpacingTokens.lg)
+            } else if let stats = viewModel.groupStats {
+                // Summary Card
+                Card {
+                    HStack(spacing: SpacingTokens.lg) {
+                        VStack(spacing: SpacingTokens.xs) {
+                            Text("\(stats.totalRoutinesCompleted)")
+                                .font(.satoshi(24, weight: .bold))
+                                .foregroundColor(ColorTokens.primaryStart)
+                            Text("crew.groups.completed".localized)
+                                .caption()
+                                .foregroundColor(ColorTokens.textMuted)
+                        }
+                        .frame(maxWidth: .infinity)
+
+                        Divider()
+                            .frame(height: 40)
+
+                        VStack(spacing: SpacingTokens.xs) {
+                            Text("\(stats.averageCompletionRate)%")
+                                .font(.satoshi(24, weight: .bold))
+                                .foregroundColor(ColorTokens.success)
+                            Text("crew.groups.avg_rate".localized)
+                                .caption()
+                                .foregroundColor(ColorTokens.textMuted)
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .padding(SpacingTokens.md)
+                }
+
+                // Daily Trend Chart
+                if let dailyTrend = stats.dailyTrend, !dailyTrend.isEmpty {
+                    Card {
+                        VStack(alignment: .leading, spacing: SpacingTokens.md) {
+                            Text("crew.groups.daily_trend".localized)
+                                .font(.satoshi(14, weight: .semibold))
+                                .foregroundColor(ColorTokens.textSecondary)
+
+                            GroupStatsBarChart(data: dailyTrend)
+                                .frame(height: 120)
+                        }
+                        .padding(SpacingTokens.md)
+                    }
+                }
+
+                // Member Rankings
+                if !stats.memberStats.isEmpty {
+                    Card {
+                        VStack(alignment: .leading, spacing: SpacingTokens.md) {
+                            Text("crew.groups.member_rankings".localized)
+                                .font(.satoshi(14, weight: .semibold))
+                                .foregroundColor(ColorTokens.textSecondary)
+
+                            ForEach(stats.memberStats.sorted(by: { $0.completionRate > $1.completionRate })) { member in
+                                HStack(spacing: SpacingTokens.md) {
+                                    AvatarView(
+                                        name: member.displayName,
+                                        avatarURL: member.avatarUrl,
+                                        size: 36
+                                    )
+
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(member.displayName)
+                                            .font(.satoshi(14, weight: .medium))
+                                            .foregroundColor(ColorTokens.textPrimary)
+
+                                        Text("\(member.completedCount)/\(member.totalPossible) \("crew.groups.routines".localized)")
+                                            .font(.satoshi(12))
+                                            .foregroundColor(ColorTokens.textMuted)
+                                    }
+
+                                    Spacer()
+
+                                    // Completion rate badge
+                                    Text("\(member.completionRate)%")
+                                        .font(.satoshi(14, weight: .bold))
+                                        .foregroundColor(completionRateColor(member.completionRate))
+                                        .padding(.horizontal, SpacingTokens.sm)
+                                        .padding(.vertical, SpacingTokens.xs)
+                                        .background(completionRateColor(member.completionRate).opacity(0.15))
+                                        .cornerRadius(RadiusTokens.sm)
+
+                                    // Streak if available
+                                    if let streak = member.streak, streak > 0 {
+                                        HStack(spacing: 2) {
+                                            Text("🔥")
+                                                .font(.system(size: 12))
+                                            Text("\(streak)")
+                                                .font(.satoshi(12, weight: .semibold))
+                                                .foregroundColor(ColorTokens.warning)
+                                        }
+                                    }
+                                }
+                                .padding(.vertical, SpacingTokens.xs)
+
+                                if member.id != stats.memberStats.last?.id {
+                                    Divider()
+                                }
+                            }
+                        }
+                        .padding(SpacingTokens.md)
+                    }
+                }
+            } else {
+                Card {
+                    VStack(spacing: SpacingTokens.md) {
+                        Image(systemName: "chart.bar.xaxis")
+                            .font(.satoshi(30))
+                            .foregroundColor(ColorTokens.textMuted)
+                        Text("crew.groups.no_stats".localized)
+                            .caption()
+                            .foregroundColor(ColorTokens.textMuted)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(SpacingTokens.lg)
+                }
+            }
+        }
+    }
+
+    private func completionRateColor(_ rate: Int) -> Color {
+        switch rate {
+        case 80...100: return ColorTokens.success
+        case 50..<80: return ColorTokens.warning
+        default: return ColorTokens.error
         }
     }
 
@@ -4531,6 +4697,83 @@ struct ShareRoutineSheet: View {
                 dismiss()
             }
         }
+    }
+}
+
+// MARK: - Group Stats Bar Chart
+
+struct GroupStatsBarChart: View {
+    let data: [DailyStat]
+    var maxHeight: CGFloat = 100
+
+    private var maxValue: Int {
+        data.map { $0.value }.max() ?? 1
+    }
+
+    private var displayData: [DailyStat] {
+        // Show last 7 days for weekly, last 14 for monthly (or all if less)
+        let count = min(data.count, 14)
+        return Array(data.suffix(count))
+    }
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 4) {
+            ForEach(displayData) { stat in
+                VStack(spacing: SpacingTokens.xs) {
+                    // Bar
+                    RoundedRectangle(cornerRadius: RadiusTokens.sm)
+                        .fill(barGradient(for: stat))
+                        .frame(
+                            height: maxValue > 0
+                                ? maxHeight * (CGFloat(stat.value) / CGFloat(maxValue))
+                                : 2
+                        )
+                        .frame(minHeight: 2)
+
+                    // Day label
+                    Text(dayLabel(from: stat.date))
+                        .font(.satoshi(9))
+                        .foregroundColor(isToday(stat.date) ? ColorTokens.textPrimary : ColorTokens.textMuted)
+                        .fontWeight(isToday(stat.date) ? .semibold : .regular)
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .frame(height: maxHeight + 20)
+    }
+
+    private func barGradient(for stat: DailyStat) -> LinearGradient {
+        if isToday(stat.date) {
+            return ColorTokens.fireGradient
+        } else {
+            return LinearGradient(
+                colors: [
+                    ColorTokens.primaryStart.opacity(0.6),
+                    ColorTokens.primaryEnd.opacity(0.6)
+                ],
+                startPoint: .bottom,
+                endPoint: .top
+            )
+        }
+    }
+
+    private func dayLabel(from dateString: String) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        guard let date = formatter.date(from: dateString) else { return "" }
+
+        let dayFormatter = DateFormatter()
+        dayFormatter.dateFormat = "E"
+        dayFormatter.locale = Locale.current
+        let day = dayFormatter.string(from: date)
+        return String(day.prefix(1)).uppercased()
+    }
+
+    private func isToday(_ dateString: String) -> Bool {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        let todayString = formatter.string(from: Date())
+        return dateString == todayString
     }
 }
 

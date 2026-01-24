@@ -77,6 +77,11 @@ class FireModeViewModel: ObservableObject {
         }
     }
 
+    deinit {
+        timer?.invalidate()
+        timer = nil
+    }
+
     /// Select the last used quest if it exists and is still active
     private func selectLastUsedQuest() {
         guard selectedQuestId == nil else { return } // Don't override if already set

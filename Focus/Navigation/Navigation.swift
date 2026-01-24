@@ -2,35 +2,24 @@ import SwiftUI
 import Combine
 
 // MARK: - App Navigation
+// Simplified: Chat is the main (and only) tab - Profile accessible from chat header
 enum AppTab: Int, CaseIterable {
-    case dashboard = 0
-    case calendar = 1
-    // case community = 2  // COMMENTED OUT - Feed disabled for now
-    case crew = 3
-    case profile = 4
+    case chat = 0        // Main screen - talk to Kai
 
-    // Define which tabs are currently active (excluding community)
+    // Define which tabs are currently active
     static var activeCases: [AppTab] {
-        [.dashboard, .calendar, .crew, .profile]
+        [.chat]
     }
 
     var title: String {
         switch self {
-        case .dashboard: return "tab.dashboard".localized
-        case .calendar: return "tab.calendar".localized
-        // case .community: return "tab.community".localized
-        case .crew: return "tab.crew".localized
-        case .profile: return "tab.profile".localized
+        case .chat: return "Kai"
         }
     }
 
     var icon: String {
         switch self {
-        case .dashboard: return "flame.fill"
-        case .calendar: return "calendar"
-        // case .community: return "photo.stack"
-        case .crew: return "person.3.fill"
-        case .profile: return "person.circle.fill"
+        case .chat: return "message.fill"
         }
     }
 }
@@ -58,7 +47,7 @@ enum DashboardSection: String, CaseIterable {
 class AppRouter: ObservableObject {
     static let shared = AppRouter()
 
-    @Published var selectedTab: AppTab = .dashboard
+    @Published var selectedTab: AppTab = .chat
     @Published var dashboardPath = NavigationPath()
     @Published var showStartTheDay = false
     @Published var showEndOfDay = false
@@ -79,9 +68,10 @@ class AppRouter: ObservableObject {
 
     private init() {}
 
-    func navigateToStartTheDay() {
-        showStartTheDay = true
-    }
+    // REMOVED: Manual planning - now via chat
+    // func navigateToStartTheDay() {
+    //     showStartTheDay = true
+    // }
 
     func navigateToEndOfDay() {
         showEndOfDay = true
@@ -112,13 +102,14 @@ class AppRouter: ObservableObject {
     }
 
     func navigateToDashboard(scrollTo section: DashboardSection? = nil) {
-        selectedTab = .dashboard
+        selectedTab = .chat
         dashboardScrollTarget = section
     }
 
+    // Calendar tab removed - calendar accessible via chat
     func navigateToCalendar(date: Date? = nil) {
         calendarTargetDate = date
-        selectedTab = .calendar
+        selectedTab = .chat
     }
 
     func dismissSheets() {
@@ -127,7 +118,7 @@ class AppRouter: ObservableObject {
     }
 
     func navigate(to destination: NavigationDestination) {
-        selectedTab = .dashboard
+        selectedTab = .chat
         dashboardPath.append(destination)
     }
 
@@ -143,46 +134,11 @@ struct MainTabView: View {
     @State private var showOnboardingTutorial = false
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            // Content based on selected tab
-            Group {
-                switch router.selectedTab {
-                case .dashboard:
-                    NavigationStack(path: $router.dashboardPath) {
-                        DashboardView()
-                            .navigationDestination(for: NavigationDestination.self) { destination in
-                                destinationView(for: destination)
-                            }
-                    }
-                case .calendar:
-                    NavigationStack {
-                        WeekCalendarView()
-                            .navigationDestination(for: NavigationDestination.self) { destination in
-                                destinationView(for: destination)
-                            }
-                    }
-                // COMMENTED OUT - Community feed disabled for now
-                // case .community:
-                //     NavigationStack {
-                //         CommunityView()
-                //     }
-                case .crew:
-                    NavigationStack {
-                        CrewView()
-                    }
-                case .profile:
-                    NavigationStack {
-                        ProfileView()
-                    }
-                }
-            }
-
-            // Custom floating tab bar (Opal style)
-            FloatingTabBar(selectedTab: $router.selectedTab)
-        }
-        .ignoresSafeArea(.keyboard)
-        .fullScreenCover(isPresented: $router.showStartTheDay) {
-            PlanYourDayView()
+        ZStack {
+            // Simplified: Chat is the only view (no tabs)
+            ChatView()
+                .environmentObject(FocusAppStore.shared)
+                .environmentObject(router)
         }
         .sheet(isPresented: $router.showEndOfDay) {
             NavigationStack {
@@ -232,35 +188,9 @@ struct MainTabView: View {
     }
 }
 
-// MARK: - Floating Tab Bar (Opal Style)
-struct FloatingTabBar: View {
-    @Binding var selectedTab: AppTab
-
-    var body: some View {
-        HStack(spacing: 0) {
-            // Only show active tabs (excluding community for now)
-            ForEach(AppTab.activeCases, id: \.self) { tab in
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        selectedTab = tab
-                    }
-                    HapticFeedback.light()
-                } label: {
-                    Image(systemName: tab.icon)
-                        .font(.system(size: 22, weight: .light))
-                        .foregroundColor(selectedTab == tab ? .white : .white.opacity(0.4))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 50)
-                }
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .background(
-            ColorTokens.background
-        )
-        .padding(.bottom, -10)
-    }
-}
+// MARK: - Floating Tab Bar (Disabled - Chat-only interface)
+// Tab bar removed for minimalist chat experience
+// Profile accessible from chat header
 
 // MARK: - Preview
 #Preview {

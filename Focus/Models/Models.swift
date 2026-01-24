@@ -17,6 +17,11 @@ struct User: Codable, Identifiable {
     var productivityPeak: ProductivityPeak? // morning, afternoon, evening
     var currentStreak: Int
     var longestStreak: Int
+    // V1 Settings
+    var language: String?              // fr, en
+    var timezone: String?              // Europe/Paris, etc.
+    var notificationsEnabled: Bool?    // true/false
+    var morningReminderTime: String?   // HH:MM format
 
     // Computed display name (pseudo > firstName lastName > email prefix)
     var name: String {
@@ -418,6 +423,11 @@ extension User {
         self.productivityPeak = ProductivityPeak(rawValue: response.productivityPeak ?? "")
         self.currentStreak = 0
         self.longestStreak = 0
+        // V1 Settings
+        self.language = response.language
+        self.timezone = response.timezone
+        self.notificationsEnabled = response.notificationsEnabled
+        self.morningReminderTime = response.morningReminderTime
     }
 }
 

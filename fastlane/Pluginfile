@@ -1,0 +1,6 @@
+# Pluginfile - Fastlane plugins
+# Learn more: https://docs.fastlane.tools/plugins/available-plugins/
+
+# Uncomment plugins you want to use:
+# gem 'fastlane-plugin-versioning'  # For more versioning options
+# gem 'fastlane-plugin-badge'       # Add beta badges to app icon

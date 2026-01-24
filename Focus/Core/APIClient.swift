@@ -208,6 +208,7 @@ enum APIConfiguration {
 
         // User
         case me
+        case deleteAccount
         case uploadAvatar
         case deleteAvatar
 
@@ -304,6 +305,7 @@ enum APIConfiguration {
         case groupRoutines(groupId: String, date: String?)
         case shareRoutineWithGroup(groupId: String)
         case removeGroupRoutine(groupId: String, groupRoutineId: String)
+        case groupStats(groupId: String, period: String)  // period: "weekly" or "monthly"
 
         // Group Invitations
         case groupInvitationsReceived
@@ -407,6 +409,18 @@ enum APIConfiguration {
         case chatMessage
         case chatHistory
 
+        // AI Chat (Kai v2)
+        case aiChat
+
+        // WhatsApp Integration
+        case whatsappStatus
+        case whatsappLink
+        case whatsappUnlink
+        case whatsappSendCode(phoneNumber: String)
+        case whatsappVerifyCode
+        case whatsappPreferences
+        case whatsappUpdatePreferences
+
         var path: String {
             switch self {
             // Health
@@ -414,7 +428,7 @@ enum APIConfiguration {
                 return "/health"
 
             // User
-            case .me:
+            case .me, .deleteAccount:
                 return "/me"
             case .uploadAvatar:
                 return "/me/avatar"
@@ -593,6 +607,8 @@ enum APIConfiguration {
                 return "/friend-groups/\(groupId)/routines"
             case .removeGroupRoutine(let groupId, let groupRoutineId):
                 return "/friend-groups/\(groupId)/routines/\(groupRoutineId)"
+            case .groupStats(let groupId, let period):
+                return "/friend-groups/\(groupId)/stats?period=\(period)"
 
             // Group Invitations
             case .groupInvitationsReceived:
@@ -772,6 +788,24 @@ enum APIConfiguration {
                 return "/chat/message"
             case .chatHistory:
                 return "/chat/history"
+
+            // AI Chat (Kai v2)
+            case .aiChat:
+                return "/ai/chat"
+
+            // WhatsApp Integration
+            case .whatsappStatus:
+                return "/whatsapp/status"
+            case .whatsappLink:
+                return "/whatsapp/link"
+            case .whatsappUnlink:
+                return "/whatsapp/unlink"
+            case .whatsappSendCode(let phoneNumber):
+                return "/whatsapp/send-code?phone=\(phoneNumber.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? phoneNumber)"
+            case .whatsappVerifyCode:
+                return "/whatsapp/verify-code"
+            case .whatsappPreferences, .whatsappUpdatePreferences:
+                return "/whatsapp/preferences"
             }
         }
 

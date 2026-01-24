@@ -20,6 +20,9 @@ struct FocusWidgetBundle: WidgetBundle {
         // Today's Intentions Widget - morning check-in goals
         IntentionsWidget()
 
+        // Weekly Goals Widget - track weekly objectives
+        WeeklyGoalsWidget()
+
         // Live Activity for active focus sessions (Dynamic Island + Lock Screen)
         FocusSessionLiveActivity()
     }

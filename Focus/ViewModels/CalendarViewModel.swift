@@ -206,6 +206,18 @@ class CalendarViewModel: ObservableObject {
         setupBindings()
         // Set week start to current week
         weekStartDate = Date().startOfWeek
+
+        // Listen for calendar refresh notifications (from Kai creating tasks)
+        NotificationCenter.default.addObserver(
+            forName: .calendarNeedsRefresh,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                print("📅 Calendar refresh triggered by Kai")
+                await self?.loadWeekData()
+            }
+        }
     }
 
     private func setupBindings() {
@@ -388,6 +400,13 @@ class CalendarViewModel: ObservableObject {
             ritualCompletionsByDate = completionMap
             print("[CalendarViewModel] Loaded \(completions.count) ritual completions for the week")
 
+            // Schedule app blocking for today's tasks with blockApps enabled
+            let todayTasks = weekTasks.filter { task in
+                guard let taskDate = task.dateAsDate else { return false }
+                return Calendar.current.isDateInToday(taskDate)
+            }
+            await ScheduledBlockingService.shared.scheduleBlockingForTasks(todayTasks)
+
         } catch {
             print("[CalendarViewModel] ERROR loading week data: \(error)")
             weekTasks = []
@@ -412,6 +431,8 @@ class CalendarViewModel: ObservableObject {
             // Schedule notifications for today's tasks
             if Calendar.current.isDateInToday(selectedDate) {
                 await NotificationService.shared.scheduleAllTaskReminders(tasks: tasks)
+                // Schedule app blocking for tasks with blockApps enabled
+                await ScheduledBlockingService.shared.scheduleBlockingForTasks(tasks)
             }
         } catch {
             dayPlan = nil

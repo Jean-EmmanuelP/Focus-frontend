@@ -49,9 +49,7 @@ struct ReferralView: View {
             await referralService.fetchEarnings()
         }
         .sheet(isPresented: $showShareSheet) {
-            if let stats = referralService.stats {
-                ShareSheet(activityItems: [referralService.getShareMessage()])
-            }
+            ShareSheet(activityItems: [referralService.getShareMessage()])
         }
     }
 
@@ -118,7 +116,11 @@ struct ReferralView: View {
     private var shareSection: some View {
         VStack(spacing: SpacingTokens.md) {
             // Code display
-            if let code = referralService.stats?.code {
+            if referralService.isLoading {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: ColorTokens.primaryStart))
+                    .padding(.vertical, SpacingTokens.lg)
+            } else if let code = referralService.stats?.code {
                 VStack(spacing: SpacingTokens.sm) {
                     Text("Ton code de parrainage")
                         .font(.satoshi(13))
@@ -150,33 +152,53 @@ struct ReferralView: View {
                     }
 
                     if copiedCode {
-                        Text("Code copie !")
+                        Text("Code copié !")
                             .font(.satoshi(12, weight: .medium))
                             .foregroundColor(ColorTokens.success)
                     }
                 }
+            } else if referralService.errorMessage != nil {
+                // Error state - show retry
+                VStack(spacing: SpacingTokens.sm) {
+                    Text("Impossible de charger ton code")
+                        .font(.satoshi(14))
+                        .foregroundColor(ColorTokens.textSecondary)
+
+                    Button {
+                        Task {
+                            await referralService.fetchStats()
+                        }
+                    } label: {
+                        Text("Réessayer")
+                            .font(.satoshi(14, weight: .semibold))
+                            .foregroundColor(ColorTokens.primaryStart)
+                    }
+                }
+                .padding(.vertical, SpacingTokens.md)
             }
 
-            // Share button
-            Button {
-                showShareSheet = true
-            } label: {
-                HStack(spacing: SpacingTokens.sm) {
-                    Image(systemName: "square.and.arrow.up")
-                    Text("Partager mon lien")
-                }
-                .font(.satoshi(16, weight: .semibold))
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, SpacingTokens.md)
-                .background(
-                    LinearGradient(
-                        colors: [ColorTokens.primaryStart, ColorTokens.primaryEnd],
-                        startPoint: .leading,
-                        endPoint: .trailing
+            // Share button - only show if we have a code
+            if let _ = referralService.stats?.code {
+                Button {
+                    showShareSheet = true
+                } label: {
+                    HStack(spacing: SpacingTokens.sm) {
+                        Image(systemName: "square.and.arrow.up")
+                        Text("Partager mon lien")
+                    }
+                    .font(.satoshi(16, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, SpacingTokens.md)
+                    .background(
+                        LinearGradient(
+                            colors: [ColorTokens.primaryStart, ColorTokens.primaryEnd],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
                     )
-                )
-                .cornerRadius(RadiusTokens.lg)
+                    .cornerRadius(RadiusTokens.lg)
+                }
             }
         }
         .padding(SpacingTokens.lg)

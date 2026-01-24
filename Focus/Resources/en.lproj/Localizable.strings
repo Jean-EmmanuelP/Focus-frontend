@@ -281,6 +281,16 @@
 "crew.groups.no_routines_hint" = "Create some routines first to share with your group";
 "crew.groups.all_shared" = "All your routines are already shared with this group";
 
+// Group Statistics
+"crew.groups.statistics" = "Statistics";
+"crew.groups.weekly" = "Weekly";
+"crew.groups.monthly" = "Monthly";
+"crew.groups.daily_trend" = "Daily Trend";
+"crew.groups.member_rankings" = "Member Rankings";
+"crew.groups.routines" = "routines";
+"crew.groups.avg_rate" = "Avg Rate";
+"crew.groups.no_stats" = "No statistics available";
+
 "crew.invited_by" = "Invited by %@";
 "crew.invited_user" = "Invited %@";
 "crew.sent_group_invitations" = "Sent Invitations";

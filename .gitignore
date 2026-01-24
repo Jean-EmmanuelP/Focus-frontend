@@ -34,3 +34,17 @@ Config.plist
 .idea/
 *.swp
 *~
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+fastlane/readme.md
+fastlane/AuthKey*.p8
+build/
+
+# Ruby
+vendor/bundle/
+.bundle/
+Gemfile.lock

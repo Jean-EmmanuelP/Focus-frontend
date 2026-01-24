@@ -223,3 +223,39 @@ Focus/
 3. **Personnalisation** : Laisser l'utilisateur contrôler chaque type de notification
 4. **Deep links** : Utiliser le système existant pour la navigation depuis les notifications
 5. **Badge app** : Mettre à jour le badge avec le nombre de tâches/rituels en attente
+
+---
+
+## Déploiement (Fastlane)
+
+### Quand l'utilisateur demande de déployer
+
+Si l'utilisateur dit "mets sur TF", "push TestFlight", "nouvelle beta", "déploie", exécuter:
+
+```bash
+cd /Users/jperrama/Developer/iOS_Swift_Applications/Focus
+fastlane beta
+```
+
+Si l'utilisateur dit "mets sur le store", "release", "App Store", exécuter:
+
+```bash
+cd /Users/jperrama/Developer/iOS_Swift_Applications/Focus
+fastlane release
+```
+
+### Commandes disponibles
+
+| Commande | Action |
+|----------|--------|
+| `fastlane build` | Build debug rapide |
+| `fastlane version` | Voir version actuelle |
+| `fastlane bump` | Incrémenter build number |
+| `fastlane beta` | Build + Upload TestFlight |
+| `fastlane release` | Build + Upload App Store |
+
+### Infos projet
+
+- **Bundle ID**: `com.jep.volta`
+- **Team ID**: `62NW6K29QN`
+- **Docs détaillées**: Voir `DEPLOYMENT.md`
