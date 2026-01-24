@@ -219,8 +219,8 @@ class ChatViewModel: ObservableObject {
         }
 
         do {
-            // Send to backend for transcription + AI response
-            let response: VoiceMessageResponse = try await uploadVoiceMessage(audioURL: audioURL)
+            // Send to backend for transcription + AI response (include Supabase URL)
+            let response: VoiceMessageResponse = try await uploadVoiceMessage(audioURL: audioURL, audioStorageURL: storagePath)
 
             // Update voice message with transcript and storage path
             if let index = messages.lastIndex(where: { $0.id == voiceMessage.id }) {
@@ -302,7 +302,7 @@ class ChatViewModel: ObservableObject {
         return CMTimeGetSeconds(asset.duration)
     }
 
-    private func uploadVoiceMessage(audioURL: URL) async throws -> VoiceMessageResponse {
+    private func uploadVoiceMessage(audioURL: URL, audioStorageURL: String?) async throws -> VoiceMessageResponse {
         // Read audio data
         let audioData = try Data(contentsOf: audioURL)
 
@@ -333,6 +333,13 @@ class ChatViewModel: ObservableObject {
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
         body.append("Content-Disposition: form-data; name=\"source\"\r\n\r\n".data(using: .utf8)!)
         body.append("app\r\n".data(using: .utf8)!)
+
+        // Add audio_url field (Supabase Storage path)
+        if let audioStorageURL = audioStorageURL {
+            body.append("--\(boundary)\r\n".data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"audio_url\"\r\n\r\n".data(using: .utf8)!)
+            body.append("\(audioStorageURL)\r\n".data(using: .utf8)!)
+        }
 
         body.append("--\(boundary)--\r\n".data(using: .utf8)!)
 
