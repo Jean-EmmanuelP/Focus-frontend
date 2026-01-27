@@ -60,14 +60,12 @@ struct FocusApp: App {
                             loadingView
                                 .transition(.opacity)
                         } else if store.isAuthenticated {
-                            // Authenticated but checking/completing onboarding - show main app
-                            // (onboarding is now disabled, handled by backend)
-                            MainTabView()
+                            // Authenticated but needs onboarding
+                            NewOnboardingView()
                                 .transition(.opacity)
                         } else {
-                            // Not authenticated: show chat directly (Perplexity-style)
-                            // Login modal will appear when user tries to send first message
-                            ChatOnboardingView()
+                            // Not authenticated: show landing page (Replika-style)
+                            LandingPageView()
                                 .transition(.opacity)
                         }
                     }
@@ -93,6 +91,32 @@ struct FocusApp: App {
             .sheet(isPresented: $showUpdateSheet) {
                 UpdateAvailableSheet(updateService: updateService)
                     .presentationDetents([.medium])
+            }
+            .fullScreenCover(isPresented: $router.showLandingPage) {
+                LandingPageView()
+                    .environmentObject(store)
+            }
+            .sheet(isPresented: $router.showSettings) {
+                SettingsView()
+                    .environmentObject(store)
+            }
+            .onAppear {
+                // Ralph: auto-show screens via launch arguments for design verification
+                if ProcessInfo.processInfo.arguments.contains("-showLogin") {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                        router.showLandingPage = true
+                    }
+                }
+                if ProcessInfo.processInfo.arguments.contains("-showOnboarding") {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                        router.showOnboarding = true
+                    }
+                }
+                if ProcessInfo.processInfo.arguments.contains("-showSettings") {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                        router.showSettings = true
+                    }
+                }
             }
             .onChange(of: scenePhase) { oldPhase, newPhase in
                 if newPhase == .active && store.isAuthenticated {
@@ -129,6 +153,14 @@ struct FocusApp: App {
     /// - focus://dashboard
     /// - focus://starttheday
     /// - focus://endofday
+    /// - focus://chat
+    /// - focus://settings
+    /// - focus://settings/notifications
+    /// - focus://settings/appblocker
+    /// - focus://onboarding
+    /// - focus://login
+    /// - focus://calendar
+    /// - focus://weekly-goals
     /// - focus://referral?code=XXXX
     /// - https://focus.app/r/XXXX (Universal Link)
     private func handleDeepLink(_ url: URL) {
@@ -153,6 +185,9 @@ struct FocusApp: App {
             // Dashboard is now chat
             router.selectedTab = .chat
 
+        case "chat":
+            router.selectedTab = .chat
+
         case "starttheday":
             // Redirect to chat - planning is now done via Kai
             router.selectedTab = .chat
@@ -165,6 +200,38 @@ struct FocusApp: App {
 
         case "weekly-goals":
             router.navigateToWeeklyGoals()
+
+        case "settings":
+            // Check for sub-page via path
+            let path = url.path
+            if path == "/notifications" {
+                router.navigateToSettings()
+                // Small delay to let settings sheet present before navigating
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    router.navigate(to: .notificationSettings)
+                }
+            } else if path == "/appblocker" {
+                router.navigateToSettings()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    router.navigate(to: .appBlockerSettings)
+                }
+            } else {
+                router.navigateToSettings()
+            }
+
+        case "onboarding":
+            router.navigateToOnboarding()
+
+        case "login":
+            // Ralph: force show landing page for design verification
+            router.showLandingPage = true
+
+        case "login-direct":
+            // Same but no prompt
+            router.showLandingPage = true
+
+        case "paywall":
+            router.navigateToPaywall()
 
         case "referral":
             // Extract code from query parameters

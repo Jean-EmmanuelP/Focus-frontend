@@ -32,6 +32,9 @@ enum NavigationDestination: Hashable {
     case questDetail(Quest)
     case manageRituals
     case weeklyGoals
+    case settings
+    case notificationSettings
+    case appBlockerSettings
 }
 
 // MARK: - App Router (Navigation State)
@@ -52,6 +55,10 @@ class AppRouter: ObservableObject {
     @Published var showStartTheDay = false
     @Published var showEndOfDay = false
     @Published var showFireModeSession = false  // Shows FireModeView as fullscreen modal
+    @Published var showSettings = false
+    @Published var showOnboarding = false  // For Ralph design verification
+    @Published var showPaywall = false  // For Ralph design verification
+    @Published var showLandingPage = false  // For Ralph design verification
 
     // FireMode pre-configured session parameters
     @Published var fireModePresetDuration: Int?
@@ -112,9 +119,25 @@ class AppRouter: ObservableObject {
         selectedTab = .chat
     }
 
+    func navigateToSettings() {
+        showSettings = true
+    }
+
+    func navigateToOnboarding() {
+        showOnboarding = true
+    }
+
+    func navigateToPaywall() {
+        showPaywall = true
+    }
+
     func dismissSheets() {
         showStartTheDay = false
         showEndOfDay = false
+        showSettings = false
+        showOnboarding = false
+        showPaywall = false
+        showLandingPage = false
     }
 
     func navigate(to destination: NavigationDestination) {
@@ -151,6 +174,10 @@ struct MainTabView: View {
             FireModeView()
                 .environmentObject(router)
         }
+        .sheet(isPresented: $router.showPaywall) {
+            RevenueCatNativePaywall()
+                .environmentObject(RevenueCatManager.shared)
+        }
         .environmentObject(router)
         .overlay {
             if showOnboardingTutorial {
@@ -184,6 +211,12 @@ struct MainTabView: View {
             ManageRitualsView()
         case .weeklyGoals:
             WeeklyGoalsView()
+        case .settings:
+            SettingsView()
+        case .notificationSettings:
+            SettingsView()
+        case .appBlockerSettings:
+            SettingsView()
         }
     }
 }

@@ -2,37 +2,59 @@ import SwiftUI
 import AVFoundation
 import Combine
 
-// MARK: - WhatsApp-Style Chat View (Exact Colors)
+// MARK: - Replika-Style Chat View (Ralph Design)
 
 struct ChatView: View {
     @EnvironmentObject var store: FocusAppStore
     @StateObject private var viewModel = ChatViewModel()
     @FocusState private var isInputFocused: Bool
-    @State private var showProfile = false
+    @State private var showSettings = false
 
     // Recording state
     @StateObject private var audioRecorder = VoiceRecorderManager()
     @State private var isRecording = false
     @State private var recordingTime: TimeInterval = 0
     @State private var recordingTimer: Timer?
+    @State private var showPaywall = false
 
-    // EXACT WhatsApp colors (from official app)
-    private let whatsAppHeaderGreen = Color(hex: "075E54")
-    private let whatsAppSendGreen = Color(hex: "00A884")
-    private let chatBackground = Color(hex: "ECE5DD")
-    private let userBubbleColor = Color(hex: "DCF8C6")
-    private let aiBubbleColor = Color.white
-    private let inputBarBackground = Color(hex: "F0F0F0")
+    @EnvironmentObject var revenueCatManager: RevenueCatManager
+
+    // Companion name (from store or default)
+    private var companionName: String {
+        let name = store.user?.pseudo ?? "Kai"
+        return name.isEmpty ? "Kai" : name
+    }
 
     var body: some View {
-        ZStack {
-            chatBackground
-                .ignoresSafeArea()
+        GeometryReader { geometry in
+            ZStack {
+                // Background gradient (light blue/gray like Replika)
+                chatBackground
+                    .ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                chatHeader
-                messagesView
-                inputBar
+                VStack(spacing: 0) {
+                    // Header
+                    chatHeader
+
+                    // Companion name bubble (centered, above avatar)
+                    if viewModel.messages.isEmpty {
+                        companionNameBubble
+                    }
+
+                    // Messages or avatar area
+                    if viewModel.messages.isEmpty {
+                        // Empty state: show avatar placeholder
+                        Spacer()
+                        avatarPlaceholder(size: geometry.size)
+                        Spacer()
+                    } else {
+                        // Conversation mode
+                        messagesView
+                    }
+
+                    // Input bar
+                    chatInputBar
+                }
             }
         }
         .navigationBarHidden(true)
@@ -40,65 +62,148 @@ struct ChatView: View {
             viewModel.setStore(store)
             viewModel.loadHistory()
         }
-        .sheet(isPresented: $showProfile) {
-            NavigationStack {
-                ProfileView()
-                    .environmentObject(store)
-            }
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+                .environmentObject(store)
         }
         .onTapGesture {
             isInputFocused = false
         }
+        .sheet(isPresented: $showPaywall) {
+            VoltaPaywallView(onComplete: {
+                showPaywall = false
+            }, onSkip: {
+                showPaywall = false
+            })
+            .environmentObject(revenueCatManager)
+        }
+    }
+
+    // MARK: - Background
+
+    private var chatBackground: some View {
+        LinearGradient(
+            colors: [
+                Color(red: 0.72, green: 0.78, blue: 0.88),
+                Color(red: 0.80, green: 0.84, blue: 0.92),
+                Color(red: 0.88, green: 0.90, blue: 0.95)
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
     }
 
     // MARK: - Header
 
     private var chatHeader: some View {
-        HStack(spacing: 10) {
-            ZStack {
-                Circle()
-                    .fill(Color.white.opacity(0.2))
-                    .frame(width: 40, height: 40)
-                Text("🔥")
-                    .font(.system(size: 22))
-            }
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Kai")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(.white)
-
-                Text(viewModel.isLoading ? "écrit..." : "en ligne")
-                    .font(.system(size: 13))
-                    .foregroundColor(.white.opacity(0.7))
+        HStack {
+            if viewModel.messages.isEmpty {
+                // Empty state: menu icon left
+                Button(action: { showSettings = true }) {
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.gray)
+                        .frame(width: 36, height: 36)
+                        .background(
+                            Circle()
+                                .fill(Color.white.opacity(0.6))
+                        )
+                }
+            } else {
+                // Conversation: companion name with chevron
+                Button(action: {}) {
+                    HStack(spacing: 4) {
+                        Text(companionName)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.black.opacity(0.8))
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.black.opacity(0.4))
+                    }
+                }
             }
 
             Spacer()
 
-            Button { showProfile = true } label: { profileAvatar }
+            // Logo "Focus" centre
+            Text("Focus")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(.black.opacity(0.8))
+
+            Spacer()
+
+            if viewModel.messages.isEmpty {
+                // Profile icon
+                Button(action: { showSettings = true }) {
+                    Image(systemName: "person.crop.circle")
+                        .font(.system(size: 22))
+                        .foregroundColor(.gray)
+                        .frame(width: 36, height: 36)
+                }
+            } else {
+                // Phone & video icons
+                HStack(spacing: 12) {
+                    Button(action: {}) {
+                        Image(systemName: "phone.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(.black.opacity(0.5))
+                    }
+                    Button(action: {}) {
+                        Image(systemName: "video.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(.black.opacity(0.5))
+                    }
+                }
+            }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 8)
-        .background(whatsAppHeaderGreen)
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
     }
 
-    private var profileAvatar: some View {
-        Group {
-            if let avatarUrl = store.user?.avatarURL, !avatarUrl.isEmpty {
-                AsyncImage(url: URL(string: avatarUrl)) { image in
-                    image.resizable().scaledToFill()
-                } placeholder: {
-                    Circle().fill(Color.white.opacity(0.3))
-                        .overlay(Image(systemName: "person.fill").foregroundColor(.white))
-                }
-                .frame(width: 36, height: 36)
-                .clipShape(Circle())
-            } else {
-                Circle()
-                    .fill(Color.white.opacity(0.3))
-                    .frame(width: 36, height: 36)
-                    .overlay(Image(systemName: "person.fill").foregroundColor(.white))
-            }
+    // MARK: - Companion Name Bubble
+
+    private var companionNameBubble: some View {
+        VStack(spacing: 2) {
+            Text(companionName)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(.black.opacity(0.8))
+            Text("Votre Ami")
+                .font(.system(size: 12, weight: .regular))
+                .foregroundColor(.black.opacity(0.5))
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 8)
+        .background(
+            Capsule()
+                .fill(Color.white.opacity(0.5))
+        )
+        .padding(.top, 8)
+    }
+
+    // MARK: - Avatar Placeholder
+
+    private func avatarPlaceholder(size: CGSize) -> some View {
+        ZStack {
+            // Soft glow placeholder for future avatar
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            Color.white.opacity(0.3),
+                            Color.white.opacity(0.05)
+                        ],
+                        center: .center,
+                        startRadius: 20,
+                        endRadius: size.width * 0.35
+                    )
+                )
+                .frame(width: size.width * 0.7, height: size.width * 0.7)
+
+            // Placeholder icon
+            Image(systemName: "person.fill")
+                .font(.system(size: 80))
+                .foregroundColor(.white.opacity(0.15))
         }
     }
 
@@ -106,13 +211,20 @@ struct ChatView: View {
 
     private var messagesView: some View {
         ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(spacing: 2) {
+            ScrollView(showsIndicators: false) {
+                LazyVStack(spacing: 10) {
+                    // Date header
+                    Text(currentDateFormatted)
+                        .font(.system(size: 13, weight: .regular))
+                        .foregroundColor(.black.opacity(0.4))
+                        .padding(.top, 8)
+                        .padding(.bottom, 4)
+
                     ForEach(viewModel.messages) { message in
-                        WhatsAppBubble(
+                        ReplikaBubble(
                             message: message,
-                            userBubbleColor: userBubbleColor,
-                            aiBubbleColor: aiBubbleColor
+                            userBubbleColor: Color.white,
+                            aiBubbleColor: Color.white
                         )
                         .id(message.id)
                     }
@@ -123,7 +235,8 @@ struct ChatView: View {
 
                     Color.clear.frame(height: 1).id("bottom")
                 }
-                .padding(.vertical, 8)
+                .padding(.top, 8)
+                .padding(.bottom, 8)
             }
             .onChange(of: viewModel.messages.count) { _, _ in
                 withAnimation(.easeOut(duration: 0.2)) {
@@ -136,99 +249,106 @@ struct ChatView: View {
         }
     }
 
+    private var currentDateFormatted: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "fr_FR")
+        formatter.dateFormat = "d MMMM yyyy"
+        return formatter.string(from: Date())
+    }
+
     private var typingIndicator: some View {
         HStack {
             HStack(spacing: 4) {
-                ForEach(0..<3, id: \.self) { _ in
+                ForEach(0..<3, id: \.self) { index in
                     Circle()
-                        .fill(Color.gray.opacity(0.5))
+                        .fill(Color.black.opacity(0.3))
                         .frame(width: 8, height: 8)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            .background(Color.white)
+            .cornerRadius(22)
+
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+    }
+
+    // MARK: - Input Bar (Replika style: mic LEFT, text CENTER, + RIGHT)
+
+    private var chatInputBar: some View {
+        HStack(spacing: 10) {
+            // Mic button (LEFT) - gray circle
+            Button(action: {
+                if revenueCatManager.isProUser {
+                    if isRecording {
+                        stopRecordingAndSend()
+                    } else {
+                        startRecording()
+                    }
+                } else {
+                    showPaywall = true
+                }
+            }) {
+                ZStack {
+                    Circle()
+                        .fill(Color(white: 0.65).opacity(0.6))
+                        .frame(width: 44, height: 44)
+
+                    if isRecording {
+                        Image(systemName: "waveform")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundColor(.red)
+                    } else {
+                        Image(systemName: "mic.fill")
+                            .font(.system(size: 18))
+                            .foregroundColor(.white)
+                    }
+                }
+            }
+
+            // Text field (CENTER) - "Votre message"
+            HStack(spacing: 0) {
+                TextField("", text: $viewModel.inputText, prompt: Text("Votre message").foregroundColor(.black.opacity(0.35)))
+                    .font(.system(size: 16))
+                    .foregroundColor(.black)
+                    .focused($isInputFocused)
+
+                if !viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Button {
+                        viewModel.sendMessage()
+                        isInputFocused = false
+                    } label: {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.system(size: 24))
+                            .foregroundColor(Color(red: 0.0, green: 0.4, blue: 1.0))
+                    }
                 }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .background(Color.white)
-            .cornerRadius(18)
-            Spacer()
-        }
-        .padding(.horizontal, 12)
-    }
+            .background(
+                Capsule()
+                    .fill(Color.white.opacity(0.7))
+            )
 
-    // MARK: - Input Bar
+            // "+" button (RIGHT) - dark circle
+            Button(action: {}) {
+                ZStack {
+                    Circle()
+                        .fill(Color(red: 0.15, green: 0.15, blue: 0.20))
+                        .frame(width: 44, height: 44)
 
-    private var inputBar: some View {
-        HStack(spacing: 8) {
-            // Text field
-            HStack {
-                TextField("Message", text: $viewModel.inputText, axis: .vertical)
-                    .font(.system(size: 17))
-                    .foregroundColor(.black)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .lineLimit(1...5)
-                    .focused($isInputFocused)
-            }
-            .background(Color.white)
-            .cornerRadius(24)
-
-            // Send or Mic button
-            if viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                // Mic button - immediate press to record
-                MicRecordButton(
-                    isRecording: $isRecording,
-                    recordingTime: $recordingTime,
-                    onStartRecording: startRecording,
-                    onStopRecording: stopRecordingAndSend,
-                    backgroundColor: whatsAppSendGreen
-                )
-            } else {
-                // Send button
-                Button {
-                    viewModel.sendMessage()
-                    isInputFocused = false
-                } label: {
-                    Image(systemName: "paperplane.fill")
-                        .font(.system(size: 20))
+                    Image(systemName: "plus")
+                        .font(.system(size: 18, weight: .semibold))
                         .foregroundColor(.white)
-                        .frame(width: 48, height: 48)
-                        .background(whatsAppSendGreen)
-                        .clipShape(Circle())
                 }
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .background(inputBarBackground)
-        .overlay(alignment: .top) {
-            if isRecording {
-                recordingIndicatorView
-            }
-        }
-    }
-
-    private var recordingIndicatorView: some View {
-        HStack {
-            Circle()
-                .fill(Color.red)
-                .frame(width: 12, height: 12)
-
-            Text(formatTime(recordingTime))
-                .font(.system(size: 15, weight: .medium, design: .monospaced))
-                .foregroundColor(.red)
-
-            Spacer()
-
-            Text("Relâcher pour envoyer")
-                .font(.system(size: 13))
-                .foregroundColor(.gray)
-        }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background(Color.white)
-        .cornerRadius(20)
-        .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
-        .padding(.horizontal, 8)
-        .offset(y: -60)
+        .padding(.bottom, 4)
     }
 
     // MARK: - Recording Functions
@@ -258,57 +378,11 @@ struct ChatView: View {
             }
         }
     }
-
-    private func formatTime(_ time: TimeInterval) -> String {
-        let minutes = Int(time) / 60
-        let seconds = Int(time) % 60
-        let tenths = Int((time * 10).truncatingRemainder(dividingBy: 10))
-        return String(format: "%d:%02d.%d", minutes, seconds, tenths)
-    }
 }
 
-// MARK: - Mic Record Button (Immediate Response)
+// MARK: - Replika Message Bubble
 
-struct MicRecordButton: View {
-    @Binding var isRecording: Bool
-    @Binding var recordingTime: TimeInterval
-    let onStartRecording: () -> Void
-    let onStopRecording: () -> Void
-    let backgroundColor: Color
-
-    @GestureState private var isPressed = false
-
-    var body: some View {
-        Image(systemName: isRecording ? "stop.fill" : "mic.fill")
-            .font(.system(size: 20))
-            .foregroundColor(.white)
-            .frame(width: 48, height: 48)
-            .background(isRecording ? Color.red : backgroundColor)
-            .clipShape(Circle())
-            .scaleEffect(isPressed ? 1.2 : 1.0)
-            .animation(.easeInOut(duration: 0.1), value: isPressed)
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .updating($isPressed) { _, state, _ in
-                        state = true
-                    }
-                    .onChanged { _ in
-                        if !isRecording {
-                            onStartRecording()
-                        }
-                    }
-                    .onEnded { _ in
-                        if isRecording {
-                            onStopRecording()
-                        }
-                    }
-            )
-    }
-}
-
-// MARK: - WhatsApp Message Bubble
-
-struct WhatsAppBubble: View {
+struct ReplikaBubble: View {
     let message: SimpleChatMessage
     let userBubbleColor: Color
     let aiBubbleColor: Color
@@ -318,45 +392,41 @@ struct WhatsAppBubble: View {
     @State private var downloadedLocalURL: URL?
 
     var body: some View {
-        HStack {
-            if message.isFromUser { Spacer(minLength: 60) }
+        HStack(alignment: .bottom, spacing: 0) {
+            if message.isFromUser {
+                Spacer(minLength: 60)
+            }
 
-            VStack(alignment: message.isFromUser ? .trailing : .leading, spacing: 1) {
+            VStack(alignment: message.isFromUser ? .trailing : .leading, spacing: 4) {
                 if message.type == .voice {
                     voiceMessageBubble
                 } else {
-                    textMessageBubble
+                    textBubble
                 }
             }
 
-            if !message.isFromUser { Spacer(minLength: 60) }
+            if !message.isFromUser {
+                Spacer(minLength: 60)
+            }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 2)
+        .padding(.horizontal, 16)
     }
 
-    private var textMessageBubble: some View {
-        HStack(alignment: .bottom, spacing: 4) {
-            Text(message.content)
-                .font(.system(size: 16))
-                .foregroundColor(.black)
-
-            Text(formatTime(message.timestamp))
-                .font(.system(size: 11))
-                .foregroundColor(Color.gray.opacity(0.8))
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(message.isFromUser ? userBubbleColor : aiBubbleColor)
-        .cornerRadius(16)
+    private var textBubble: some View {
+        Text(message.content)
+            .font(.system(size: 16))
+            .foregroundColor(.black)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 14)
+            .background(Color.white)
+            .cornerRadius(22)
     }
 
-    // Check if audio is available (locally or can be downloaded)
+    // Voice message
     private var audioAvailable: Bool {
         message.hasLocalAudio || message.voiceStoragePath != nil || downloadedLocalURL != nil
     }
 
-    // Get the URL to play (local or downloaded)
     private var playableURL: URL? {
         if let downloaded = downloadedLocalURL {
             return downloaded
@@ -365,79 +435,52 @@ struct WhatsAppBubble: View {
     }
 
     private var voiceMessageBubble: some View {
-        HStack(spacing: 10) {
-            // Play/Pause/Download button
+        HStack(spacing: 12) {
             Button {
                 if audioPlayer.isPlaying {
                     audioPlayer.pause()
                 } else if let url = playableURL, FileManager.default.fileExists(atPath: url.path) {
                     audioPlayer.play(url: url)
                 } else if message.voiceStoragePath != nil {
-                    // Need to download from Supabase
                     downloadAndPlay()
                 }
             } label: {
                 if isDownloading {
                     ProgressView()
-                        .frame(width: 36, height: 36)
+                        .frame(width: 32, height: 32)
                 } else {
-                    Image(systemName: audioAvailable ? (audioPlayer.isPlaying ? "pause.fill" : "play.fill") : "icloud.and.arrow.down")
-                        .font(.system(size: 20))
-                        .foregroundColor(audioAvailable ? Color(hex: "075E54") : Color.gray)
-                        .frame(width: 36, height: 36)
-                        .background(Color.white.opacity(0.5))
-                        .clipShape(Circle())
+                    Image(systemName: audioPlayer.isPlaying ? "pause.fill" : "play.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.black)
+                        .frame(width: 32, height: 32)
                 }
             }
-            .disabled(isDownloading || (!audioAvailable && message.voiceStoragePath == nil))
 
-            // Waveform + progress
-            VStack(alignment: .leading, spacing: 4) {
-                // Waveform
-                GeometryReader { geo in
-                    HStack(spacing: 2) {
-                        ForEach(0..<30, id: \.self) { i in
-                            let progress = audioPlayer.isPlaying ? audioPlayer.progress : 0
-                            let isPlayed = Double(i) / 30.0 < progress
-                            RoundedRectangle(cornerRadius: 1)
-                                .fill(isPlayed ? Color(hex: "075E54") : Color.gray.opacity(0.4))
-                                .frame(width: 3, height: waveformHeight(for: i))
-                        }
-                    }
-                    .frame(height: 24)
-                }
-                .frame(width: 120, height: 24)
-
-                // Duration
-                HStack {
-                    Text(formatDuration(audioPlayer.isPlaying ? audioPlayer.currentTime : (message.voiceDuration ?? 0)))
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundColor(.gray)
-
-                    Spacer()
-
-                    Text(formatTime(message.timestamp))
-                        .font(.system(size: 11))
-                        .foregroundColor(Color.gray.opacity(0.8))
+            // Waveform
+            HStack(spacing: 2) {
+                ForEach(0..<20, id: \.self) { i in
+                    let progress = audioPlayer.isPlaying ? audioPlayer.progress : 0
+                    let isPlayed = Double(i) / 20.0 < progress
+                    RoundedRectangle(cornerRadius: 1)
+                        .fill(isPlayed ? Color.black : Color.black.opacity(0.2))
+                        .frame(width: 3, height: waveformHeight(for: i))
                 }
             }
+            .frame(height: 20)
+
+            Text(formatDuration(message.voiceDuration ?? 0))
+                .font(.system(size: 12, design: .monospaced))
+                .foregroundColor(.black.opacity(0.5))
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(message.isFromUser ? userBubbleColor : aiBubbleColor)
-        .cornerRadius(16)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(Color.white)
+        .cornerRadius(22)
     }
 
     private func waveformHeight(for index: Int) -> CGFloat {
-        // Pseudo-random heights for visual effect
-        let heights: [CGFloat] = [8, 14, 10, 18, 12, 20, 8, 16, 14, 10, 18, 8, 14, 20, 10, 16, 12, 18, 8, 14, 10, 20, 16, 12, 8, 18, 14, 10, 16, 12]
+        let heights: [CGFloat] = [6, 12, 8, 16, 10, 18, 6, 14, 12, 8, 16, 6, 12, 18, 8, 14, 10, 16, 6, 12]
         return heights[index % heights.count]
-    }
-
-    private func formatTime(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        return formatter.string(from: date)
     }
 
     private func formatDuration(_ duration: TimeInterval) -> String {
@@ -446,7 +489,6 @@ struct WhatsAppBubble: View {
         return String(format: "%d:%02d", minutes, seconds)
     }
 
-    // Download audio from Supabase and cache locally
     private func downloadAndPlay() {
         guard let storagePath = message.voiceStoragePath else { return }
 
@@ -454,10 +496,8 @@ struct WhatsAppBubble: View {
 
         Task {
             do {
-                // Download from Supabase
                 let audioData = try await SupabaseStorageService.shared.downloadVoiceMessage(from: storagePath)
 
-                // Save to local cache
                 let fileManager = FileManager.default
                 let voiceMessagesDir = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
                     .appendingPathComponent("voice_messages", isDirectory: true)
@@ -472,16 +512,13 @@ struct WhatsAppBubble: View {
                 await MainActor.run {
                     downloadedLocalURL = localURL
                     isDownloading = false
-                    // Auto-play after download
                     audioPlayer.play(url: localURL)
                 }
-
-                print("✅ Downloaded and cached voice message: \(filename)")
             } catch {
                 await MainActor.run {
                     isDownloading = false
                 }
-                print("❌ Failed to download voice message: \(error)")
+                print("Failed to download voice message: \(error)")
             }
         }
     }
@@ -498,9 +535,8 @@ class AudioPlayerManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
     @Published var currentTime: TimeInterval = 0
 
     func play(url: URL) {
-        // Check if file exists
         guard FileManager.default.fileExists(atPath: url.path) else {
-            print("❌ Audio file not found at: \(url.path)")
+            print("Audio file not found at: \(url.path)")
             return
         }
 
@@ -512,7 +548,6 @@ class AudioPlayerManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
             audioPlayer?.delegate = self
             audioPlayer?.play()
             isPlaying = true
-            print("▶️ Playing audio from: \(url.lastPathComponent)")
 
             timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
                 guard let self = self, let player = self.audioPlayer else { return }
@@ -520,7 +555,7 @@ class AudioPlayerManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
                 self.progress = player.currentTime / player.duration
             }
         } catch {
-            print("❌ Playback error: \(error)")
+            print("Playback error: \(error)")
         }
     }
 
@@ -586,4 +621,5 @@ class VoiceRecorderManager: NSObject, ObservableObject, AVAudioRecorderDelegate 
 #Preview {
     ChatView()
         .environmentObject(FocusAppStore.shared)
+        .environmentObject(RevenueCatManager.shared)
 }
