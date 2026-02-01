@@ -846,25 +846,8 @@ struct SettingsPageView: View {
     @EnvironmentObject var store: FocusAppStore
 
     var body: some View {
-        ZStack {
-            // Background
-            Color(UIColor.systemBackground)
-                .ignoresSafeArea()
-
-            NavigationStack {
-                SettingsView()
-                    .environmentObject(store)
-                    .toolbar {
-                        ToolbarItem(placement: .navigationBarLeading) {
-                            Button(action: onDismiss) {
-                                Image(systemName: "chevron.left")
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundColor(.primary)
-                            }
-                        }
-                    }
-            }
-        }
+        ReplicaSettingsView(onDismiss: onDismiss)
+            .environmentObject(store)
     }
 }
 
