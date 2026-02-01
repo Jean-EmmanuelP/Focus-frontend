@@ -2,6 +2,7 @@ import SwiftUI
 
 struct FullScreenImageView: View {
     let imageUrl: String
+    var onDismiss: (() -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
 
     @State private var scale: CGFloat = 1.0
@@ -130,7 +131,11 @@ struct FullScreenImageView: View {
         }
         .overlay(alignment: .topTrailing) {
             Button {
-                dismiss()
+                if let onDismiss = onDismiss {
+                    onDismiss()
+                } else {
+                    dismiss()
+                }
             } label: {
                 Image(systemName: "xmark.circle.fill")
                     .font(.title)

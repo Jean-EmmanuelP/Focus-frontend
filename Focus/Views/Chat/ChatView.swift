@@ -2,7 +2,7 @@ import SwiftUI
 import AVFoundation
 import Combine
 
-// MARK: - Replika-Style Chat View (Ralph Design)
+// MARK: - Replika-Style Chat View
 
 struct ChatView: View {
     @EnvironmentObject var store: FocusAppStore
@@ -16,44 +16,53 @@ struct ChatView: View {
     @State private var recordingTime: TimeInterval = 0
     @State private var recordingTimer: Timer?
     @State private var showPaywall = false
+    @State private var showThoughtsSheet = false
+    @State private var showTrainingSheet = false
+    @State private var showCompanionProfile = false
 
     @EnvironmentObject var revenueCatManager: RevenueCatManager
 
-    // Companion name (from store or default)
+    // Companion name
     private var companionName: String {
-        let name = store.user?.pseudo ?? "Kai"
-        return name.isEmpty ? "Kai" : name
+        "Kai" // Fixed name for now
     }
 
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                // Background gradient (light blue/gray like Replika)
-                chatBackground
+                // Blue gradient background (like Replika)
+                replikaBackground
                     .ignoresSafeArea()
 
                 VStack(spacing: 0) {
                     // Header
-                    chatHeader
-
-                    // Companion name bubble (centered, above avatar)
                     if viewModel.messages.isEmpty {
-                        companionNameBubble
+                        emptyStateHeader
+                    } else {
+                        conversationHeader
                     }
 
-                    // Messages or avatar area
+                    // Content area
                     if viewModel.messages.isEmpty {
-                        // Empty state: show avatar placeholder
+                        // Empty state with avatar placeholder
                         Spacer()
-                        avatarPlaceholder(size: geometry.size)
+                        companionNameBubble
+                        Spacer()
+                        avatarPlaceholder
                         Spacer()
                     } else {
-                        // Conversation mode
-                        messagesView
+                        // Messages over avatar
+                        ZStack(alignment: .bottomLeading) {
+                            // Avatar on left side (placeholder for now)
+                            avatarSideView
+
+                            // Messages
+                            messagesScrollView
+                        }
                     }
 
                     // Input bar
-                    chatInputBar
+                    replikaInputBar
                 }
             }
         }
@@ -69,90 +78,199 @@ struct ChatView: View {
         .onTapGesture {
             isInputFocused = false
         }
-        .sheet(isPresented: $showPaywall) {
-            VoltaPaywallView(onComplete: {
-                showPaywall = false
-            }, onSkip: {
-                showPaywall = false
-            })
-            .environmentObject(revenueCatManager)
+        .overlay {
+            if showThoughtsSheet {
+                ChatFeatureOverlayContent(
+                    featureType: .thoughts,
+                    companionName: companionName,
+                    onShowPaywall: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            showPaywall = true
+                        }
+                    },
+                    onDismiss: {
+                        withAnimation(.easeOut(duration: 0.25)) {
+                            showThoughtsSheet = false
+                        }
+                    }
+                )
+                .transition(.opacity)
+            }
         }
+        .overlay {
+            if showTrainingSheet {
+                ChatFeatureOverlayContent(
+                    featureType: .training,
+                    companionName: companionName,
+                    onShowPaywall: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            showPaywall = true
+                        }
+                    },
+                    onDismiss: {
+                        withAnimation(.easeOut(duration: 0.25)) {
+                            showTrainingSheet = false
+                        }
+                    }
+                )
+                .transition(.opacity)
+            }
+        }
+        .overlay {
+            if showPaywall {
+                ReplicaPaywallView(isPresented: $showPaywall)
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.25), value: showThoughtsSheet)
+        .animation(.easeInOut(duration: 0.25), value: showTrainingSheet)
+        .animation(.easeInOut(duration: 0.3), value: showPaywall)
+        .overlay {
+            if showCompanionProfile {
+                CompanionProfileView(onDismiss: {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showCompanionProfile = false
+                    }
+                })
+                .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.3), value: showCompanionProfile)
     }
 
-    // MARK: - Background
+    // MARK: - Background (Replika blue gradient)
 
-    private var chatBackground: some View {
+    private var replikaBackground: some View {
         LinearGradient(
             colors: [
-                Color(red: 0.72, green: 0.78, blue: 0.88),
-                Color(red: 0.80, green: 0.84, blue: 0.92),
-                Color(red: 0.88, green: 0.90, blue: 0.95)
+                Color(red: 0.55, green: 0.65, blue: 0.80), // Top: soft blue
+                Color(red: 0.70, green: 0.75, blue: 0.85), // Middle
+                Color(red: 0.80, green: 0.82, blue: 0.88)  // Bottom: lighter
             ],
             startPoint: .top,
             endPoint: .bottom
         )
     }
 
-    // MARK: - Header
+    // MARK: - Empty State Header
 
-    private var chatHeader: some View {
+    private var emptyStateHeader: some View {
         HStack {
-            if viewModel.messages.isEmpty {
-                // Empty state: menu icon left
-                Button(action: { showSettings = true }) {
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.gray)
-                        .frame(width: 36, height: 36)
+            // Left: Tulip/flower icon button
+            Button(action: {}) {
+                Image(systemName: "leaf.fill")
+                    .font(.system(size: 18))
+                    .foregroundColor(.gray)
+                    .frame(width: 44, height: 44)
+                    .background(
+                        Circle()
+                            .fill(Color.gray.opacity(0.3))
+                    )
+            }
+
+            Spacer()
+
+            // Center: Name bubble (handled separately below header)
+
+            Spacer()
+
+            // Right: Settings gear
+            Button(action: { showSettings = true }) {
+                Image(systemName: "gearshape.fill")
+                    .font(.system(size: 18))
+                    .foregroundColor(.gray)
+                    .frame(width: 44, height: 44)
+                    .background(
+                        Circle()
+                            .fill(Color.gray.opacity(0.3))
+                    )
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+    }
+
+    // MARK: - Conversation Header
+
+    private var isShowingFeatureOverlay: Bool {
+        showThoughtsSheet || showTrainingSheet
+    }
+
+    private var conversationHeader: some View {
+        HStack(spacing: 12) {
+            // Left: Home button
+            HStack(spacing: 8) {
+                Button(action: {
+                    // Close overlays if open
+                    if isShowingFeatureOverlay {
+                        withAnimation {
+                            showThoughtsSheet = false
+                            showTrainingSheet = false
+                        }
+                    }
+                }) {
+                    Image(systemName: "house.fill")
+                        .font(.system(size: 16))
+                        .foregroundColor(.white.opacity(0.8))
+                        .frame(width: 40, height: 40)
                         .background(
                             Circle()
-                                .fill(Color.white.opacity(0.6))
+                                .fill(Color.white.opacity(0.15))
                         )
                 }
-            } else {
-                // Conversation: companion name with chevron
-                Button(action: {}) {
+
+                Button(action: { showCompanionProfile = true }) {
                     HStack(spacing: 4) {
                         Text(companionName)
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.black.opacity(0.8))
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(.white)
                         Image(systemName: "chevron.right")
                             .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(.black.opacity(0.4))
+                            .foregroundColor(.white.opacity(0.6))
                     }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(
+                        Capsule()
+                            .fill(Color.white.opacity(0.15))
+                    )
                 }
             }
 
             Spacer()
 
-            // Logo "Focus" centre
-            Text("Focus")
-                .font(.system(size: 18, weight: .bold))
-                .foregroundColor(.black.opacity(0.8))
-
-            Spacer()
-
-            if viewModel.messages.isEmpty {
-                // Profile icon
-                Button(action: { showSettings = true }) {
-                    Image(systemName: "person.crop.circle")
-                        .font(.system(size: 22))
-                        .foregroundColor(.gray)
-                        .frame(width: 36, height: 36)
+            // Right: Chat (thoughts) and lightning (training) icons
+            HStack(spacing: 8) {
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        showTrainingSheet = false
+                        showThoughtsSheet = true
+                    }
+                }) {
+                    Image(systemName: "message.fill")
+                        .font(.system(size: 16))
+                        .foregroundColor(.white.opacity(0.8))
+                        .frame(width: 40, height: 40)
+                        .background(
+                            Circle()
+                                .fill(Color.white.opacity(0.15))
+                        )
                 }
-            } else {
-                // Phone & video icons
-                HStack(spacing: 12) {
-                    Button(action: {}) {
-                        Image(systemName: "phone.fill")
-                            .font(.system(size: 16))
-                            .foregroundColor(.black.opacity(0.5))
+
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        showThoughtsSheet = false
+                        showTrainingSheet = true
                     }
-                    Button(action: {}) {
-                        Image(systemName: "video.fill")
-                            .font(.system(size: 16))
-                            .foregroundColor(.black.opacity(0.5))
-                    }
+                }) {
+                    Image(systemName: "bolt.fill")
+                        .font(.system(size: 16))
+                        .foregroundColor(.white.opacity(0.8))
+                        .frame(width: 40, height: 40)
+                        .background(
+                            Circle()
+                                .fill(Color.white.opacity(0.15))
+                        )
                 }
             }
         }
@@ -161,72 +279,83 @@ struct ChatView: View {
         .padding(.bottom, 4)
     }
 
-    // MARK: - Companion Name Bubble
+    // MARK: - Companion Name Bubble (centered, empty state)
 
     private var companionNameBubble: some View {
         VStack(spacing: 2) {
             Text(companionName)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 16, weight: .semibold))
                 .foregroundColor(.black.opacity(0.8))
             Text("Votre Ami")
-                .font(.system(size: 12, weight: .regular))
+                .font(.system(size: 13))
                 .foregroundColor(.black.opacity(0.5))
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 24)
+        .padding(.vertical, 10)
         .background(
             Capsule()
-                .fill(Color.white.opacity(0.5))
+                .fill(Color.gray.opacity(0.25))
         )
-        .padding(.top, 8)
     }
 
-    // MARK: - Avatar Placeholder
+    // MARK: - Avatar Placeholder (empty state, center)
 
-    private func avatarPlaceholder(size: CGSize) -> some View {
-        ZStack {
-            // Soft glow placeholder for future avatar
+    private var avatarPlaceholder: some View {
+        // Placeholder for 3D avatar - just a subtle glow for now
+        Circle()
+            .fill(
+                RadialGradient(
+                    colors: [
+                        Color.white.opacity(0.15),
+                        Color.white.opacity(0.02)
+                    ],
+                    center: .center,
+                    startRadius: 30,
+                    endRadius: 150
+                )
+            )
+            .frame(width: 300, height: 300)
+    }
+
+    // MARK: - Avatar Side View (conversation mode, left side)
+
+    private var avatarSideView: some View {
+        // Avatar on the left side, partially visible
+        HStack {
             Circle()
                 .fill(
-                    RadialGradient(
+                    LinearGradient(
                         colors: [
-                            Color.white.opacity(0.3),
-                            Color.white.opacity(0.05)
+                            Color(red: 0.6, green: 0.7, blue: 0.85),
+                            Color(red: 0.75, green: 0.8, blue: 0.9)
                         ],
-                        center: .center,
-                        startRadius: 20,
-                        endRadius: size.width * 0.35
+                        startPoint: .top,
+                        endPoint: .bottom
                     )
                 )
-                .frame(width: size.width * 0.7, height: size.width * 0.7)
-
-            // Placeholder icon
-            Image(systemName: "person.fill")
-                .font(.system(size: 80))
-                .foregroundColor(.white.opacity(0.15))
+                .frame(width: 200, height: 200)
+                .offset(x: -80) // Push off screen
+                .opacity(0.3)
+            Spacer()
         }
     }
 
-    // MARK: - Messages View
+    // MARK: - Messages Scroll View
 
-    private var messagesView: some View {
+    private var messagesScrollView: some View {
         ScrollViewReader { proxy in
             ScrollView(showsIndicators: false) {
-                LazyVStack(spacing: 10) {
-                    // Date header
-                    Text(currentDateFormatted)
-                        .font(.system(size: 13, weight: .regular))
-                        .foregroundColor(.black.opacity(0.4))
-                        .padding(.top, 8)
-                        .padding(.bottom, 4)
+                LazyVStack(spacing: 8) {
+                    // Group messages by date
+                    ForEach(groupedMessages, id: \.date) { group in
+                        // Date separator
+                        dateSeparator(date: group.date)
 
-                    ForEach(viewModel.messages) { message in
-                        ReplikaBubble(
-                            message: message,
-                            userBubbleColor: Color.white,
-                            aiBubbleColor: Color.white
-                        )
-                        .id(message.id)
+                        // Messages for this date
+                        ForEach(group.messages) { message in
+                            ReplikaMessageBubble(message: message)
+                                .id(message.id)
+                        }
                     }
 
                     if viewModel.isLoading {
@@ -235,7 +364,7 @@ struct ChatView: View {
 
                     Color.clear.frame(height: 1).id("bottom")
                 }
-                .padding(.top, 8)
+                .padding(.top, 12)
                 .padding(.bottom, 8)
             }
             .onChange(of: viewModel.messages.count) { _, _ in
@@ -249,37 +378,76 @@ struct ChatView: View {
         }
     }
 
-    private var currentDateFormatted: String {
+    // Group messages by date
+    private var groupedMessages: [MessageGroup] {
+        let calendar = Calendar.current
+        var groups: [MessageGroup] = []
+        var currentDate: Date?
+        var currentMessages: [SimpleChatMessage] = []
+
+        for message in viewModel.messages {
+            let messageDate = calendar.startOfDay(for: message.timestamp)
+
+            if currentDate == nil {
+                currentDate = messageDate
+                currentMessages = [message]
+            } else if calendar.isDate(messageDate, inSameDayAs: currentDate!) {
+                currentMessages.append(message)
+            } else {
+                groups.append(MessageGroup(date: currentDate!, messages: currentMessages))
+                currentDate = messageDate
+                currentMessages = [message]
+            }
+        }
+
+        if let date = currentDate, !currentMessages.isEmpty {
+            groups.append(MessageGroup(date: date, messages: currentMessages))
+        }
+
+        return groups
+    }
+
+    private func dateSeparator(date: Date) -> some View {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "fr_FR")
         formatter.dateFormat = "d MMMM yyyy"
-        return formatter.string(from: Date())
+
+        return Text(formatter.string(from: date))
+            .font(.system(size: 13, weight: .medium))
+            .foregroundColor(.white)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 6)
+            .background(
+                Capsule()
+                    .fill(Color.white.opacity(0.2))
+            )
+            .padding(.vertical, 8)
     }
 
     private var typingIndicator: some View {
         HStack {
-            HStack(spacing: 4) {
+            HStack(spacing: 5) {
                 ForEach(0..<3, id: \.self) { index in
                     Circle()
-                        .fill(Color.black.opacity(0.3))
+                        .fill(Color.black.opacity(0.4))
                         .frame(width: 8, height: 8)
                 }
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
-            .background(Color.white)
-            .cornerRadius(22)
+            .background(Color.white.opacity(0.95))
+            .cornerRadius(20)
 
             Spacer()
         }
         .padding(.horizontal, 16)
     }
 
-    // MARK: - Input Bar (Replika style: mic LEFT, text CENTER, + RIGHT)
+    // MARK: - Input Bar (Replika style)
 
-    private var chatInputBar: some View {
-        HStack(spacing: 10) {
-            // Mic button (LEFT) - gray circle
+    private var replikaInputBar: some View {
+        HStack(spacing: 8) {
+            // Left: Mic button (separate circle, grayish-taupe)
             Button(action: {
                 if revenueCatManager.isProUser {
                     if isRecording {
@@ -293,58 +461,65 @@ struct ChatView: View {
             }) {
                 ZStack {
                     Circle()
-                        .fill(Color(white: 0.65).opacity(0.6))
-                        .frame(width: 44, height: 44)
+                        .fill(Color(red: 0.58, green: 0.53, blue: 0.55)) // Grayish-taupe like Replika
+                        .frame(width: 52, height: 52)
 
                     if isRecording {
                         Image(systemName: "waveform")
-                            .font(.system(size: 18, weight: .medium))
+                            .font(.system(size: 20, weight: .medium))
                             .foregroundColor(.red)
                     } else {
-                        Image(systemName: "mic.fill")
-                            .font(.system(size: 18))
-                            .foregroundColor(.white)
+                        // Three dots/bars like Replika mic icon
+                        HStack(spacing: 4) {
+                            ForEach(0..<3, id: \.self) { i in
+                                Capsule()
+                                    .fill(Color.white)
+                                    .frame(width: 5, height: [10, 16, 10][i])
+                            }
+                        }
                     }
                 }
             }
 
-            // Text field (CENTER) - "Votre message"
+            // Text field capsule with blur effect and "+" inside
             HStack(spacing: 0) {
-                TextField("", text: $viewModel.inputText, prompt: Text("Votre message").foregroundColor(.black.opacity(0.35)))
+                TextField("", text: $viewModel.inputText, prompt: Text("Votre message").foregroundColor(.white.opacity(0.45)))
                     .font(.system(size: 16))
-                    .foregroundColor(.black)
+                    .foregroundColor(.white)
                     .focused($isInputFocused)
 
+                Spacer()
+
                 if !viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    // Send button when text is entered
                     Button {
                         viewModel.sendMessage()
                         isInputFocused = false
                     } label: {
                         Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 24))
-                            .foregroundColor(Color(red: 0.0, green: 0.4, blue: 1.0))
+                            .font(.system(size: 28))
+                            .foregroundColor(.white)
+                    }
+                } else {
+                    // Plus button inside the capsule
+                    Button(action: {}) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 22, weight: .semibold))
+                            .foregroundColor(.white.opacity(0.5))
                     }
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.leading, 20)
+            .padding(.trailing, 16)
+            .padding(.vertical, 14)
             .background(
                 Capsule()
-                    .fill(Color.white.opacity(0.7))
+                    .fill(.ultraThinMaterial) // Blur/glass effect
+                    .overlay(
+                        Capsule()
+                            .fill(Color(red: 0.45, green: 0.50, blue: 0.58).opacity(0.4))
+                    )
             )
-
-            // "+" button (RIGHT) - dark circle
-            Button(action: {}) {
-                ZStack {
-                    Circle()
-                        .fill(Color(red: 0.15, green: 0.15, blue: 0.20))
-                        .frame(width: 44, height: 44)
-
-                    Image(systemName: "plus")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(.white)
-                }
-            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
@@ -380,24 +555,36 @@ struct ChatView: View {
     }
 }
 
+// MARK: - Message Group (for date grouping)
+
+struct MessageGroup {
+    let date: Date
+    let messages: [SimpleChatMessage]
+}
+
 // MARK: - Replika Message Bubble
 
-struct ReplikaBubble: View {
+struct ReplikaMessageBubble: View {
     let message: SimpleChatMessage
-    let userBubbleColor: Color
-    let aiBubbleColor: Color
 
     @StateObject private var audioPlayer = AudioPlayerManager()
     @State private var isDownloading = false
     @State private var downloadedLocalURL: URL?
 
+    // Colors
+    private let userBubbleColor = Color(red: 0.22, green: 0.28, blue: 0.42) // Dark navy blue
+    private let aiBubbleColor = Color.white.opacity(0.95) // White/cream
+
     var body: some View {
         HStack(alignment: .bottom, spacing: 0) {
+            // Left space for avatar (all messages leave room for avatar on left)
             if message.isFromUser {
-                Spacer(minLength: 60)
+                Spacer(minLength: 120) // User: more space on left, align right
+            } else {
+                Spacer(minLength: 100) // AI: space for avatar
             }
 
-            VStack(alignment: message.isFromUser ? .trailing : .leading, spacing: 4) {
+            VStack(alignment: .trailing, spacing: 4) {
                 if message.type == .voice {
                     voiceMessageBubble
                 } else {
@@ -406,7 +593,8 @@ struct ReplikaBubble: View {
             }
 
             if !message.isFromUser {
-                Spacer(minLength: 60)
+                // AI messages: small space on right
+                Spacer().frame(width: 16)
             }
         }
         .padding(.horizontal, 16)
@@ -415,11 +603,11 @@ struct ReplikaBubble: View {
     private var textBubble: some View {
         Text(message.content)
             .font(.system(size: 16))
-            .foregroundColor(.black)
+            .foregroundColor(message.isFromUser ? .white : .black)
             .padding(.horizontal, 18)
             .padding(.vertical, 14)
-            .background(Color.white)
-            .cornerRadius(22)
+            .background(message.isFromUser ? userBubbleColor : aiBubbleColor)
+            .cornerRadius(26)
     }
 
     // Voice message
@@ -435,7 +623,11 @@ struct ReplikaBubble: View {
     }
 
     private var voiceMessageBubble: some View {
-        HStack(spacing: 12) {
+        let isUser = message.isFromUser
+        let textColor: Color = isUser ? .white : .black
+        let bgColor = isUser ? userBubbleColor : aiBubbleColor
+
+        return HStack(spacing: 12) {
             Button {
                 if audioPlayer.isPlaying {
                     audioPlayer.pause()
@@ -447,11 +639,12 @@ struct ReplikaBubble: View {
             } label: {
                 if isDownloading {
                     ProgressView()
+                        .tint(textColor)
                         .frame(width: 32, height: 32)
                 } else {
                     Image(systemName: audioPlayer.isPlaying ? "pause.fill" : "play.fill")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.black)
+                        .foregroundColor(textColor)
                         .frame(width: 32, height: 32)
                 }
             }
@@ -462,7 +655,7 @@ struct ReplikaBubble: View {
                     let progress = audioPlayer.isPlaying ? audioPlayer.progress : 0
                     let isPlayed = Double(i) / 20.0 < progress
                     RoundedRectangle(cornerRadius: 1)
-                        .fill(isPlayed ? Color.black : Color.black.opacity(0.2))
+                        .fill(isPlayed ? textColor : textColor.opacity(0.3))
                         .frame(width: 3, height: waveformHeight(for: i))
                 }
             }
@@ -470,12 +663,12 @@ struct ReplikaBubble: View {
 
             Text(formatDuration(message.voiceDuration ?? 0))
                 .font(.system(size: 12, design: .monospaced))
-                .foregroundColor(.black.opacity(0.5))
+                .foregroundColor(textColor.opacity(0.7))
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
-        .background(Color.white)
-        .cornerRadius(22)
+        .background(bgColor)
+        .cornerRadius(26)
     }
 
     private func waveformHeight(for index: Int) -> CGFloat {

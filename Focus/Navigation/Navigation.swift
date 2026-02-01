@@ -168,22 +168,26 @@ struct MainTabView: View {
                 EndOfDayView()
             }
         }
-        .fullScreenCover(isPresented: $router.showFireModeSession, onDismiss: {
-            router.clearFireModePresets()
-        }) {
-            FireModeView()
-                .environmentObject(router)
-        }
         .sheet(isPresented: $router.showPaywall) {
             RevenueCatNativePaywall()
                 .environmentObject(RevenueCatManager.shared)
         }
         .environmentObject(router)
         .overlay {
-            if showOnboardingTutorial {
-                OnboardingTutorialModal(isPresented: $showOnboardingTutorial)
+            if router.showFireModeSession {
+                FireModeView()
+                    .environmentObject(router)
+                    .transition(.opacity)
             }
         }
+        .overlay {
+            if showOnboardingTutorial {
+                OnboardingTutorialModal(isPresented: $showOnboardingTutorial)
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.3), value: router.showFireModeSession)
+        .animation(.easeInOut(duration: 0.3), value: showOnboardingTutorial)
         .onAppear {
             // Show onboarding tutorial on first launch
             if !UserDefaults.standard.bool(forKey: "hasSeenOnboardingTutorial") {

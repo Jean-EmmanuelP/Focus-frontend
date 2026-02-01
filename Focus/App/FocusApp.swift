@@ -92,14 +92,18 @@ struct FocusApp: App {
                 UpdateAvailableSheet(updateService: updateService)
                     .presentationDetents([.medium])
             }
-            .fullScreenCover(isPresented: $router.showLandingPage) {
-                LandingPageView()
-                    .environmentObject(store)
-            }
             .sheet(isPresented: $router.showSettings) {
                 SettingsView()
                     .environmentObject(store)
             }
+            .overlay {
+                if router.showLandingPage {
+                    LandingPageView()
+                        .environmentObject(store)
+                        .transition(.opacity)
+                }
+            }
+            .animation(.easeInOut(duration: 0.3), value: router.showLandingPage)
             .onAppear {
                 // Ralph: auto-show screens via launch arguments for design verification
                 if ProcessInfo.processInfo.arguments.contains("-showLogin") {

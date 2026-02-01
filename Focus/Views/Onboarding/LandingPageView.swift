@@ -92,9 +92,13 @@ struct LandingPageView: View {
                 .padding(.bottom, 24)
             }
         }
-        .fullScreenCover(isPresented: $showOnboarding) {
-            NewOnboardingView()
+        .overlay {
+            if showOnboarding {
+                NewOnboardingView()
+                    .transition(.opacity)
+            }
         }
+        .animation(.easeInOut(duration: 0.3), value: showOnboarding)
     }
 
     // MARK: - Actions

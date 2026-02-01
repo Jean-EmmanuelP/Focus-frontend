@@ -239,12 +239,22 @@ struct AvatarView: View {
             view
                 .contentShape(Circle())
                 .onTapGesture {
-                    showingZoom = true
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showingZoom = true
+                    }
                 }
         }
-        .fullScreenCover(isPresented: $showingZoom) {
-            ZoomablePhotoView(imageURL: avatarURL, fallbackName: name)
+        .overlay {
+            if showingZoom {
+                ZoomablePhotoView(imageURL: avatarURL, fallbackName: name, onDismiss: {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showingZoom = false
+                    }
+                })
+                .transition(.opacity)
+            }
         }
+        .animation(.easeInOut(duration: 0.3), value: showingZoom)
     }
 
     private var initialsView: some View {
@@ -264,6 +274,7 @@ struct AvatarView: View {
 struct ZoomablePhotoView: View {
     let imageURL: String?
     let fallbackName: String
+    var onDismiss: (() -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
     @State private var scale: CGFloat = 1.0
     @State private var lastScale: CGFloat = 1.0
@@ -339,7 +350,11 @@ struct ZoomablePhotoView: View {
                 HStack {
                     Spacer()
                     Button {
-                        dismiss()
+                        if let onDismiss = onDismiss {
+                            onDismiss()
+                        } else {
+                            dismiss()
+                        }
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .font(.satoshi(30))

@@ -57,9 +57,17 @@ struct CommunityPostCard: View {
             }
             Button("cancel".localized, role: .cancel) {}
         }
-        .fullScreenCover(isPresented: $showFullScreenImage) {
-            FullScreenImageView(imageUrl: post.imageUrl)
+        .overlay {
+            if showFullScreenImage {
+                FullScreenImageView(imageUrl: post.imageUrl, onDismiss: {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showFullScreenImage = false
+                    }
+                })
+                .transition(.opacity)
+            }
         }
+        .animation(.easeInOut(duration: 0.3), value: showFullScreenImage)
     }
 
     // MARK: - Header
