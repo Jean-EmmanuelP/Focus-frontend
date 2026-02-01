@@ -19,6 +19,7 @@ struct ChatView: View {
     @State private var showThoughtsSheet = false
     @State private var showTrainingSheet = false
     @State private var showCompanionProfile = false
+    @State private var isHomeMode = false  // Toggle between home view and chat view
 
     @EnvironmentObject var revenueCatManager: RevenueCatManager
 
@@ -35,23 +36,23 @@ struct ChatView: View {
                     .ignoresSafeArea()
 
                 VStack(spacing: 0) {
-                    // Header
-                    if viewModel.messages.isEmpty {
-                        emptyStateHeader
+                    // Header - changes based on mode
+                    if isHomeMode || viewModel.messages.isEmpty {
+                        homeHeader
                     } else {
                         conversationHeader
                     }
 
                     // Content area
-                    if viewModel.messages.isEmpty {
-                        // Empty state with avatar placeholder
+                    if isHomeMode || viewModel.messages.isEmpty {
+                        // Home mode: avatar centered with name bubble
                         Spacer()
                         companionNameBubble
                         Spacer()
                         avatarPlaceholder
                         Spacer()
                     } else {
-                        // Messages over avatar
+                        // Chat mode: messages over avatar
                         ZStack(alignment: .bottomLeading) {
                             // Avatar on left side (placeholder for now)
                             avatarSideView
@@ -61,7 +62,7 @@ struct ChatView: View {
                         }
                     }
 
-                    // Input bar
+                    // Input bar - always visible
                     replikaInputBar
                 }
             }
@@ -136,6 +137,15 @@ struct ChatView: View {
             }
         }
         .animation(.easeInOut(duration: 0.3), value: showCompanionProfile)
+        .animation(.easeInOut(duration: 0.3), value: isHomeMode)
+        .onChange(of: isInputFocused) { _, focused in
+            // Exit home mode when user starts typing (only if there are messages)
+            if focused && isHomeMode && !viewModel.messages.isEmpty {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    isHomeMode = false
+                }
+            }
+        }
     }
 
     // MARK: - Background (Replika blue gradient)
@@ -152,25 +162,27 @@ struct ChatView: View {
         )
     }
 
-    // MARK: - Empty State Header
+    // MARK: - Home Header (home mode or empty state)
 
-    private var emptyStateHeader: some View {
+    private var homeHeader: some View {
         HStack {
-            // Left: Tulip/flower icon button
-            Button(action: {}) {
+            // Left: Tulip/customize look button
+            Button(action: {
+                // Customize look action - can open a sheet later
+            }) {
                 Image(systemName: "leaf.fill")
                     .font(.system(size: 18))
-                    .foregroundColor(.gray)
-                    .frame(width: 44, height: 44)
+                    .foregroundColor(Color(red: 0.5, green: 0.45, blue: 0.5))
+                    .frame(width: 48, height: 48)
                     .background(
                         Circle()
-                            .fill(Color.gray.opacity(0.3))
+                            .fill(Color(red: 0.55, green: 0.50, blue: 0.52).opacity(0.5))
                     )
             }
 
             Spacer()
 
-            // Center: Name bubble (handled separately below header)
+            // Center: Empty space (name bubble is below header)
 
             Spacer()
 
@@ -178,11 +190,11 @@ struct ChatView: View {
             Button(action: { showSettings = true }) {
                 Image(systemName: "gearshape.fill")
                     .font(.system(size: 18))
-                    .foregroundColor(.gray)
-                    .frame(width: 44, height: 44)
+                    .foregroundColor(Color(red: 0.5, green: 0.45, blue: 0.5))
+                    .frame(width: 48, height: 48)
                     .background(
                         Circle()
-                            .fill(Color.gray.opacity(0.3))
+                            .fill(Color(red: 0.55, green: 0.50, blue: 0.52).opacity(0.5))
                     )
             }
         }
@@ -198,15 +210,14 @@ struct ChatView: View {
 
     private var conversationHeader: some View {
         HStack(spacing: 12) {
-            // Left: Home button
+            // Left: Home button + companion name
             HStack(spacing: 8) {
                 Button(action: {
-                    // Close overlays if open
-                    if isShowingFeatureOverlay {
-                        withAnimation {
-                            showThoughtsSheet = false
-                            showTrainingSheet = false
-                        }
+                    // Close overlays if open, then go to home mode
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showThoughtsSheet = false
+                        showTrainingSheet = false
+                        isHomeMode = true
                     }
                 }) {
                     Image(systemName: "house.fill")
@@ -219,7 +230,11 @@ struct ChatView: View {
                         )
                 }
 
-                Button(action: { showCompanionProfile = true }) {
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showCompanionProfile = true
+                    }
+                }) {
                     HStack(spacing: 4) {
                         Text(companionName)
                             .font(.system(size: 15, weight: .semibold))
@@ -279,23 +294,29 @@ struct ChatView: View {
         .padding(.bottom, 4)
     }
 
-    // MARK: - Companion Name Bubble (centered, empty state)
+    // MARK: - Companion Name Bubble (centered, home mode)
 
     private var companionNameBubble: some View {
-        VStack(spacing: 2) {
-            Text(companionName)
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(.black.opacity(0.8))
-            Text("Votre Ami")
-                .font(.system(size: 13))
-                .foregroundColor(.black.opacity(0.5))
+        Button(action: {
+            withAnimation(.easeInOut(duration: 0.3)) {
+                showCompanionProfile = true
+            }
+        }) {
+            VStack(spacing: 2) {
+                Text(companionName)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.black.opacity(0.8))
+                Text("Votre Ami")
+                    .font(.system(size: 13))
+                    .foregroundColor(.black.opacity(0.5))
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 10)
+            .background(
+                Capsule()
+                    .fill(Color(red: 0.55, green: 0.50, blue: 0.52).opacity(0.5))
+            )
         }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 10)
-        .background(
-            Capsule()
-                .fill(Color.gray.opacity(0.25))
-        )
     }
 
     // MARK: - Avatar Placeholder (empty state, center)
@@ -493,6 +514,10 @@ struct ChatView: View {
                 if !viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     // Send button when text is entered
                     Button {
+                        // Exit home mode when sending message
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            isHomeMode = false
+                        }
                         viewModel.sendMessage()
                         isInputFocused = false
                     } label: {
