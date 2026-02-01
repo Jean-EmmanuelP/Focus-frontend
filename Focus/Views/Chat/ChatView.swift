@@ -45,9 +45,7 @@ struct ChatView: View {
 
                     // Content area
                     if isHomeMode || viewModel.messages.isEmpty {
-                        // Home mode: avatar centered with name bubble
-                        Spacer()
-                        companionNameBubble
+                        // Home mode: avatar centered (name is in header)
                         Spacer()
                         avatarPlaceholder
                         Spacer()
@@ -71,10 +69,6 @@ struct ChatView: View {
         .onAppear {
             viewModel.setStore(store)
             viewModel.loadHistory()
-        }
-        .sheet(isPresented: $showSettings) {
-            SettingsView()
-                .environmentObject(store)
         }
         .onTapGesture {
             isInputFocused = false
@@ -138,6 +132,18 @@ struct ChatView: View {
         }
         .animation(.easeInOut(duration: 0.3), value: showCompanionProfile)
         .animation(.easeInOut(duration: 0.3), value: isHomeMode)
+        .overlay {
+            if showSettings {
+                SettingsPageView(onDismiss: {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showSettings = false
+                    }
+                })
+                .environmentObject(store)
+                .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.3), value: showSettings)
         .onChange(of: isInputFocused) { _, focused in
             // Exit home mode when user starts typing (only if there are messages)
             if focused && isHomeMode && !viewModel.messages.isEmpty {
@@ -171,9 +177,9 @@ struct ChatView: View {
                 // Customize look action - can open a sheet later
             }) {
                 Image(systemName: "leaf.fill")
-                    .font(.system(size: 18))
+                    .font(.system(size: 16))
                     .foregroundColor(Color(red: 0.5, green: 0.45, blue: 0.5))
-                    .frame(width: 48, height: 48)
+                    .frame(width: 44, height: 44)
                     .background(
                         Circle()
                             .fill(Color(red: 0.55, green: 0.50, blue: 0.52).opacity(0.5))
@@ -182,16 +188,40 @@ struct ChatView: View {
 
             Spacer()
 
-            // Center: Empty space (name bubble is below header)
+            // Center: Name bubble (clickable to open profile)
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showCompanionProfile = true
+                }
+            }) {
+                VStack(spacing: 1) {
+                    Text(companionName)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.white)
+                    Text("Votre Ami")
+                        .font(.system(size: 12))
+                        .foregroundColor(.white.opacity(0.7))
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 8)
+                .background(
+                    Capsule()
+                        .fill(Color(red: 0.55, green: 0.50, blue: 0.52).opacity(0.6))
+                )
+            }
 
             Spacer()
 
             // Right: Settings gear
-            Button(action: { showSettings = true }) {
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showSettings = true
+                }
+            }) {
                 Image(systemName: "gearshape.fill")
-                    .font(.system(size: 18))
+                    .font(.system(size: 16))
                     .foregroundColor(Color(red: 0.5, green: 0.45, blue: 0.5))
-                    .frame(width: 48, height: 48)
+                    .frame(width: 44, height: 44)
                     .background(
                         Circle()
                             .fill(Color(red: 0.55, green: 0.50, blue: 0.52).opacity(0.5))
@@ -294,32 +324,7 @@ struct ChatView: View {
         .padding(.bottom, 4)
     }
 
-    // MARK: - Companion Name Bubble (centered, home mode)
-
-    private var companionNameBubble: some View {
-        Button(action: {
-            withAnimation(.easeInOut(duration: 0.3)) {
-                showCompanionProfile = true
-            }
-        }) {
-            VStack(spacing: 2) {
-                Text(companionName)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.black.opacity(0.8))
-                Text("Votre Ami")
-                    .font(.system(size: 13))
-                    .foregroundColor(.black.opacity(0.5))
-            }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 10)
-            .background(
-                Capsule()
-                    .fill(Color(red: 0.55, green: 0.50, blue: 0.52).opacity(0.5))
-            )
-        }
-    }
-
-    // MARK: - Avatar Placeholder (empty state, center)
+    // MARK: - Avatar Placeholder (home mode, center)
 
     private var avatarPlaceholder: some View {
         // Placeholder for 3D avatar - just a subtle glow for now
@@ -831,6 +836,35 @@ class VoiceRecorderManager: NSObject, ObservableObject, AVAudioRecorderDelegate 
         audioRecorder?.stop()
         isRecording = false
         return audioURL
+    }
+}
+
+// MARK: - Settings Page View (full screen wrapper for fade transition)
+
+struct SettingsPageView: View {
+    var onDismiss: () -> Void
+    @EnvironmentObject var store: FocusAppStore
+
+    var body: some View {
+        ZStack {
+            // Background
+            Color(UIColor.systemBackground)
+                .ignoresSafeArea()
+
+            NavigationStack {
+                SettingsView()
+                    .environmentObject(store)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarLeading) {
+                            Button(action: onDismiss) {
+                                Image(systemName: "chevron.left")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(.primary)
+                            }
+                        }
+                    }
+            }
+        }
     }
 }
 
