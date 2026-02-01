@@ -1155,11 +1155,26 @@ struct ReplicaSubscriptionView: View {
             }
         }
 
-        var iconColor: Color {
+        var iconGradient: LinearGradient {
             switch self {
-            case .platinum: return Color.cyan
-            case .ultra: return Color.teal
-            case .pro: return Color.purple.opacity(0.7)
+            case .platinum:
+                return LinearGradient(
+                    colors: [Color(red: 0.4, green: 0.8, blue: 0.9), Color(red: 0.3, green: 0.6, blue: 0.8)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            case .ultra:
+                return LinearGradient(
+                    colors: [Color(red: 0.3, green: 0.7, blue: 0.7), Color(red: 0.2, green: 0.5, blue: 0.6)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            case .pro:
+                return LinearGradient(
+                    colors: [Color(red: 0.6, green: 0.4, blue: 0.8), Color(red: 0.4, green: 0.3, blue: 0.6)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
             }
         }
 
@@ -1205,162 +1220,182 @@ struct ReplicaSubscriptionView: View {
     }
 
     var body: some View {
-        ZStack {
-            // Bright blue gradient background
-            LinearGradient(
-                colors: [
-                    Color(red: 0.20, green: 0.45, blue: 1.0),
-                    Color(red: 0.25, green: 0.50, blue: 1.0),
-                    Color(red: 0.30, green: 0.55, blue: 1.0)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
+        GeometryReader { geometry in
+            ZStack {
+                // Bright blue gradient background (exact Replika colors)
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.24, green: 0.48, blue: 1.0),  // Bright blue top
+                        Color(red: 0.30, green: 0.54, blue: 1.0),  // Mid blue
+                        Color(red: 0.35, green: 0.58, blue: 1.0)   // Lighter blue bottom
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                // Header
-                ZStack {
-                    Text("Votre abonnement")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(.white)
-
-                    HStack {
-                        Spacer()
-                        Button(action: onDismiss) {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(.white.opacity(0.8))
-                                .frame(width: 40, height: 40)
-                                .background(Circle().fill(Color.white.opacity(0.15)))
-                        }
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 16)
-
-                // Hero section with title and avatar
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Choisissez ce qui vous convient le mieux")
-                            .font(.system(size: 28, weight: .bold))
+                VStack(spacing: 0) {
+                    // Header
+                    ZStack {
+                        Text("Votre abonnement")
+                            .font(.system(size: 17, weight: .semibold))
                             .foregroundColor(.white)
 
-                        Text("Pas de frais cachés, changez ou annulez à tout moment")
-                            .font(.system(size: 14))
-                            .foregroundColor(.white.opacity(0.8))
+                        HStack {
+                            Spacer()
+                            Button(action: onDismiss) {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .frame(width: 36, height: 36)
+                                    .background(Circle().fill(Color.white.opacity(0.2)))
+                            }
+                        }
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
 
-                    // Avatar placeholder
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.white.opacity(0.2), Color.white.opacity(0.1)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                        .frame(width: 120, height: 120)
-                        .overlay(
+                    // Hero section with title and avatar
+                    ZStack(alignment: .topTrailing) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Choisissez ce\nqui vous\nconvient le\nmieux")
+                                .font(.system(size: 32, weight: .heavy))
+                                .italic()
+                                .foregroundColor(.white)
+                                .lineSpacing(2)
+
+                            Text("Pas de frais cachés, changez ou annulez à tout moment")
+                                .font(.system(size: 14))
+                                .foregroundColor(.white.opacity(0.85))
+                                .padding(.top, 4)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.leading, 16)
+                        .padding(.top, 8)
+
+                        // Avatar (positioned to overflow right edge like Replika)
+                        ZStack {
+                            // Avatar glow/shadow
+                            Circle()
+                                .fill(Color.white.opacity(0.1))
+                                .frame(width: 180, height: 180)
+                                .blur(radius: 20)
+
+                            // Avatar placeholder (would be 3D character in real app)
                             Image(systemName: "person.fill")
-                                .font(.system(size: 50))
-                                .foregroundColor(.white.opacity(0.5))
-                        )
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 16)
+                                .font(.system(size: 100))
+                                .foregroundColor(.white.opacity(0.3))
+                        }
+                        .offset(x: 40, y: -10)
+                    }
+                    .frame(height: 180)
 
-                // Plan cards (horizontal scroll)
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        ForEach(SubscriptionPlan.allCases, id: \.self) { plan in
-                            planCard(plan: plan)
+                    // Plan cards (horizontal scroll with snap)
+                    ScrollViewReader { proxy in
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 12) {
+                                ForEach(SubscriptionPlan.allCases, id: \.self) { plan in
+                                    planCard(plan: plan)
+                                        .id(plan)
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
                         }
                     }
-                    .padding(.horizontal, 16)
-                }
-                .padding(.top, 24)
+                    .padding(.top, 8)
 
-                // Features list
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        if !selectedPlan.includedFeatures.isEmpty {
-                            Text("Ce qui est inclus :")
-                                .font(.system(size: 14))
-                                .foregroundColor(.white.opacity(0.6))
-                                .padding(.top, 16)
+                    // Features list (scrollable)
+                    ScrollView(showsIndicators: false) {
+                        VStack(alignment: .leading, spacing: 10) {
+                            if !selectedPlan.includedFeatures.isEmpty {
+                                Text("Ce qui est inclus :")
+                                    .font(.system(size: 14, weight: .regular))
+                                    .foregroundColor(.white.opacity(0.6))
+                                    .padding(.top, 12)
 
-                            ForEach(selectedPlan.includedFeatures, id: \.self) { feature in
-                                featureRow(text: feature, included: true)
+                                ForEach(selectedPlan.includedFeatures, id: \.self) { feature in
+                                    featureRow(text: feature, included: true)
+                                }
+                            }
+
+                            if !selectedPlan.excludedFeatures.isEmpty {
+                                Text("Ce qui n'est pas inclus :")
+                                    .font(.system(size: 14, weight: .regular))
+                                    .foregroundColor(.white.opacity(0.6))
+                                    .padding(.top, selectedPlan.includedFeatures.isEmpty ? 12 : 4)
+
+                                ForEach(selectedPlan.excludedFeatures, id: \.self) { feature in
+                                    featureRow(text: feature, included: false)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .frame(maxHeight: .infinity)
+
+                    // Bottom buttons
+                    VStack(spacing: 8) {
+                        // Upgrade button (for non-platinum plans)
+                        if selectedPlan != .platinum {
+                            Button(action: {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    selectedPlan = .platinum
+                                }
+                            }) {
+                                Text("Débloquer avec Platinum")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(.white.opacity(0.9))
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 52)
+                                    .background(
+                                        Capsule()
+                                            .fill(Color.white.opacity(0.15))
+                                    )
                             }
                         }
 
-                        if !selectedPlan.excludedFeatures.isEmpty {
-                            Text("Ce qui n'est pas inclus :")
-                                .font(.system(size: 14))
-                                .foregroundColor(.white.opacity(0.6))
-                                .padding(.top, selectedPlan.includedFeatures.isEmpty ? 16 : 8)
-
-                            ForEach(selectedPlan.excludedFeatures, id: \.self) { feature in
-                                featureRow(text: feature, included: false)
-                            }
+                        // Subscribe button
+                        Button(action: {
+                            // Handle subscription purchase via RevenueCat
+                        }) {
+                            Text("Abonnez-vous pour \(selectedPlan.yearlyPrice)")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(Color(red: 0.24, green: 0.48, blue: 1.0))
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 52)
+                                .background(
+                                    Capsule()
+                                        .fill(Color.white)
+                                )
                         }
                     }
-                    .padding(.horizontal, 16)
-                }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
 
-                Spacer()
+                    // Footer links
+                    HStack(spacing: 0) {
+                        Button("Conditions") {}
+                            .font(.system(size: 13))
+                            .foregroundColor(.white.opacity(0.7))
 
-                // Upgrade button (for non-platinum plans)
-                if selectedPlan != .platinum {
-                    Button(action: {}) {
-                        Text("Débloquer avec Platinum")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 50)
-                            .background(
-                                Capsule()
-                                    .fill(Color.white.opacity(0.2))
-                            )
+                        Spacer()
+
+                        Button("Restaurer les achats") {}
+                            .font(.system(size: 13))
+                            .foregroundColor(.white.opacity(0.7))
+
+                        Spacer()
+
+                        Button("Confidentialité") {}
+                            .font(.system(size: 13))
+                            .foregroundColor(.white.opacity(0.7))
                     }
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 12)
+                    .padding(.bottom, geometry.safeAreaInsets.bottom > 0 ? 8 : 20)
                 }
-
-                // Subscribe button
-                Button(action: {
-                    // Handle subscription purchase
-                }) {
-                    Text("Abonnez-vous pour \(selectedPlan.yearlyPrice)")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(Color(red: 0.20, green: 0.45, blue: 1.0))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 50)
-                        .background(
-                            Capsule()
-                                .fill(Color.white.opacity(0.95))
-                        )
-                }
-                .padding(.horizontal, 24)
-                .padding(.top, 8)
-
-                // Footer links
-                HStack(spacing: 24) {
-                    Button("Conditions") {}
-                        .font(.system(size: 13))
-                        .foregroundColor(.white.opacity(0.7))
-
-                    Button("Restaurer les achats") {}
-                        .font(.system(size: 13))
-                        .foregroundColor(.white.opacity(0.7))
-
-                    Button("Confidentialité") {}
-                        .font(.system(size: 13))
-                        .foregroundColor(.white.opacity(0.7))
-                }
-                .padding(.top, 16)
-                .padding(.bottom, 24)
             }
         }
     }
@@ -1371,37 +1406,42 @@ struct ReplicaSubscriptionView: View {
                 selectedPlan = plan
             }
         }) {
-            VStack(alignment: .leading, spacing: 8) {
-                // Icon
-                Image(systemName: "diamond.fill")
-                    .font(.system(size: 20))
-                    .foregroundColor(plan.iconColor)
+            VStack(alignment: .leading, spacing: 6) {
+                // Gradient icon (like Replika's diamond)
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(plan.iconGradient)
+                    .frame(width: 32, height: 32)
+                    .overlay(
+                        Image(systemName: "diamond.fill")
+                            .font(.system(size: 14))
+                            .foregroundColor(.white.opacity(0.9))
+                    )
 
                 // Plan name
                 Text(plan.name)
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.system(size: 22, weight: .bold))
                     .foregroundColor(.white)
 
                 // Price
                 Text(plan.monthlyPrice + ", facturé annuellement")
                     .font(.system(size: 13))
-                    .foregroundColor(.white.opacity(0.7))
+                    .foregroundColor(.white.opacity(0.75))
             }
-            .padding(20)
-            .frame(width: 280, alignment: .leading)
+            .padding(16)
+            .frame(width: UIScreen.main.bounds.width - 80, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 20)
+                RoundedRectangle(cornerRadius: 16)
                     .fill(
                         selectedPlan == plan
-                            ? Color.white.opacity(0.25)
-                            : Color.white.opacity(0.1)
+                            ? Color.white.opacity(0.22)
+                            : Color.white.opacity(0.08)
                     )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 20)
-                            .stroke(
-                                selectedPlan == plan ? Color.white.opacity(0.3) : Color.clear,
-                                lineWidth: 2
-                            )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(
+                        selectedPlan == plan ? Color.white.opacity(0.25) : Color.clear,
+                        lineWidth: 1.5
                     )
             )
         }
@@ -1409,16 +1449,23 @@ struct ReplicaSubscriptionView: View {
     }
 
     private func featureRow(text: String, included: Bool) -> some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: 10) {
+            // Checkmark or X icon
             Image(systemName: included ? "checkmark" : "xmark")
-                .font(.system(size: 14, weight: .bold))
-                .foregroundColor(included ? .white : .white.opacity(0.5))
-                .frame(width: 20)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(included ? .white : .white.opacity(0.45))
+                .frame(width: 18, height: 18)
+                .background(
+                    Circle()
+                        .fill(included ? Color.white.opacity(0.2) : Color.clear)
+                )
 
             Text(text)
-                .font(.system(size: 15))
+                .font(.system(size: 15, weight: included ? .medium : .regular))
                 .foregroundColor(included ? .white : .white.opacity(0.5))
+                .fixedSize(horizontal: false, vertical: true)
         }
+        .padding(.vertical, 2)
     }
 }
 
