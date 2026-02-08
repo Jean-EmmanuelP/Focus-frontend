@@ -48,3 +48,4 @@ build/
 vendor/bundle/
 .bundle/
 Gemfile.lock
+.env.local
