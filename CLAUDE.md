@@ -230,18 +230,20 @@ Focus/
 
 ### Quand l'utilisateur demande de déployer
 
+**IMPORTANT**: Toujours utiliser le mot de passe app-specific stocké dans `.env.local`
+
 Si l'utilisateur dit "mets sur TF", "push TestFlight", "nouvelle beta", "déploie", exécuter:
 
 ```bash
 cd /Users/jperrama/Developer/iOS_Swift_Applications/Focus
-fastlane beta
+source .env.local && FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD="$FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD" bundle exec fastlane beta
 ```
 
 Si l'utilisateur dit "mets sur le store", "release", "App Store", exécuter:
 
 ```bash
 cd /Users/jperrama/Developer/iOS_Swift_Applications/Focus
-fastlane release
+source .env.local && FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD="$FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD" bundle exec fastlane release
 ```
 
 ### Commandes disponibles
