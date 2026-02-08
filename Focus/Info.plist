@@ -44,5 +44,9 @@
 	<array>
 		<string>remote-notification</string>
 	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Focus utilise votre position pour personnaliser votre expérience et vous proposer des rappels contextuels basés sur votre emplacement.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Focus utilise le microphone pour enregistrer vos messages vocaux et notes audio.</string>
 </dict>
 </plist>
