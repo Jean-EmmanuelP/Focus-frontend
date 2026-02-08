@@ -21,8 +21,6 @@ struct DashboardView: View {
     // Intentions edit state
     @State private var showEditIntentions = false
 
-    // WhatsApp state
-    @State private var showWhatsAppSettings = false
 
     var body: some View {
         ZStack {
@@ -59,12 +57,6 @@ struct DashboardView: View {
                                 .padding(.horizontal, SpacingTokens.lg)
                                 .padding(.bottom, SpacingTokens.lg)
 
-                            // WhatsApp Banner (if not linked)
-                            if !viewModel.isWhatsAppLinked && !viewModel.whatsAppBannerDismissed {
-                                whatsAppBanner
-                                    .padding(.horizontal, SpacingTokens.lg)
-                                    .padding(.bottom, SpacingTokens.lg)
-                            }
 
                             // Main CTA: Start the Day OR Next Task with Focus
                             mainCTASection
@@ -88,7 +80,6 @@ struct DashboardView: View {
                     }
                     .task {
                         await viewModel.loadJournalData()
-                        await viewModel.loadWhatsAppStatus()
                     }
                     .onChange(of: router.dashboardScrollTarget) { _, target in
                         if let section = target {
@@ -564,73 +555,6 @@ struct DashboardView: View {
         }
     }
 
-    // MARK: - WhatsApp Banner
-    private var whatsAppBanner: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: SpacingTokens.md) {
-                // WhatsApp icon
-                ZStack {
-                    Circle()
-                        .fill(Color(red: 0.25, green: 0.72, blue: 0.45))
-                        .frame(width: 44, height: 44)
-
-                    Image(systemName: "message.fill")
-                        .font(.satoshi(20))
-                        .foregroundColor(.white)
-                }
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Parle avec Kai sur WhatsApp")
-                        .font(.satoshi(15, weight: .semibold))
-                        .foregroundColor(ColorTokens.textPrimary)
-
-                    Text("Reçois des rappels et check-ins quotidiens")
-                        .font(.satoshi(12))
-                        .foregroundColor(ColorTokens.textSecondary)
-                }
-
-                Spacer()
-
-                // Dismiss button
-                Button {
-                    viewModel.dismissWhatsAppBanner()
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.satoshi(12, weight: .semibold))
-                        .foregroundColor(ColorTokens.textMuted)
-                        .padding(8)
-                }
-            }
-            .padding(SpacingTokens.md)
-
-            // CTA Button
-            Button {
-                HapticFeedback.medium()
-                showWhatsAppSettings = true
-            } label: {
-                HStack {
-                    Text("Connecter WhatsApp")
-                        .font(.satoshi(14, weight: .semibold))
-                    Image(systemName: "arrow.right")
-                        .font(.satoshi(12, weight: .semibold))
-                }
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, SpacingTokens.sm)
-                .background(Color(red: 0.25, green: 0.72, blue: 0.45))
-                .cornerRadius(RadiusTokens.md)
-            }
-            .padding(.horizontal, SpacingTokens.md)
-            .padding(.bottom, SpacingTokens.md)
-        }
-        .background(ColorTokens.surface)
-        .cornerRadius(RadiusTokens.lg)
-        .overlay(
-            RoundedRectangle(cornerRadius: RadiusTokens.lg)
-                .stroke(Color(red: 0.25, green: 0.72, blue: 0.45).opacity(0.3), lineWidth: 1)
-        )
-    }
-
     // Helper: Check if task is for today
     private func isTaskToday(_ task: CalendarTask) -> Bool {
         let dateFormatter = DateFormatter()
@@ -885,11 +809,6 @@ struct DashboardView: View {
         }
         .sheet(isPresented: $showJournalHistory) {
             JournalListView()
-        }
-        .sheet(isPresented: $showWhatsAppSettings) {
-            NavigationStack {
-                WhatsAppSettingsView()
-            }
         }
     }
 

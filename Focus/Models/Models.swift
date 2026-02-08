@@ -10,6 +10,7 @@ struct User: Codable, Identifiable {
     var avatarURL: String?
     var gender: String?         // male, female, other, prefer_not_to_say
     var age: Int?
+    var birthday: Date?         // Date of birth
     var description: String?    // Bio / tagline
     var hobbies: String?
     var lifeGoal: String?       // What they want to achieve
@@ -22,6 +23,10 @@ struct User: Codable, Identifiable {
     var timezone: String?              // Europe/Paris, etc.
     var notificationsEnabled: Bool?    // true/false
     var morningReminderTime: String?   // HH:MM format
+    // Companion settings
+    var companionName: String?         // AI companion name (user-chosen)
+    var companionGender: String?       // AI companion gender
+    var avatarStyle: String?           // Avatar style choice
 
     // Computed display name (pseudo > firstName lastName > email prefix)
     var name: String {

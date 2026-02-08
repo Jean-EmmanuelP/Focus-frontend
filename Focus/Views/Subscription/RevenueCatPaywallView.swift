@@ -129,16 +129,16 @@ struct VoltaPaywallView: View {
 
     // MARK: - Header
     private func headerSection(isSmallScreen: Bool) -> some View {
-        VStack(spacing: SpacingTokens.md) {
-            ZStack {
-                Circle()
-                    .fill(Color(hex: "#FFD700").opacity(0.2))
-                    .frame(width: 100, height: 100)
-                    .blur(radius: 20)
-
-                Text("👑")
-                    .font(.system(size: isSmallScreen ? 60 : 70))
-            }
+        VStack(spacing: SpacingTokens.sm) {
+            // 3D Avatar in header
+            Avatar3DView(
+                avatarURL: AvatarURLs.cesiumMan,
+                backgroundColor: .clear,
+                enableRotation: true,
+                autoRotate: false
+            )
+            .frame(width: isSmallScreen ? 140 : 180, height: isSmallScreen ? 160 : 200)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
 
             Text("Deviens Volta Pro")
                 .font(.satoshi(isSmallScreen ? 26 : 32, weight: .bold))
@@ -149,7 +149,7 @@ struct VoltaPaywallView: View {
                 .foregroundColor(.white.opacity(0.7))
                 .multilineTextAlignment(.center)
         }
-        .padding(.bottom, SpacingTokens.xl)
+        .padding(.bottom, SpacingTokens.md)
     }
 
     // MARK: - Benefits
@@ -232,81 +232,18 @@ struct VoltaPaywallView: View {
     ) -> some View {
         let isSelected = selectedPackage?.identifier == package.identifier
 
-        return Button(action: {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                selectedPackage = package
-            }
-            HapticFeedback.selection()
-        }) {
-            VStack(spacing: 0) {
-                if let badge = badge {
-                    Text(badge)
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.black)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 4)
-                        .background(Color(hex: "#FFD700"))
-                        .cornerRadius(4, corners: [.topLeft, .topRight])
+        return PackageCardButton(
+            package: package,
+            title: title,
+            badge: badge,
+            isSelected: isSelected,
+            onTap: {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    selectedPackage = package
                 }
-
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(title)
-                            .font(.satoshi(16, weight: .bold))
-                            .foregroundColor(.white)
-
-                        if let pricePerWeek = package.localizedPricePerWeek {
-                            Text("\(pricePerWeek)/semaine")
-                                .font(.satoshi(12))
-                                .foregroundColor(.white.opacity(0.6))
-                        }
-                    }
-
-                    Spacer()
-
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text(package.storeProduct.localizedPriceString)
-                            .font(.satoshi(20, weight: .bold))
-                            .foregroundColor(.white)
-
-                        if package.packageType == .annual {
-                            Text("/an")
-                                .font(.satoshi(12))
-                                .foregroundColor(.white.opacity(0.5))
-                        } else if package.packageType == .monthly {
-                            Text("/mois")
-                                .font(.satoshi(12))
-                                .foregroundColor(.white.opacity(0.5))
-                        }
-                    }
-
-                    // Selection indicator
-                    ZStack {
-                        Circle()
-                            .stroke(isSelected ? Color(hex: "#FFD700") : Color.white.opacity(0.3), lineWidth: 2)
-                            .frame(width: 24, height: 24)
-
-                        if isSelected {
-                            Circle()
-                                .fill(Color(hex: "#FFD700"))
-                                .frame(width: 14, height: 14)
-                        }
-                    }
-                    .padding(.leading, SpacingTokens.sm)
-                }
-                .padding(SpacingTokens.lg)
-                .background(
-                    RoundedRectangle(cornerRadius: badge != nil ? 0 : RadiusTokens.lg)
-                        .fill(isSelected ? Color.white.opacity(0.15) : Color.white.opacity(0.05))
-                        .cornerRadius(RadiusTokens.lg, corners: badge != nil ? [.bottomLeft, .bottomRight] : .allCorners)
-                )
+                HapticFeedback.selection()
             }
-            .overlay(
-                RoundedRectangle(cornerRadius: RadiusTokens.lg)
-                    .stroke(isSelected ? Color(hex: "#FFD700") : Color.white.opacity(0.2), lineWidth: isSelected ? 2 : 1)
-            )
-        }
-        .buttonStyle(PlainButtonStyle())
+        )
     }
 
     // MARK: - Loading
@@ -376,13 +313,10 @@ struct VoltaPaywallView: View {
             .opacity(selectedPackage == nil ? 0.5 : 1)
 
             // Trial info
-            if let package = selectedPackage,
-               let intro = package.storeProduct.introductoryDiscount {
-                if intro.price == 0 {
-                    Text("\(intro.subscriptionPeriod.periodTitle) d'essai gratuit")
-                        .font(.satoshi(12))
-                        .foregroundColor(.white.opacity(0.7))
-                }
+            if let trialText = trialPeriodText {
+                Text(trialText)
+                    .font(.satoshi(12))
+                    .foregroundColor(.white.opacity(0.7))
             }
 
             // Restore & Terms
@@ -437,6 +371,25 @@ struct VoltaPaywallView: View {
         }
     }
 
+    // MARK: - Computed Properties
+
+    private var trialPeriodText: String? {
+        guard let package = selectedPackage,
+              let intro = package.storeProduct.introductoryDiscount,
+              intro.price == 0 else { return nil }
+
+        let period = intro.subscriptionPeriod
+        let unitText: String
+        switch period.unit {
+        case .day: unitText = period.value == 1 ? "jour" : "jours"
+        case .week: unitText = period.value == 1 ? "semaine" : "semaines"
+        case .month: unitText = "mois"
+        case .year: unitText = period.value == 1 ? "an" : "ans"
+        @unknown default: unitText = "période"
+        }
+        return "\(period.value) \(unitText) d'essai gratuit"
+    }
+
     // MARK: - Actions
     private func handlePurchase() {
         guard let package = selectedPackage else { return }
@@ -473,6 +426,102 @@ struct VoltaPaywallView: View {
             errorMessage = error
             showError = true
         }
+    }
+}
+
+// MARK: - Package Card Button (extracted to help compiler)
+
+private struct PackageCardButton: View {
+    let package: Package
+    let title: String
+    let badge: String?
+    let isSelected: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            VStack(spacing: 0) {
+                badgeView
+                cardContent
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: RadiusTokens.lg)
+                    .stroke(isSelected ? Color(hex: "#FFD700") : Color.white.opacity(0.2), lineWidth: isSelected ? 2 : 1)
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
+    @ViewBuilder
+    private var badgeView: some View {
+        if let badge = badge {
+            Text(badge)
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.black)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 4)
+                .background(Color(hex: "#FFD700"))
+                .clipShape(UnevenRoundedRectangle(topLeadingRadius: 4, bottomLeadingRadius: 0, bottomTrailingRadius: 0, topTrailingRadius: 4))
+        }
+    }
+
+    private var cardContent: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.satoshi(16, weight: .bold))
+                    .foregroundColor(.white)
+
+                if let pricePerWeek = package.localizedPricePerWeek {
+                    Text("\(pricePerWeek)/semaine")
+                        .font(.satoshi(12))
+                        .foregroundColor(.white.opacity(0.6))
+                }
+            }
+
+            Spacer()
+
+            priceSection
+            selectionIndicator
+        }
+        .padding(SpacingTokens.lg)
+        .background(
+            RoundedRectangle(cornerRadius: RadiusTokens.lg)
+                .fill(isSelected ? Color.white.opacity(0.15) : Color.white.opacity(0.05))
+        )
+    }
+
+    private var priceSection: some View {
+        VStack(alignment: .trailing, spacing: 2) {
+            Text(package.storeProduct.localizedPriceString)
+                .font(.satoshi(20, weight: .bold))
+                .foregroundColor(.white)
+
+            if package.packageType == .annual {
+                Text("/an")
+                    .font(.satoshi(12))
+                    .foregroundColor(.white.opacity(0.5))
+            } else if package.packageType == .monthly {
+                Text("/mois")
+                    .font(.satoshi(12))
+                    .foregroundColor(.white.opacity(0.5))
+            }
+        }
+    }
+
+    private var selectionIndicator: some View {
+        ZStack {
+            Circle()
+                .stroke(isSelected ? Color(hex: "#FFD700") : Color.white.opacity(0.3), lineWidth: 2)
+                .frame(width: 24, height: 24)
+
+            if isSelected {
+                Circle()
+                    .fill(Color(hex: "#FFD700"))
+                    .frame(width: 14, height: 14)
+            }
+        }
+        .padding(.leading, SpacingTokens.sm)
     }
 }
 

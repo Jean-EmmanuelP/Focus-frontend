@@ -23,9 +23,9 @@ struct ChatView: View {
 
     @EnvironmentObject var revenueCatManager: RevenueCatManager
 
-    // Companion name
+    // Companion name (from user settings, fallback to "Kai")
     private var companionName: String {
-        "Kai" // Fixed name for now
+        store.user?.companionName ?? "Kai"
     }
 
     var body: some View {
@@ -43,21 +43,13 @@ struct ChatView: View {
                         conversationHeader
                     }
 
-                    // Content area
+                    // Content area (avatar is in background)
                     if isHomeMode || viewModel.messages.isEmpty {
-                        // Home mode: avatar centered (name is in header)
-                        Spacer()
-                        avatarPlaceholder
+                        // Home mode: just spacer, avatar is background
                         Spacer()
                     } else {
-                        // Chat mode: messages over avatar
-                        ZStack(alignment: .bottomLeading) {
-                            // Avatar on left side (placeholder for now)
-                            avatarSideView
-
-                            // Messages
-                            messagesScrollView
-                        }
+                        // Chat mode: messages overlay on avatar background
+                        messagesScrollView
                     }
 
                     // Input bar - always visible
@@ -69,6 +61,11 @@ struct ChatView: View {
         .onAppear {
             viewModel.setStore(store)
             viewModel.loadHistory()
+        }
+        .onDisappear {
+            // Clean up timer to prevent memory leak
+            recordingTimer?.invalidate()
+            recordingTimer = nil
         }
         .onTapGesture {
             isInputFocused = false
@@ -113,8 +110,21 @@ struct ChatView: View {
         }
         .overlay {
             if showPaywall {
-                ReplicaPaywallView(isPresented: $showPaywall)
-                    .transition(.opacity)
+                FocusPaywallView(
+                    companionName: companionName,
+                    onComplete: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            showPaywall = false
+                        }
+                    },
+                    onSkip: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            showPaywall = false
+                        }
+                    }
+                )
+                .environmentObject(revenueCatManager)
+                .transition(.opacity)
             }
         }
         .animation(.easeInOut(duration: 0.25), value: showThoughtsSheet)
@@ -154,18 +164,17 @@ struct ChatView: View {
         }
     }
 
-    // MARK: - Background (Replika blue gradient)
+    // MARK: - Background (Full screen 3D Avatar)
 
     private var replikaBackground: some View {
-        LinearGradient(
-            colors: [
-                Color(red: 0.55, green: 0.65, blue: 0.80), // Top: soft blue
-                Color(red: 0.70, green: 0.75, blue: 0.85), // Middle
-                Color(red: 0.80, green: 0.82, blue: 0.88)  // Bottom: lighter
-            ],
-            startPoint: .top,
-            endPoint: .bottom
+        // Full-screen 3D Avatar as background (same as personalizeAvatarStep)
+        Avatar3DView(
+            avatarURL: AvatarURLs.cesiumMan,
+            backgroundColor: UIColor(red: 0.10, green: 0.12, blue: 0.20, alpha: 1.0),
+            enableRotation: false,
+            autoRotate: false
         )
+        .ignoresSafeArea()
     }
 
     // MARK: - Home Header (home mode or empty state)
@@ -324,47 +333,6 @@ struct ChatView: View {
         .padding(.bottom, 4)
     }
 
-    // MARK: - Avatar Placeholder (home mode, center)
-
-    private var avatarPlaceholder: some View {
-        // Placeholder for 3D avatar - just a subtle glow for now
-        Circle()
-            .fill(
-                RadialGradient(
-                    colors: [
-                        Color.white.opacity(0.15),
-                        Color.white.opacity(0.02)
-                    ],
-                    center: .center,
-                    startRadius: 30,
-                    endRadius: 150
-                )
-            )
-            .frame(width: 300, height: 300)
-    }
-
-    // MARK: - Avatar Side View (conversation mode, left side)
-
-    private var avatarSideView: some View {
-        // Avatar on the left side, partially visible
-        HStack {
-            Circle()
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 0.6, green: 0.7, blue: 0.85),
-                            Color(red: 0.75, green: 0.8, blue: 0.9)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                .frame(width: 200, height: 200)
-                .offset(x: -80) // Push off screen
-                .opacity(0.3)
-            Spacer()
-        }
-    }
 
     // MARK: - Messages Scroll View
 
@@ -396,6 +364,16 @@ struct ChatView: View {
             .onChange(of: viewModel.messages.count) { _, _ in
                 withAnimation(.easeOut(duration: 0.2)) {
                     proxy.scrollTo("bottom", anchor: .bottom)
+                }
+            }
+            .onChange(of: isInputFocused) { _, focused in
+                if focused {
+                    // Delay to let keyboard animation start, then scroll
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        withAnimation(.easeOut(duration: 0.25)) {
+                            proxy.scrollTo("bottom", anchor: .bottom)
+                        }
+                    }
                 }
             }
             .onAppear {

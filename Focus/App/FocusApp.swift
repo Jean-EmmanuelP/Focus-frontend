@@ -55,12 +55,9 @@ struct FocusApp: App {
                             // User is authenticated AND has completed onboarding
                             MainTabView()
                                 .transition(.opacity)
-                        } else if store.isAuthenticated && store.isCheckingOnboarding {
-                            // Checking onboarding status
-                            loadingView
-                                .transition(.opacity)
                         } else if store.isAuthenticated {
-                            // Authenticated but needs onboarding
+                            // Authenticated but needs onboarding (or still checking)
+                            // Skip loading screen - go directly to onboarding
                             NewOnboardingView()
                                 .transition(.opacity)
                         } else {
@@ -131,23 +128,6 @@ struct FocusApp: App {
                 }
             }
             // Note: Onboarding status is checked in FocusAppStore.handleAuthServiceUpdate()
-        }
-    }
-
-    private var loadingView: some View {
-        ZStack {
-            ColorTokens.background
-                .ignoresSafeArea()
-
-            VStack(spacing: SpacingTokens.lg) {
-                ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: ColorTokens.primaryStart))
-                    .scaleEffect(1.2)
-
-                Text("Chargement...")
-                    .bodyText()
-                    .foregroundColor(ColorTokens.textSecondary)
-            }
         }
     }
 

@@ -4,7 +4,6 @@ import AuthenticationServices
 struct AuthenticationView: View {
     @EnvironmentObject var store: FocusAppStore
     @StateObject private var authService = AuthService.shared
-    @State private var isAnimating = false
     @State private var showError = false
     @State private var showPrivacyPolicy = false
     @State private var showTermsOfService = false
@@ -12,43 +11,43 @@ struct AuthenticationView: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                // Background
-                ColorTokens.background
-                    .ignoresSafeArea()
+                // Dark background (placeholder for future image)
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.05, green: 0.08, blue: 0.12),
+                        Color(red: 0.08, green: 0.10, blue: 0.15),
+                        Color(red: 0.06, green: 0.08, blue: 0.12)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .ignoresSafeArea()
 
-                // Content
                 VStack(spacing: 0) {
+                    // Top logo
+                    logoSection
+                        .padding(.top, geometry.safeAreaInsets.top + 20)
+
+                    // Main title
+                    titleSection
+                        .padding(.top, 24)
+
+                    // Spacer for image area (black placeholder)
                     Spacer()
 
-                    // Logo and branding
-                    brandingSection(screenHeight: geometry.size.height)
-
-                    Spacer()
-                        .frame(height: geometry.size.height < 700 ? SpacingTokens.xl : SpacingTokens.xxl)
-
-                    // Story/Value proposition
-                    storySection
-
-                    Spacer()
-
-                    // Sign in button
-                    signInSection
-
-                    // Terms
-                    termsSection
+                    // Bottom section with buttons
+                    bottomSection(geometry: geometry)
                 }
-                .padding(.horizontal, SpacingTokens.xl)
-                .padding(.bottom, geometry.safeAreaInsets.bottom > 0 ? SpacingTokens.md : SpacingTokens.xl)
 
                 // Loading overlay
                 if authService.isAuthenticating {
                     loadingOverlay
                 }
             }
-            .alert("auth.error_title".localized, isPresented: $showError) {
-                Button("common.ok".localized, role: .cancel) {}
+            .alert("Erreur", isPresented: $showError) {
+                Button("OK", role: .cancel) {}
             } message: {
-                Text(authService.error?.localizedDescription ?? "error.generic".localized)
+                Text(authService.error?.localizedDescription ?? "Une erreur est survenue")
             }
             .onChange(of: authService.error) { _, error in
                 if error != nil && error != .userCancelled {
@@ -65,122 +64,139 @@ struct AuthenticationView: View {
         }
     }
 
+    // MARK: - Logo Section
+
+    private var logoSection: some View {
+        HStack(spacing: 8) {
+            // App icon placeholder (flame or custom logo)
+            Image(systemName: "flame.fill")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundColor(.white)
+
+            Text("Volta")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(.white)
+        }
+    }
+
+    // MARK: - Title Section
+
+    private var titleSection: some View {
+        VStack(spacing: 8) {
+            Text("The AI")
+                .font(.system(size: 42, weight: .bold))
+                .foregroundColor(.white)
+
+            Text("to do life")
+                .font(.system(size: 42, weight: .bold))
+                .foregroundColor(.white)
+
+            Text("with")
+                .font(.system(size: 42, weight: .bold))
+                .foregroundColor(.white)
+        }
+        .multilineTextAlignment(.center)
+    }
+
+    // MARK: - Bottom Section
+
+    private func bottomSection(geometry: GeometryProxy) -> some View {
+        VStack(spacing: 12) {
+            // Sign in with Apple button (blue style like Replika)
+            Button {
+                triggerAppleSignIn()
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "apple.logo")
+                        .font(.system(size: 18, weight: .medium))
+                    Text("Continuer avec Apple")
+                        .font(.system(size: 17, weight: .medium))
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 56)
+                .background(
+                    Capsule()
+                        .fill(Color(red: 0.20, green: 0.45, blue: 0.95)) // Replika blue
+                )
+            }
+            .padding(.horizontal, 24)
+
+            // Terms text
+            termsSection
+                .padding(.top, 16)
+        }
+        .padding(.bottom, geometry.safeAreaInsets.bottom > 0 ? 20 : 40)
+    }
+
+    // MARK: - Terms Section
+
+    private var termsSection: some View {
+        VStack(spacing: 2) {
+            HStack(spacing: 4) {
+                Text("En continuant, vous acceptez notre")
+                    .font(.system(size: 13))
+                    .foregroundColor(.white.opacity(0.5))
+            }
+
+            HStack(spacing: 4) {
+                Button {
+                    showTermsOfService = true
+                } label: {
+                    Text("Conditions d'utilisation")
+                        .font(.system(size: 13))
+                        .foregroundColor(.white.opacity(0.7))
+                        .underline()
+                }
+
+                Text("et")
+                    .font(.system(size: 13))
+                    .foregroundColor(.white.opacity(0.5))
+
+                Button {
+                    showPrivacyPolicy = true
+                } label: {
+                    Text("Politique de confidentialité")
+                        .font(.system(size: 13))
+                        .foregroundColor(.white.opacity(0.7))
+                        .underline()
+                }
+            }
+        }
+        .multilineTextAlignment(.center)
+        .sheet(isPresented: $showTermsOfService) {
+            TermsOfServiceView()
+        }
+        .sheet(isPresented: $showPrivacyPolicy) {
+            PrivacyPolicyView()
+        }
+    }
+
     // MARK: - Loading Overlay
+
     private var loadingOverlay: some View {
         ZStack {
             Color.black.opacity(0.7)
                 .ignoresSafeArea()
 
-            VStack(spacing: SpacingTokens.lg) {
+            VStack(spacing: 16) {
                 ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: ColorTokens.primaryStart))
+                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
                     .scaleEffect(1.5)
 
-                Text("auth.signing_in".localized)
-                    .bodyText()
-                    .foregroundColor(ColorTokens.textPrimary)
+                Text("Connexion en cours...")
+                    .font(.system(size: 16))
+                    .foregroundColor(.white)
             }
-            .padding(SpacingTokens.xl)
-            .background(ColorTokens.surface)
-            .cornerRadius(RadiusTokens.lg)
+            .padding(32)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color(red: 0.15, green: 0.18, blue: 0.25))
+            )
         }
     }
 
-    // MARK: - Branding Section
-    private func brandingSection(screenHeight: CGFloat) -> some View {
-        let isSmallScreen = screenHeight < 700
-        let glowSize: CGFloat = isSmallScreen ? 100 : 140
-        let flameSize: CGFloat = isSmallScreen ? 60 : 80
-        let titleSize: CGFloat = isSmallScreen ? 30 : 36
-
-        return VStack(spacing: isSmallScreen ? SpacingTokens.md : SpacingTokens.lg) {
-            // Animated flame icon
-            ZStack {
-                // Glow effect
-                Circle()
-                    .fill(ColorTokens.primaryGlow)
-                    .frame(width: glowSize, height: glowSize)
-                    .blur(radius: isSmallScreen ? 20 : 30)
-                    .scaleEffect(isAnimating ? 1.2 : 1.0)
-                    .animation(
-                        .easeInOut(duration: 2.0).repeatForever(autoreverses: true),
-                        value: isAnimating
-                    )
-
-                // Flame emoji
-                Text("🔥")
-                    .font(.system(size: flameSize))
-                    .scaleEffect(isAnimating ? 1.05 : 1.0)
-                    .animation(
-                        .easeInOut(duration: 1.5).repeatForever(autoreverses: true),
-                        value: isAnimating
-                    )
-            }
-            .onAppear {
-                isAnimating = true
-            }
-
-            // App name
-            VStack(spacing: SpacingTokens.xs) {
-                Text("VOLTA")
-                    .font(.system(size: titleSize, weight: .bold))
-                    .foregroundColor(ColorTokens.textPrimary)
-                    .tracking(2)
-
-                Text("auth.tagline".localized)
-                    .bodyText()
-                    .foregroundColor(ColorTokens.textSecondary)
-            }
-        }
-    }
-
-    // MARK: - Story Section
-    private var storySection: some View {
-        VStack(spacing: SpacingTokens.lg) {
-            // Feature highlights
-            VStack(spacing: SpacingTokens.md) {
-                featureRow(icon: "⚡", text: "auth.feature.focus".localized)
-                featureRow(icon: "🎯", text: "auth.feature.quests".localized)
-                featureRow(icon: "📈", text: "auth.feature.habits".localized)
-                featureRow(icon: "🌅", text: "auth.feature.rituals".localized)
-            }
-        }
-        .padding(.horizontal, SpacingTokens.md)
-    }
-
-    private func featureRow(icon: String, text: String) -> some View {
-        HStack(spacing: SpacingTokens.md) {
-            Text(icon)
-                .font(.satoshi(24))
-
-            Text(text)
-                .bodyText()
-                .foregroundColor(ColorTokens.textSecondary)
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    // MARK: - Sign In Section
-    private var signInSection: some View {
-        VStack(spacing: SpacingTokens.md) {
-            // Custom Sign in with Apple button with localized text
-            Button {
-                triggerAppleSignIn()
-            } label: {
-                HStack(spacing: SpacingTokens.sm) {
-                    Image(systemName: "apple.logo")
-                        .font(.satoshi(18, weight: .medium))
-                    Text("auth.sign_in_apple".localized)
-                        .font(.satoshi(17, weight: .medium))
-                }
-                .foregroundColor(.black)
-                .frame(maxWidth: .infinity)
-                .frame(height: 56)
-                .background(Color.white)
-                .cornerRadius(RadiusTokens.md)
-            }
-        }
-    }
+    // MARK: - Apple Sign In
 
     @State private var appleSignInCoordinator: AppleSignInCoordinator?
 
@@ -192,45 +208,6 @@ struct AuthenticationView: View {
         coordinator.startSignIn()
     }
 
-    // MARK: - Terms Section
-    private var termsSection: some View {
-        VStack(spacing: SpacingTokens.xs) {
-            Text("auth.terms.agree".localized)
-                .font(.caption)
-                .foregroundColor(ColorTokens.textMuted)
-
-            HStack(spacing: SpacingTokens.xs) {
-                Button {
-                    showTermsOfService = true
-                } label: {
-                    Text("auth.terms.tos".localized)
-                        .font(.caption)
-                        .foregroundColor(ColorTokens.primaryStart)
-                }
-
-                Text("auth.terms.and".localized)
-                    .font(.caption)
-                    .foregroundColor(ColorTokens.textMuted)
-
-                Button {
-                    showPrivacyPolicy = true
-                } label: {
-                    Text("auth.terms.privacy".localized)
-                        .font(.caption)
-                        .foregroundColor(ColorTokens.primaryStart)
-                }
-            }
-        }
-        .padding(.bottom, SpacingTokens.lg)
-        .sheet(isPresented: $showTermsOfService) {
-            TermsOfServiceView()
-        }
-        .sheet(isPresented: $showPrivacyPolicy) {
-            PrivacyPolicyView()
-        }
-    }
-
-    // MARK: - Handle Apple Sign In
     private func handleAppleSignIn(_ result: Result<ASAuthorization, Error>) {
         switch result {
         case .success(let authorization):
@@ -238,11 +215,9 @@ struct AuthenticationView: View {
                 return
             }
 
-            // Use async Task to handle the credential
             Task {
                 do {
                     try await authService.handleAppleCredential(appleIDCredential)
-                    // Auth state change will be handled by onChange observer
                 } catch let error as AuthError {
                     if error != .userCancelled {
                         print("Auth error: \(error.localizedDescription)")
@@ -259,6 +234,7 @@ struct AuthenticationView: View {
 }
 
 // MARK: - Apple Sign In Coordinator
+
 class AppleSignInCoordinator: NSObject, ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
     private var completion: (Result<ASAuthorization, Error>) -> Void
 
@@ -295,6 +271,7 @@ class AppleSignInCoordinator: NSObject, ASAuthorizationControllerDelegate, ASAut
 }
 
 // MARK: - Preview
+
 #Preview {
     AuthenticationView()
         .environmentObject(FocusAppStore.shared)

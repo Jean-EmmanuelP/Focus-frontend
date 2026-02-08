@@ -25,7 +25,7 @@ class ChatAIService {
                     content: msg.content
                 )
             },
-            persona: CoachPersona.systemPrompt
+            persona: CoachPersona.systemPrompt(companionName: context.companionName)
         )
 
         return try await apiClient.request(

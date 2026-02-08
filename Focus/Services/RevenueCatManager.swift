@@ -24,16 +24,18 @@ enum SubscriptionState: Equatable {
 }
 
 enum SubscriptionTier: String, CaseIterable {
-    case monthly = "monthly"
-    case yearly = "yearly"
-    case lifetime = "lifetime"
+    case plus = "monthly"      // Focus Plus - 34,99€/mois
+    case max = "premium"       // Focus Max - 129,99€/mois
 
     var displayName: String {
         switch self {
-        case .monthly: return "Mensuel"
-        case .yearly: return "Annuel"
-        case .lifetime: return "A vie"
+        case .plus: return "Focus Plus"
+        case .max: return "Focus Max"
         }
+    }
+
+    var packageIdentifier: String {
+        rawValue
     }
 }
 
@@ -64,17 +66,20 @@ final class RevenueCatManager: ObservableObject {
         offerings?.current
     }
 
-    var monthlyPackage: Package? {
+    /// Focus Plus - 34,99€/mois (package identifier: "monthly")
+    var plusPackage: Package? {
         currentOffering?.package(identifier: "monthly") ?? currentOffering?.monthly
     }
 
-    var yearlyPackage: Package? {
-        currentOffering?.package(identifier: "yearly") ?? currentOffering?.annual
+    /// Focus Max - 129,99€/mois (package identifier: "premium")
+    var maxPackage: Package? {
+        currentOffering?.package(identifier: "premium")
     }
 
-    var lifetimePackage: Package? {
-        currentOffering?.package(identifier: "lifetime") ?? currentOffering?.lifetime
-    }
+    // Legacy aliases for compatibility
+    var monthlyPackage: Package? { plusPackage }
+    var yearlyPackage: Package? { maxPackage }
+    var lifetimePackage: Package? { nil }
 
     var availablePackages: [Package] {
         currentOffering?.availablePackages ?? []
@@ -242,20 +247,17 @@ final class RevenueCatManager: ObservableObject {
 
     // MARK: - Private Methods
     private func updateSubscriptionState(from customerInfo: CustomerInfo) {
-        // Check for active entitlement
+        // Check for active entitlement "Volta Pro"
         if let entitlement = customerInfo.entitlements[entitlementID], entitlement.isActive {
             // Determine tier based on product identifier
+            // focus_plus_monthly = Plus, focus_max_monthly = Max
             let productId = entitlement.productIdentifier.lowercased()
 
-            if productId.contains("lifetime") {
-                subscriptionState = .subscribed(tier: .lifetime)
-            } else if productId.contains("yearly") || productId.contains("annual") {
-                subscriptionState = .subscribed(tier: .yearly)
-            } else if productId.contains("monthly") {
-                subscriptionState = .subscribed(tier: .monthly)
+            if productId.contains("max") {
+                subscriptionState = .subscribed(tier: .max)
             } else {
-                // Default to monthly if can't determine
-                subscriptionState = .subscribed(tier: .monthly)
+                // Default to Plus for any other subscription
+                subscriptionState = .subscribed(tier: .plus)
             }
 
             print("✅ User is subscribed: \(subscriptionState)")

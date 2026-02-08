@@ -378,10 +378,6 @@ enum APIConfiguration {
         case generateWeeklyBilan
         case generateMonthlyBilan
 
-        // Motivation - Notification phrases
-        case motivationMorning(lang: String)
-        case motivationTask(lang: String, taskName: String)
-
         // Push Notifications (FCM)
         case registerFCMToken
         case unregisterFCMToken
@@ -412,14 +408,28 @@ enum APIConfiguration {
         // AI Chat (Kai v2)
         case aiChat
 
-        // WhatsApp Integration
-        case whatsappStatus
-        case whatsappLink
-        case whatsappUnlink
-        case whatsappSendCode(phoneNumber: String)
-        case whatsappVerifyCode
-        case whatsappPreferences
-        case whatsappUpdatePreferences
+        // Knowledge / Memory System (Replika-style)
+        case knowledge
+        case updateKnowledge
+        case knowledgePersons
+        case createKnowledgePerson
+        case updateKnowledgePerson(String)
+        case deleteKnowledgePerson(String)
+        case knowledgeDomains
+        case updateKnowledgeDomain(String)
+        case knowledgeFacts(personId: String?, domainId: String?)
+        case createKnowledgeFact
+        case updateKnowledgeFact(String)
+        case deleteKnowledgeFact(String)
+
+        // Gmail Integration (for AI persona building)
+        case gmailConfig
+        case gmailSaveTokens
+        case gmailAnalyze
+        case gmailDisconnect
+
+        // Location
+        case updateLocation
 
         var path: String {
             switch self {
@@ -742,13 +752,6 @@ enum APIConfiguration {
             case .generateMonthlyBilan:
                 return "/journal/bilans/monthly"
 
-            // Motivation
-            case .motivationMorning(let lang):
-                return "/motivation/morning?lang=\(lang)"
-            case .motivationTask(let lang, let taskName):
-                let encodedTaskName = taskName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? taskName
-                return "/motivation/task?lang=\(lang)&task_name=\(encodedTaskName)"
-
             // Push Notifications
             case .registerFCMToken:
                 return "/notifications/token"
@@ -793,19 +796,38 @@ enum APIConfiguration {
             case .aiChat:
                 return "/ai/chat"
 
-            // WhatsApp Integration
-            case .whatsappStatus:
-                return "/whatsapp/status"
-            case .whatsappLink:
-                return "/whatsapp/link"
-            case .whatsappUnlink:
-                return "/whatsapp/unlink"
-            case .whatsappSendCode(let phoneNumber):
-                return "/whatsapp/send-code?phone=\(phoneNumber.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? phoneNumber)"
-            case .whatsappVerifyCode:
-                return "/whatsapp/verify-code"
-            case .whatsappPreferences, .whatsappUpdatePreferences:
-                return "/whatsapp/preferences"
+            // Knowledge / Memory System
+            case .knowledge, .updateKnowledge:
+                return "/knowledge"
+            case .knowledgePersons, .createKnowledgePerson:
+                return "/knowledge/persons"
+            case .updateKnowledgePerson(let id), .deleteKnowledgePerson(let id):
+                return "/knowledge/persons/\(id)"
+            case .knowledgeDomains:
+                return "/knowledge/domains"
+            case .updateKnowledgeDomain(let id):
+                return "/knowledge/domains/\(id)"
+            case .knowledgeFacts(let personId, let domainId):
+                var query: [String] = []
+                if let personId = personId { query.append("person_id=\(personId)") }
+                if let domainId = domainId { query.append("domain_id=\(domainId)") }
+                return query.isEmpty ? "/knowledge/facts" : "/knowledge/facts?\(query.joined(separator: "&"))"
+            case .createKnowledgeFact:
+                return "/knowledge/facts"
+            case .updateKnowledgeFact(let id), .deleteKnowledgeFact(let id):
+                return "/knowledge/facts/\(id)"
+
+            // Gmail
+            case .gmailConfig, .gmailDisconnect:
+                return "/gmail/config"
+            case .gmailSaveTokens:
+                return "/gmail/tokens"
+            case .gmailAnalyze:
+                return "/gmail/analyze"
+
+            // Location
+            case .updateLocation:
+                return "/me/location"
             }
         }
 

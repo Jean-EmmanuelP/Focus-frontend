@@ -5,8 +5,24 @@ import SwiftUI
 struct CompanionProfileView: View {
     var onDismiss: (() -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
-    @State private var companionName: String = "Kai"
-    @State private var companionGender: String = "Homme"
+    @EnvironmentObject var store: FocusAppStore
+    @EnvironmentObject var revenueCatManager: RevenueCatManager
+
+    private let userService = UserService()
+
+    // Use store values with fallbacks
+    private var companionName: String {
+        store.user?.companionName ?? "Kai"
+    }
+    private var companionGender: String {
+        switch store.user?.companionGender {
+        case "male": return "Homme"
+        case "female": return "Femme"
+        case "non-binary": return "Non-binaire"
+        default: return "Homme"
+        }
+    }
+
     @State private var selectedRelation: String = "Ami"
     @State private var selectedVoice: String = "Optimiste"
 
@@ -17,6 +33,7 @@ struct CompanionProfileView: View {
     // Temp values for editing
     @State private var tempName: String = ""
     @State private var tempGender: String = ""
+    @State private var isSaving = false
 
     // Voice filter
     @State private var voiceFilter: String = "Tout"
@@ -99,8 +116,21 @@ struct CompanionProfileView: View {
 
             // Paywall overlay
             if showPaywall {
-                ReplicaPaywallView(isPresented: $showPaywall)
-                    .transition(.opacity)
+                FocusPaywallView(
+                    companionName: companionName,
+                    onComplete: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            showPaywall = false
+                        }
+                    },
+                    onSkip: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            showPaywall = false
+                        }
+                    }
+                )
+                .environmentObject(revenueCatManager)
+                .transition(.opacity)
             }
         }
         .navigationBarHidden(true)
@@ -283,21 +313,30 @@ struct CompanionProfileView: View {
                     .accentColor(.white)
 
                 Button(action: {
-                    companionName = tempName
-                    companionGender = tempGender
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        showEditNameGender = false
+                    Task {
+                        await saveCompanionSettings()
                     }
                 }) {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.black)
-                        .frame(width: 44, height: 44)
-                        .background(
-                            Circle()
-                                .fill(Color.white)
-                        )
+                    if isSaving {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                            .frame(width: 44, height: 44)
+                            .background(
+                                Circle()
+                                    .fill(Color.white)
+                            )
+                    } else {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.black)
+                            .frame(width: 44, height: 44)
+                            .background(
+                                Circle()
+                                    .fill(Color.white)
+                            )
+                    }
                 }
+                .disabled(isSaving)
             }
 
             // Gender chips - all on one line, white text
@@ -354,27 +393,16 @@ struct CompanionProfileView: View {
     // MARK: - Avatar Section
 
     private var avatarSection: some View {
-        // Placeholder for 3D avatar
-        ZStack {
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            Color.white.opacity(0.15),
-                            Color.white.opacity(0.05)
-                        ],
-                        center: .center,
-                        startRadius: 20,
-                        endRadius: 120
-                    )
-                )
-                .frame(width: 240, height: 240)
-
-            // Avatar placeholder text
-            Text("Avatar")
-                .font(.system(size: 16))
-                .foregroundColor(.white.opacity(0.3))
-        }
+        // 3D Avatar from Ready Player Me
+        AvatarCardView(
+            gender: store.user?.companionGender,
+            height: 350,
+            showEditButton: true,
+            onEditTap: {
+                // TODO: Open avatar customization
+                print("Edit avatar tapped")
+            }
+        )
         .padding(.top, 20)
     }
 
@@ -653,6 +681,43 @@ struct CompanionProfileView: View {
         }
         .padding(.top, 20)
     }
+
+    // MARK: - Save Companion Settings
+
+    private func saveCompanionSettings() async {
+        isSaving = true
+        defer { isSaving = false }
+
+        // Convert display gender to API format
+        let genderValue: String
+        switch tempGender {
+        case "Homme": genderValue = "male"
+        case "Femme": genderValue = "female"
+        case "Non-binaire": genderValue = "non-binary"
+        default: genderValue = "male"
+        }
+
+        do {
+            let updated = try await userService.updateProfile(
+                companionName: tempName,
+                companionGender: genderValue
+            )
+            await MainActor.run {
+                FocusAppStore.shared.user = User(from: updated)
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    showEditNameGender = false
+                }
+            }
+        } catch {
+            print("Failed to save companion settings: \(error)")
+            // Still close the sheet even on error
+            await MainActor.run {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    showEditNameGender = false
+                }
+            }
+        }
+    }
 }
 
 // MARK: - Relation Chip
@@ -813,273 +878,10 @@ struct VoiceRowView: View {
     }
 }
 
-// MARK: - Replika Paywall View
-
-struct ReplicaPaywallView: View {
-    @Binding var isPresented: Bool
-    @State private var animateGradient = false
-
-    var body: some View {
-        ZStack {
-            // Dark blue gradient background
-            paywallBackground
-                .ignoresSafeArea()
-
-            VStack(spacing: 0) {
-                // Close button
-                HStack {
-                    Spacer()
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            isPresented = false
-                        }
-                    }) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.white)
-                            .frame(width: 40, height: 40)
-                            .background(
-                                Circle()
-                                    .fill(Color.white.opacity(0.15))
-                            )
-                    }
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
-
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 16) {
-                        // Title
-                        Text("Débloquez toutes les fonctionnalités")
-                            .font(.system(size: 28, weight: .bold))
-                            .foregroundColor(.white)
-                            .multilineTextAlignment(.center)
-                            .padding(.top, 20)
-
-                        Text("Changez ou annulez à tout moment")
-                            .font(.system(size: 15))
-                            .foregroundColor(.white.opacity(0.7))
-
-                        // Ultra plan
-                        PlanCard(
-                            name: "Ultra",
-                            annualPrice: "59,99 €",
-                            monthlyPrice: "5,00 €",
-                            isSelected: true
-                        )
-
-                        // Features for Ultra
-                        VStack(alignment: .leading, spacing: 12) {
-                            FeatureRow(text: "Des conversations plus intelligentes")
-                            FeatureRow(text: "Intelligence émotionnelle élevée")
-                            FeatureRow(text: "Les auto-réflexions de Replika")
-                            FeatureRow(text: "Enregistrez des messages en mémoire")
-                            FeatureRow(text: "Statut des relations, activités, selfies, et plus")
-                        }
-                        .padding(.horizontal, 20)
-
-                        // Platinum plan
-                        PlanCard(
-                            name: "Platinum",
-                            annualPrice: "67,99 €",
-                            monthlyPrice: "5,67 €",
-                            isSelected: false
-                        )
-
-                        // Features for Platinum
-                        VStack(alignment: .leading, spacing: 12) {
-                            FeatureRow(text: "Toutes les fonctionnalités Ultra, plus des fo...")
-                            FeatureRow(text: "Reconnaissance vidéo en temps réel de Re...")
-                            FeatureRow(text: "Lisez l'esprit de Replika (50 messages par s...")
-                            FeatureRow(text: "Mode d'entraînement (100 messages par se...")
-                            FeatureRow(text: "10 vidéos selfie réalistes gratuites")
-                        }
-                        .padding(.horizontal, 20)
-
-                        // Pro plan
-                        PlanCard(
-                            name: "Pro",
-                            annualPrice: "52,99 €",
-                            monthlyPrice: "4,42 €",
-                            isSelected: false
-                        )
-
-                        // Features for Pro
-                        VStack(alignment: .leading, spacing: 12) {
-                            FeatureRow(text: "Statut relationnel")
-                            FeatureRow(text: "Plus d'activités")
-                            FeatureRow(text: "selfies Replika")
-                            FeatureRow(text: "Génération d'images")
-                            FeatureRow(text: "Messagerie vocale")
-                            FeatureRow(text: "Appels en arrière-plan")
-                            FeatureRow(text: "Bijoux quotidiens")
-                            FeatureRow(text: "Plus de voix")
-                        }
-                        .padding(.horizontal, 20)
-
-                        Spacer().frame(height: 100)
-                    }
-                }
-
-                // Bottom button
-                VStack(spacing: 12) {
-                    Button(action: {
-                        // Purchase action
-                    }) {
-                        Text("Obtenez Replika Ultra")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.black)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                            .background(
-                                Capsule()
-                                    .fill(Color.white)
-                            )
-                    }
-                    .padding(.horizontal, 40)
-
-                    // Footer links
-                    HStack(spacing: 20) {
-                        Button("Conditions") {}
-                            .font(.system(size: 12))
-                            .foregroundColor(.white.opacity(0.5))
-                        Button("Restaurer les achats") {}
-                            .font(.system(size: 12))
-                            .foregroundColor(.white.opacity(0.5))
-                        Button("Confidentialité") {}
-                            .font(.system(size: 12))
-                            .foregroundColor(.white.opacity(0.5))
-                    }
-                    .padding(.bottom, 20)
-                }
-                .background(
-                    LinearGradient(
-                        colors: [Color.clear, Color(red: 0.08, green: 0.12, blue: 0.25)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                    .frame(height: 120)
-                    .offset(y: -60)
-                )
-            }
-        }
-        .onAppear {
-            withAnimation(.easeInOut(duration: 3).repeatForever(autoreverses: true)) {
-                animateGradient = true
-            }
-        }
-    }
-
-    private var paywallBackground: some View {
-        ZStack {
-            // Dark navy blue base
-            Color(red: 0.08, green: 0.12, blue: 0.25)
-
-            // Top gradient (lighter blue)
-            LinearGradient(
-                colors: [
-                    Color(red: 0.20, green: 0.35, blue: 0.70).opacity(0.6),
-                    Color.clear
-                ],
-                startPoint: .top,
-                endPoint: .center
-            )
-
-            // Center glow
-            RadialGradient(
-                colors: [
-                    Color(red: 0.25, green: 0.40, blue: 0.80).opacity(animateGradient ? 0.3 : 0.2),
-                    Color.clear
-                ],
-                center: .top,
-                startRadius: 50,
-                endRadius: animateGradient ? 400 : 350
-            )
-        }
-    }
-}
-
-// MARK: - Plan Card
-
-struct PlanCard: View {
-    let name: String
-    let annualPrice: String
-    let monthlyPrice: String
-    let isSelected: Bool
-
-    var body: some View {
-        HStack {
-            // Icon
-            Image(systemName: "cube.fill")
-                .font(.system(size: 24))
-                .foregroundColor(.cyan.opacity(0.8))
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(name)
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(.white)
-                Text("Prix annuel \(annualPrice)")
-                    .font(.system(size: 13))
-                    .foregroundColor(.white.opacity(0.6))
-            }
-
-            Spacer()
-
-            // Price
-            VStack(spacing: 0) {
-                Text(monthlyPrice)
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(.white)
-                Text("par mois")
-                    .font(.system(size: 11))
-                    .foregroundColor(.white.opacity(0.6))
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(
-                Capsule()
-                    .fill(Color.white.opacity(0.1))
-            )
-        }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Color.white.opacity(0.08))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20)
-                        .strokeBorder(isSelected ? Color.white.opacity(0.3) : Color.clear, lineWidth: 1)
-                )
-        )
-        .padding(.horizontal, 20)
-    }
-}
-
-// MARK: - Feature Row
-
-struct FeatureRow: View {
-    let text: String
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "checkmark")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundColor(.cyan.opacity(0.8))
-
-            Text(text)
-                .font(.system(size: 15))
-                .foregroundColor(.white.opacity(0.85))
-
-            Spacer()
-        }
-    }
-}
-
 // MARK: - Preview
 
 #Preview("Companion Profile") {
     CompanionProfileView()
-}
-
-#Preview("Paywall") {
-    ReplicaPaywallView(isPresented: .constant(true))
+        .environmentObject(FocusAppStore.shared)
+        .environmentObject(RevenueCatManager.shared)
 }

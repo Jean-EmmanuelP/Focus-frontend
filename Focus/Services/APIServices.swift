@@ -55,10 +55,14 @@ class UserService {
         lastName: String? = nil,
         gender: String? = nil,
         age: Int? = nil,
+        birthday: String? = nil,  // Format: YYYY-MM-DD
         description: String? = nil,
         hobbies: String? = nil,
         lifeGoal: String? = nil,
-        avatarUrl: String? = nil
+        avatarUrl: String? = nil,
+        companionName: String? = nil,
+        companionGender: String? = nil,
+        avatarStyle: String? = nil
     ) async throws -> UserResponse {
         struct UpdateUserRequest: Encodable {
             let pseudo: String?
@@ -66,10 +70,14 @@ class UserService {
             let lastName: String?
             let gender: String?
             let age: Int?
+            let birthday: String?
             let description: String?
             let hobbies: String?
             let lifeGoal: String?
             let avatarUrl: String?
+            let companionName: String?
+            let companionGender: String?
+            let avatarStyle: String?
         }
 
         let request = UpdateUserRequest(
@@ -78,10 +86,14 @@ class UserService {
             lastName: lastName,
             gender: gender,
             age: age,
+            birthday: birthday,
             description: description,
             hobbies: hobbies,
             lifeGoal: lifeGoal,
-            avatarUrl: avatarUrl
+            avatarUrl: avatarUrl,
+            companionName: companionName,
+            companionGender: companionGender,
+            avatarStyle: avatarStyle
         )
 
         return try await apiClient.request(
@@ -820,6 +832,7 @@ struct UserResponse: Codable {
     let lastName: String?
     let gender: String?
     let age: Int?
+    let birthday: Date?
     let description: String?
     let hobbies: String?
     let lifeGoal: String?
@@ -831,6 +844,10 @@ struct UserResponse: Codable {
     let timezone: String?
     let notificationsEnabled: Bool?
     let morningReminderTime: String?
+    // Companion settings
+    let companionName: String?
+    let companionGender: String?
+    let avatarStyle: String?
 }
 
 struct Area: Codable, Identifiable {
@@ -1542,4 +1559,254 @@ class WeeklyGoalsService {
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter.string(from: monday)
     }
+}
+
+// MARK: - Knowledge Service (Replika-style Memory System)
+@MainActor
+class KnowledgeService {
+    private let apiClient = APIClient.shared
+
+    // MARK: - User Knowledge Profile
+
+    /// Fetch the user's knowledge profile (what AI knows about user)
+    func fetchKnowledge() async throws -> KnowledgeResponse {
+        return try await apiClient.request(
+            endpoint: .knowledge,
+            method: .get
+        )
+    }
+
+    /// Update user's knowledge profile
+    func updateKnowledge(
+        name: String? = nil,
+        pronouns: String? = nil,
+        birthday: String? = nil,
+        photoUrl: String? = nil
+    ) async throws -> KnowledgeResponse {
+        struct UpdateKnowledgeRequest: Encodable {
+            let name: String?
+            let pronouns: String?
+            let birthday: String?
+            let photoUrl: String?
+        }
+
+        return try await apiClient.request(
+            endpoint: .updateKnowledge,
+            method: .put,
+            body: UpdateKnowledgeRequest(
+                name: name,
+                pronouns: pronouns,
+                birthday: birthday,
+                photoUrl: photoUrl
+            )
+        )
+    }
+
+    // MARK: - Known Persons
+
+    /// Fetch all known persons
+    func fetchPersons() async throws -> [KnowledgePersonResponse] {
+        return try await apiClient.request(
+            endpoint: .knowledgePersons,
+            method: .get
+        )
+    }
+
+    /// Create a new known person
+    func createPerson(
+        name: String,
+        category: String,
+        relation: String? = nil,
+        photoUrl: String? = nil
+    ) async throws -> KnowledgePersonResponse {
+        struct CreatePersonRequest: Encodable {
+            let name: String
+            let category: String
+            let relation: String?
+            let photoUrl: String?
+        }
+
+        return try await apiClient.request(
+            endpoint: .createKnowledgePerson,
+            method: .post,
+            body: CreatePersonRequest(
+                name: name,
+                category: category,
+                relation: relation,
+                photoUrl: photoUrl
+            )
+        )
+    }
+
+    /// Update a known person
+    func updatePerson(
+        personId: String,
+        name: String? = nil,
+        category: String? = nil,
+        relation: String? = nil,
+        photoUrl: String? = nil
+    ) async throws -> KnowledgePersonResponse {
+        struct UpdatePersonRequest: Encodable {
+            let name: String?
+            let category: String?
+            let relation: String?
+            let photoUrl: String?
+        }
+
+        return try await apiClient.request(
+            endpoint: .updateKnowledgePerson(personId),
+            method: .patch,
+            body: UpdatePersonRequest(
+                name: name,
+                category: category,
+                relation: relation,
+                photoUrl: photoUrl
+            )
+        )
+    }
+
+    /// Delete a known person
+    func deletePerson(personId: String) async throws {
+        let _: EmptyResponse = try await apiClient.request(
+            endpoint: .deleteKnowledgePerson(personId),
+            method: .delete
+        )
+    }
+
+    // MARK: - Life Domains
+
+    /// Fetch all life domains
+    func fetchDomains() async throws -> [KnowledgeDomainResponse] {
+        return try await apiClient.request(
+            endpoint: .knowledgeDomains,
+            method: .get
+        )
+    }
+
+    /// Update a life domain
+    func updateDomain(
+        domainId: String,
+        name: String? = nil,
+        imageUrl: String? = nil
+    ) async throws -> KnowledgeDomainResponse {
+        struct UpdateDomainRequest: Encodable {
+            let name: String?
+            let imageUrl: String?
+        }
+
+        return try await apiClient.request(
+            endpoint: .updateKnowledgeDomain(domainId),
+            method: .patch,
+            body: UpdateDomainRequest(name: name, imageUrl: imageUrl)
+        )
+    }
+
+    // MARK: - Facts
+
+    /// Fetch facts (optionally filtered by person or domain)
+    func fetchFacts(personId: String? = nil, domainId: String? = nil) async throws -> [KnowledgeFactResponse] {
+        return try await apiClient.request(
+            endpoint: .knowledgeFacts(personId: personId, domainId: domainId),
+            method: .get
+        )
+    }
+
+    /// Create a new fact
+    func createFact(
+        content: String,
+        personId: String? = nil,
+        domainId: String? = nil,
+        source: String = "user"
+    ) async throws -> KnowledgeFactResponse {
+        struct CreateFactRequest: Encodable {
+            let content: String
+            let personId: String?
+            let domainId: String?
+            let source: String
+        }
+
+        return try await apiClient.request(
+            endpoint: .createKnowledgeFact,
+            method: .post,
+            body: CreateFactRequest(
+                content: content,
+                personId: personId,
+                domainId: domainId,
+                source: source
+            )
+        )
+    }
+
+    /// Update a fact
+    func updateFact(
+        factId: String,
+        content: String? = nil,
+        isVerified: Bool? = nil
+    ) async throws -> KnowledgeFactResponse {
+        struct UpdateFactRequest: Encodable {
+            let content: String?
+            let isVerified: Bool?
+        }
+
+        return try await apiClient.request(
+            endpoint: .updateKnowledgeFact(factId),
+            method: .patch,
+            body: UpdateFactRequest(content: content, isVerified: isVerified)
+        )
+    }
+
+    /// Delete a fact
+    func deleteFact(factId: String) async throws {
+        let _: EmptyResponse = try await apiClient.request(
+            endpoint: .deleteKnowledgeFact(factId),
+            method: .delete
+        )
+    }
+}
+
+// MARK: - Knowledge Response Models
+
+struct KnowledgeResponse: Codable {
+    let id: String
+    let userId: String
+    let name: String?
+    let pronouns: String?
+    let birthday: String?
+    let photoUrl: String?
+    let createdAt: Date
+    let updatedAt: Date
+}
+
+struct KnowledgePersonResponse: Codable, Identifiable {
+    let id: String
+    let userId: String
+    let name: String
+    let category: String
+    let relation: String?
+    let photoUrl: String?
+    let factsCount: Int?
+    let createdAt: Date
+    let updatedAt: Date
+}
+
+struct KnowledgeDomainResponse: Codable, Identifiable {
+    let id: String
+    let userId: String
+    let name: String
+    let imageUrl: String?
+    let factsCount: Int?
+    let createdAt: Date
+    let updatedAt: Date
+}
+
+struct KnowledgeFactResponse: Codable, Identifiable {
+    let id: String
+    let userId: String
+    let personId: String?
+    let domainId: String?
+    let content: String
+    let source: String
+    let isVerified: Bool
+    let createdAt: Date
+    let updatedAt: Date
 }

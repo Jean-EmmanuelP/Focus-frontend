@@ -350,12 +350,11 @@ struct SubscriptionManagementView: View {
         switch revenueCatManager.subscriptionState {
         case .subscribed(let tier):
             switch tier {
-            case .monthly: return "Volta Pro Mensuel"
-            case .yearly: return "Volta Pro Annuel"
-            case .lifetime: return "Volta Pro A vie"
+            case .plus: return "Focus Plus"
+            case .max: return "Focus Max"
             }
         case .expired:
-            return "Abonnement expire"
+            return "Abonnement expiré"
         case .notSubscribed, .unknown:
             return "Plan Gratuit"
         }

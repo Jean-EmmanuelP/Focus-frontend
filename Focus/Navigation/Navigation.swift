@@ -4,7 +4,7 @@ import Combine
 // MARK: - App Navigation
 // Simplified: Chat is the main (and only) tab - Profile accessible from chat header
 enum AppTab: Int, CaseIterable {
-    case chat = 0        // Main screen - talk to Kai
+    case chat = 0        // Main screen - talk to companion
 
     // Define which tabs are currently active
     static var activeCases: [AppTab] {
@@ -13,7 +13,7 @@ enum AppTab: Int, CaseIterable {
 
     var title: String {
         switch self {
-        case .chat: return "Kai"
+        case .chat: return "Chat"  // Not displayed - companion name fetched from store
         }
     }
 
@@ -154,7 +154,6 @@ class AppRouter: ObservableObject {
 struct MainTabView: View {
     @StateObject private var router = AppRouter.shared
     @EnvironmentObject var store: FocusAppStore
-    @State private var showOnboardingTutorial = false
 
     var body: some View {
         ZStack {
@@ -180,24 +179,7 @@ struct MainTabView: View {
                     .transition(.opacity)
             }
         }
-        .overlay {
-            if showOnboardingTutorial {
-                OnboardingTutorialModal(isPresented: $showOnboardingTutorial)
-                    .transition(.opacity)
-            }
-        }
         .animation(.easeInOut(duration: 0.3), value: router.showFireModeSession)
-        .animation(.easeInOut(duration: 0.3), value: showOnboardingTutorial)
-        .onAppear {
-            // Show onboarding tutorial on first launch
-            if !UserDefaults.standard.bool(forKey: "hasSeenOnboardingTutorial") {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        showOnboardingTutorial = true
-                    }
-                }
-            }
-        }
     }
 
     @ViewBuilder

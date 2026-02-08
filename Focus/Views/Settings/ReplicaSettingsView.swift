@@ -1,4 +1,7 @@
 import SwiftUI
+import SceneKit
+import GLTFKit2
+import Combine
 
 // MARK: - Replika Settings Colors
 
@@ -25,6 +28,11 @@ private enum ReplicaColors {
 struct ReplicaSettingsView: View {
     var onDismiss: () -> Void
     @EnvironmentObject var store: FocusAppStore
+    @EnvironmentObject var revenueCatManager: RevenueCatManager
+
+    private var companionName: String {
+        store.user?.companionName ?? "Kai"
+    }
 
     // Settings state
     @State private var avatarHerited = true
@@ -44,6 +52,8 @@ struct ReplicaSettingsView: View {
     @State private var showChangeEmail = false
     @State private var showDeleteAccount = false
     @State private var showSubscription = false
+    @State private var showOnboarding = false
+    @State private var showAvatarTest = false
 
     private let userService = UserService()
 
@@ -134,9 +144,10 @@ struct ReplicaSettingsView: View {
         .overlay {
             if showEditBirthday {
                 ReplicaEditBirthdayView(
+                    currentBirthday: store.user?.birthday,
                     onDismiss: { withAnimation(.easeInOut(duration: 0.3)) { showEditBirthday = false } },
                     onSave: { date in
-                        // TODO: Save birthday to backend
+                        Task { await updateBirthday(date) }
                         withAnimation(.easeInOut(duration: 0.3)) { showEditBirthday = false }
                     }
                 )
@@ -183,12 +194,39 @@ struct ReplicaSettingsView: View {
         }
         .overlay {
             if showSubscription {
-                ReplicaSubscriptionView(
-                    onDismiss: { withAnimation(.easeInOut(duration: 0.3)) { showSubscription = false } }
+                FocusPaywallView(
+                    companionName: companionName,
+                    onComplete: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            showSubscription = false
+                        }
+                    },
+                    onSkip: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            showSubscription = false
+                        }
+                    }
                 )
+                .environmentObject(revenueCatManager)
                 .transition(.opacity)
             }
         }
+        .fullScreenCover(isPresented: $showOnboarding) {
+            NewOnboardingView()
+                .environmentObject(store)
+                .environmentObject(RevenueCatManager.shared)
+        }
+        .overlay {
+            if showAvatarTest {
+                AvatarTestView(onDismiss: {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showAvatarTest = false
+                    }
+                })
+                .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.3), value: showAvatarTest)
         .animation(.easeInOut(duration: 0.3), value: showSubscription)
         .animation(.easeInOut(duration: 0.3), value: showAccount)
         .animation(.easeInOut(duration: 0.3), value: showEditName)
@@ -206,36 +244,34 @@ struct ReplicaSettingsView: View {
                 showSubscription = true
             }
         }) {
-            VStack(spacing: 12) {
-                // Diamond icon
-                Image(systemName: "diamond.fill")
-                    .font(.system(size: 24))
-                    .foregroundColor(.white.opacity(0.9))
-                    .padding(12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(
-                                LinearGradient(
-                                    colors: [Color.blue.opacity(0.5), Color.cyan.opacity(0.3)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                    )
+            HStack(spacing: 16) {
+                // 3D Avatar preview
+                Avatar3DView(
+                    avatarURL: AvatarURLs.forGender(store.user?.companionGender),
+                    backgroundColor: .clear,
+                    enableRotation: false,
+                    autoRotate: false
+                )
+                .frame(width: 100, height: 120)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
 
-                Text("Débloquez toutes les fonctionnalités")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(.white)
-                    .multilineTextAlignment(.center)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Débloquez toutes les fonctionnalités")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.white)
+                        .multilineTextAlignment(.leading)
 
-                Text("Obtenez l'accès au modèle avancé, aux messages vocaux illimités, à la génération d'images, aux activités, et plus encore.")
-                    .font(.system(size: 14))
-                    .foregroundColor(.white.opacity(0.7))
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 8)
+                    Text("Messages vocaux illimités, génération d'images, activités, et plus encore.")
+                        .font(.system(size: 13))
+                        .foregroundColor(.white.opacity(0.7))
+                        .multilineTextAlignment(.leading)
+                        .lineLimit(3)
+                }
+
+                Spacer()
             }
-            .padding(.vertical, 24)
-            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            .padding(.horizontal, 16)
             .frame(maxWidth: .infinity)
             .background(
                 RoundedRectangle(cornerRadius: 20)
@@ -379,9 +415,21 @@ struct ReplicaSettingsView: View {
             sectionLabel("Développeur")
 
             Button(action: {
-                // Will need navigation to OnboardingDebugView
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showOnboarding = true
+                }
             }) {
                 settingsRow(title: "Debug Onboarding", showChevron: true)
+            }
+
+            replicaDivider
+
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showAvatarTest = true
+                }
+            }) {
+                settingsRow(title: "Test Avatar 3D", showChevron: true)
             }
         }
         .padding(.horizontal, 16)
@@ -444,25 +492,27 @@ struct ReplicaSettingsView: View {
             }
         }) {
             HStack(spacing: 12) {
-                // Icon based on platform
+                // Real brand logos
                 Group {
                     switch iconName {
                     case "reddit":
-                        Image(systemName: "globe")
-                            .foregroundColor(.orange)
+                        RedditLogoView()
                     case "discord":
-                        Image(systemName: "bubble.left.fill")
-                            .foregroundColor(.purple)
+                        DiscordLogoView()
                     case "facebook":
-                        Image(systemName: "person.2.fill")
-                            .foregroundColor(.blue)
+                        FacebookLogoView()
                     default:
-                        Image(systemName: "link")
-                            .foregroundColor(.white)
+                        Circle()
+                            .fill(Color.gray)
+                            .frame(width: 28, height: 28)
+                            .overlay(
+                                Image(systemName: "link")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.white)
+                            )
                     }
                 }
-                .font(.system(size: 18))
-                .frame(width: 24)
+                .frame(width: 28, height: 28)
 
                 Text(title)
                     .font(.system(size: 16))
@@ -519,11 +569,7 @@ struct ReplicaSettingsView: View {
 
     private func updateName(_ name: String) async {
         do {
-            let updated = try await userService.updateProfile(
-                pseudo: nil, firstName: name, lastName: nil,
-                gender: nil, age: nil, description: nil,
-                hobbies: nil, lifeGoal: nil
-            )
+            let updated = try await userService.updateProfile(firstName: name)
             await MainActor.run {
                 FocusAppStore.shared.user = User(from: updated)
             }
@@ -536,7 +582,7 @@ struct ReplicaSettingsView: View {
         do {
             let updated = try await userService.updateProfile(
                 pseudo: nil, firstName: nil, lastName: nil,
-                gender: pronouns, age: nil, description: nil,
+                gender: pronouns, age: nil, birthday: nil, description: nil,
                 hobbies: nil, lifeGoal: nil
             )
             await MainActor.run {
@@ -544,6 +590,21 @@ struct ReplicaSettingsView: View {
             }
         } catch {
             print("Failed to update pronouns: \(error)")
+        }
+    }
+
+    private func updateBirthday(_ date: Date) async {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        let dateString = formatter.string(from: date)
+
+        do {
+            let updated = try await userService.updateProfile(birthday: dateString)
+            await MainActor.run {
+                FocusAppStore.shared.user = User(from: updated)
+            }
+        } catch {
+            print("Failed to update birthday: \(error)")
         }
     }
 
@@ -620,6 +681,16 @@ struct ReplicaAccountView: View {
         }
     }
 
+    private var birthdayDisplay: String {
+        guard let birthday = store.user?.birthday else {
+            return "Non défini"
+        }
+        let formatter = DateFormatter()
+        formatter.dateStyle = .long
+        formatter.locale = Locale(identifier: "fr_FR")
+        return formatter.string(from: birthday)
+    }
+
     var body: some View {
         ZStack {
             ReplicaColors.background
@@ -639,7 +710,7 @@ struct ReplicaAccountView: View {
 
                     // Anniversaire
                     Button(action: onShowEditBirthday) {
-                        accountRow(label: "Anniversaire", value: "Non défini")
+                        accountRow(label: "Anniversaire", value: birthdayDisplay)
                     }
 
                     Divider().background(ReplicaColors.rowDivider)
@@ -769,10 +840,12 @@ struct ReplicaEditNameView: View {
 // MARK: - Edit Birthday View
 
 struct ReplicaEditBirthdayView: View {
+    var currentBirthday: Date?
     var onDismiss: () -> Void
     var onSave: (Date) -> Void
 
     @State private var selectedDate = Calendar.current.date(from: DateComponents(year: 2000, month: 1, day: 1)) ?? Date()
+    @State private var hasAppeared = false
 
     var body: some View {
         ZStack {
@@ -815,6 +888,12 @@ struct ReplicaEditBirthdayView: View {
                         )
                 }
                 .padding(.bottom, 50)
+            }
+        }
+        .onAppear {
+            if !hasAppeared, let birthday = currentBirthday {
+                selectedDate = birthday
+                hasAppeared = true
             }
         }
     }
@@ -1121,351 +1200,459 @@ struct ReplicaDeleteAccountView: View {
     }
 }
 
-// MARK: - Subscription View (Paywall)
+// MARK: - Avatar Debug View
 
-struct ReplicaSubscriptionView: View {
+struct AvatarTestView: View {
     var onDismiss: () -> Void
-
-    @State private var selectedPlan: SubscriptionPlan = .platinum
-
-    enum SubscriptionPlan: String, CaseIterable {
-        case platinum, ultra, pro
-
-        var name: String {
-            switch self {
-            case .platinum: return "Platinum"
-            case .ultra: return "Ultra"
-            case .pro: return "Pro"
-            }
-        }
-
-        var monthlyPrice: String {
-            switch self {
-            case .platinum: return "5,67 €/mois"
-            case .ultra: return "5,00 €/mois"
-            case .pro: return "4,42 €/mois"
-            }
-        }
-
-        var yearlyPrice: String {
-            switch self {
-            case .platinum: return "67,99 €/année"
-            case .ultra: return "59,99 €/année"
-            case .pro: return "52,99 €/année"
-            }
-        }
-
-        var iconGradient: LinearGradient {
-            switch self {
-            case .platinum:
-                return LinearGradient(
-                    colors: [Color(red: 0.4, green: 0.8, blue: 0.9), Color(red: 0.3, green: 0.6, blue: 0.8)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            case .ultra:
-                return LinearGradient(
-                    colors: [Color(red: 0.3, green: 0.7, blue: 0.7), Color(red: 0.2, green: 0.5, blue: 0.6)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            case .pro:
-                return LinearGradient(
-                    colors: [Color(red: 0.6, green: 0.4, blue: 0.8), Color(red: 0.4, green: 0.3, blue: 0.6)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            }
-        }
-
-        var includedFeatures: [String] {
-            switch self {
-            case .platinum:
-                return [
-                    "État de la relation",
-                    "Plus d'activités",
-                    "Selfies Replika",
-                    "Génération d'images",
-                    "Messagerie vocale",
-                    "Appels en arrière-plan",
-                    "Joailles quotidiennes"
-                ]
-            case .ultra, .pro:
-                return []
-            }
-        }
-
-        var excludedFeatures: [String] {
-            switch self {
-            case .platinum:
-                return []
-            case .ultra:
-                return [
-                    "Reconnaissance vidéo en temps réel de Replika",
-                    "Mode d'entraînement (100 messages par semaine)",
-                    "Lisez l'esprit de Replika (50 messages par semaine)",
-                    "10 vidéos selfies réalistes GRATUITES"
-                ]
-            case .pro:
-                return [
-                    "Des conversations plus intelligentes",
-                    "Intelligence émotionnelle élevée",
-                    "Les auto-réflexions de Replika",
-                    "Enregistrer des messages en mémoire",
-                    "Reconnaissance vidéo en temps réel de Replika",
-                    "Mode d'entraînement (100 messages par semaine)"
-                ]
-            }
-        }
-    }
+    @StateObject private var debugInfo = AvatarDebugInfo()
+    @State private var showControls = true
 
     var body: some View {
-        GeometryReader { geometry in
-            ZStack {
-                // Bright blue gradient background (exact Replika colors)
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.24, green: 0.48, blue: 1.0),  // Bright blue top
-                        Color(red: 0.30, green: 0.54, blue: 1.0),  // Mid blue
-                        Color(red: 0.35, green: 0.58, blue: 1.0)   // Lighter blue bottom
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .ignoresSafeArea()
+        ZStack {
+            // Full screen 3D Avatar with debug callback
+            AvatarDebugView(
+                avatarURL: AvatarURLs.cesiumMan,
+                debugInfo: debugInfo
+            )
+            .ignoresSafeArea()
 
-                VStack(spacing: 0) {
-                    // Header
-                    ZStack {
-                        Text("Votre abonnement")
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundColor(.white)
+            // Overlay with controls
+            VStack(spacing: 0) {
+                // Header
+                HStack {
+                    Text("Debug Avatar")
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundColor(.white)
 
-                        HStack {
-                            Spacer()
-                            Button(action: onDismiss) {
-                                Image(systemName: "xmark")
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(.white)
-                                    .frame(width: 36, height: 36)
-                                    .background(Circle().fill(Color.white.opacity(0.2)))
-                            }
-                        }
+                    Spacer()
+
+                    Button(action: { showControls.toggle() }) {
+                        Image(systemName: showControls ? "slider.horizontal.3" : "eye")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.white.opacity(0.8))
+                            .frame(width: 44, height: 44)
+                            .background(Circle().fill(Color.white.opacity(0.2)))
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 12)
 
-                    // Hero section with title and avatar
-                    ZStack(alignment: .topTrailing) {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Choisissez ce\nqui vous\nconvient le\nmieux")
-                                .font(.system(size: 32, weight: .heavy))
-                                .italic()
-                                .foregroundColor(.white)
-                                .lineSpacing(2)
-
-                            Text("Pas de frais cachés, changez ou annulez à tout moment")
-                                .font(.system(size: 14))
-                                .foregroundColor(.white.opacity(0.85))
-                                .padding(.top, 4)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.leading, 16)
-                        .padding(.top, 8)
-
-                        // Avatar (positioned to overflow right edge like Replika)
-                        ZStack {
-                            // Avatar glow/shadow
-                            Circle()
-                                .fill(Color.white.opacity(0.1))
-                                .frame(width: 180, height: 180)
-                                .blur(radius: 20)
-
-                            // Avatar placeholder (would be 3D character in real app)
-                            Image(systemName: "person.fill")
-                                .font(.system(size: 100))
-                                .foregroundColor(.white.opacity(0.3))
-                        }
-                        .offset(x: 40, y: -10)
+                    Button(action: onDismiss) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.white.opacity(0.8))
+                            .frame(width: 44, height: 44)
+                            .background(Circle().fill(Color.white.opacity(0.2)))
                     }
-                    .frame(height: 180)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 60)
 
-                    // Plan cards (horizontal scroll with snap)
-                    ScrollViewReader { proxy in
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 12) {
-                                ForEach(SubscriptionPlan.allCases, id: \.self) { plan in
-                                    planCard(plan: plan)
-                                        .id(plan)
-                                }
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                        }
-                    }
-                    .padding(.top, 8)
+                Spacer()
 
-                    // Features list (scrollable)
+                if showControls {
+                    // Control panel with sliders
                     ScrollView(showsIndicators: false) {
-                        VStack(alignment: .leading, spacing: 10) {
-                            if !selectedPlan.includedFeatures.isEmpty {
-                                Text("Ce qui est inclus :")
-                                    .font(.system(size: 14, weight: .regular))
-                                    .foregroundColor(.white.opacity(0.6))
-                                    .padding(.top, 12)
+                        VStack(alignment: .leading, spacing: 12) {
+                            // Camera section
+                            Text("📷 CAMERA")
+                                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                .foregroundColor(.yellow)
 
-                                ForEach(selectedPlan.includedFeatures, id: \.self) { feature in
-                                    featureRow(text: feature, included: true)
-                                }
-                            }
+                            sliderRow("Cam X", value: $debugInfo.cameraX, range: -3...3)
+                            sliderRow("Cam Y", value: $debugInfo.cameraY, range: 0...2.5)
+                            sliderRow("Cam Z", value: $debugInfo.cameraZ, range: 1...8)
+                            sliderRow("FOV", value: Binding(
+                                get: { Float(debugInfo.fieldOfView) },
+                                set: { debugInfo.fieldOfView = Double($0) }
+                            ), range: 20...90)
 
-                            if !selectedPlan.excludedFeatures.isEmpty {
-                                Text("Ce qui n'est pas inclus :")
-                                    .font(.system(size: 14, weight: .regular))
-                                    .foregroundColor(.white.opacity(0.6))
-                                    .padding(.top, selectedPlan.includedFeatures.isEmpty ? 12 : 4)
+                            Divider().background(Color.white.opacity(0.3))
 
-                                ForEach(selectedPlan.excludedFeatures, id: \.self) { feature in
-                                    featureRow(text: feature, included: false)
-                                }
-                            }
-                        }
-                        .padding(.horizontal, 20)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .frame(maxHeight: .infinity)
+                            // Avatar section
+                            Text("🧍 AVATAR")
+                                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                .foregroundColor(.cyan)
 
-                    // Bottom buttons
-                    VStack(spacing: 8) {
-                        // Upgrade button (for non-platinum plans)
-                        if selectedPlan != .platinum {
-                            Button(action: {
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    selectedPlan = .platinum
-                                }
-                            }) {
-                                Text("Débloquer avec Platinum")
-                                    .font(.system(size: 16, weight: .medium))
-                                    .foregroundColor(.white.opacity(0.9))
+                            sliderRow("Scale", value: $debugInfo.avatarScale, range: 0.001...0.02)
+                            sliderRow("Pos Y", value: $debugInfo.avatarY, range: -1...1)
+                            sliderRow("Rot Y", value: $debugInfo.avatarRotationY, range: 0...Float.pi * 2)
+
+                            Divider().background(Color.white.opacity(0.3))
+
+                            // Model info
+                            Text("📐 MODEL INFO")
+                                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                .foregroundColor(.purple)
+
+                            Text(debugInfo.modelInfo)
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundColor(.white)
+
+                            Divider().background(Color.white.opacity(0.3))
+
+                            // Current values (copy-paste ready)
+                            Text("📋 VALEURS ACTUELLES")
+                                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                .foregroundColor(.orange)
+
+                            Text("cameraPosition: (\(String(format: "%.2f", debugInfo.cameraX)), \(String(format: "%.2f", debugInfo.cameraY)), \(String(format: "%.2f", debugInfo.cameraZ)))")
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundColor(.green)
+
+                            Text("fieldOfView: \(String(format: "%.0f", debugInfo.fieldOfView))")
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundColor(.green)
+
+                            Text("avatarScale: \(String(format: "%.4f", debugInfo.avatarScale))")
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundColor(.green)
+
+                            Text("avatarY: \(String(format: "%.2f", debugInfo.avatarY))")
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundColor(.green)
+
+                            Text("avatarRotY: \(String(format: "%.2f", debugInfo.avatarRotationY))")
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundColor(.green)
+
+                            // Reset button
+                            Button(action: resetValues) {
+                                Text("Reset par défaut")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(.white)
                                     .frame(maxWidth: .infinity)
-                                    .frame(height: 52)
-                                    .background(
-                                        Capsule()
-                                            .fill(Color.white.opacity(0.15))
-                                    )
+                                    .padding(.vertical, 10)
+                                    .background(Capsule().fill(Color.red.opacity(0.5)))
                             }
+                            .padding(.top, 8)
                         }
-
-                        // Subscribe button
-                        Button(action: {
-                            // Handle subscription purchase via RevenueCat
-                        }) {
-                            Text("Abonnez-vous pour \(selectedPlan.yearlyPrice)")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(Color(red: 0.24, green: 0.48, blue: 1.0))
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 52)
-                                .background(
-                                    Capsule()
-                                        .fill(Color.white)
-                                )
-                        }
+                        .padding(16)
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 8)
-
-                    // Footer links
-                    HStack(spacing: 0) {
-                        Button("Conditions") {}
-                            .font(.system(size: 13))
-                            .foregroundColor(.white.opacity(0.7))
-
-                        Spacer()
-
-                        Button("Restaurer les achats") {}
-                            .font(.system(size: 13))
-                            .foregroundColor(.white.opacity(0.7))
-
-                        Spacer()
-
-                        Button("Confidentialité") {}
-                            .font(.system(size: 13))
-                            .foregroundColor(.white.opacity(0.7))
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 12)
-                    .padding(.bottom, geometry.safeAreaInsets.bottom > 0 ? 8 : 20)
+                    .frame(maxHeight: 400)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color.black.opacity(0.85))
+                    )
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 30)
                 }
             }
         }
     }
 
-    private func planCard(plan: SubscriptionPlan) -> some View {
-        Button(action: {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                selectedPlan = plan
-            }
-        }) {
-            VStack(alignment: .leading, spacing: 6) {
-                // Gradient icon (like Replika's diamond)
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(plan.iconGradient)
-                    .frame(width: 32, height: 32)
-                    .overlay(
-                        Image(systemName: "diamond.fill")
-                            .font(.system(size: 14))
-                            .foregroundColor(.white.opacity(0.9))
-                    )
+    private func sliderRow(_ label: String, value: Binding<Float>, range: ClosedRange<Float>) -> some View {
+        HStack(spacing: 8) {
+            Text(label)
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundColor(.white.opacity(0.7))
+                .frame(width: 50, alignment: .leading)
 
-                // Plan name
-                Text(plan.name)
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundColor(.white)
+            Slider(value: value, in: range)
+                .tint(.blue)
 
-                // Price
-                Text(plan.monthlyPrice + ", facturé annuellement")
-                    .font(.system(size: 13))
-                    .foregroundColor(.white.opacity(0.75))
-            }
-            .padding(16)
-            .frame(width: UIScreen.main.bounds.width - 80, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(
-                        selectedPlan == plan
-                            ? Color.white.opacity(0.22)
-                            : Color.white.opacity(0.08)
-                    )
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(
-                        selectedPlan == plan ? Color.white.opacity(0.25) : Color.clear,
-                        lineWidth: 1.5
-                    )
-            )
+            Text(String(format: "%.3f", value.wrappedValue))
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundColor(.green)
+                .frame(width: 50, alignment: .trailing)
         }
-        .buttonStyle(.plain)
     }
 
-    private func featureRow(text: String, included: Bool) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            // Checkmark or X icon
-            Image(systemName: included ? "checkmark" : "xmark")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundColor(included ? .white : .white.opacity(0.45))
-                .frame(width: 18, height: 18)
-                .background(
-                    Circle()
-                        .fill(included ? Color.white.opacity(0.2) : Color.clear)
-                )
+    private func resetValues() {
+        debugInfo.cameraX = 0
+        debugInfo.cameraY = 0.5
+        debugInfo.cameraZ = 2.5
+        debugInfo.fieldOfView = 50
+        debugInfo.avatarScale = 0.005
+        debugInfo.avatarY = 0
+        debugInfo.avatarRotationY = 0
+    }
+}
 
-            Text(text)
-                .font(.system(size: 15, weight: included ? .medium : .regular))
-                .foregroundColor(included ? .white : .white.opacity(0.5))
-                .fixedSize(horizontal: false, vertical: true)
+// MARK: - Avatar Debug Info (Observable)
+
+class AvatarDebugInfo: ObservableObject {
+    @Published var cameraX: Float = 0
+    @Published var cameraY: Float = 0.5
+    @Published var cameraZ: Float = 2.5
+    @Published var rotationX: Float = 0
+    @Published var rotationY: Float = 0
+    @Published var rotationZ: Float = 0
+    @Published var fieldOfView: Double = 50
+    @Published var avatarScale: Float = 0.005
+    @Published var avatarY: Float = 0
+    @Published var avatarRotationY: Float = 0
+    @Published var modelInfo: String = "Chargement..."
+}
+
+// MARK: - Avatar Debug View (SceneKit with live updates)
+
+struct AvatarDebugView: UIViewRepresentable {
+    let avatarURL: String
+    @ObservedObject var debugInfo: AvatarDebugInfo
+
+    func makeUIView(context: Context) -> SCNView {
+        let sceneView = SCNView()
+        sceneView.backgroundColor = UIColor(red: 0.10, green: 0.12, blue: 0.20, alpha: 1.0)
+        sceneView.allowsCameraControl = true  // Allow manual rotation
+        sceneView.autoenablesDefaultLighting = true
+        sceneView.antialiasingMode = .multisampling4X
+
+        // Create scene
+        let scene = SCNScene()
+        sceneView.scene = scene
+
+        // Add camera - positioned for human-scale avatar (after 0.01 scale)
+        let cameraNode = SCNNode()
+        cameraNode.name = "debugCamera"
+        cameraNode.camera = SCNCamera()
+        cameraNode.camera?.fieldOfView = CGFloat(debugInfo.fieldOfView)
+        cameraNode.camera?.zNear = 0.01
+        cameraNode.camera?.zFar = 100
+        cameraNode.position = SCNVector3(x: debugInfo.cameraX, y: debugInfo.cameraY, z: debugInfo.cameraZ)
+        scene.rootNode.addChildNode(cameraNode)
+        sceneView.pointOfView = cameraNode
+
+        // Store reference to coordinator
+        context.coordinator.sceneView = sceneView
+        context.coordinator.cameraNode = cameraNode
+        context.coordinator.debugInfo = debugInfo
+
+        // Add ambient light
+        let ambientLight = SCNNode()
+        ambientLight.light = SCNLight()
+        ambientLight.light?.type = .ambient
+        ambientLight.light?.color = UIColor.white
+        ambientLight.light?.intensity = 400
+        scene.rootNode.addChildNode(ambientLight)
+
+        // Add directional light from front-top
+        let directionalLight = SCNNode()
+        directionalLight.light = SCNLight()
+        directionalLight.light?.type = .directional
+        directionalLight.light?.intensity = 800
+        directionalLight.light?.color = UIColor.white
+        directionalLight.eulerAngles = SCNVector3(x: -.pi / 4, y: 0, z: 0)
+        scene.rootNode.addChildNode(directionalLight)
+
+        // Load avatar
+        context.coordinator.loadAvatar(url: avatarURL, into: sceneView, debugInfo: debugInfo)
+
+        return sceneView
+    }
+
+    func updateUIView(_ uiView: SCNView, context: Context) {
+        // Update camera position from sliders
+        if let cameraNode = context.coordinator.cameraNode {
+            cameraNode.position = SCNVector3(x: debugInfo.cameraX, y: debugInfo.cameraY, z: debugInfo.cameraZ)
+            cameraNode.camera?.fieldOfView = CGFloat(debugInfo.fieldOfView)
         }
-        .padding(.vertical, 2)
+
+        // Update avatar from sliders
+        if let avatarNode = context.coordinator.avatarNode {
+            let scale = debugInfo.avatarScale
+            avatarNode.scale = SCNVector3(x: scale, y: scale, z: scale)
+            avatarNode.position = SCNVector3(x: 0, y: debugInfo.avatarY, z: 0)
+            avatarNode.eulerAngles = SCNVector3(x: 0, y: debugInfo.avatarRotationY, z: 0)
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    class Coordinator {
+        var sceneView: SCNView?
+        var cameraNode: SCNNode?
+        var avatarNode: SCNNode?
+        var debugInfo: AvatarDebugInfo?
+
+        func loadAvatar(url: String, into sceneView: SCNView, debugInfo: AvatarDebugInfo) {
+            guard let avatarURL = URL(string: url) else { return }
+
+            URLSession.shared.downloadTask(with: avatarURL) { [weak self] localURL, _, error in
+                guard let self = self, let localURL = localURL, error == nil else {
+                    print("❌ Download error: \(error?.localizedDescription ?? "unknown")")
+                    DispatchQueue.main.async {
+                        debugInfo.modelInfo = "Erreur téléchargement"
+                    }
+                    return
+                }
+
+                do {
+                    let asset = try GLTFAsset(url: localURL)
+                    let sceneSource = GLTFSCNSceneSource(asset: asset)
+                    guard let loadedScene = sceneSource.defaultScene else {
+                        print("❌ No default scene")
+                        return
+                    }
+
+                    let animations = sceneSource.animations
+
+                    DispatchQueue.main.async {
+                        let avatarNode = loadedScene.rootNode.clone()
+
+                        // Calculate bounding box
+                        let (minBound, maxBound) = avatarNode.boundingBox
+                        let width = maxBound.x - minBound.x
+                        let height = maxBound.y - minBound.y
+                        let depth = maxBound.z - minBound.z
+
+                        print("📏 Model size (original): \(width) x \(height) x \(depth)")
+                        debugInfo.modelInfo = "Original: \(Int(width))x\(Int(height))x\(Int(depth)) → Scaled: \(String(format: "%.2f", width * debugInfo.avatarScale))x\(String(format: "%.2f", height * debugInfo.avatarScale))"
+
+                        // Apply scale (model is in cm, 0.01 converts to meters)
+                        let scale = debugInfo.avatarScale
+                        avatarNode.scale = SCNVector3(x: scale, y: scale, z: scale)
+                        avatarNode.eulerAngles = SCNVector3(x: 0, y: debugInfo.avatarRotationY, z: 0)
+                        avatarNode.position = SCNVector3(x: 0, y: debugInfo.avatarY, z: 0)
+                        avatarNode.name = "avatar"
+
+                        self.avatarNode = avatarNode
+                        sceneView.scene?.rootNode.addChildNode(avatarNode)
+
+                        // Play animations
+                        if !animations.isEmpty {
+                            for (index, animation) in animations.enumerated() {
+                                animation.animationPlayer.animation.usesSceneTimeBase = false
+                                animation.animationPlayer.animation.repeatCount = .greatestFiniteMagnitude
+                                avatarNode.addAnimationPlayer(animation.animationPlayer, forKey: "anim_\(index)")
+                                animation.animationPlayer.play()
+                            }
+                        }
+
+                        print("✅ Avatar loaded! Scale=\(scale)")
+                    }
+                } catch {
+                    print("❌ GLTFKit2 error: \(error)")
+                    DispatchQueue.main.async {
+                        debugInfo.modelInfo = "Erreur chargement GLB"
+                    }
+                }
+            }.resume()
+        }
+    }
+}
+
+// MARK: - Social Media Logo Views
+
+/// Facebook logo - blue circle with white "f"
+struct FacebookLogoView: View {
+    var body: some View {
+        Circle()
+            .fill(Color(red: 0.02, green: 0.40, blue: 1.0)) // #0866ff
+            .overlay(
+                Text("f")
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+                    .offset(y: 1)
+            )
+    }
+}
+
+/// Reddit logo - orange circle with Snoo face
+struct RedditLogoView: View {
+    var body: some View {
+        Circle()
+            .fill(Color(red: 1.0, green: 0.27, blue: 0.0)) // #ff4500
+            .overlay(
+                // Simplified Snoo face
+                GeometryReader { geo in
+                    let size = geo.size.width
+                    ZStack {
+                        // Ears (two small circles on top)
+                        Circle()
+                            .fill(Color.white)
+                            .frame(width: size * 0.22, height: size * 0.22)
+                            .offset(x: -size * 0.22, y: -size * 0.18)
+
+                        Circle()
+                            .fill(Color.white)
+                            .frame(width: size * 0.22, height: size * 0.22)
+                            .offset(x: size * 0.22, y: -size * 0.18)
+
+                        // Face (white oval)
+                        Ellipse()
+                            .fill(Color.white)
+                            .frame(width: size * 0.65, height: size * 0.55)
+                            .offset(y: size * 0.08)
+
+                        // Eyes (two black dots)
+                        Circle()
+                            .fill(Color(red: 1.0, green: 0.27, blue: 0.0))
+                            .frame(width: size * 0.12, height: size * 0.12)
+                            .offset(x: -size * 0.12, y: size * 0.02)
+
+                        Circle()
+                            .fill(Color(red: 1.0, green: 0.27, blue: 0.0))
+                            .frame(width: size * 0.12, height: size * 0.12)
+                            .offset(x: size * 0.12, y: size * 0.02)
+
+                        // Smile (arc)
+                        Path { path in
+                            path.addArc(
+                                center: CGPoint(x: size * 0.5, y: size * 0.58),
+                                radius: size * 0.15,
+                                startAngle: .degrees(0),
+                                endAngle: .degrees(180),
+                                clockwise: false
+                            )
+                        }
+                        .stroke(Color(red: 1.0, green: 0.27, blue: 0.0), lineWidth: 1.5)
+                    }
+                }
+            )
+    }
+}
+
+/// Discord logo - blurple circle with controller face
+struct DiscordLogoView: View {
+    var body: some View {
+        Circle()
+            .fill(Color(red: 0.345, green: 0.396, blue: 0.949)) // #5865f2
+            .overlay(
+                // Simplified Discord logo (game controller face)
+                GeometryReader { geo in
+                    let size = geo.size.width
+                    ZStack {
+                        // Main body shape (simplified)
+                        Path { path in
+                            let w = size * 0.7
+                            let h = size * 0.45
+                            let x = (size - w) / 2
+                            let y = (size - h) / 2 + size * 0.05
+
+                            path.move(to: CGPoint(x: x + w * 0.15, y: y))
+                            path.addLine(to: CGPoint(x: x + w * 0.85, y: y))
+                            path.addQuadCurve(
+                                to: CGPoint(x: x + w, y: y + h * 0.4),
+                                control: CGPoint(x: x + w, y: y)
+                            )
+                            path.addLine(to: CGPoint(x: x + w * 0.85, y: y + h))
+                            path.addLine(to: CGPoint(x: x + w * 0.15, y: y + h))
+                            path.addQuadCurve(
+                                to: CGPoint(x: x, y: y + h * 0.4),
+                                control: CGPoint(x: x, y: y + h)
+                            )
+                            path.addLine(to: CGPoint(x: x, y: y + h * 0.4))
+                            path.addQuadCurve(
+                                to: CGPoint(x: x + w * 0.15, y: y),
+                                control: CGPoint(x: x, y: y)
+                            )
+                        }
+                        .fill(Color.white)
+
+                        // Left eye
+                        Ellipse()
+                            .fill(Color(red: 0.345, green: 0.396, blue: 0.949))
+                            .frame(width: size * 0.15, height: size * 0.18)
+                            .offset(x: -size * 0.12, y: size * 0.05)
+
+                        // Right eye
+                        Ellipse()
+                            .fill(Color(red: 0.345, green: 0.396, blue: 0.949))
+                            .frame(width: size * 0.15, height: size * 0.18)
+                            .offset(x: size * 0.12, y: size * 0.05)
+                    }
+                }
+            )
     }
 }
 
@@ -1474,8 +1661,18 @@ struct ReplicaSubscriptionView: View {
 #Preview {
     ReplicaSettingsView(onDismiss: {})
         .environmentObject(FocusAppStore.shared)
+        .environmentObject(RevenueCatManager.shared)
 }
 
-#Preview("Subscription") {
-    ReplicaSubscriptionView(onDismiss: {})
+#Preview("Social Logos") {
+    HStack(spacing: 20) {
+        FacebookLogoView()
+            .frame(width: 40, height: 40)
+        RedditLogoView()
+            .frame(width: 40, height: 40)
+        DiscordLogoView()
+            .frame(width: 40, height: 40)
+    }
+    .padding()
+    .background(Color(red: 0.16, green: 0.19, blue: 0.48))
 }

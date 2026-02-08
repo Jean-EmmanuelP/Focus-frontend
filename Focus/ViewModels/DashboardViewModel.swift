@@ -26,10 +26,6 @@ class DashboardViewModel: ObservableObject {
     @Published var journalStreak: Int = 0
     @Published var isLoadingJournal: Bool = false
 
-    // MARK: - WhatsApp State
-    @Published var isWhatsAppLinked: Bool = false
-    @Published var whatsAppBannerDismissed: Bool = false
-
     init() {
         setupBindings()
     }
@@ -437,7 +433,6 @@ class DashboardViewModel: ObservableObject {
 
     // MARK: - Journal Actions
     private let journalService = JournalService()
-    private let whatsAppService = WhatsAppService.shared
 
     /// Load journal data (today's entry, recent entries, streak)
     func loadJournalData() async {
@@ -475,32 +470,6 @@ class DashboardViewModel: ObservableObject {
             journalStreak = try await journalService.fetchStreak()
         } catch {
             print("❌ Failed to load journal streak: \(error)")
-        }
-    }
-
-    // MARK: - WhatsApp
-    func loadWhatsAppStatus() async {
-        // Check if banner was dismissed this session
-        if whatsAppBannerDismissed { return }
-
-        do {
-            let status = try await whatsAppService.getStatus()
-            isWhatsAppLinked = status.isLinked
-        } catch {
-            // Not linked or error - show banner
-            isWhatsAppLinked = false
-        }
-    }
-
-    func dismissWhatsAppBanner() {
-        whatsAppBannerDismissed = true
-    }
-
-    func openWhatsApp() {
-        // Open WhatsApp with the Focus WhatsApp Business number
-        let whatsappNumber = "33612345678" // Replace with actual WhatsApp Business number
-        if let url = URL(string: "https://wa.me/\(whatsappNumber)?text=Salut%20Kai!") {
-            UIApplication.shared.open(url)
         }
     }
 

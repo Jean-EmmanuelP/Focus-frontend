@@ -2,21 +2,6 @@ import Foundation
 import Combine
 import UserNotifications
 
-// MARK: - Notification Models
-
-struct MorningPhraseResponse: Codable {
-    let phrase: String
-    let language: String
-    let type: String
-}
-
-struct TaskReminderResponse: Codable {
-    let phrase: String
-    let taskName: String
-    let language: String
-    let type: String
-}
-
 // MARK: - Notification Settings
 
 struct NotificationSettings: Codable {
@@ -48,7 +33,6 @@ struct NotificationSettings: Codable {
 class NotificationService: ObservableObject {
     static let shared = NotificationService()
 
-    private let apiClient = APIClient.shared
     private let notificationCenter = UNUserNotificationCenter.current()
 
     @Published var isAuthorized: Bool = false
@@ -135,8 +119,8 @@ class NotificationService: ObservableObject {
         for dayOffset in 1...7 {
             guard let futureDate = calendar.date(byAdding: .day, value: dayOffset, to: Date()) else { continue }
 
-            // Fetch a fresh motivational phrase for each day
-            let phrase = await fetchMorningPhrase()
+            // Get a motivational phrase for each day
+            let phrase = getMorningPhrase()
 
             // Create notification content with personalized title
             let content = UNMutableNotificationContent()
@@ -209,8 +193,8 @@ class NotificationService: ObservableObject {
         // Don't schedule if reminder time is in the past
         guard reminderTime > Date() else { return }
 
-        // Fetch motivational phrase
-        let phrase = await fetchTaskReminderPhrase(taskName: task.title)
+        // Get task reminder phrase
+        let phrase = getTaskReminderPhrase(taskName: task.title)
 
         // Create notification content
         let content = UNMutableNotificationContent()
@@ -273,44 +257,39 @@ class NotificationService: ObservableObject {
         }
     }
 
-    // MARK: - API Calls
+    // MARK: - Phrase Generation (Local)
 
-    private func fetchMorningPhrase() async -> String {
+    private func getMorningPhrase() -> String {
         let lang = currentLanguageCode()
 
-        do {
-            let response: MorningPhraseResponse = try await apiClient.request(
-                endpoint: .motivationMorning(lang: lang),
-                method: .get
-            )
-            return response.phrase
-        } catch {
-            print("❌ Failed to fetch morning phrase: \(error)")
-            // Fallback phrase
-            if lang == "fr" {
-                return "Bonjour ! C'est le moment de planifier ta journee et d'atteindre tes objectifs."
-            }
-            return "Good morning! Time to plan your day and crush your goals."
-        }
+        // Local motivational phrases
+        let frenchPhrases = [
+            "C'est le moment de planifier ta journée et d'atteindre tes objectifs.",
+            "Une nouvelle journée, de nouvelles opportunités. Tu vas tout déchirer !",
+            "Chaque matin est une chance de devenir meilleur. Lance-toi !",
+            "Ta journée commence maintenant. Fais-en quelque chose de grand.",
+            "Le succès appartient à ceux qui commencent tôt. C'est ton moment."
+        ]
+
+        let englishPhrases = [
+            "Time to plan your day and crush your goals.",
+            "A new day, new opportunities. You've got this!",
+            "Every morning is a chance to be better. Let's go!",
+            "Your day starts now. Make it count.",
+            "Success belongs to those who start early. This is your moment."
+        ]
+
+        let phrases = lang == "fr" ? frenchPhrases : englishPhrases
+        return phrases.randomElement() ?? phrases[0]
     }
 
-    private func fetchTaskReminderPhrase(taskName: String) async -> String {
+    private func getTaskReminderPhrase(taskName: String) -> String {
         let lang = currentLanguageCode()
 
-        do {
-            let response: TaskReminderResponse = try await apiClient.request(
-                endpoint: .motivationTask(lang: lang, taskName: taskName),
-                method: .get
-            )
-            return response.phrase
-        } catch {
-            print("❌ Failed to fetch task reminder phrase: \(error)")
-            // Fallback phrase
-            if lang == "fr" {
-                return "C'est l'heure de te concentrer sur '\(taskName)' !"
-            }
-            return "Time to focus on '\(taskName)'!"
+        if lang == "fr" {
+            return "C'est l'heure de te concentrer sur '\(taskName)' !"
         }
+        return "Time to focus on '\(taskName)'!"
     }
 
     private func currentLanguageCode() -> String {

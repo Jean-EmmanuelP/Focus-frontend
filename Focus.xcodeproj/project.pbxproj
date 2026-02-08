@@ -58,6 +58,8 @@
 		623E95972EE4AC9000356DD7 /* FocusWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FocusWidgetExtension.entitlements; sourceTree = "<group>"; };
 		6257F9F72EF6C5180000AD1C /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
 		6257FB552EF6F88D0000AD1C /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
+		62587B882F2E6DF9005D910A /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
+		62587D3E2F3140B6005D910A /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
 		6272BAAE2EE9D2C8002693DF /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
 		628290662F0035E800D26C30 /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
 		6288C63E2F105F3B008A7BF0 /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
@@ -73,6 +75,8 @@
 		629D641E2EF1D7150023C568 /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
 		629D651B2EF417E60023C568 /* Volta.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = Volta.storekit; sourceTree = "<group>"; };
 		62A627AE2F2510D900BD492A /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
+		62A631592F2576D000BD492A /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
+		62B92DC32F36BFC900FC6DC8 /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
 		62C2AA232F043CCA0043FD06 /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
 		62C2ABB32F07C4340043FD06 /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -202,6 +206,20 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		62587C052F2E6DF9005D910A /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		62587DBE2F3140B6005D910A /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
 		6272BAEA2EE9D2C8002693DF /* Products */ = {
 			isa = PBXGroup;
 			children = (
@@ -300,6 +318,20 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		62A631CF2F2576D000BD492A /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		62B92E3F2F36BFC900FC6DC8 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
 		62C2AA8C2F043CCA0043FD06 /* Products */ = {
 			isa = PBXGroup;
 			children = (
@@ -345,6 +377,7 @@
 				628291782F0055D600D26C30 /* FirebaseMessaging */,
 				6288C7672F106100008A7BF0 /* AmplitudeSwift */,
 				6288C7692F106100008A7BF0 /* AmplitudeSwiftSessionReplayPlugin */,
+				62GLTF0022F15A00200AVATAR /* GLTFKit2 */,
 			);
 			productName = Focus;
 			productReference = 623E894A2EE1F65300356DD7 /* Focus.app */;
@@ -408,6 +441,7 @@
 				628291732F0054B200D26C30 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				6288C7662F10602B008A7BF0 /* XCRemoteSwiftPackageReference "Amplitude-Swift" */,
 				6288C76B2F106100008A7BF0 /* XCRemoteSwiftPackageReference "AmplitudeSessionReplay-iOS" */,
+				62GLTF0012F15A00100AVATAR /* XCRemoteSwiftPackageReference "GLTFKit2" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 623E894B2EE1F65300356DD7 /* Products */;
@@ -422,6 +456,10 @@
 					ProjectRef = 62C2AA232F043CCA0043FD06 /* TextParticle.xcodeproj */;
 				},
 				{
+					ProductGroup = 62A631CF2F2576D000BD492A /* Products */;
+					ProjectRef = 62A631592F2576D000BD492A /* TextParticle.xcodeproj */;
+				},
+				{
 					ProductGroup = 6288C6AE2F105F3B008A7BF0 /* Products */;
 					ProjectRef = 6288C63E2F105F3B008A7BF0 /* TextParticle.xcodeproj */;
 				},
@@ -430,12 +468,24 @@
 					ProjectRef = 6297A8512EE9B60300BF5326 /* TextParticle.xcodeproj */;
 				},
 				{
+					ProductGroup = 62587C052F2E6DF9005D910A /* Products */;
+					ProjectRef = 62587B882F2E6DF9005D910A /* TextParticle.xcodeproj */;
+				},
+				{
+					ProductGroup = 62B92E3F2F36BFC900FC6DC8 /* Products */;
+					ProjectRef = 62B92DC32F36BFC900FC6DC8 /* TextParticle.xcodeproj */;
+				},
+				{
 					ProductGroup = 6257FBB12EF6F88D0000AD1C /* Products */;
 					ProjectRef = 6257FB552EF6F88D0000AD1C /* TextParticle.xcodeproj */;
 				},
 				{
 					ProductGroup = 6288D0062F106133008A7BF0 /* Products */;
 					ProjectRef = 6288CF962F106133008A7BF0 /* TextParticle.xcodeproj */;
+				},
+				{
+					ProductGroup = 62587DBE2F3140B6005D910A /* Products */;
+					ProjectRef = 62587D3E2F3140B6005D910A /* TextParticle.xcodeproj */;
 				},
 				{
 					ProductGroup = 628C5AD42EEB8EA900E2D165 /* Products */;
@@ -926,6 +976,14 @@
 				minimumVersion = 5.50.1;
 			};
 		};
+		62GLTF0012F15A00100AVATAR /* XCRemoteSwiftPackageReference "GLTFKit2" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/warrenm/GLTFKit2.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.5.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -973,6 +1031,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 629D65142EF3536F0023C568 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */;
 			productName = RevenueCatUI;
+		};
+		62GLTF0022F15A00200AVATAR /* GLTFKit2 */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 62GLTF0012F15A00100AVATAR /* XCRemoteSwiftPackageReference "GLTFKit2" */;
+			productName = GLTFKit2;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
