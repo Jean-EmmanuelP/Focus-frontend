@@ -1155,7 +1155,7 @@ class NewOnboardingViewModel: ObservableObject {
     @Published var loadingProgress: Int = 0
 
     var displayName: String {
-        companionName.isEmpty ? "Kai" : companionName
+        companionName.isEmpty ? "ton coach" : companionName
     }
 
     func nextStep() {
@@ -1220,7 +1220,7 @@ class NewOnboardingViewModel: ObservableObject {
 
         do {
             var request = OnboardingSaveRequest(currentStep: 9)
-            request.companionName = companionName.isEmpty ? "Kai" : companionName
+            request.companionName = companionName.isEmpty ? nil : companionName
 
             let _: OnboardingAPIResponse = try await APIClient.shared.request(
                 endpoint: .onboardingProgress,

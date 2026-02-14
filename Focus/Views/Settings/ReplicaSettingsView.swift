@@ -31,7 +31,7 @@ struct ReplicaSettingsView: View {
     @EnvironmentObject var revenueCatManager: RevenueCatManager
 
     private var companionName: String {
-        store.user?.companionName ?? "Kai"
+        store.user?.companionName ?? "ton coach"
     }
 
     // Settings state (persisted in UserDefaults)

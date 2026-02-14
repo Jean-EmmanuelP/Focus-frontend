@@ -40,6 +40,22 @@ struct SimpleChatMessage: Identifiable, Codable {
         return FileManager.default.fileExists(atPath: url.path)
     }
 
+    /// Return a copy with placeholders resolved in content
+    func withResolvedContent(_ resolver: (String) -> String) -> SimpleChatMessage {
+        let resolved = resolver(content)
+        if resolved == content { return self }
+        return SimpleChatMessage(
+            id: id,
+            content: resolved,
+            isFromUser: isFromUser,
+            timestamp: timestamp,
+            type: type,
+            voiceDuration: voiceDuration,
+            voiceURL: localVoiceURL,
+            storagePath: voiceStoragePath
+        )
+    }
+
     init(content: String, isFromUser: Bool, type: ChatMessageType = .text, voiceDuration: TimeInterval? = nil, voiceURL: URL? = nil, storagePath: String? = nil) {
         self.id = UUID()
         self.content = content
@@ -92,9 +108,12 @@ class ChatViewModel: ObservableObject {
         // Load from local storage
         messages = SimpleChatPersistence.loadMessages()
 
-        // Add welcome message if empty
+        // Migrate: remove old welcome messages that contain hardcoded "Kai" or placeholders
+        messages.removeAll { !$0.isFromUser && ($0.content.contains("{{COMPANION_NAME}}") || $0.content.contains("Je suis Kai, ton coach")) }
         if messages.isEmpty {
-            addWelcomeMessage()
+            // Don't save empty state - just keep messages empty, the backend will handle the first greeting
+        } else {
+            saveMessages()
         }
 
         // Check for daily greeting
@@ -128,13 +147,21 @@ class ChatViewModel: ObservableObject {
     }
 
     private func addWelcomeMessage() {
-        let userName = store?.user?.pseudo ?? store?.user?.firstName ?? "ami"
-        let companionName = store?.user?.companionName ?? "Kai"
-        let greeting = "Salut \(userName). Je suis \(companionName), ton coach. Dis-moi : c'est quoi le truc que tu veux vraiment changer dans ta vie ?"
+        // Use placeholders so the message adapts if user/companion name changes
+        let greeting = "Salut {{USER_NAME}}. Je suis {{COMPANION_NAME}}, ton coach. Dis-moi : c'est quoi le truc que tu veux vraiment changer dans ta vie ?"
 
         let message = SimpleChatMessage(content: greeting, isFromUser: false)
         messages.append(message)
         saveMessages()
+    }
+
+    /// Resolve dynamic placeholders in a message string
+    func resolvedContent(_ content: String) -> String {
+        let userName = store?.user?.pseudo ?? store?.user?.firstName ?? "ami"
+        let companionName = store?.user?.companionName ?? "ton coach"
+        return content
+            .replacingOccurrences(of: "{{USER_NAME}}", with: userName)
+            .replacingOccurrences(of: "{{COMPANION_NAME}}", with: companionName)
     }
 
     private func checkForDailyGreeting() {
@@ -466,7 +493,6 @@ class ChatViewModel: ObservableObject {
     func clearChat() {
         messages = []
         SimpleChatPersistence.clearMessages()
-        addWelcomeMessage()
 
         // Also clear chat history on the backend
         Task {

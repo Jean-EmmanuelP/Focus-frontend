@@ -23,9 +23,9 @@ struct ChatView: View {
 
     @EnvironmentObject var revenueCatManager: RevenueCatManager
 
-    // Companion name (from user settings, fallback to "Kai")
+    // Companion name (from user settings)
     private var companionName: String {
-        store.user?.companionName ?? "Kai"
+        store.user?.companionName ?? "ton coach"
     }
 
     var body: some View {
@@ -347,7 +347,7 @@ struct ChatView: View {
 
                         // Messages for this date
                         ForEach(group.messages) { message in
-                            ReplikaMessageBubble(message: message)
+                            ReplikaMessageBubble(message: message.withResolvedContent(viewModel.resolvedContent))
                                 .id(message.id)
                         }
                     }

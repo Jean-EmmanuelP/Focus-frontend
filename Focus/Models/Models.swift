@@ -16,8 +16,8 @@ struct User: Codable, Identifiable {
     var lifeGoal: String?       // What they want to achieve
     var dayVisibility: String?  // public, crew, private
     var productivityPeak: ProductivityPeak? // morning, afternoon, evening
-    var currentStreak: Int
-    var longestStreak: Int
+    var currentStreak: Int?
+    var longestStreak: Int?
     // V1 Settings
     var language: String?              // fr, en
     var timezone: String?              // Europe/Paris, etc.
@@ -427,13 +427,17 @@ extension User {
         self.lifeGoal = response.lifeGoal
         self.dayVisibility = response.dayVisibility
         self.productivityPeak = ProductivityPeak(rawValue: response.productivityPeak ?? "")
-        self.currentStreak = 0
-        self.longestStreak = 0
+        self.currentStreak = nil
+        self.longestStreak = nil
         // V1 Settings
         self.language = response.language
         self.timezone = response.timezone
         self.notificationsEnabled = response.notificationsEnabled
         self.morningReminderTime = response.morningReminderTime
+        // Companion settings
+        self.companionName = response.companionName
+        self.companionGender = response.companionGender
+        self.avatarStyle = response.avatarStyle
         // Account metadata
         self.createdAt = response.createdAt
     }

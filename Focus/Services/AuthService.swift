@@ -203,6 +203,47 @@ class AuthService: NSObject, ObservableObject {
         #endif
     }
 
+    // MARK: - Handle Google ID Token
+    func handleGoogleIdToken(idToken: String, fullName: String?, email: String?) async throws {
+        isAuthenticating = true
+        error = nil
+
+        #if canImport(Supabase)
+        do {
+            let session = try await supabaseClient.auth.signInWithIdToken(
+                credentials: .init(
+                    provider: .google,
+                    idToken: idToken
+                )
+            )
+
+            self.session = session
+            self.userId = session.user.id.uuidString
+            self.userEmail = email ?? session.user.email
+            self.userName = fullName
+
+            print("🎉 Google Sign in successful! User: \(self.userId ?? "nil")")
+
+            // Check onboarding status BEFORE setting isSignedIn
+            await FocusAppStore.shared.handleAuthServiceUpdate()
+
+            self.isSignedIn = true
+            isAuthenticating = false
+
+        } catch {
+            isAuthenticating = false
+            let authError = AuthError.supabaseError(error.localizedDescription)
+            self.error = authError
+            throw authError
+        }
+        #else
+        self.isSignedIn = true
+        self.userEmail = email
+        self.userName = fullName
+        isAuthenticating = false
+        #endif
+    }
+
     // MARK: - Update Email
     func updateEmail(newEmail: String) async throws {
         #if canImport(Supabase)

@@ -36,7 +36,7 @@ struct FocusPaywallView: View {
     @State private var showError = false
     @State private var errorMessage = ""
 
-    var companionName: String = "Kai"
+    var companionName: String = "ton coach"
     var onComplete: (() -> Void)?
     var onSkip: (() -> Void)?
 

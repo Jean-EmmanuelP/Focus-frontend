@@ -12,7 +12,7 @@ struct CompanionProfileView: View {
 
     // Use store values with fallbacks
     private var companionName: String {
-        store.user?.companionName ?? "Kai"
+        store.user?.companionName ?? "ton coach"
     }
     private var companionGender: String {
         switch store.user?.companionGender {

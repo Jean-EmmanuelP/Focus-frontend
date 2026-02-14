@@ -236,6 +236,14 @@ final class FocusAppStore: ObservableObject {
             UserDefaults.standard.removeObject(forKey: onboardingCompletedKey)
             UserDefaults.standard.removeObject(forKey: onboardingUserIdKey)
 
+            // Clear all local chat messages (v1, v2, v3)
+            SimpleChatPersistence.clearMessages()
+            ChatPersistence.clearMessages()
+            UserDefaults.standard.removeObject(forKey: "pending_chat_message")
+
+            // Clear AI knowledge data
+            KnowledgeManager.shared.resetAllKnowledge()
+
             // Reset state regardless of sign out result
             self.authUserId = nil
             self.isAuthenticated = false

@@ -12,7 +12,7 @@ struct KaiProfileView: View {
     @State private var showAddFact = false
 
     private var companionName: String {
-        store.user?.companionName ?? "Kai"
+        store.user?.companionName ?? "ton coach"
     }
 
     enum ProfileTab {
