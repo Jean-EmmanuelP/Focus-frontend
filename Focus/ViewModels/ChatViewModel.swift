@@ -110,17 +110,43 @@ class ChatViewModel: ObservableObject {
 
         // Migrate: remove old welcome messages that contain hardcoded "Kai" or placeholders
         messages.removeAll { !$0.isFromUser && ($0.content.contains("{{COMPANION_NAME}}") || $0.content.contains("Je suis Kai, ton coach")) }
-        if messages.isEmpty {
-            // Don't save empty state - just keep messages empty, the backend will handle the first greeting
-        } else {
+        if !messages.isEmpty {
             saveMessages()
         }
 
-        // Check for daily greeting
-        checkForDailyGreeting()
-
         // Check for pending message from onboarding flow
         checkForPendingMessage()
+
+        // If chat is empty (new user), request a greeting from the coach
+        if messages.isEmpty {
+            Task {
+                await requestGreeting()
+            }
+        } else {
+            // Check for daily greeting
+            checkForDailyGreeting()
+        }
+    }
+
+    /// Request a greeting from the coach (first message when chat is empty)
+    private func requestGreeting() async {
+        isLoading = true
+
+        do {
+            let response: AIResponse = try await apiClient.request(
+                endpoint: .chatMessage,
+                method: .post,
+                body: SimpleChatRequest(content: "__greeting__", source: "app", appsBlocked: false)
+            )
+
+            let aiMessage = SimpleChatMessage(content: response.reply, isFromUser: false)
+            messages.append(aiMessage)
+            saveMessages()
+        } catch {
+            print("Greeting request failed: \(error)")
+        }
+
+        isLoading = false
     }
 
     /// Check and send any pending message from the onboarding flow
