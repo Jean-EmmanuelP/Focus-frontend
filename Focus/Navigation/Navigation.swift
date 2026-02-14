@@ -168,7 +168,7 @@ struct MainTabView: View {
             }
         }
         .sheet(isPresented: $router.showPaywall) {
-            RevenueCatNativePaywall()
+            VoltaPaywallView()
                 .environmentObject(RevenueCatManager.shared)
         }
         .environmentObject(router)

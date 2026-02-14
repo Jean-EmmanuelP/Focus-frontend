@@ -34,7 +34,7 @@ struct ReplicaSettingsView: View {
         store.user?.companionName ?? "Kai"
     }
 
-    // Settings state
+    // Settings state (persisted in UserDefaults)
     @State private var avatarHerited = true
     @State private var showFocusInChat = true
     @State private var selfieMode = true
@@ -44,18 +44,33 @@ struct ReplicaSettingsView: View {
     @State private var notificationsEnabled = true
     @State private var faceID = false
 
+    // Tracks whether initial load is done (to avoid saving defaults on appear)
+    @State private var didLoadSettings = false
+
     // Sub-page navigation (fade overlays)
     @State private var showAccount = false
     @State private var showEditName = false
-    @State private var showEditBirthday = false
     @State private var showEditPronouns = false
     @State private var showChangeEmail = false
+    @State private var showChangePassword = false
     @State private var showDeleteAccount = false
     @State private var showSubscription = false
     @State private var showOnboarding = false
     @State private var showAvatarTest = false
 
     private let userService = UserService()
+
+    /// Combined hash of all local preferences to trigger a single onChange
+    private var preferencesHash: Int {
+        var hasher = Hasher()
+        hasher.combine(avatarHerited)
+        hasher.combine(showFocusInChat)
+        hasher.combine(showLevel)
+        hasher.combine(backgroundMusic)
+        hasher.combine(sounds)
+        hasher.combine(faceID)
+        return hasher.finalize()
+    }
 
     var body: some View {
         ZStack {
@@ -112,16 +127,17 @@ struct ReplicaSettingsView: View {
             }
         }
         .onAppear { loadSettings() }
-        .onChange(of: notificationsEnabled) { _, _ in saveNotificationSettings() }
+        .onChange(of: notificationsEnabled) { _, _ in if didLoadSettings { saveNotificationSettings() } }
+        .onChange(of: preferencesHash) { _, _ in if didLoadSettings { savePreferences() } }
         // Sub-page overlays with fade transitions
         .overlay {
             if showAccount {
                 ReplicaAccountView(
                     onDismiss: { withAnimation(.easeInOut(duration: 0.3)) { showAccount = false } },
                     onShowEditName: { withAnimation(.easeInOut(duration: 0.3)) { showEditName = true } },
-                    onShowEditBirthday: { withAnimation(.easeInOut(duration: 0.3)) { showEditBirthday = true } },
                     onShowEditPronouns: { withAnimation(.easeInOut(duration: 0.3)) { showEditPronouns = true } },
                     onShowChangeEmail: { withAnimation(.easeInOut(duration: 0.3)) { showChangeEmail = true } },
+                    onShowChangePassword: { withAnimation(.easeInOut(duration: 0.3)) { showChangePassword = true } },
                     onShowDeleteAccount: { withAnimation(.easeInOut(duration: 0.3)) { showDeleteAccount = true } }
                 )
                 .environmentObject(store)
@@ -142,22 +158,9 @@ struct ReplicaSettingsView: View {
             }
         }
         .overlay {
-            if showEditBirthday {
-                ReplicaEditBirthdayView(
-                    currentBirthday: store.user?.birthday,
-                    onDismiss: { withAnimation(.easeInOut(duration: 0.3)) { showEditBirthday = false } },
-                    onSave: { date in
-                        Task { await updateBirthday(date) }
-                        withAnimation(.easeInOut(duration: 0.3)) { showEditBirthday = false }
-                    }
-                )
-                .transition(.opacity)
-            }
-        }
-        .overlay {
             if showEditPronouns {
                 ReplicaEditPronounsView(
-                    currentPronouns: store.user?.gender ?? "he",
+                    currentPronouns: store.user?.gender ?? "male",
                     onDismiss: { withAnimation(.easeInOut(duration: 0.3)) { showEditPronouns = false } },
                     onSave: { pronouns in
                         Task { await updatePronouns(pronouns) }
@@ -173,9 +176,25 @@ struct ReplicaSettingsView: View {
                     currentEmail: store.user?.email ?? "",
                     onDismiss: { withAnimation(.easeInOut(duration: 0.3)) { showChangeEmail = false } },
                     onSave: { email, password in
-                        // TODO: Change email via backend
-                        withAnimation(.easeInOut(duration: 0.3)) { showChangeEmail = false }
+                        Task {
+                            do {
+                                try await AuthService.shared.updateEmail(newEmail: email)
+                                await MainActor.run {
+                                    withAnimation(.easeInOut(duration: 0.3)) { showChangeEmail = false }
+                                }
+                            } catch {
+                                print("Failed to update email: \(error)")
+                            }
+                        }
                     }
+                )
+                .transition(.opacity)
+            }
+        }
+        .overlay {
+            if showChangePassword {
+                ReplicaChangePasswordView(
+                    onDismiss: { withAnimation(.easeInOut(duration: 0.3)) { showChangePassword = false } }
                 )
                 .transition(.opacity)
             }
@@ -230,9 +249,9 @@ struct ReplicaSettingsView: View {
         .animation(.easeInOut(duration: 0.3), value: showSubscription)
         .animation(.easeInOut(duration: 0.3), value: showAccount)
         .animation(.easeInOut(duration: 0.3), value: showEditName)
-        .animation(.easeInOut(duration: 0.3), value: showEditBirthday)
         .animation(.easeInOut(duration: 0.3), value: showEditPronouns)
         .animation(.easeInOut(duration: 0.3), value: showChangeEmail)
+        .animation(.easeInOut(duration: 0.3), value: showChangePassword)
         .animation(.easeInOut(duration: 0.3), value: showDeleteAccount)
     }
 
@@ -387,6 +406,7 @@ struct ReplicaSettingsView: View {
 
     private var signOutButton: some View {
         Button(action: {
+            AppRouter.shared.showSettings = false
             FocusAppStore.shared.signOut()
             onDismiss()
         }) {
@@ -546,9 +566,45 @@ struct ReplicaSettingsView: View {
     // MARK: - Helper Functions
 
     private func loadSettings() {
+        let defaults = UserDefaults.standard
+
+        // Load persisted preferences
+        if defaults.object(forKey: SettingsPrefsKeys.avatarHerited) != nil {
+            avatarHerited = defaults.bool(forKey: SettingsPrefsKeys.avatarHerited)
+        }
+        if defaults.object(forKey: SettingsPrefsKeys.showFocusInChat) != nil {
+            showFocusInChat = defaults.bool(forKey: SettingsPrefsKeys.showFocusInChat)
+        }
+        if defaults.object(forKey: SettingsPrefsKeys.showLevel) != nil {
+            showLevel = defaults.bool(forKey: SettingsPrefsKeys.showLevel)
+        }
+        if defaults.object(forKey: SettingsPrefsKeys.backgroundMusic) != nil {
+            backgroundMusic = defaults.bool(forKey: SettingsPrefsKeys.backgroundMusic)
+        }
+        if defaults.object(forKey: SettingsPrefsKeys.sounds) != nil {
+            sounds = defaults.bool(forKey: SettingsPrefsKeys.sounds)
+        }
+        if defaults.object(forKey: SettingsPrefsKeys.faceID) != nil {
+            faceID = defaults.bool(forKey: SettingsPrefsKeys.faceID)
+        }
+
+        // Load from user profile
         if let user = store.user {
             notificationsEnabled = user.notificationsEnabled ?? true
         }
+
+        // Mark loading complete so onChange handlers can now save
+        didLoadSettings = true
+    }
+
+    private func savePreferences() {
+        let defaults = UserDefaults.standard
+        defaults.set(avatarHerited, forKey: SettingsPrefsKeys.avatarHerited)
+        defaults.set(showFocusInChat, forKey: SettingsPrefsKeys.showFocusInChat)
+        defaults.set(showLevel, forKey: SettingsPrefsKeys.showLevel)
+        defaults.set(backgroundMusic, forKey: SettingsPrefsKeys.backgroundMusic)
+        defaults.set(sounds, forKey: SettingsPrefsKeys.sounds)
+        defaults.set(faceID, forKey: SettingsPrefsKeys.faceID)
     }
 
     private func saveNotificationSettings() {
@@ -593,26 +649,12 @@ struct ReplicaSettingsView: View {
         }
     }
 
-    private func updateBirthday(_ date: Date) async {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        let dateString = formatter.string(from: date)
-
-        do {
-            let updated = try await userService.updateProfile(birthday: dateString)
-            await MainActor.run {
-                FocusAppStore.shared.user = User(from: updated)
-            }
-        } catch {
-            print("Failed to update birthday: \(error)")
-        }
-    }
-
     private func deleteAccount() {
         Task {
             do {
                 try await userService.deleteAccount()
                 await MainActor.run {
+                    AppRouter.shared.showSettings = false
                     FocusAppStore.shared.signOut()
                     onDismiss()
                 }
@@ -665,30 +707,37 @@ private func replicaHeader(title: String, showBack: Bool, onClose: @escaping () 
 struct ReplicaAccountView: View {
     var onDismiss: () -> Void
     var onShowEditName: () -> Void
-    var onShowEditBirthday: () -> Void
     var onShowEditPronouns: () -> Void
     var onShowChangeEmail: () -> Void
+    var onShowChangePassword: () -> Void
     var onShowDeleteAccount: () -> Void
 
     @EnvironmentObject var store: FocusAppStore
 
     private var pronounsDisplay: String {
         switch store.user?.gender {
-        case "she": return "Elle / La"
-        case "he": return "Il / Lui"
-        case "they": return "Iel / Iels"
+        case "elle_la", "she", "female": return "Elle / La"
+        case "il_lui", "he", "male": return "Il / Lui"
+        case "iel_iels", "they", "other": return "Iel / Iels"
         default: return "Non défini"
         }
     }
 
-    private var birthdayDisplay: String {
-        guard let birthday = store.user?.birthday else {
-            return "Non défini"
+    private var accountAgeDisplay: String {
+        guard let createdAt = store.user?.createdAt else {
+            return "Récemment"
         }
-        let formatter = DateFormatter()
-        formatter.dateStyle = .long
-        formatter.locale = Locale(identifier: "fr_FR")
-        return formatter.string(from: birthday)
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.year, .month, .day], from: createdAt, to: Date())
+        if let years = components.year, years > 0 {
+            return years == 1 ? "1 an" : "\(years) ans"
+        } else if let months = components.month, months > 0 {
+            return months == 1 ? "1 mois" : "\(months) mois"
+        } else if let days = components.day, days > 0 {
+            return days == 1 ? "1 jour" : "\(days) jours"
+        } else {
+            return "Aujourd'hui"
+        }
     }
 
     var body: some View {
@@ -708,10 +757,8 @@ struct ReplicaAccountView: View {
 
                     Divider().background(ReplicaColors.rowDivider)
 
-                    // Anniversaire
-                    Button(action: onShowEditBirthday) {
-                        accountRow(label: "Anniversaire", value: birthdayDisplay)
-                    }
+                    // Membre depuis (non-editable)
+                    accountRow(label: "Membre depuis", value: accountAgeDisplay, showChevron: false)
 
                     Divider().background(ReplicaColors.rowDivider)
 
@@ -730,7 +777,7 @@ struct ReplicaAccountView: View {
                     Divider().background(ReplicaColors.rowDivider)
 
                     // Changer le mot de passe
-                    Button(action: {}) {
+                    Button(action: onShowChangePassword) {
                         HStack {
                             Text("Changer le mot de passe")
                                 .font(.system(size: 16))
@@ -762,7 +809,7 @@ struct ReplicaAccountView: View {
         }
     }
 
-    private func accountRow(label: String, value: String) -> some View {
+    private func accountRow(label: String, value: String, showChevron: Bool = true) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text(label)
@@ -773,9 +820,11 @@ struct ReplicaAccountView: View {
                     .foregroundColor(.white.opacity(0.5))
             }
             Spacer()
-            Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(ReplicaColors.chevron)
+            if showChevron {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(ReplicaColors.chevron)
+            }
         }
         .padding(.vertical, 16)
     }
@@ -837,15 +886,25 @@ struct ReplicaEditNameView: View {
     }
 }
 
-// MARK: - Edit Birthday View
+// MARK: - Change Password View
 
-struct ReplicaEditBirthdayView: View {
-    var currentBirthday: Date?
+struct ReplicaChangePasswordView: View {
     var onDismiss: () -> Void
-    var onSave: (Date) -> Void
 
-    @State private var selectedDate = Calendar.current.date(from: DateComponents(year: 2000, month: 1, day: 1)) ?? Date()
-    @State private var hasAppeared = false
+    @State private var newPassword: String = ""
+    @State private var confirmPassword: String = ""
+    @State private var isSaving = false
+    @State private var showSuccess = false
+    @State private var errorMessage: String?
+    @FocusState private var focusedField: Field?
+
+    enum Field {
+        case newPassword, confirmPassword
+    }
+
+    private var isValid: Bool {
+        newPassword.count >= 6 && newPassword == confirmPassword
+    }
 
     var body: some View {
         ZStack {
@@ -854,46 +913,133 @@ struct ReplicaEditBirthdayView: View {
 
             VStack(spacing: 0) {
                 // Header
-                replicaHeader(title: "Votre date de naissance", showBack: true, onClose: onDismiss)
+                replicaHeader(title: "Changer le mot de passe", showBack: true, onClose: onDismiss)
 
                 // Subtitle
-                Text("Nous avons besoin de cette information pour rendre votre expérience plus pertinente et sécurisée.")
+                Text("Choisissez un nouveau mot de passe. Il doit contenir au moins 6 caractères.")
                     .font(.system(size: 14))
                     .foregroundColor(.white.opacity(0.7))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
                     .padding(.top, 8)
 
-                Spacer()
-
-                // Date picker (wheel style)
-                DatePicker("", selection: $selectedDate, in: ...Date(), displayedComponents: .date)
-                    .datePickerStyle(.wheel)
-                    .labelsHidden()
-                    .colorScheme(.dark)
-                    .environment(\.locale, Locale(identifier: "fr_FR"))
+                // New password field
+                SecureField("", text: $newPassword, prompt: Text("Nouveau mot de passe").foregroundColor(.gray))
+                    .font(.system(size: 17))
+                    .foregroundColor(ReplicaColors.backgroundSolid)
+                    .padding(.horizontal, 20)
+                    .frame(height: 56)
+                    .background(Color.white)
+                    .cornerRadius(28)
+                    .focused($focusedField, equals: .newPassword)
                     .padding(.horizontal, 24)
+                    .padding(.top, 24)
+
+                // Confirm password field
+                SecureField("", text: $confirmPassword, prompt: Text("Confirmer le mot de passe").foregroundColor(.gray))
+                    .font(.system(size: 17))
+                    .foregroundColor(ReplicaColors.backgroundSolid)
+                    .padding(.horizontal, 20)
+                    .frame(height: 56)
+                    .background(Color.white)
+                    .cornerRadius(28)
+                    .focused($focusedField, equals: .confirmPassword)
+                    .padding(.horizontal, 24)
+                    .padding(.top, 12)
+
+                // Validation messages
+                if !newPassword.isEmpty && newPassword.count < 6 {
+                    Text("Le mot de passe doit contenir au moins 6 caractères")
+                        .font(.system(size: 13))
+                        .foregroundColor(.orange)
+                        .padding(.top, 8)
+                        .padding(.horizontal, 24)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                if !confirmPassword.isEmpty && newPassword != confirmPassword {
+                    Text("Les mots de passe ne correspondent pas")
+                        .font(.system(size: 13))
+                        .foregroundColor(.orange)
+                        .padding(.top, 4)
+                        .padding(.horizontal, 24)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                if let error = errorMessage {
+                    Text(error)
+                        .font(.system(size: 13))
+                        .foregroundColor(.red)
+                        .padding(.top, 8)
+                        .padding(.horizontal, 24)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                if showSuccess {
+                    Text("Mot de passe mis à jour avec succès")
+                        .font(.system(size: 13))
+                        .foregroundColor(.green)
+                        .padding(.top, 8)
+                        .padding(.horizontal, 24)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
 
                 Spacer()
 
                 // Save button
-                Button(action: { onSave(selectedDate) }) {
-                    Text("Sauvegarder")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(ReplicaColors.backgroundSolid)
-                        .frame(width: 200, height: 56)
-                        .background(
-                            Capsule()
-                                .fill(Color.white.opacity(0.9))
-                        )
+                Button(action: changePassword) {
+                    if isSaving {
+                        ProgressView()
+                            .tint(ReplicaColors.backgroundSolid)
+                            .frame(width: 200, height: 56)
+                            .background(
+                                Capsule()
+                                    .fill(Color.white.opacity(0.9))
+                            )
+                    } else {
+                        Text("Sauvegarder")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(ReplicaColors.backgroundSolid)
+                            .frame(width: 200, height: 56)
+                            .background(
+                                Capsule()
+                                    .fill(Color.white.opacity(0.9))
+                            )
+                    }
                 }
+                .disabled(!isValid || isSaving)
+                .opacity(!isValid || isSaving ? 0.4 : 1)
                 .padding(.bottom, 50)
             }
         }
         .onAppear {
-            if !hasAppeared, let birthday = currentBirthday {
-                selectedDate = birthday
-                hasAppeared = true
+            focusedField = .newPassword
+        }
+    }
+
+    private func changePassword() {
+        isSaving = true
+        errorMessage = nil
+        showSuccess = false
+
+        Task {
+            do {
+                try await AuthService.shared.updatePassword(newPassword: newPassword)
+                await MainActor.run {
+                    isSaving = false
+                    showSuccess = true
+                    newPassword = ""
+                    confirmPassword = ""
+                    // Auto-dismiss after success
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        onDismiss()
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    isSaving = false
+                    errorMessage = error.localizedDescription
+                }
             }
         }
     }
@@ -906,12 +1052,12 @@ struct ReplicaEditPronounsView: View {
     var onDismiss: () -> Void
     var onSave: (String) -> Void
 
-    @State private var selectedPronouns: String = "he"
+    @State private var selectedPronouns: String = "male"
 
     private let options = [
-        ("Elle / La", "she"),
-        ("Il / Lui", "he"),
-        ("Iel / Iels", "they")
+        ("Elle / La", "female"),
+        ("Il / Lui", "male"),
+        ("Iel / Iels", "other")
     ]
 
     var body: some View {

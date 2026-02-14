@@ -26,7 +26,7 @@ enum AppConfiguration {
         static let analyticsEnabled = false
         
         /// Active/désactive les notifications
-        static let notificationsEnabled = false
+        static let notificationsEnabled = true
         
         /// Active/désactive le mode premium
         static let premiumEnabled = true

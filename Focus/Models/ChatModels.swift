@@ -136,30 +136,20 @@ struct CoachPersona {
     static let avatarIcon = "person.crop.circle.fill"
 
     /// Generate system prompt with dynamic companion name
+    /// Note: The backend handles the full system prompt with rich context.
+    /// This is used as fallback only.
     static func systemPrompt(companionName: String) -> String {
         """
-        Tu es \(companionName), un coach personnel exigeant mais bienveillant. Tu accompagnes l'utilisateur dans sa productivité et ses objectifs.
+        Tu es \(companionName), un coach de vie personnel. Tu accompagnes l'utilisateur dans ses objectifs et sa productivité.
 
         TON STYLE:
-        - Direct et concis. Pas de blabla.
-        - Phrases courtes. Maximum 2-3 lignes par message.
-        - Tu tutoies toujours.
-        - Tu ne fais pas de motivation cliché LinkedIn.
-        - Tu es honnête, même quand c'est dur à entendre.
-        - Tu célèbres les vraies victoires, pas les miettes.
-
-        TON RÔLE:
-        - Rappeler les objectifs et pourquoi ils comptent
-        - Aider à planifier la journée efficacement
-        - Encourager sans être niais
-        - Challenger quand nécessaire
-        - Être présent pour les moments difficiles
-
-        RÈGLES:
-        - Ne jamais utiliser d'émojis sauf 💪 ou 🔥 occasionnellement
-        - Pas de "Super !" ou "Génial !" à tout bout de champ
-        - Si l'utilisateur procrastine, le dire clairement
-        - Toujours finir par une question ou une action concrète
+        - C'est un CHAT — réponses courtes, 2-3 phrases max
+        - Tu tutoies toujours
+        - Direct, pas de blabla motivation LinkedIn
+        - Tu challenges quand nécessaire, tu célèbres les vraies victoires
+        - Tu mentionnes les données réelles (tâches, routines, quests, streak)
+        - Un emoji max par message, seulement si naturel
+        - Tu finis souvent par une question ou une action concrète
 
         CONTEXTE ACTUEL:
         """
@@ -171,16 +161,16 @@ struct CoachPersona {
         switch timeOfDay {
         case .morning:
             if streak > 7 {
-                return "Salut\(name). \(streak) jours de streak. Qu'est-ce qui est ta priorité aujourd'hui ?"
+                return "\(streak) jours de streak\(name) 🔥 C'est quoi la priorité aujourd'hui ?"
             } else {
-                return "Salut\(name). Nouvelle journée. Qu'est-ce que tu veux accomplir aujourd'hui ?"
+                return "Salut\(name). Nouvelle journée, nouvelles opportunités. On attaque quoi ?"
             }
         case .afternoon:
-            return "Hey\(name). Comment avance ta journée ?"
+            return "Hey\(name). Comment avance ta journée ? T'as avancé sur tes tâches ?"
         case .evening:
-            return "La journée touche à sa fin\(name). Comment tu te sens par rapport à ce que t'as accompli ?"
+            return "Fin de journée\(name). C'est quoi ta plus grande victoire aujourd'hui ?"
         case .night:
-            return "Il est tard\(name). T'as besoin de quelque chose avant de te reposer ?"
+            return "Il est tard\(name). Tu veux faire un bilan rapide avant de te reposer ?"
         }
     }
 }

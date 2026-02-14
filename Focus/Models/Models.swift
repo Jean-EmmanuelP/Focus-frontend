@@ -27,6 +27,7 @@ struct User: Codable, Identifiable {
     var companionName: String?         // AI companion name (user-chosen)
     var companionGender: String?       // AI companion gender
     var avatarStyle: String?           // Avatar style choice
+    var createdAt: Date?               // Account creation date
 
     // Computed display name (pseudo > firstName lastName > email prefix)
     var name: String {
@@ -433,6 +434,8 @@ extension User {
         self.timezone = response.timezone
         self.notificationsEnabled = response.notificationsEnabled
         self.morningReminderTime = response.morningReminderTime
+        // Account metadata
+        self.createdAt = response.createdAt
     }
 }
 

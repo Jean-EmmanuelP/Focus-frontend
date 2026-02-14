@@ -16,8 +16,17 @@ struct NotificationSettingsView: View {
                     // Morning Reminder Section
                     morningReminderSection
 
+                    // Evening Reminder Section
+                    eveningReminderSection
+
                     // Task Reminders Section
                     taskRemindersSection
+
+                    // Routine Reminders Section
+                    routineRemindersSection
+
+                    // Streak Alert Section
+                    streakAlertSection
 
                     // Test Section (DEBUG)
                     #if DEBUG
@@ -201,6 +210,140 @@ struct NotificationSettingsView: View {
                     .pickerStyle(.menu)
                     .tint(ColorTokens.primaryStart)
                 }
+            }
+        }
+        .padding(SpacingTokens.lg)
+        .background(ColorTokens.surface)
+        .cornerRadius(RadiusTokens.lg)
+    }
+
+    // MARK: - Evening Reminder Section
+    private var eveningReminderSection: some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.md) {
+            HStack {
+                Text("🌙")
+                    .font(.satoshi(24))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Bilan du soir")
+                        .font(.satoshi(16, weight: .semibold))
+                        .foregroundColor(ColorTokens.textPrimary)
+
+                    Text("Rappel pour faire le point sur ta journee")
+                        .font(.satoshi(13))
+                        .foregroundColor(ColorTokens.textSecondary)
+                }
+
+                Spacer()
+
+                Toggle("", isOn: Binding(
+                    get: { notificationService.settings.eveningReminderEnabled },
+                    set: { newValue in
+                        Task {
+                            await notificationService.updateEveningReminderEnabled(newValue)
+                        }
+                    }
+                ))
+                .tint(ColorTokens.primaryStart)
+            }
+
+            if notificationService.settings.eveningReminderEnabled {
+                Divider()
+                    .background(ColorTokens.border)
+
+                HStack {
+                    Image(systemName: "clock")
+                        .foregroundColor(ColorTokens.textMuted)
+
+                    Text("Heure du rappel")
+                        .font(.satoshi(14))
+                        .foregroundColor(ColorTokens.textSecondary)
+
+                    Spacer()
+
+                    DatePicker(
+                        "",
+                        selection: Binding(
+                            get: { notificationService.settings.eveningReminderTime },
+                            set: { newTime in
+                                Task {
+                                    await notificationService.updateEveningReminderTime(newTime)
+                                }
+                            }
+                        ),
+                        displayedComponents: .hourAndMinute
+                    )
+                    .labelsHidden()
+                    .tint(ColorTokens.primaryStart)
+                }
+            }
+        }
+        .padding(SpacingTokens.lg)
+        .background(ColorTokens.surface)
+        .cornerRadius(RadiusTokens.lg)
+    }
+
+    // MARK: - Routine Reminders Section
+    private var routineRemindersSection: some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.md) {
+            HStack {
+                Text("🔁")
+                    .font(.satoshi(24))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Rappels de rituels")
+                        .font(.satoshi(16, weight: .semibold))
+                        .foregroundColor(ColorTokens.textPrimary)
+
+                    Text("Notification a l'heure de chaque rituel")
+                        .font(.satoshi(13))
+                        .foregroundColor(ColorTokens.textSecondary)
+                }
+
+                Spacer()
+
+                Toggle("", isOn: Binding(
+                    get: { notificationService.settings.routineRemindersEnabled },
+                    set: { newValue in
+                        notificationService.updateRoutineRemindersEnabled(newValue)
+                    }
+                ))
+                .tint(ColorTokens.primaryStart)
+            }
+        }
+        .padding(SpacingTokens.lg)
+        .background(ColorTokens.surface)
+        .cornerRadius(RadiusTokens.lg)
+    }
+
+    // MARK: - Streak Alert Section
+    private var streakAlertSection: some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.md) {
+            HStack {
+                Text("🔥")
+                    .font(.satoshi(24))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Alerte streak")
+                        .font(.satoshi(16, weight: .semibold))
+                        .foregroundColor(ColorTokens.textPrimary)
+
+                    Text("Prevenu a 20h si tu n'as pas ete actif")
+                        .font(.satoshi(13))
+                        .foregroundColor(ColorTokens.textSecondary)
+                }
+
+                Spacer()
+
+                Toggle("", isOn: Binding(
+                    get: { notificationService.settings.streakAlertEnabled },
+                    set: { newValue in
+                        Task {
+                            await notificationService.updateStreakAlertEnabled(newValue)
+                        }
+                    }
+                ))
+                .tint(ColorTokens.primaryStart)
             }
         }
         .padding(SpacingTokens.lg)

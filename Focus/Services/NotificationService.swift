@@ -7,22 +7,36 @@ import UserNotifications
 struct NotificationSettings: Codable {
     var morningReminderEnabled: Bool
     var morningReminderTime: Date // Only hour/minute used
+    var eveningReminderEnabled: Bool
+    var eveningReminderTime: Date // Only hour/minute used
     var taskRemindersEnabled: Bool
     var taskReminderMinutesBefore: Int // 5, 10, 15, 30 minutes
+    var routineRemindersEnabled: Bool
+    var streakAlertEnabled: Bool
 
     static var `default`: NotificationSettings {
         var calendar = Calendar.current
         calendar.timeZone = TimeZone.current
-        var components = DateComponents()
-        components.hour = 8
-        components.minute = 0
-        let defaultMorningTime = calendar.date(from: components) ?? Date()
+
+        var morningComponents = DateComponents()
+        morningComponents.hour = 8
+        morningComponents.minute = 0
+        let defaultMorningTime = calendar.date(from: morningComponents) ?? Date()
+
+        var eveningComponents = DateComponents()
+        eveningComponents.hour = 21
+        eveningComponents.minute = 0
+        let defaultEveningTime = calendar.date(from: eveningComponents) ?? Date()
 
         return NotificationSettings(
             morningReminderEnabled: true,
             morningReminderTime: defaultMorningTime,
+            eveningReminderEnabled: true,
+            eveningReminderTime: defaultEveningTime,
             taskRemindersEnabled: true,
-            taskReminderMinutesBefore: 15
+            taskReminderMinutesBefore: 15,
+            routineRemindersEnabled: true,
+            streakAlertEnabled: true
         )
     }
 }
@@ -44,7 +58,10 @@ class NotificationService: ObservableObject {
 
     // Notification identifiers
     private let morningNotificationId = "focus.morning.reminder"
+    private let eveningNotificationId = "focus.evening.reminder"
     private let taskNotificationPrefix = "focus.task."
+    private let routineNotificationPrefix = "focus.routine."
+    private let streakAlertId = "focus.streak.danger"
 
     private init() {
         self.settings = NotificationSettings.default
@@ -131,6 +148,7 @@ class NotificationService: ObservableObject {
             }
             content.body = phrase
             content.sound = .default
+            content.badge = 1
             content.userInfo = ["deepLink": "focus://starttheday"]
 
             // Set up trigger for specific day
@@ -162,6 +180,180 @@ class NotificationService: ObservableObject {
         // Cancel all 7 days of morning notifications
         let identifiers = (1...7).map { "\(morningNotificationId).\($0)" }
         notificationCenter.removePendingNotificationRequests(withIdentifiers: identifiers)
+    }
+
+    // MARK: - Evening Notification
+
+    /// Schedule evening review notifications for the next 7 days
+    func scheduleEveningNotification() async {
+        guard settings.eveningReminderEnabled else {
+            cancelEveningNotification()
+            return
+        }
+
+        cancelEveningNotification()
+
+        let firstName = FocusAppStore.shared.user?.firstName ?? nil
+        let calendar = Calendar.current
+        let hour = calendar.component(.hour, from: settings.eveningReminderTime)
+        let minute = calendar.component(.minute, from: settings.eveningReminderTime)
+
+        for dayOffset in 1...7 {
+            guard let futureDate = calendar.date(byAdding: .day, value: dayOffset, to: Date()) else { continue }
+
+            let phrase = getEveningPhrase()
+
+            let content = UNMutableNotificationContent()
+            if let name = firstName, !name.isEmpty {
+                content.title = "\(name), c'est l'heure du bilan"
+            } else {
+                content.title = "C'est l'heure du bilan"
+            }
+            content.body = phrase
+            content.sound = .default
+            content.badge = 1
+            content.userInfo = ["deepLink": "focus://endofday"]
+
+            var dateComponents = calendar.dateComponents([.year, .month, .day], from: futureDate)
+            dateComponents.hour = hour
+            dateComponents.minute = minute
+            dateComponents.second = 0
+
+            let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: false)
+
+            let request = UNNotificationRequest(
+                identifier: "\(eveningNotificationId).\(dayOffset)",
+                content: content,
+                trigger: trigger
+            )
+
+            do {
+                try await notificationCenter.add(request)
+            } catch {
+                print("❌ Failed to schedule evening notification for day \(dayOffset): \(error)")
+            }
+        }
+    }
+
+    func cancelEveningNotification() {
+        let identifiers = (1...7).map { "\(eveningNotificationId).\($0)" }
+        notificationCenter.removePendingNotificationRequests(withIdentifiers: identifiers)
+    }
+
+    // MARK: - Routine Reminders
+
+    /// Schedule notifications for routines that have a scheduled time
+    func scheduleRoutineReminders(routines: [(id: String, title: String, scheduledTime: String)]) async {
+        guard settings.routineRemindersEnabled else {
+            cancelAllRoutineReminders()
+            return
+        }
+
+        cancelAllRoutineReminders()
+
+        let calendar = Calendar.current
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+
+        for routine in routines {
+            guard let time = formatter.date(from: routine.scheduledTime) else { continue }
+
+            let timeComponents = calendar.dateComponents([.hour, .minute], from: time)
+
+            let content = UNMutableNotificationContent()
+            content.title = routine.title
+            content.body = getRoutineReminderPhrase(routineName: routine.title)
+            content.sound = .default
+            content.badge = 1
+            content.userInfo = ["deepLink": "focus://dashboard"]
+
+            // Schedule daily repeating
+            var dateComponents = DateComponents()
+            dateComponents.hour = timeComponents.hour
+            dateComponents.minute = timeComponents.minute
+
+            let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
+
+            let request = UNNotificationRequest(
+                identifier: "\(routineNotificationPrefix)\(routine.id)",
+                content: content,
+                trigger: trigger
+            )
+
+            do {
+                try await notificationCenter.add(request)
+                print("✅ Routine reminder scheduled for \(routine.title) at \(routine.scheduledTime)")
+            } catch {
+                print("❌ Failed to schedule routine reminder: \(error)")
+            }
+        }
+    }
+
+    func cancelAllRoutineReminders() {
+        notificationCenter.getPendingNotificationRequests { requests in
+            let routineNotificationIds = requests
+                .filter { $0.identifier.hasPrefix(self.routineNotificationPrefix) }
+                .map { $0.identifier }
+
+            self.notificationCenter.removePendingNotificationRequests(withIdentifiers: routineNotificationIds)
+        }
+    }
+
+    // MARK: - Streak Danger Alert
+
+    /// Schedule a daily streak danger alert at 20:00
+    /// This gets cancelled when the user is active (message, task, routine, focus)
+    func scheduleStreakDangerAlert() async {
+        guard settings.streakAlertEnabled else {
+            cancelStreakDangerAlert()
+            return
+        }
+
+        cancelStreakDangerAlert()
+
+        let content = UNMutableNotificationContent()
+        content.title = "Ta streak est en danger !"
+        content.body = getStreakDangerPhrase()
+        content.sound = .default
+        content.badge = 1
+        content.userInfo = ["deepLink": "focus://dashboard"]
+
+        // Schedule daily at 20:00
+        var dateComponents = DateComponents()
+        dateComponents.hour = 20
+        dateComponents.minute = 0
+
+        let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
+
+        let request = UNNotificationRequest(
+            identifier: streakAlertId,
+            content: content,
+            trigger: trigger
+        )
+
+        do {
+            try await notificationCenter.add(request)
+            print("✅ Streak danger alert scheduled daily at 20:00")
+        } catch {
+            print("❌ Failed to schedule streak danger alert: \(error)")
+        }
+    }
+
+    /// Cancel today's streak alert (user was active)
+    func cancelStreakDangerAlert() {
+        notificationCenter.removePendingNotificationRequests(withIdentifiers: [streakAlertId])
+    }
+
+    /// Call this when the user completes an engagement action today
+    /// Reschedules the streak alert for the next day only
+    func markUserActiveToday() async {
+        guard settings.streakAlertEnabled else { return }
+
+        // Remove current alert
+        cancelStreakDangerAlert()
+
+        // Reschedule for tomorrow at 20:00 (will trigger only if user is inactive tomorrow)
+        await scheduleStreakDangerAlert()
     }
 
     // MARK: - Task Reminder Notifications
@@ -201,6 +393,7 @@ class NotificationService: ObservableObject {
         content.title = task.title
         content.body = phrase
         content.sound = .default
+        content.badge = 1
         content.userInfo = [
             "deepLink": "focus://calendar",
             "taskId": task.id
@@ -292,6 +485,59 @@ class NotificationService: ObservableObject {
         return "Time to focus on '\(taskName)'!"
     }
 
+    private func getEveningPhrase() -> String {
+        let lang = currentLanguageCode()
+
+        let frenchPhrases = [
+            "Prends 2 minutes pour faire le point sur ta journee.",
+            "Qu'est-ce que tu as accompli aujourd'hui ? Fais ton bilan.",
+            "Ta journee se termine. Note ta plus grande victoire.",
+            "Avant de dormir, prends un moment pour reflechir a ta journee.",
+            "Un bilan rapide t'aidera a mieux demarrer demain."
+        ]
+
+        let englishPhrases = [
+            "Take 2 minutes to review your day.",
+            "What did you accomplish today? Do your review.",
+            "Your day is ending. Note your biggest win.",
+            "Before sleeping, take a moment to reflect on your day.",
+            "A quick review will help you start tomorrow better."
+        ]
+
+        let phrases = lang == "fr" ? frenchPhrases : englishPhrases
+        return phrases.randomElement() ?? phrases[0]
+    }
+
+    private func getRoutineReminderPhrase(routineName: String) -> String {
+        let lang = currentLanguageCode()
+
+        if lang == "fr" {
+            return "C'est l'heure de '\(routineName)'. Reste constant !"
+        }
+        return "Time for '\(routineName)'. Stay consistent!"
+    }
+
+    private func getStreakDangerPhrase() -> String {
+        let lang = currentLanguageCode()
+
+        let frenchPhrases = [
+            "Tu n'as pas encore ete actif aujourd'hui. Ne perds pas ta streak !",
+            "Ta streak est en danger ! Ouvre Focus et fais au moins une chose.",
+            "Il te reste peu de temps. Parle a ton coach ou complete une tache.",
+            "Ne laisse pas une journee vide casser ta dynamique."
+        ]
+
+        let englishPhrases = [
+            "You haven't been active today. Don't lose your streak!",
+            "Your streak is at risk! Open Focus and do at least one thing.",
+            "Time is running out. Talk to your coach or complete a task.",
+            "Don't let an empty day break your momentum."
+        ]
+
+        let phrases = lang == "fr" ? frenchPhrases : englishPhrases
+        return phrases.randomElement() ?? phrases[0]
+    }
+
     private func currentLanguageCode() -> String {
         // Use the app's localization manager for consistency
         return LocalizationManager.shared.effectiveLanguageCode
@@ -324,5 +570,37 @@ class NotificationService: ObservableObject {
 
     func updateTaskReminderMinutesBefore(_ minutes: Int) {
         settings.taskReminderMinutesBefore = minutes
+    }
+
+    func updateEveningReminderEnabled(_ enabled: Bool) async {
+        settings.eveningReminderEnabled = enabled
+        if enabled {
+            await scheduleEveningNotification()
+        } else {
+            cancelEveningNotification()
+        }
+    }
+
+    func updateEveningReminderTime(_ time: Date) async {
+        settings.eveningReminderTime = time
+        if settings.eveningReminderEnabled {
+            await scheduleEveningNotification()
+        }
+    }
+
+    func updateRoutineRemindersEnabled(_ enabled: Bool) {
+        settings.routineRemindersEnabled = enabled
+        if !enabled {
+            cancelAllRoutineReminders()
+        }
+    }
+
+    func updateStreakAlertEnabled(_ enabled: Bool) async {
+        settings.streakAlertEnabled = enabled
+        if enabled {
+            await scheduleStreakDangerAlert()
+        } else {
+            cancelStreakDangerAlert()
+        }
     }
 }

@@ -15,11 +15,10 @@
 		628291752F0055D600D26C30 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 628291742F0055D600D26C30 /* FirebaseAnalytics */; };
 		628291772F0055D600D26C30 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 628291762F0055D600D26C30 /* FirebaseCore */; };
 		628291792F0055D600D26C30 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 628291782F0055D600D26C30 /* FirebaseMessaging */; };
+		62864EF62F409EF600A6BD9D /* GLTFKit2 in Frameworks */ = {isa = PBXBuildFile; productRef = 62GLTF0022F15A00200AVATAR /* GLTFKit2 */; };
 		6288C7682F106100008A7BF0 /* AmplitudeSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 6288C7672F106100008A7BF0 /* AmplitudeSwift */; };
 		6288C76A2F106100008A7BF0 /* AmplitudeSwiftSessionReplayPlugin in Frameworks */ = {isa = PBXBuildFile; productRef = 6288C7692F106100008A7BF0 /* AmplitudeSwiftSessionReplayPlugin */; };
 		629D63C22EF0BFD20023C568 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 629D63C12EF0BFD20023C568 /* GoogleSignIn */; };
-		629D65162EF353FB0023C568 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = 629D65152EF353FB0023C568 /* RevenueCat */; };
-		629D65182EF354000023C568 /* RevenueCatUI in Frameworks */ = {isa = PBXBuildFile; productRef = 629D65172EF354000023C568 /* RevenueCatUI */; };
 		629D651C2EF417E60023C568 /* Volta.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 629D651B2EF417E60023C568 /* Volta.storekit */; };
 /* End PBXBuildFile section */
 
@@ -62,6 +61,7 @@
 		62587D3E2F3140B6005D910A /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
 		6272BAAE2EE9D2C8002693DF /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
 		628290662F0035E800D26C30 /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
+		62864F4C2F409EF600A6BD9D /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
 		6288C63E2F105F3B008A7BF0 /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
 		6288CF962F106133008A7BF0 /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
 		628C5A992EEB8EA900E2D165 /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
@@ -122,8 +122,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				62864EF62F409EF600A6BD9D /* GLTFKit2 in Frameworks */,
 				628291792F0055D600D26C30 /* FirebaseMessaging in Frameworks */,
-				629D65182EF354000023C568 /* RevenueCatUI in Frameworks */,
 				623E8A152EE22FF000356DD7 /* Supabase in Frameworks */,
 				628291752F0055D600D26C30 /* FirebaseAnalytics in Frameworks */,
 				620DD7D32EF9DC0D00BBBDD1 /* StoreKit.framework in Frameworks */,
@@ -131,7 +131,6 @@
 				6288C7682F106100008A7BF0 /* AmplitudeSwift in Frameworks */,
 				6288C76A2F106100008A7BF0 /* AmplitudeSwiftSessionReplayPlugin in Frameworks */,
 				629D63C22EF0BFD20023C568 /* GoogleSignIn in Frameworks */,
-				629D65162EF353FB0023C568 /* RevenueCat in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -228,6 +227,13 @@
 			sourceTree = "<group>";
 		};
 		628290C72F0035E800D26C30 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		62864FCD2F409EF600A6BD9D /* Products */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -370,8 +376,6 @@
 			packageProductDependencies = (
 				623E8A142EE22FF000356DD7 /* Supabase */,
 				629D63C12EF0BFD20023C568 /* GoogleSignIn */,
-				629D65152EF353FB0023C568 /* RevenueCat */,
-				629D65172EF354000023C568 /* RevenueCatUI */,
 				628291742F0055D600D26C30 /* FirebaseAnalytics */,
 				628291762F0055D600D26C30 /* FirebaseCore */,
 				628291782F0055D600D26C30 /* FirebaseMessaging */,
@@ -437,7 +441,6 @@
 			packageReferences = (
 				623E8A132EE22FF000356DD7 /* XCRemoteSwiftPackageReference "supabase-swift" */,
 				629D63C02EF0BDA00023C568 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
-				629D65142EF3536F0023C568 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */,
 				628291732F0054B200D26C30 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				6288C7662F10602B008A7BF0 /* XCRemoteSwiftPackageReference "Amplitude-Swift" */,
 				6288C76B2F106100008A7BF0 /* XCRemoteSwiftPackageReference "AmplitudeSessionReplay-iOS" */,
@@ -454,6 +457,10 @@
 				{
 					ProductGroup = 62C2AA8C2F043CCA0043FD06 /* Products */;
 					ProjectRef = 62C2AA232F043CCA0043FD06 /* TextParticle.xcodeproj */;
+				},
+				{
+					ProductGroup = 62864FCD2F409EF600A6BD9D /* Products */;
+					ProjectRef = 62864F4C2F409EF600A6BD9D /* TextParticle.xcodeproj */;
 				},
 				{
 					ProductGroup = 62A631CF2F2576D000BD492A /* Products */;
@@ -968,14 +975,6 @@
 				minimumVersion = 9.0.0;
 			};
 		};
-		629D65142EF3536F0023C568 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/RevenueCat/purchases-ios-spm.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 5.50.1;
-			};
-		};
 		62GLTF0012F15A00100AVATAR /* XCRemoteSwiftPackageReference "GLTFKit2" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/warrenm/GLTFKit2.git";
@@ -1021,16 +1020,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 629D63C02EF0BDA00023C568 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
 			productName = GoogleSignIn;
-		};
-		629D65152EF353FB0023C568 /* RevenueCat */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 629D65142EF3536F0023C568 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */;
-			productName = RevenueCat;
-		};
-		629D65172EF354000023C568 /* RevenueCatUI */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 629D65142EF3536F0023C568 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */;
-			productName = RevenueCatUI;
 		};
 		62GLTF0022F15A00200AVATAR /* GLTFKit2 */ = {
 			isa = XCSwiftPackageProductDependency;

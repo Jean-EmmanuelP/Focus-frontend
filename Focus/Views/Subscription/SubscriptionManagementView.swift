@@ -6,8 +6,7 @@
 //
 
 import SwiftUI
-import RevenueCat
-import RevenueCatUI
+import StoreKit
 
 // MARK: - Subscription Management View
 /// Main view for managing subscriptions - accessible from Settings
@@ -71,7 +70,8 @@ struct SubscriptionManagementView: View {
                 .environmentObject(revenueCatManager)
             }
             .sheet(isPresented: $showCustomerCenter) {
-                CustomerCenterView()
+                ManageSubscriptionsView(onDismiss: { showCustomerCenter = false })
+                    .environmentObject(revenueCatManager)
             }
             .alert("Restauration", isPresented: $showRestoreAlert) {
                 Button("OK", role: .cancel) {}

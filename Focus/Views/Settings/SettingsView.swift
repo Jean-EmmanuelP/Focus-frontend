@@ -11,6 +11,17 @@ private enum SettingsColors {
     static let toggleBlue = Color(red: 0.25, green: 0.45, blue: 1.0)
 }
 
+// MARK: - UserDefaults Keys for Settings Preferences
+
+enum SettingsPrefsKeys {
+    static let avatarHerited = "pref_avatarHerited"
+    static let showFocusInChat = "pref_showFocusInChat"
+    static let showLevel = "pref_showLevel"
+    static let backgroundMusic = "pref_backgroundMusic"
+    static let sounds = "pref_sounds"
+    static let faceID = "pref_faceID"
+}
+
 // MARK: - Settings View (Ralph Design - Dark Navy)
 
 struct SettingsView: View {
@@ -21,7 +32,7 @@ struct SettingsView: View {
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var isUploadingPhoto = false
 
-    // Settings state
+    // Settings state (persisted in UserDefaults)
     @State private var avatarHerited = false
     @State private var showFocusInChat = true
     @State private var showLevel = false
@@ -33,6 +44,9 @@ struct SettingsView: View {
     // Navigation
     @State private var showAccount = false
     @State private var showDeleteAccountAlert = false
+
+    // Tracks whether initial load is done (to avoid saving defaults on appear)
+    @State private var didLoadSettings = false
 
     private let userService = UserService()
 
@@ -103,7 +117,32 @@ struct SettingsView: View {
         .onAppear {
             loadSettings()
         }
+        .onChange(of: avatarHerited) { _, newValue in
+            guard didLoadSettings else { return }
+            UserDefaults.standard.set(newValue, forKey: SettingsPrefsKeys.avatarHerited)
+        }
+        .onChange(of: showFocusInChat) { _, newValue in
+            guard didLoadSettings else { return }
+            UserDefaults.standard.set(newValue, forKey: SettingsPrefsKeys.showFocusInChat)
+        }
+        .onChange(of: showLevel) { _, newValue in
+            guard didLoadSettings else { return }
+            UserDefaults.standard.set(newValue, forKey: SettingsPrefsKeys.showLevel)
+        }
+        .onChange(of: backgroundMusic) { _, newValue in
+            guard didLoadSettings else { return }
+            UserDefaults.standard.set(newValue, forKey: SettingsPrefsKeys.backgroundMusic)
+        }
+        .onChange(of: sounds) { _, newValue in
+            guard didLoadSettings else { return }
+            UserDefaults.standard.set(newValue, forKey: SettingsPrefsKeys.sounds)
+        }
+        .onChange(of: faceID) { _, newValue in
+            guard didLoadSettings else { return }
+            UserDefaults.standard.set(newValue, forKey: SettingsPrefsKeys.faceID)
+        }
         .onChange(of: notificationsEnabled) { _, _ in
+            guard didLoadSettings else { return }
             saveNotificationSettings()
         }
         .onChange(of: selectedPhotoItem) { _, newValue in
@@ -282,6 +321,7 @@ struct SettingsView: View {
 
     private var signOutButton: some View {
         Button(action: {
+            AppRouter.shared.showSettings = false
             FocusAppStore.shared.signOut()
             dismiss()
         }) {
@@ -417,9 +457,24 @@ struct SettingsView: View {
     // MARK: - Helper Functions
 
     private func loadSettings() {
+        let defaults = UserDefaults.standard
+
+        // Load from backend (notifications)
         if let user = store.user {
             notificationsEnabled = user.notificationsEnabled ?? true
         }
+
+        // Load from UserDefaults (local preferences)
+        avatarHerited = defaults.bool(forKey: SettingsPrefsKeys.avatarHerited)
+        // Default true for showFocusInChat and sounds if never set
+        showFocusInChat = defaults.object(forKey: SettingsPrefsKeys.showFocusInChat) as? Bool ?? true
+        showLevel = defaults.bool(forKey: SettingsPrefsKeys.showLevel)
+        backgroundMusic = defaults.bool(forKey: SettingsPrefsKeys.backgroundMusic)
+        sounds = defaults.object(forKey: SettingsPrefsKeys.sounds) as? Bool ?? true
+        faceID = defaults.bool(forKey: SettingsPrefsKeys.faceID)
+
+        // Mark loading done so onChange handlers start saving
+        didLoadSettings = true
     }
 
     private func saveNotificationSettings() {
@@ -466,8 +521,8 @@ struct SettingsView: View {
             do {
                 try await userService.deleteAccount()
                 await MainActor.run {
+                    AppRouter.shared.showSettings = false
                     FocusAppStore.shared.signOut()
-                    dismiss()
                 }
             } catch {
                 print("Failed to delete account: \(error)")
@@ -483,9 +538,13 @@ struct SettingsAccountView: View {
     @EnvironmentObject var store: FocusAppStore
 
     @State private var showEditName = false
-    @State private var showEditBirthday = false
     @State private var showEditPronouns = false
+    @State private var showEditEmail = false
+    @State private var showEditPassword = false
     @State private var showDeleteAlert = false
+    @State private var isDeletingAccount = false
+    @State private var deleteError: String?
+    @State private var showDeleteError = false
 
     private let userService = UserService()
 
@@ -524,10 +583,8 @@ struct SettingsAccountView: View {
 
                     accountDivider
 
-                    // Anniversaire
-                    Button(action: { showEditBirthday = true }) {
-                        accountRow(label: "Anniversaire", value: "Non defini")
-                    }
+                    // Membre depuis (Account age)
+                    accountRow(label: "Membre depuis", value: accountAgeDisplay)
 
                     accountDivider
 
@@ -539,22 +596,15 @@ struct SettingsAccountView: View {
                     accountDivider
 
                     // Email
-                    accountRow(label: "Changer l'email", value: store.user?.email ?? "")
+                    Button(action: { showEditEmail = true }) {
+                        accountRow(label: "Email", value: store.user?.email ?? "Non defini")
+                    }
 
                     accountDivider
 
                     // Password
-                    Button(action: {}) {
-                        HStack {
-                            Text("Changer le mot de passe")
-                                .font(.system(size: 16))
-                                .foregroundColor(.white)
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(.white.opacity(0.4))
-                        }
-                        .padding(.vertical, 16)
+                    Button(action: { showEditPassword = true }) {
+                        accountRow(label: "Mot de passe", value: "Modifier")
                     }
                 }
                 .padding(.horizontal, 16)
@@ -563,10 +613,21 @@ struct SettingsAccountView: View {
 
                 // Delete account link
                 Button(action: { showDeleteAlert = true }) {
-                    Text("Supprimer le compte")
-                        .font(.system(size: 16))
-                        .foregroundColor(.red)
+                    if isDeletingAccount {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                                .tint(.red)
+                            Text("Suppression en cours...")
+                                .font(.system(size: 16))
+                                .foregroundColor(.red)
+                        }
+                    } else {
+                        Text("Supprimer le compte")
+                            .font(.system(size: 16))
+                            .foregroundColor(.red)
+                    }
                 }
+                .disabled(isDeletingAccount)
                 .padding(.horizontal, 16)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -582,33 +643,64 @@ struct SettingsAccountView: View {
                 }
             )
         }
-        .sheet(isPresented: $showEditBirthday) {
-            SettingsEditBirthdayView()
-        }
         .sheet(isPresented: $showEditPronouns) {
             SettingsEditPronounsView(
-                currentPronouns: store.user?.gender ?? "he",
+                currentPronouns: store.user?.gender ?? "male",
                 onSave: { newPronouns in
                     Task { await updatePronouns(newPronouns) }
                 }
             )
         }
+        .sheet(isPresented: $showEditEmail) {
+            SettingsEditEmailView(currentEmail: store.user?.email ?? "")
+        }
+        .sheet(isPresented: $showEditPassword) {
+            SettingsEditPasswordView()
+        }
         .alert("Supprimer le compte", isPresented: $showDeleteAlert) {
             Button("Annuler", role: .cancel) {}
             Button("Supprimer", role: .destructive) { deleteAccount() }
         } message: {
-            Text("Cette action est irreversible.")
+            Text("Cette action est irreversible. Toutes tes donnees seront supprimees definitivement.")
+        }
+        .alert("Erreur", isPresented: $showDeleteError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(deleteError ?? "Une erreur est survenue lors de la suppression du compte.")
         }
     }
 
+    // MARK: - Computed Properties
+
     private var pronounsDisplay: String {
         switch store.user?.gender {
-        case "she": return "Elle / La"
-        case "he": return "Il / Lui"
-        case "they": return "Iel / Iels"
+        case "elle_la", "she", "female": return "Elle / La"
+        case "il_lui", "he", "male": return "Il / Lui"
+        case "iel_iels", "they", "other": return "Iel / Iels"
         default: return "Non defini"
         }
     }
+
+    private var accountAgeDisplay: String {
+        guard let createdAt = store.user?.createdAt else {
+            return "Recemment"
+        }
+
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.year, .month, .day], from: createdAt, to: Date())
+
+        if let years = components.year, years > 0 {
+            return years == 1 ? "1 an" : "\(years) ans"
+        } else if let months = components.month, months > 0 {
+            return months == 1 ? "1 mois" : "\(months) mois"
+        } else if let days = components.day, days > 0 {
+            return days == 1 ? "1 jour" : "\(days) jours"
+        } else {
+            return "Aujourd'hui"
+        }
+    }
+
+    // MARK: - Row Components
 
     private func accountRow(label: String, value: String) -> some View {
         HStack {
@@ -631,6 +723,8 @@ struct SettingsAccountView: View {
     private var accountDivider: some View {
         Divider().background(Color.white.opacity(0.08))
     }
+
+    // MARK: - API Actions
 
     private func updateName(_ name: String) async {
         do {
@@ -663,13 +757,21 @@ struct SettingsAccountView: View {
     }
 
     private func deleteAccount() {
+        isDeletingAccount = true
         Task {
             do {
                 try await userService.deleteAccount()
                 await MainActor.run {
+                    isDeletingAccount = false
+                    AppRouter.shared.showSettings = false
                     FocusAppStore.shared.signOut()
                 }
             } catch {
+                await MainActor.run {
+                    isDeletingAccount = false
+                    deleteError = error.localizedDescription
+                    showDeleteError = true
+                }
                 print("Failed to delete account: \(error)")
             }
         }
@@ -748,11 +850,18 @@ struct SettingsEditNameView: View {
     }
 }
 
-// MARK: - Edit Birthday View (settings_04)
+// MARK: - Edit Email View
 
-struct SettingsEditBirthdayView: View {
+struct SettingsEditEmailView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var selectedDate = Date()
+    @State private var email: String
+    @State private var isSaving = false
+    @State private var errorMessage: String?
+    @State private var successMessage: String?
+
+    init(currentEmail: String) {
+        _email = State(initialValue: currentEmail)
+    }
 
     var body: some View {
         ZStack {
@@ -762,7 +871,7 @@ struct SettingsEditBirthdayView: View {
             VStack(spacing: 0) {
                 // Header
                 ZStack {
-                    Text("Votre date de naissance")
+                    Text("Changer l'email")
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(.white)
 
@@ -779,40 +888,235 @@ struct SettingsEditBirthdayView: View {
                 .padding(.top, 16)
                 .padding(.bottom, 8)
 
-                // Subtitle
-                Text("Nous avons besoin de cette information pour rendre votre experience plus pertinente et securisee.")
+                Text("Un email de confirmation sera envoye a la nouvelle adresse.")
                     .font(.system(size: 14))
                     .foregroundColor(.white.opacity(0.7))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
                     .padding(.bottom, 24)
 
-                Spacer()
-
-                // Date picker (wheel style)
-                DatePicker("", selection: $selectedDate, displayedComponents: .date)
-                    .datePickerStyle(.wheel)
-                    .labelsHidden()
-                    .colorScheme(.dark)
+                // Email field
+                TextField("", text: $email, prompt: Text("Nouvel email").foregroundColor(.gray))
+                    .font(.system(size: 17))
+                    .foregroundColor(SettingsColors.darkNavy)
+                    .keyboardType(.emailAddress)
+                    .textContentType(.emailAddress)
+                    .autocapitalization(.none)
+                    .padding(.horizontal, 20)
+                    .frame(height: 56)
+                    .background(Color.white)
+                    .cornerRadius(16)
                     .padding(.horizontal, 24)
+
+                if let error = errorMessage {
+                    Text(error)
+                        .font(.system(size: 14))
+                        .foregroundColor(.red)
+                        .padding(.top, 12)
+                        .padding(.horizontal, 24)
+                }
+
+                if let success = successMessage {
+                    Text(success)
+                        .font(.system(size: 14))
+                        .foregroundColor(.green)
+                        .padding(.top, 12)
+                        .padding(.horizontal, 24)
+                }
 
                 Spacer()
 
                 // Save button
-                Button(action: { dismiss() }) {
-                    Text("Sauvegarder")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(SettingsColors.darkNavy)
-                        .frame(width: 200, height: 56)
-                        .background(
-                            Capsule()
-                                .fill(Color.white.opacity(0.85))
-                        )
+                Button(action: { updateEmail() }) {
+                    if isSaving {
+                        ProgressView()
+                            .tint(SettingsColors.darkNavy)
+                            .frame(width: 200, height: 56)
+                            .background(Capsule().fill(Color.white.opacity(0.85)))
+                    } else {
+                        Text("Sauvegarder")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(SettingsColors.darkNavy)
+                            .frame(width: 200, height: 56)
+                            .background(Capsule().fill(Color.white.opacity(0.85)))
+                    }
                 }
+                .disabled(isSaving || email.trimmingCharacters(in: .whitespaces).isEmpty)
+                .opacity(email.trimmingCharacters(in: .whitespaces).isEmpty ? 0.4 : 1)
                 .padding(.bottom, 50)
             }
         }
         .presentationBackground(SettingsColors.darkNavy)
+    }
+
+    private func updateEmail() {
+        let trimmedEmail = email.trimmingCharacters(in: .whitespaces)
+        guard !trimmedEmail.isEmpty else { return }
+
+        isSaving = true
+        errorMessage = nil
+        successMessage = nil
+
+        Task {
+            do {
+                try await AuthService.shared.updateEmail(newEmail: trimmedEmail)
+                await MainActor.run {
+                    isSaving = false
+                    successMessage = "Un email de confirmation a ete envoye."
+                    // Update local user email
+                    if var user = FocusAppStore.shared.user {
+                        user.email = trimmedEmail
+                        FocusAppStore.shared.user = user
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    isSaving = false
+                    errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Edit Password View
+
+struct SettingsEditPasswordView: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var newPassword = ""
+    @State private var confirmPassword = ""
+    @State private var isSaving = false
+    @State private var errorMessage: String?
+    @State private var successMessage: String?
+
+    var body: some View {
+        ZStack {
+            SettingsColors.darkNavy
+                .ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                // Header
+                ZStack {
+                    Text("Mot de passe")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(.white)
+
+                    HStack {
+                        Button(action: { dismiss() }) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.white)
+                        }
+                        Spacer()
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .padding(.bottom, 8)
+
+                Text("Choisissez un nouveau mot de passe (minimum 6 caracteres).")
+                    .font(.system(size: 14))
+                    .foregroundColor(.white.opacity(0.7))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+                    .padding(.bottom, 24)
+
+                VStack(spacing: 16) {
+                    SecureField("", text: $newPassword, prompt: Text("Nouveau mot de passe").foregroundColor(.gray))
+                        .font(.system(size: 17))
+                        .foregroundColor(SettingsColors.darkNavy)
+                        .textContentType(.newPassword)
+                        .padding(.horizontal, 20)
+                        .frame(height: 56)
+                        .background(Color.white)
+                        .cornerRadius(16)
+
+                    SecureField("", text: $confirmPassword, prompt: Text("Confirmer le mot de passe").foregroundColor(.gray))
+                        .font(.system(size: 17))
+                        .foregroundColor(SettingsColors.darkNavy)
+                        .textContentType(.newPassword)
+                        .padding(.horizontal, 20)
+                        .frame(height: 56)
+                        .background(Color.white)
+                        .cornerRadius(16)
+                }
+                .padding(.horizontal, 24)
+
+                if let error = errorMessage {
+                    Text(error)
+                        .font(.system(size: 14))
+                        .foregroundColor(.red)
+                        .padding(.top, 12)
+                        .padding(.horizontal, 24)
+                }
+
+                if let success = successMessage {
+                    Text(success)
+                        .font(.system(size: 14))
+                        .foregroundColor(.green)
+                        .padding(.top, 12)
+                        .padding(.horizontal, 24)
+                }
+
+                Spacer()
+
+                // Save button
+                Button(action: { updatePassword() }) {
+                    if isSaving {
+                        ProgressView()
+                            .tint(SettingsColors.darkNavy)
+                            .frame(width: 200, height: 56)
+                            .background(Capsule().fill(Color.white.opacity(0.85)))
+                    } else {
+                        Text("Sauvegarder")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(SettingsColors.darkNavy)
+                            .frame(width: 200, height: 56)
+                            .background(Capsule().fill(Color.white.opacity(0.85)))
+                    }
+                }
+                .disabled(isSaving || !isFormValid)
+                .opacity(!isFormValid ? 0.4 : 1)
+                .padding(.bottom, 50)
+            }
+        }
+        .presentationBackground(SettingsColors.darkNavy)
+    }
+
+    private var isFormValid: Bool {
+        !newPassword.isEmpty && newPassword.count >= 6 && newPassword == confirmPassword
+    }
+
+    private func updatePassword() {
+        guard isFormValid else {
+            if newPassword != confirmPassword {
+                errorMessage = "Les mots de passe ne correspondent pas."
+            } else if newPassword.count < 6 {
+                errorMessage = "Le mot de passe doit contenir au moins 6 caracteres."
+            }
+            return
+        }
+
+        isSaving = true
+        errorMessage = nil
+        successMessage = nil
+
+        Task {
+            do {
+                try await AuthService.shared.updatePassword(newPassword: newPassword)
+                await MainActor.run {
+                    isSaving = false
+                    successMessage = "Mot de passe mis a jour avec succes."
+                    newPassword = ""
+                    confirmPassword = ""
+                }
+            } catch {
+                await MainActor.run {
+                    isSaving = false
+                    errorMessage = error.localizedDescription
+                }
+            }
+        }
     }
 }
 
@@ -824,9 +1128,9 @@ struct SettingsEditPronounsView: View {
     let onSave: (String) -> Void
 
     private let options = [
-        ("Elle / La", "she"),
-        ("Il / Lui", "he"),
-        ("Iel / Iels", "they")
+        ("Elle / La", "female"),
+        ("Il / Lui", "male"),
+        ("Iel / Iels", "other")
     ]
 
     init(currentPronouns: String, onSave: @escaping (String) -> Void) {

@@ -129,7 +129,8 @@ class ChatViewModel: ObservableObject {
 
     private func addWelcomeMessage() {
         let userName = store?.user?.pseudo ?? store?.user?.firstName ?? "ami"
-        let greeting = "Salut \(userName)! Comment je peux t'aider aujourd'hui?"
+        let companionName = store?.user?.companionName ?? "Kai"
+        let greeting = "Salut \(userName). Je suis \(companionName), ton coach. Dis-moi : c'est quoi le truc que tu veux vraiment changer dans ta vie ?"
 
         let message = SimpleChatMessage(content: greeting, isFromUser: false)
         messages.append(message)
@@ -142,18 +143,23 @@ class ChatViewModel: ObservableObject {
         // If last message was from yesterday, add new greeting
         if !Calendar.current.isDateInToday(lastMessage.timestamp) {
             let userName = store?.user?.pseudo ?? store?.user?.firstName ?? ""
+            let streak = store?.currentStreak ?? 0
             let hour = Calendar.current.component(.hour, from: Date())
 
             var greeting: String
             switch hour {
             case 5..<12:
-                greeting = "Bonjour \(userName)! Prêt pour une bonne journée?"
+                if streak > 7 {
+                    greeting = "\(streak) jours de streak \(userName) 🔥 C'est quoi la priorité aujourd'hui ?"
+                } else {
+                    greeting = "Salut \(userName). Nouvelle journée, nouvelles opportunités. On attaque quoi ?"
+                }
             case 12..<18:
-                greeting = "Hey \(userName)! Comment avance ta journée?"
+                greeting = "Hey \(userName). Comment avance ta journée ? T'as avancé sur tes tâches ?"
             case 18..<22:
-                greeting = "Bonsoir \(userName)! Comment s'est passée ta journée?"
+                greeting = "Fin de journée \(userName). C'est quoi ta plus grande victoire aujourd'hui ?"
             default:
-                greeting = "Hey \(userName)!"
+                greeting = "Il est tard \(userName). Tu veux faire un bilan rapide avant de te reposer ?"
             }
 
             let message = SimpleChatMessage(content: greeting, isFromUser: false)
@@ -242,9 +248,9 @@ class ChatViewModel: ObservableObject {
             messages.append(aiMessage)
             saveMessages()
 
-            // Handle task creation if any
-            if let action = response.action, action.type == "task_created" {
-                await handleTaskCreated(action)
+            // Handle coach actions (task creation, blocking, etc.)
+            if let action = response.action {
+                await handleCoachAction(action)
             }
 
         } catch {
@@ -371,11 +377,12 @@ class ChatViewModel: ObservableObject {
         isLoading = true
 
         do {
-            // Call backend chat endpoint (with focus intent detection)
+            // Call backend chat endpoint (with coach context)
+            let isBlocking = ScreenTimeAppBlockerService.shared.isBlocking
             let response: AIResponse = try await apiClient.request(
                 endpoint: .chatMessage,
                 method: .post,
-                body: SimpleChatRequest(content: text, source: "app")
+                body: SimpleChatRequest(content: text, source: "app", appsBlocked: isBlocking)
             )
 
             // Add AI response
@@ -383,9 +390,9 @@ class ChatViewModel: ObservableObject {
             messages.append(aiMessage)
             saveMessages()
 
-            // If Kai created a task, notify to refresh calendar and schedule blocking
-            if let action = response.action, action.type == "task_created" {
-                await handleTaskCreated(action)
+            // Handle actions from the coach
+            if let action = response.action {
+                await handleCoachAction(action)
             }
 
         } catch {
@@ -401,22 +408,51 @@ class ChatViewModel: ObservableObject {
         isLoading = false
     }
 
-    // Handle when Kai creates a task automatically
-    private func handleTaskCreated(_ action: AIActionData) async {
-        print("🔒 Kai created task: \(action.task?.title ?? "unknown")")
+    // Handle all coach actions (task creation, app blocking, quests, routines)
+    private func handleCoachAction(_ action: AIActionData) async {
+        switch action.type {
+        case "task_created":
+            print("📋 Coach created task: \(action.task?.title ?? "unknown")")
+            NotificationCenter.default.post(name: .calendarNeedsRefresh, object: nil)
 
-        // Post notification to refresh calendar
-        NotificationCenter.default.post(name: .calendarNeedsRefresh, object: nil)
+        case "quest_created", "quests_created":
+            print("🎯 Coach created quest(s)")
+            await store?.loadQuests()
+
+        case "routine_created", "routines_created":
+            print("🔄 Coach created routine(s)")
+            await store?.loadRituals()
+
+        case "quest_updated":
+            print("📈 Coach updated quest progress")
+            await store?.loadQuests()
+
+        case "block_apps":
+            print("🔒 Coach triggered app blocking")
+            let blocker = ScreenTimeAppBlockerService.shared
+            if blocker.isBlockingEnabled {
+                blocker.startBlocking()
+            }
+
+        case "unblock_apps":
+            print("🔓 Coach approved app unblocking")
+            let blocker = ScreenTimeAppBlockerService.shared
+            if blocker.isBlocking {
+                blocker.stopBlocking()
+            }
+
+        default:
+            break
+        }
     }
 
     private func generateFallbackResponse() -> String {
         let responses = [
-            "Je suis là. Dis-moi ce qui te préoccupe.",
-            "Continue, je t'écoute.",
-            "Comment je peux t'aider?",
-            "Qu'est-ce qui serait le plus utile pour toi maintenant?"
+            "Problème technique de mon côté. Réessaie.",
+            "J'ai eu un bug. Renvoie ton message.",
+            "Souci de connexion. Dis-moi ça encore une fois."
         ]
-        return responses.randomElement() ?? "Je t'écoute."
+        return responses.randomElement() ?? "Réessaie dans quelques secondes."
     }
 
     // MARK: - Persistence
@@ -431,6 +467,18 @@ class ChatViewModel: ObservableObject {
         messages = []
         SimpleChatPersistence.clearMessages()
         addWelcomeMessage()
+
+        // Also clear chat history on the backend
+        Task {
+            do {
+                try await apiClient.request(
+                    endpoint: .chatHistory,
+                    method: .delete
+                )
+            } catch {
+                print("Failed to clear chat history on backend: \(error)")
+            }
+        }
     }
 }
 
@@ -439,6 +487,12 @@ class ChatViewModel: ObservableObject {
 struct SimpleChatRequest: Encodable {
     let content: String
     let source: String
+    let appsBlocked: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case content, source
+        case appsBlocked = "apps_blocked"
+    }
 }
 
 struct AIResponse: Decodable {

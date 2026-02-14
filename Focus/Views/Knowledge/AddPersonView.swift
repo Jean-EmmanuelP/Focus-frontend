@@ -101,7 +101,7 @@ struct AddPersonView: View {
                 }
             }
 
-            Text("Ajoutez une photo afin que Kai puisse les reconnaître")
+            Text("Ajoutez une photo afin que \(FocusAppStore.shared.user?.companionName ?? "ton coach") puisse les reconnaître")
                 .font(.system(size: 14))
                 .foregroundColor(.white.opacity(0.6))
                 .multilineTextAlignment(.center)

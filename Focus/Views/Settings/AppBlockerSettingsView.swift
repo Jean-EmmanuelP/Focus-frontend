@@ -5,6 +5,7 @@ import FamilyControls
 struct AppBlockerSettingsView: View {
     @StateObject private var viewModel = AppBlockerViewModel()
     @State private var showClearConfirmation = false
+    @State private var showUnblockConfirmation = false
 
     var body: some View {
         ScrollView {
@@ -57,6 +58,14 @@ struct AppBlockerSettingsView: View {
             }
         } message: {
             Text("Toutes les apps sélectionnées seront retirées de la liste de blocage.")
+        }
+        .alert("Désactiver le blocage ?", isPresented: $showUnblockConfirmation) {
+            Button("Garder le blocage", role: .cancel) {}
+            Button("Désactiver quand même", role: .destructive) {
+                viewModel.stopBlocking()
+            }
+        } message: {
+            Text("Es-tu sûr ? Ton coach te recommande de garder le blocage actif pour rester concentré. Tu peux aussi lui demander directement dans le chat.")
         }
     }
 
@@ -255,7 +264,7 @@ struct AppBlockerSettingsView: View {
             Spacer()
 
             Button(action: {
-                viewModel.stopBlocking()
+                showUnblockConfirmation = true
             }) {
                 Text("Arrêter")
                     .font(.satoshi(13, weight: .semibold))
@@ -288,11 +297,11 @@ struct AppBlockerSettingsView: View {
 
             VStack(alignment: .leading, spacing: SpacingTokens.sm) {
                 infoRow(icon: "1.circle.fill", text: "Choisis les apps distrayantes (Instagram, TikTok...)")
-                infoRow(icon: "2.circle.fill", text: "Active le blocage automatique pendant le Focus")
-                infoRow(icon: "3.circle.fill", text: "Les apps seront masquées pendant tes sessions")
+                infoRow(icon: "2.circle.fill", text: "Ton coach peut bloquer tes apps automatiquement")
+                infoRow(icon: "3.circle.fill", text: "Demande à ton coach pour débloquer")
             }
 
-            Text("Les apps bloquées afficheront un écran 'Shield' jusqu'à la fin de ta session de focus.")
+            Text("Ton coach peut bloquer tes apps quand tu en as besoin. Pour débloquer, parle-lui dans le chat et donne-lui une bonne raison.")
                 .font(.satoshi(12))
                 .foregroundColor(ColorTokens.textMuted)
                 .padding(.top, SpacingTokens.xs)

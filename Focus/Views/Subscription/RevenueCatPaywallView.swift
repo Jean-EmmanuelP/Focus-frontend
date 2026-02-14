@@ -2,45 +2,18 @@
 //  RevenueCatPaywallView.swift
 //  Focus
 //
-//  Custom Paywall using RevenueCat offerings
+//  Custom Paywall using StoreKit 2 products
 //
 
 import SwiftUI
-import RevenueCat
-import RevenueCatUI
-
-// MARK: - RevenueCat Native Paywall
-/// Use this view to present RevenueCat's built-in paywall UI
-/// Requires configuring a paywall template in RevenueCat dashboard
-struct RevenueCatNativePaywall: View {
-    @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject var revenueCatManager: RevenueCatManager
-
-    var onPurchaseCompleted: (() -> Void)?
-    var onRestoreCompleted: (() -> Void)?
-    var onDismiss: (() -> Void)?
-
-    var body: some View {
-        PaywallView(
-            displayCloseButton: true
-        )
-        .onPurchaseCompleted { customerInfo in
-            print("✅ Purchase completed via native paywall")
-            onPurchaseCompleted?()
-        }
-        .onRestoreCompleted { customerInfo in
-            print("✅ Restore completed via native paywall")
-            onRestoreCompleted?()
-        }
-    }
-}
+import StoreKit
 
 // MARK: - Custom Volta Paywall
-/// Custom-designed paywall using RevenueCat data
+/// Custom-designed paywall using StoreKit 2 data
 struct VoltaPaywallView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var revenueCatManager: RevenueCatManager
-    @State private var selectedPackage: Package?
+    @State private var selectedProduct: Product?
     @State private var isPurchasing = false
     @State private var showError = false
     @State private var errorMessage = ""
@@ -86,11 +59,11 @@ struct VoltaPaywallView: View {
                         benefitsSection
                             .padding(.bottom, SpacingTokens.xl)
 
-                        // Packages
+                        // Products
                         if revenueCatManager.isLoading && revenueCatManager.offerings == nil {
                             loadingSection
-                        } else if let _ = revenueCatManager.currentOffering {
-                            packagesSection
+                        } else if revenueCatManager.currentOffering != nil {
+                            productsSection
                         } else {
                             errorSection
                         }
@@ -115,14 +88,13 @@ struct VoltaPaywallView: View {
             Text(errorMessage)
         }
         .task {
-            // Fetch offerings if not already loaded
             if revenueCatManager.offerings == nil {
                 await revenueCatManager.fetchOfferings()
             }
 
-            // Pre-select yearly package
-            if selectedPackage == nil {
-                selectedPackage = revenueCatManager.yearlyPackage ?? revenueCatManager.monthlyPackage
+            // Pre-select max product
+            if selectedProduct == nil {
+                selectedProduct = revenueCatManager.maxProduct ?? revenueCatManager.plusProduct
             }
         }
     }
@@ -130,7 +102,6 @@ struct VoltaPaywallView: View {
     // MARK: - Header
     private func headerSection(isSmallScreen: Bool) -> some View {
         VStack(spacing: SpacingTokens.sm) {
-            // 3D Avatar in header
             Avatar3DView(
                 avatarURL: AvatarURLs.cesiumMan,
                 backgroundColor: .clear,
@@ -184,38 +155,27 @@ struct VoltaPaywallView: View {
         }
     }
 
-    // MARK: - Packages
-    private var packagesSection: some View {
+    // MARK: - Products
+    private var productsSection: some View {
         VStack(spacing: SpacingTokens.md) {
-            // Yearly (recommended)
-            if let yearly = revenueCatManager.yearlyPackage {
-                packageCard(
-                    package: yearly,
-                    title: "Annuel",
-                    subtitle: yearly.storeProduct.localizedPriceString + "/an",
+            // Focus Max
+            if let maxProduct = revenueCatManager.maxProduct {
+                productCard(
+                    product: maxProduct,
+                    title: "Focus Max",
+                    subtitle: maxProduct.displayPrice + "/mois",
                     badge: "MEILLEURE OFFRE",
                     isRecommended: true
                 )
             }
 
-            // Monthly
-            if let monthly = revenueCatManager.monthlyPackage {
-                packageCard(
-                    package: monthly,
-                    title: "Mensuel",
-                    subtitle: monthly.storeProduct.localizedPriceString + "/mois",
+            // Focus Plus
+            if let plusProduct = revenueCatManager.plusProduct {
+                productCard(
+                    product: plusProduct,
+                    title: "Focus Plus",
+                    subtitle: plusProduct.displayPrice + "/mois",
                     badge: nil,
-                    isRecommended: false
-                )
-            }
-
-            // Lifetime
-            if let lifetime = revenueCatManager.lifetimePackage {
-                packageCard(
-                    package: lifetime,
-                    title: "A vie",
-                    subtitle: lifetime.storeProduct.localizedPriceString + " (paiement unique)",
-                    badge: "POPULAIRE",
                     isRecommended: false
                 )
             }
@@ -223,27 +183,75 @@ struct VoltaPaywallView: View {
         .padding(.horizontal, SpacingTokens.xl)
     }
 
-    private func packageCard(
-        package: Package,
+    private func productCard(
+        product: Product,
         title: String,
         subtitle: String,
         badge: String?,
         isRecommended: Bool
     ) -> some View {
-        let isSelected = selectedPackage?.identifier == package.identifier
+        let isSelected = selectedProduct?.id == product.id
 
-        return PackageCardButton(
-            package: package,
-            title: title,
-            badge: badge,
-            isSelected: isSelected,
-            onTap: {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    selectedPackage = package
-                }
-                HapticFeedback.selection()
+        return Button(action: {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                selectedProduct = product
             }
-        )
+            HapticFeedback.selection()
+        }) {
+            VStack(spacing: 0) {
+                if let badge = badge {
+                    Text(badge)
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 4)
+                        .background(Color(hex: "#FFD700"))
+                        .clipShape(UnevenRoundedRectangle(topLeadingRadius: 4, bottomLeadingRadius: 0, bottomTrailingRadius: 0, topTrailingRadius: 4))
+                }
+
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(title)
+                            .font(.satoshi(16, weight: .bold))
+                            .foregroundColor(.white)
+
+                        Text(subtitle)
+                            .font(.satoshi(12))
+                            .foregroundColor(.white.opacity(0.6))
+                    }
+
+                    Spacer()
+
+                    Text(product.displayPrice)
+                        .font(.satoshi(20, weight: .bold))
+                        .foregroundColor(.white)
+
+                    // Selection indicator
+                    ZStack {
+                        Circle()
+                            .stroke(isSelected ? Color(hex: "#FFD700") : Color.white.opacity(0.3), lineWidth: 2)
+                            .frame(width: 24, height: 24)
+
+                        if isSelected {
+                            Circle()
+                                .fill(Color(hex: "#FFD700"))
+                                .frame(width: 14, height: 14)
+                        }
+                    }
+                    .padding(.leading, SpacingTokens.sm)
+                }
+                .padding(SpacingTokens.lg)
+                .background(
+                    RoundedRectangle(cornerRadius: RadiusTokens.lg)
+                        .fill(isSelected ? Color.white.opacity(0.15) : Color.white.opacity(0.05))
+                )
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: RadiusTokens.lg)
+                    .stroke(isSelected ? Color(hex: "#FFD700") : Color.white.opacity(0.2), lineWidth: isSelected ? 2 : 1)
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 
     // MARK: - Loading
@@ -289,7 +297,6 @@ struct VoltaPaywallView: View {
     // MARK: - CTA
     private func ctaSection(geometry: GeometryProxy) -> some View {
         VStack(spacing: SpacingTokens.md) {
-            // Purchase button
             Button(action: handlePurchase) {
                 HStack {
                     Text("Commencer maintenant")
@@ -309,8 +316,8 @@ struct VoltaPaywallView: View {
                 )
                 .cornerRadius(RadiusTokens.lg)
             }
-            .disabled(selectedPackage == nil || isPurchasing)
-            .opacity(selectedPackage == nil ? 0.5 : 1)
+            .disabled(selectedProduct == nil || isPurchasing)
+            .opacity(selectedProduct == nil ? 0.5 : 1)
 
             // Trial info
             if let trialText = trialPeriodText {
@@ -372,33 +379,33 @@ struct VoltaPaywallView: View {
     }
 
     // MARK: - Computed Properties
-
     private var trialPeriodText: String? {
-        guard let package = selectedPackage,
-              let intro = package.storeProduct.introductoryDiscount,
+        guard let product = selectedProduct,
+              let subscription = product.subscription,
+              let intro = subscription.introductoryOffer,
               intro.price == 0 else { return nil }
 
-        let period = intro.subscriptionPeriod
+        let period = intro.period
         let unitText: String
         switch period.unit {
         case .day: unitText = period.value == 1 ? "jour" : "jours"
         case .week: unitText = period.value == 1 ? "semaine" : "semaines"
         case .month: unitText = "mois"
         case .year: unitText = period.value == 1 ? "an" : "ans"
-        @unknown default: unitText = "période"
+        @unknown default: unitText = "periode"
         }
         return "\(period.value) \(unitText) d'essai gratuit"
     }
 
     // MARK: - Actions
     private func handlePurchase() {
-        guard let package = selectedPackage else { return }
+        guard let product = selectedProduct else { return }
 
         isPurchasing = true
         HapticFeedback.medium()
 
         Task {
-            let success = await revenueCatManager.purchase(package: package)
+            let success = await revenueCatManager.purchase(package: product)
             isPurchasing = false
 
             if success {
@@ -426,102 +433,6 @@ struct VoltaPaywallView: View {
             errorMessage = error
             showError = true
         }
-    }
-}
-
-// MARK: - Package Card Button (extracted to help compiler)
-
-private struct PackageCardButton: View {
-    let package: Package
-    let title: String
-    let badge: String?
-    let isSelected: Bool
-    let onTap: () -> Void
-
-    var body: some View {
-        Button(action: onTap) {
-            VStack(spacing: 0) {
-                badgeView
-                cardContent
-            }
-            .overlay(
-                RoundedRectangle(cornerRadius: RadiusTokens.lg)
-                    .stroke(isSelected ? Color(hex: "#FFD700") : Color.white.opacity(0.2), lineWidth: isSelected ? 2 : 1)
-            )
-        }
-        .buttonStyle(PlainButtonStyle())
-    }
-
-    @ViewBuilder
-    private var badgeView: some View {
-        if let badge = badge {
-            Text(badge)
-                .font(.system(size: 10, weight: .bold))
-                .foregroundColor(.black)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 4)
-                .background(Color(hex: "#FFD700"))
-                .clipShape(UnevenRoundedRectangle(topLeadingRadius: 4, bottomLeadingRadius: 0, bottomTrailingRadius: 0, topTrailingRadius: 4))
-        }
-    }
-
-    private var cardContent: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.satoshi(16, weight: .bold))
-                    .foregroundColor(.white)
-
-                if let pricePerWeek = package.localizedPricePerWeek {
-                    Text("\(pricePerWeek)/semaine")
-                        .font(.satoshi(12))
-                        .foregroundColor(.white.opacity(0.6))
-                }
-            }
-
-            Spacer()
-
-            priceSection
-            selectionIndicator
-        }
-        .padding(SpacingTokens.lg)
-        .background(
-            RoundedRectangle(cornerRadius: RadiusTokens.lg)
-                .fill(isSelected ? Color.white.opacity(0.15) : Color.white.opacity(0.05))
-        )
-    }
-
-    private var priceSection: some View {
-        VStack(alignment: .trailing, spacing: 2) {
-            Text(package.storeProduct.localizedPriceString)
-                .font(.satoshi(20, weight: .bold))
-                .foregroundColor(.white)
-
-            if package.packageType == .annual {
-                Text("/an")
-                    .font(.satoshi(12))
-                    .foregroundColor(.white.opacity(0.5))
-            } else if package.packageType == .monthly {
-                Text("/mois")
-                    .font(.satoshi(12))
-                    .foregroundColor(.white.opacity(0.5))
-            }
-        }
-    }
-
-    private var selectionIndicator: some View {
-        ZStack {
-            Circle()
-                .stroke(isSelected ? Color(hex: "#FFD700") : Color.white.opacity(0.3), lineWidth: 2)
-                .frame(width: 24, height: 24)
-
-            if isSelected {
-                Circle()
-                    .fill(Color(hex: "#FFD700"))
-                    .frame(width: 14, height: 14)
-            }
-        }
-        .padding(.leading, SpacingTokens.sm)
     }
 }
 

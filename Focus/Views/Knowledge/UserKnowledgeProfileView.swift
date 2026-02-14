@@ -108,7 +108,7 @@ struct UserKnowledgeProfileView: View {
 
     private var photoSection: some View {
         VStack(spacing: 16) {
-            Text("Ajoutez une photo, afin que Kai puisse vous reconnaître à l'avenir")
+            Text("Ajoutez une photo, afin que \(FocusAppStore.shared.user?.companionName ?? "ton coach") puisse vous reconnaître à l'avenir")
                 .font(.system(size: 15))
                 .foregroundColor(.white.opacity(0.6))
                 .multilineTextAlignment(.center)

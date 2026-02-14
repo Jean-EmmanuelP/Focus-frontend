@@ -6,7 +6,7 @@
 //
 
 import SwiftUI
-import RevenueCat
+import StoreKit
 
 // MARK: - Plan Type
 
@@ -168,6 +168,12 @@ struct FocusPaywallView: View {
         .task {
             if revenueCatManager.offerings == nil {
                 await revenueCatManager.fetchOfferings()
+            }
+            // Debug: log available products
+            if let products = revenueCatManager.currentOffering {
+                print("💰 Paywall - Available products: \(products.map { "\($0.id) → \($0.displayPrice)" })")
+                print("💰 Plus product: \(revenueCatManager.plusProduct?.id ?? "nil")")
+                print("💰 Max product: \(revenueCatManager.maxProduct?.id ?? "nil")")
             }
         }
     }
@@ -513,12 +519,12 @@ struct FocusPaywallView: View {
         return package.localizedPricePerPeriod
     }
 
-    private var selectedPackage: Package? {
+    private var selectedPackage: Product? {
         if selectedPlan == .max {
-            // Focus Max - 129,99€/mois (package identifier: "premium")
+            // Focus Max - 129,99€/mois
             return revenueCatManager.maxPackage
         } else {
-            // Focus Plus - 34,99€/mois (package identifier: "monthly")
+            // Focus Plus - 34,99€/mois
             return revenueCatManager.plusPackage
         }
     }

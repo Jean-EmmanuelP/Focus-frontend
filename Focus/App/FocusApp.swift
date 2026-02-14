@@ -7,7 +7,6 @@
 
 import SwiftUI
 import GoogleSignIn
-import RevenueCat
 import UserNotifications
 import FirebaseCore
 import FirebaseMessaging
@@ -25,7 +24,7 @@ struct FocusApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
-        // Configure RevenueCat on app launch
+        // Configure StoreKit 2 subscriptions on app launch
         RevenueCatManager.shared.configure()
     }
 
@@ -55,9 +54,18 @@ struct FocusApp: App {
                             // User is authenticated AND has completed onboarding
                             MainTabView()
                                 .transition(.opacity)
+                        } else if store.isAuthenticated && store.isCheckingOnboarding {
+                            // Still checking onboarding status - show loading to prevent flash
+                            ZStack {
+                                Color(red: 0.102, green: 0.102, blue: 0.306)
+                                    .ignoresSafeArea()
+                                ProgressView()
+                                    .tint(.white)
+                                    .scaleEffect(1.2)
+                            }
+                            .transition(.opacity)
                         } else if store.isAuthenticated {
-                            // Authenticated but needs onboarding (or still checking)
-                            // Skip loading screen - go directly to onboarding
+                            // Authenticated, done checking, onboarding not completed
                             NewOnboardingView()
                                 .transition(.opacity)
                         } else {
@@ -121,9 +129,14 @@ struct FocusApp: App {
             }
             .onChange(of: scenePhase) { oldPhase, newPhase in
                 if newPhase == .active && store.isAuthenticated {
-                    // Refresh morning notifications with new phrases when app becomes active
+                    // Clear badge when app becomes active
+                    UNUserNotificationCenter.current().setBadgeCount(0)
+
+                    // Refresh notifications when app becomes active
                     Task {
                         await NotificationService.shared.scheduleMorningNotification()
+                        await NotificationService.shared.scheduleEveningNotification()
+                        await NotificationService.shared.scheduleStreakDangerAlert()
                     }
                 }
             }

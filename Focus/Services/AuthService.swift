@@ -203,6 +203,35 @@ class AuthService: NSObject, ObservableObject {
         #endif
     }
 
+    // MARK: - Update Email
+    func updateEmail(newEmail: String) async throws {
+        #if canImport(Supabase)
+        do {
+            try await supabaseClient.auth.update(user: .init(email: newEmail))
+            self.userEmail = newEmail
+            print("✅ Email update request sent (confirmation may be required)")
+        } catch {
+            throw AuthError.supabaseError(error.localizedDescription)
+        }
+        #else
+        throw AuthError.supabaseError("Supabase not available")
+        #endif
+    }
+
+    // MARK: - Update Password
+    func updatePassword(newPassword: String) async throws {
+        #if canImport(Supabase)
+        do {
+            try await supabaseClient.auth.update(user: .init(password: newPassword))
+            print("✅ Password updated successfully")
+        } catch {
+            throw AuthError.supabaseError(error.localizedDescription)
+        }
+        #else
+        throw AuthError.supabaseError("Supabase not available")
+        #endif
+    }
+
     // MARK: - Sign Out
     func signOut() async throws {
         #if canImport(Supabase)

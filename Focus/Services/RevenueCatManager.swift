@@ -2,12 +2,11 @@
 //  RevenueCatManager.swift
 //  Focus
 //
-//  RevenueCat integration for subscription management
+//  Subscription management via StoreKit 2
 //
 
 import Foundation
 import Combine
-import RevenueCat
 import StoreKit
 
 // MARK: - Subscription State
@@ -24,8 +23,8 @@ enum SubscriptionState: Equatable {
 }
 
 enum SubscriptionTier: String, CaseIterable {
-    case plus = "monthly"      // Focus Plus - 34,99€/mois
-    case max = "premium"       // Focus Max - 129,99€/mois
+    case plus = "focus_plus_monthly"
+    case max = "focus_max_monthly"
 
     var displayName: String {
         switch self {
@@ -34,55 +33,70 @@ enum SubscriptionTier: String, CaseIterable {
         }
     }
 
-    var packageIdentifier: String {
-        rawValue
-    }
+    var productId: String { rawValue }
 }
 
-// MARK: - RevenueCat Manager
+// MARK: - Subscription Manager (StoreKit 2)
+
+@MainActor
 final class RevenueCatManager: ObservableObject {
     static let shared = RevenueCatManager()
 
-    // MARK: - Configuration
-    private let apiKey = "appl_YgMmJqvIqMgLEKzriMHnHGXILMu"
-    private let entitlementID = "Volta Pro"
-
-    // MARK: - Delegate Handler
-    private var delegateHandler: RevenueCatDelegateHandler?
+    // MARK: - Product IDs
+    static let plusProductId = "focus_plus_monthly"
+    static let maxProductId = "focus_max_monthly"
+    private let allProductIds: Set<String> = [plusProductId, maxProductId]
 
     // MARK: - Published State
     @Published private(set) var subscriptionState: SubscriptionState = .unknown
-    @Published private(set) var offerings: Offerings?
-    @Published private(set) var customerInfo: CustomerInfo?
+    @Published private(set) var products: [Product] = []
     @Published private(set) var isLoading = false
     @Published private(set) var errorMessage: String?
+    @Published private(set) var subscriptionExpirationDate: Date?
+
+    // MARK: - Transaction Listener
+    private var transactionListener: Task<Void, Never>?
 
     // MARK: - Computed Properties
     var isProUser: Bool {
         subscriptionState.isActive
     }
 
-    var currentOffering: Offering? {
-        offerings?.current
+    /// Focus Plus - 34,99€/mois
+    var plusProduct: Product? {
+        products.first { $0.id == Self.plusProductId }
     }
 
-    /// Focus Plus - 34,99€/mois (package identifier: "monthly")
-    var plusPackage: Package? {
-        currentOffering?.package(identifier: "monthly") ?? currentOffering?.monthly
+    /// Focus Max - 129,99€/mois
+    var maxProduct: Product? {
+        products.first { $0.id == Self.maxProductId }
     }
 
-    /// Focus Max - 129,99€/mois (package identifier: "premium")
-    var maxPackage: Package? {
-        currentOffering?.package(identifier: "premium")
+    // Legacy aliases (used by views)
+    var plusPackage: Product? { plusProduct }
+    var maxPackage: Product? { maxProduct }
+    var monthlyPackage: Product? { plusProduct }
+    var yearlyPackage: Product? { maxProduct }
+    var lifetimePackage: Product? { nil }
+
+    /// Non-nil when products are loaded (views check this)
+    var offerings: [Product]? {
+        products.isEmpty ? nil : products
     }
 
-    // Legacy aliases for compatibility
-    var monthlyPackage: Package? { plusPackage }
-    var yearlyPackage: Package? { maxPackage }
-    var lifetimePackage: Package? { nil }
+    /// Non-nil when products are loaded (views check this)
+    var currentOffering: [Product]? {
+        offerings
+    }
 
-    var availablePackages: [Package] {
-        currentOffering?.availablePackages ?? []
+    var availablePackages: [Product] {
+        products
+    }
+
+    /// Compatibility for views that check customerInfo.entitlements
+    var customerInfo: SubscriptionInfo? {
+        guard subscriptionState.isActive || subscriptionExpirationDate != nil else { return nil }
+        return SubscriptionInfo(expirationDate: subscriptionExpirationDate)
     }
 
     // MARK: - Initialization
@@ -90,119 +104,112 @@ final class RevenueCatManager: ObservableObject {
 
     // MARK: - Configuration
     func configure() {
-        Purchases.logLevel = .debug
+        transactionListener = listenForTransactions()
+        print("✅ StoreKit 2 configured")
 
-        Purchases.configure(
-            with: Configuration.Builder(withAPIKey: apiKey)
-                .with(usesStoreKit2IfAvailable: true)
-                .build()
-        )
-
-        // Set delegate for customer info updates
-        delegateHandler = RevenueCatDelegateHandler { [weak self] customerInfo in
-            Task { @MainActor in
-                self?.customerInfo = customerInfo
-                self?.updateSubscriptionState(from: customerInfo)
-            }
-        }
-        Purchases.shared.delegate = delegateHandler
-
-        print("✅ RevenueCat configured with API key")
-
-        // Fetch initial data
         Task {
             await refreshData()
         }
     }
 
-    // MARK: - Configure with User ID (after sign in)
+    // MARK: - Configure with User ID (StoreKit 2 is device-based)
     func configureWithUser(userId: String) async {
-        do {
-            let (customerInfo, _) = try await Purchases.shared.logIn(userId)
-            self.customerInfo = customerInfo
-            updateSubscriptionState(from: customerInfo)
-            print("✅ RevenueCat logged in with user: \(userId)")
-        } catch {
-            print("❌ RevenueCat login error: \(error)")
-            // Still fetch offerings even if login fails
-            await fetchOfferings()
-        }
+        print("ℹ️ StoreKit 2 configured for user: \(userId)")
+        await refreshData()
     }
 
     // MARK: - Logout
     func logout() async {
-        do {
-            let customerInfo = try await Purchases.shared.logOut()
-            self.customerInfo = customerInfo
-            updateSubscriptionState(from: customerInfo)
-            print("✅ RevenueCat logged out")
-        } catch {
-            print("❌ RevenueCat logout error: \(error)")
-        }
+        print("ℹ️ StoreKit 2 logout - refreshing state")
+        await checkSubscriptionStatus()
     }
 
     // MARK: - Refresh All Data
     func refreshData() async {
-        await fetchCustomerInfo()
         await fetchOfferings()
+        await checkSubscriptionStatus()
     }
 
-    // MARK: - Fetch Customer Info
-    func fetchCustomerInfo() async {
-        do {
-            let info = try await Purchases.shared.customerInfo()
-            self.customerInfo = info
-            updateSubscriptionState(from: info)
-            print("✅ Customer info fetched")
-        } catch {
-            print("❌ Error fetching customer info: \(error)")
-            errorMessage = "Impossible de recuperer les informations d'abonnement"
-        }
-    }
-
-    // MARK: - Fetch Offerings
+    // MARK: - Fetch Products
     func fetchOfferings() async {
         isLoading = true
         defer { isLoading = false }
 
         do {
-            let offerings = try await Purchases.shared.offerings()
-            self.offerings = offerings
-            print("✅ Offerings fetched: \(offerings.all.count) offerings")
-
-            if let current = offerings.current {
-                print("📦 Current offering: \(current.identifier)")
-                print("📦 Available packages: \(current.availablePackages.map { $0.identifier })")
-            }
+            let storeProducts = try await Product.products(for: allProductIds)
+            self.products = storeProducts.sorted { $0.price < $1.price }
+            print("✅ Products fetched: \(storeProducts.map { "\($0.id) → \($0.displayPrice)" })")
         } catch {
-            print("❌ Error fetching offerings: \(error)")
+            print("❌ Error fetching products: \(error)")
             errorMessage = "Impossible de charger les offres"
         }
     }
 
+    // MARK: - Check Subscription Status
+    func checkSubscriptionStatus() async {
+        var foundActive = false
+
+        for await result in Transaction.currentEntitlements {
+            guard case .verified(let transaction) = result else { continue }
+
+            if transaction.productID == Self.maxProductId {
+                subscriptionState = .subscribed(tier: .max)
+                subscriptionExpirationDate = transaction.expirationDate
+                foundActive = true
+                print("✅ Active subscription: Focus Max (expires: \(String(describing: transaction.expirationDate)))")
+                break // Max is highest tier
+            } else if transaction.productID == Self.plusProductId {
+                subscriptionState = .subscribed(tier: .plus)
+                subscriptionExpirationDate = transaction.expirationDate
+                foundActive = true
+                print("✅ Active subscription: Focus Plus (expires: \(String(describing: transaction.expirationDate)))")
+            }
+        }
+
+        if !foundActive {
+            subscriptionState = .notSubscribed
+            subscriptionExpirationDate = nil
+            print("ℹ️ No active subscription")
+        }
+    }
+
     // MARK: - Purchase
-    func purchase(package: Package) async -> Bool {
+    func purchase(package product: Product) async -> Bool {
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
 
         do {
-            let result = try await Purchases.shared.purchase(package: package)
+            let result = try await product.purchase()
 
-            if !result.userCancelled {
-                self.customerInfo = result.customerInfo
-                updateSubscriptionState(from: result.customerInfo)
-                print("✅ Purchase successful!")
+            switch result {
+            case .success(let verification):
+                guard case .verified(let transaction) = verification else {
+                    errorMessage = "Transaction non verifiee"
+                    return false
+                }
 
-                // Activate referral if user was referred (apply + activate)
+                await transaction.finish()
+                await checkSubscriptionStatus()
+                print("✅ Purchase successful: \(product.id)")
+
+                // Activate referral if user was referred
                 Task {
                     await ReferralService.shared.applyPendingCodeIfNeeded()
                     await ReferralService.shared.activateReferral()
                 }
 
                 return true
-            } else {
+
+            case .userCancelled:
                 print("ℹ️ Purchase cancelled by user")
+                return false
+
+            case .pending:
+                errorMessage = "Paiement en attente de validation"
+                return false
+
+            @unknown default:
                 return false
             }
         } catch {
@@ -219,9 +226,8 @@ final class RevenueCatManager: ObservableObject {
         defer { isLoading = false }
 
         do {
-            let customerInfo = try await Purchases.shared.restorePurchases()
-            self.customerInfo = customerInfo
-            updateSubscriptionState(from: customerInfo)
+            try await AppStore.sync()
+            await checkSubscriptionStatus()
 
             if subscriptionState.isActive {
                 print("✅ Purchases restored successfully!")
@@ -239,52 +245,38 @@ final class RevenueCatManager: ObservableObject {
 
     // MARK: - Check Entitlement
     func checkEntitlement() async -> Bool {
-        guard let customerInfo = try? await Purchases.shared.customerInfo() else {
-            return false
-        }
-        return customerInfo.entitlements[entitlementID]?.isActive == true
+        await checkSubscriptionStatus()
+        return subscriptionState.isActive
     }
 
     // MARK: - Private Methods
-    private func updateSubscriptionState(from customerInfo: CustomerInfo) {
-        // Check for active entitlement "Volta Pro"
-        if let entitlement = customerInfo.entitlements[entitlementID], entitlement.isActive {
-            // Determine tier based on product identifier
-            // focus_plus_monthly = Plus, focus_max_monthly = Max
-            let productId = entitlement.productIdentifier.lowercased()
-
-            if productId.contains("max") {
-                subscriptionState = .subscribed(tier: .max)
-            } else {
-                // Default to Plus for any other subscription
-                subscriptionState = .subscribed(tier: .plus)
+    private func listenForTransactions() -> Task<Void, Never> {
+        Task.detached {
+            for await result in Transaction.updates {
+                guard case .verified(let transaction) = result else { continue }
+                await transaction.finish()
+                await self.checkSubscriptionStatus()
+                print("📱 Transaction updated: \(transaction.productID)")
             }
-
-            print("✅ User is subscribed: \(subscriptionState)")
-        } else if customerInfo.entitlements[entitlementID] != nil {
-            // Had entitlement but expired
-            subscriptionState = .expired
-            print("⚠️ Subscription expired")
-        } else {
-            subscriptionState = .notSubscribed
-            print("ℹ️ User is not subscribed")
         }
     }
 
     private func handlePurchaseError(_ error: Error) {
-        if let rcError = error as? RevenueCat.ErrorCode {
-            switch rcError {
-            case .purchaseCancelledError:
-                // User cancelled, no error message needed
+        if let storeError = error as? StoreKitError {
+            switch storeError {
+            case .userCancelled:
                 break
-            case .paymentPendingError:
-                errorMessage = "Paiement en attente de validation"
-            case .productNotAvailableForPurchaseError:
-                errorMessage = "Produit non disponible"
-            case .purchaseNotAllowedError:
-                errorMessage = "Achat non autorise sur cet appareil"
             case .networkError:
                 errorMessage = "Erreur reseau, veuillez reessayer"
+            case .notAvailableInStorefront:
+                errorMessage = "Produit non disponible"
+            default:
+                errorMessage = "Erreur lors de l'achat"
+            }
+        } else if let purchaseError = error as? Product.PurchaseError {
+            switch purchaseError {
+            case .purchaseNotAllowed:
+                errorMessage = "Achat non autorise sur cet appareil"
             default:
                 errorMessage = "Erreur lors de l'achat"
             }
@@ -294,79 +286,66 @@ final class RevenueCatManager: ObservableObject {
     }
 }
 
-// MARK: - RevenueCat Delegate Handler
-final class RevenueCatDelegateHandler: NSObject, PurchasesDelegate {
-    private let onCustomerInfoUpdate: (CustomerInfo) -> Void
+// MARK: - Subscription Info (replaces CustomerInfo)
+struct SubscriptionInfo {
+    let expirationDate: Date?
 
-    init(onCustomerInfoUpdate: @escaping (CustomerInfo) -> Void) {
-        self.onCustomerInfoUpdate = onCustomerInfoUpdate
-        super.init()
-    }
-
-    func purchases(_ purchases: Purchases, receivedUpdated customerInfo: CustomerInfo) {
-        print("📱 Customer info updated via delegate")
-        onCustomerInfoUpdate(customerInfo)
+    var entitlements: [String: EntitlementInfo] {
+        ["Volta Pro": EntitlementInfo(expirationDate: expirationDate)]
     }
 }
 
-// MARK: - Package Extension for Display
-extension Package {
-    var localizedPricePerPeriod: String {
-        let price = localizedPriceString
+struct EntitlementInfo {
+    let expirationDate: Date?
+}
 
-        switch packageType {
-        case .monthly:
-            return "\(price)/mois"
-        case .annual:
-            return "\(price)/an"
-        case .lifetime:
-            return "\(price) (a vie)"
-        case .weekly:
-            return "\(price)/semaine"
-        default:
-            return price
+// MARK: - Product Extension for Display
+extension Product {
+    var localizedPricePerPeriod: String {
+        guard let subscription = subscription else {
+            return displayPrice
+        }
+
+        switch subscription.subscriptionPeriod.unit {
+        case .month:
+            return "\(displayPrice)/mois"
+        case .year:
+            return "\(displayPrice)/an"
+        case .week:
+            return "\(displayPrice)/semaine"
+        case .day:
+            return "\(displayPrice)/jour"
+        @unknown default:
+            return displayPrice
         }
     }
 
     var localizedPricePerWeek: String? {
-        guard let product = storeProduct.pricePerWeek else { return nil }
-
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.locale = storeProduct.priceFormatter?.locale ?? Locale.current
-
-        return formatter.string(from: product as NSDecimalNumber)
-    }
-
-    var savingsPercentage: Int? {
-        // Calculate savings compared to monthly
-        guard packageType == .annual else { return nil }
-
-        // 79.99€/year vs 9.99€*12 = 119.88€/year = ~33% savings
-        return 33
-    }
-}
-
-// MARK: - StoreProduct Extension
-extension StoreProduct {
-    var pricePerWeek: Decimal? {
-        guard let period = subscriptionPeriod else { return nil }
+        guard let subscription = subscription else { return nil }
 
         let weeksInPeriod: Decimal
-        switch period.unit {
+        switch subscription.subscriptionPeriod.unit {
         case .day:
-            weeksInPeriod = Decimal(period.value) / 7
+            weeksInPeriod = Decimal(subscription.subscriptionPeriod.value) / 7
         case .week:
-            weeksInPeriod = Decimal(period.value)
+            weeksInPeriod = Decimal(subscription.subscriptionPeriod.value)
         case .month:
-            weeksInPeriod = Decimal(period.value) * Decimal(52.0 / 12.0)
+            weeksInPeriod = Decimal(subscription.subscriptionPeriod.value) * Decimal(52.0 / 12.0)
         case .year:
-            weeksInPeriod = Decimal(period.value) * 52
+            weeksInPeriod = Decimal(subscription.subscriptionPeriod.value) * 52
         @unknown default:
             return nil
         }
 
         guard weeksInPeriod > 0 else { return nil }
-        return price / weeksInPeriod
+        let weekPrice = price / weeksInPeriod
+
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.locale = Locale.current
+        return formatter.string(from: weekPrice as NSDecimalNumber)
     }
+
+    /// Compatibility: views use .identifier (Package had this)
+    var identifier: String { id }
 }

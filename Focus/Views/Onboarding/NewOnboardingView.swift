@@ -9,7 +9,7 @@
 import SwiftUI
 import UIKit
 import Combine
-import RevenueCat
+import StoreKit
 
 // MARK: - Onboarding Step Enum (13 steps - WITH paywall)
 
@@ -119,14 +119,7 @@ struct NewOnboardingView: View {
             OnboardingColors.lightBg
 
         case .socialProof, .uniqueRep, .presentYourself, .moreAboutYou, .workQuestion, .nameCompanion, .loading, .paywall:
-            LinearGradient(
-                colors: [
-                    Color(red: 0.15, green: 0.40, blue: 0.95),
-                    Color(red: 0.30, green: 0.55, blue: 1.0)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            AnimatedMeshBackground()
 
         case .personalizeAvatar, .meetCompanion:
             Color(red: 0.85, green: 0.78, blue: 0.70)
@@ -456,16 +449,6 @@ struct NewOnboardingView: View {
 
     private var uniqueRepStep: some View {
         ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.15, green: 0.40, blue: 0.95),
-                    Color(red: 0.30, green: 0.55, blue: 1.0)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
-
             VStack(spacing: 0) {
                 HStack {
                     Button(action: { viewModel.previousStep() }) {
@@ -612,12 +595,36 @@ struct NewOnboardingView: View {
                     Text("Email et calendrier")
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(.white)
-                }
 
-                Text(viewModel.connectedGmailAccounts.isEmpty ? "aucun compte connecté" : "comptes connectés")
-                    .font(.system(size: 13))
-                    .foregroundColor(.white.opacity(0.5))
-                    .padding(.leading, 44)
+                    Spacer()
+
+                    Button(action: {
+                        Task {
+                            await viewModel.connectGmail()
+                        }
+                    }) {
+                        HStack(spacing: 4) {
+                            if viewModel.isConnectingGmail {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                    .scaleEffect(0.7)
+                            } else {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 12, weight: .semibold))
+                            }
+                            Text(viewModel.connectedGmailAccounts.isEmpty ? "Connecter" : "Ajouter")
+                                .font(.system(size: 13, weight: .medium))
+                        }
+                        .foregroundColor(.white.opacity(0.7))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(
+                            Capsule()
+                                .fill(Color.white.opacity(0.15))
+                        )
+                    }
+                    .disabled(viewModel.isConnectingGmail)
+                }
 
                 // Display connected Gmail accounts
                 ForEach(viewModel.connectedGmailAccounts, id: \.self) { email in
@@ -644,35 +651,6 @@ struct NewOnboardingView: View {
                     }
                     .padding(.leading, 44)
                 }
-
-                Button(action: {
-                    Task {
-                        await viewModel.connectGmail()
-                    }
-                }) {
-                    HStack {
-                        if viewModel.isConnectingGmail {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                .scaleEffect(0.8)
-                        } else {
-                            Image(systemName: "plus")
-                                .font(.system(size: 14))
-                        }
-                        Text(viewModel.connectedGmailAccounts.isEmpty ? "Connecter Gmail" : "Ajouter un autre compte")
-                            .font(.system(size: 15, weight: .medium))
-                    }
-                    .foregroundColor(.white.opacity(0.7))
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 12)
-                    .background(
-                        Capsule()
-                            .fill(Color.white.opacity(0.15))
-                    )
-                }
-                .disabled(viewModel.isConnectingGmail)
-                .padding(.leading, 32)
-                .padding(.top, 8)
             }
             .padding(20)
             .background(
