@@ -187,11 +187,11 @@ struct ChatView: View {
             }) {
                 Image(systemName: "leaf.fill")
                     .font(.system(size: 16))
-                    .foregroundColor(Color(red: 0.5, green: 0.45, blue: 0.5))
+                    .foregroundColor(.white.opacity(0.8))
                     .frame(width: 44, height: 44)
                     .background(
                         Circle()
-                            .fill(Color(red: 0.55, green: 0.50, blue: 0.52).opacity(0.5))
+                            .fill(.ultraThinMaterial)
                     )
             }
 
@@ -215,7 +215,7 @@ struct ChatView: View {
                 .padding(.vertical, 8)
                 .background(
                     Capsule()
-                        .fill(Color(red: 0.55, green: 0.50, blue: 0.52).opacity(0.6))
+                        .fill(.ultraThinMaterial)
                 )
             }
 
@@ -229,11 +229,11 @@ struct ChatView: View {
             }) {
                 Image(systemName: "gearshape.fill")
                     .font(.system(size: 16))
-                    .foregroundColor(Color(red: 0.5, green: 0.45, blue: 0.5))
+                    .foregroundColor(.white.opacity(0.8))
                     .frame(width: 44, height: 44)
                     .background(
                         Circle()
-                            .fill(Color(red: 0.55, green: 0.50, blue: 0.52).opacity(0.5))
+                            .fill(.ultraThinMaterial)
                     )
             }
         }
