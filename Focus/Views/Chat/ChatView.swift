@@ -43,6 +43,13 @@ struct ChatView: View {
                         conversationHeader
                     }
 
+                    // App blocking banner
+                    if ScreenTimeAppBlockerService.shared.isBlocking {
+                        AppBlockingBanner()
+                            .padding(.top, 6)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+
                     // Content area (avatar is in background)
                     if isHomeMode || viewModel.messages.isEmpty {
                         // Home mode: just spacer, avatar is background
@@ -130,6 +137,21 @@ struct ChatView: View {
         .animation(.easeInOut(duration: 0.25), value: showThoughtsSheet)
         .animation(.easeInOut(duration: 0.25), value: showTrainingSheet)
         .animation(.easeInOut(duration: 0.3), value: showPaywall)
+        .onChange(of: showPaywall) { _, isShowing in
+            if isShowing {
+                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+            }
+        }
+        .onChange(of: showThoughtsSheet) { _, isShowing in
+            if isShowing {
+                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+            }
+        }
+        .onChange(of: showTrainingSheet) { _, isShowing in
+            if isShowing {
+                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+            }
+        }
         .overlay {
             if showCompanionProfile {
                 CompanionProfileView(onDismiss: {
@@ -347,7 +369,7 @@ struct ChatView: View {
 
                         // Messages for this date
                         ForEach(group.messages) { message in
-                            ReplikaMessageBubble(message: message.withResolvedContent(viewModel.resolvedContent))
+                            ReplikaMessageBubble(message: message.withResolvedContent(viewModel.resolvedContent), viewModel: viewModel)
                                 .id(message.id)
                         }
                     }
@@ -574,6 +596,7 @@ struct MessageGroup {
 
 struct ReplikaMessageBubble: View {
     let message: SimpleChatMessage
+    var viewModel: ChatViewModel?
 
     @StateObject private var audioPlayer = AudioPlayerManager()
     @State private var isDownloading = false
@@ -584,25 +607,34 @@ struct ReplikaMessageBubble: View {
     private let aiBubbleColor = Color.white.opacity(0.95) // White/cream
 
     var body: some View {
-        HStack(alignment: .bottom, spacing: 0) {
-            // Left space for avatar (all messages leave room for avatar on left)
-            if message.isFromUser {
-                Spacer(minLength: 120) // User: more space on left, align right
-            } else {
-                Spacer(minLength: 100) // AI: space for avatar
-            }
-
-            VStack(alignment: .trailing, spacing: 4) {
-                if message.type == .voice {
-                    voiceMessageBubble
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .bottom, spacing: 0) {
+                if message.isFromUser {
+                    Spacer(minLength: 120)
                 } else {
-                    textBubble
+                    Spacer(minLength: 100)
+                }
+
+                VStack(alignment: .trailing, spacing: 4) {
+                    if message.type == .voice {
+                        voiceMessageBubble
+                    } else {
+                        textBubble
+                    }
+                }
+
+                if !message.isFromUser {
+                    Spacer().frame(width: 16)
                 }
             }
 
-            if !message.isFromUser {
-                // AI messages: small space on right
-                Spacer().frame(width: 16)
+            // Card data (task list, routine list)
+            if let cardData = message.cardData {
+                HStack {
+                    Spacer(minLength: 60)
+                    cardView(for: cardData)
+                    Spacer().frame(width: 16)
+                }
             }
         }
         .padding(.horizontal, 16)
@@ -616,6 +648,18 @@ struct ReplikaMessageBubble: View {
             .padding(.vertical, 14)
             .background(message.isFromUser ? userBubbleColor : aiBubbleColor)
             .cornerRadius(26)
+    }
+
+    // MARK: - Card Views
+
+    @ViewBuilder
+    private func cardView(for cardData: ChatCardData) -> some View {
+        switch cardData {
+        case .taskList(let tasks):
+            InlineTaskListCard(tasks: tasks, messageId: message.id, viewModel: viewModel)
+        case .routineList(let routines):
+            InlineRoutineListCard(routines: routines, messageId: message.id, viewModel: viewModel)
+        }
     }
 
     // Voice message
@@ -722,6 +766,154 @@ struct ReplikaMessageBubble: View {
                 print("Failed to download voice message: \(error)")
             }
         }
+    }
+}
+
+// MARK: - Inline Task List Card (Google Tasks style)
+
+struct InlineTaskListCard: View {
+    let tasks: [ChatCardData.CardTask]
+    let messageId: UUID
+    var viewModel: ChatViewModel?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(tasks.enumerated()), id: \.element.id) { index, task in
+                HStack(spacing: 12) {
+                    Button {
+                        viewModel?.toggleTaskCompletion(messageId: messageId, taskId: task.id)
+                    } label: {
+                        ZStack {
+                            Circle()
+                                .stroke(task.isCompleted ? Color.clear : Color.white.opacity(0.3), lineWidth: 1.5)
+                                .frame(width: 22, height: 22)
+
+                            if task.isCompleted {
+                                Circle()
+                                    .fill(Color(hex: "#34C759").opacity(0.9))
+                                    .frame(width: 22, height: 22)
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(.white)
+                            }
+                        }
+                    }
+
+                    Text(task.title)
+                        .font(.satoshi(15))
+                        .foregroundColor(task.isCompleted ? .white.opacity(0.35) : .white.opacity(0.85))
+                        .strikethrough(task.isCompleted, color: .white.opacity(0.2))
+                        .lineLimit(2)
+
+                    Spacer()
+                }
+                .padding(.vertical, 10)
+                .padding(.horizontal, 16)
+
+                if index < tasks.count - 1 {
+                    Divider()
+                        .background(Color.white.opacity(0.06))
+                        .padding(.leading, 50)
+                }
+            }
+        }
+        .background(Color.white.opacity(0.08))
+        .cornerRadius(16)
+    }
+}
+
+// MARK: - Inline Routine List Card
+
+struct InlineRoutineListCard: View {
+    let routines: [ChatCardData.CardRoutine]
+    let messageId: UUID
+    var viewModel: ChatViewModel?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(routines.enumerated()), id: \.element.id) { index, routine in
+                HStack(spacing: 12) {
+                    Button {
+                        viewModel?.toggleRoutineCompletion(messageId: messageId, routineId: routine.id)
+                    } label: {
+                        ZStack {
+                            Circle()
+                                .stroke(routine.isCompleted ? Color.clear : Color.white.opacity(0.3), lineWidth: 1.5)
+                                .frame(width: 22, height: 22)
+
+                            if routine.isCompleted {
+                                Circle()
+                                    .fill(Color(hex: "#34C759").opacity(0.9))
+                                    .frame(width: 22, height: 22)
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(.white)
+                            }
+                        }
+                    }
+
+                    Text(routine.icon)
+                        .font(.system(size: 16))
+
+                    Text(routine.title)
+                        .font(.satoshi(15))
+                        .foregroundColor(routine.isCompleted ? .white.opacity(0.35) : .white.opacity(0.85))
+                        .strikethrough(routine.isCompleted, color: .white.opacity(0.2))
+                        .lineLimit(2)
+
+                    Spacer()
+                }
+                .padding(.vertical, 10)
+                .padding(.horizontal, 16)
+
+                if index < routines.count - 1 {
+                    Divider()
+                        .background(Color.white.opacity(0.06))
+                        .padding(.leading, 50)
+                }
+            }
+        }
+        .background(Color.white.opacity(0.08))
+        .cornerRadius(16)
+    }
+}
+
+// MARK: - App Blocking Banner
+
+struct AppBlockingBanner: View {
+    @State private var elapsedSeconds: Int = 0
+    let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "lock.fill")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.white.opacity(0.7))
+
+            Text("Apps bloquées")
+                .font(.satoshi(13, weight: .medium))
+                .foregroundColor(.white.opacity(0.8))
+
+            Text("·")
+                .foregroundColor(.white.opacity(0.4))
+
+            Text(formatElapsed(elapsedSeconds))
+                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                .foregroundColor(.white.opacity(0.6))
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(Color(hex: "#1A1B21"))
+        .cornerRadius(20)
+        .onReceive(timer) { _ in
+            elapsedSeconds += 1
+        }
+    }
+
+    private func formatElapsed(_ seconds: Int) -> String {
+        let m = seconds / 60
+        let s = seconds % 60
+        return String(format: "%02d:%02d", m, s)
     }
 }
 

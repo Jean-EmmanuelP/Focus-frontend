@@ -13,6 +13,25 @@ enum ChatMessageType: String, Codable {
     case voice
 }
 
+// MARK: - Chat Card Data (Interactive tools in chat)
+enum ChatCardData: Codable {
+    case taskList([CardTask])
+    case routineList([CardRoutine])
+
+    struct CardTask: Codable, Identifiable {
+        let id: String
+        let title: String
+        var isCompleted: Bool
+    }
+
+    struct CardRoutine: Codable, Identifiable {
+        let id: String
+        let title: String
+        let icon: String
+        var isCompleted: Bool
+    }
+}
+
 // MARK: - Simple Chat Message Model (for WhatsApp-style UI)
 
 struct SimpleChatMessage: Identifiable, Codable {
@@ -26,6 +45,8 @@ struct SimpleChatMessage: Identifiable, Codable {
     let voiceFilename: String?
     // Supabase Storage path for cloud backup (e.g., "voice-messages/userId/uuid.m4a")
     let voiceStoragePath: String?
+    // Interactive card data (task list, routine list, etc.)
+    var cardData: ChatCardData?
 
     // Computed property to get local URL from filename
     var localVoiceURL: URL? {
@@ -44,7 +65,7 @@ struct SimpleChatMessage: Identifiable, Codable {
     func withResolvedContent(_ resolver: (String) -> String) -> SimpleChatMessage {
         let resolved = resolver(content)
         if resolved == content { return self }
-        return SimpleChatMessage(
+        var msg = SimpleChatMessage(
             id: id,
             content: resolved,
             isFromUser: isFromUser,
@@ -54,6 +75,8 @@ struct SimpleChatMessage: Identifiable, Codable {
             voiceURL: localVoiceURL,
             storagePath: voiceStoragePath
         )
+        msg.cardData = cardData
+        return msg
     }
 
     init(content: String, isFromUser: Bool, type: ChatMessageType = .text, voiceDuration: TimeInterval? = nil, voiceURL: URL? = nil, storagePath: String? = nil) {
@@ -297,7 +320,13 @@ class ChatViewModel: ObservableObject {
             }
 
             // Add AI response
-            let aiMessage = SimpleChatMessage(content: response.reply, isFromUser: false)
+            var aiMessage = SimpleChatMessage(content: response.reply, isFromUser: false)
+
+            // Attach card data if backend requests it
+            if let showCard = response.showCard {
+                aiMessage.cardData = await buildCardData(for: showCard)
+            }
+
             messages.append(aiMessage)
             saveMessages()
 
@@ -439,7 +468,13 @@ class ChatViewModel: ObservableObject {
             )
 
             // Add AI response
-            let aiMessage = SimpleChatMessage(content: response.reply, isFromUser: false)
+            var aiMessage = SimpleChatMessage(content: response.reply, isFromUser: false)
+
+            // Attach card data if backend requests it
+            if let showCard = response.showCard {
+                aiMessage.cardData = await buildCardData(for: showCard)
+            }
+
             messages.append(aiMessage)
             saveMessages()
 
@@ -485,6 +520,14 @@ class ChatViewModel: ObservableObject {
             let blocker = ScreenTimeAppBlockerService.shared
             if blocker.isBlockingEnabled {
                 blocker.startBlocking()
+            } else if blocker.authorizationStatus != .approved {
+                print("⚠️ ScreenTime not authorized — requesting")
+                let granted = await blocker.requestAuthorization()
+                if granted && blocker.isBlockingEnabled {
+                    blocker.startBlocking()
+                }
+            } else {
+                print("⚠️ No apps selected for blocking")
             }
 
         case "unblock_apps":
@@ -493,6 +536,41 @@ class ChatViewModel: ObservableObject {
             if blocker.isBlocking {
                 blocker.stopBlocking()
             }
+
+        case "task_completed":
+            print("✅ Coach completed a task")
+            NotificationCenter.default.post(name: .calendarNeedsRefresh, object: nil)
+
+        case "routines_completed":
+            print("✅ Coach completed routine(s)")
+            await store?.loadRituals()
+
+        case "quest_deleted":
+            print("🗑️ Coach deleted a quest")
+            await store?.loadQuests()
+
+        case "routine_deleted":
+            print("🗑️ Coach deleted a routine")
+            await store?.loadRituals()
+
+        case "morning_checkin_saved":
+            print("☀️ Morning check-in saved")
+            await store?.loadTodayReflection()
+
+        case "evening_checkin_saved":
+            print("🌙 Evening check-in saved")
+            await store?.loadTodayReflection()
+
+        case "weekly_goals_created":
+            print("🎯 Weekly goals created")
+            await store?.loadWeeklyGoals()
+
+        case "weekly_goal_completed":
+            print("✅ Weekly goal completed")
+            await store?.loadWeeklyGoals()
+
+        case "journal_entry_created":
+            print("📔 Journal entry created")
 
         default:
             break
@@ -506,6 +584,100 @@ class ChatViewModel: ObservableObject {
             "Souci de connexion. Dis-moi ça encore une fois."
         ]
         return responses.randomElement() ?? "Réessaie dans quelques secondes."
+    }
+
+    // MARK: - Card Data
+
+    private func buildCardData(for cardType: String) async -> ChatCardData? {
+        guard let store = store else { return nil }
+
+        switch cardType {
+        case "tasks":
+            await store.refreshTodaysTasks()
+            let cards = store.todaysTasks.map { task in
+                ChatCardData.CardTask(
+                    id: task.id,
+                    title: task.title,
+                    isCompleted: task.status == "completed"
+                )
+            }
+            return cards.isEmpty ? nil : .taskList(cards)
+
+        case "routines":
+            await store.loadRituals()
+            let cards = store.rituals.map { ritual in
+                ChatCardData.CardRoutine(
+                    id: ritual.id,
+                    title: ritual.title,
+                    icon: ritual.icon,
+                    isCompleted: ritual.isCompleted
+                )
+            }
+            return cards.isEmpty ? nil : .routineList(cards)
+
+        default:
+            return nil
+        }
+    }
+
+    func toggleTaskCompletion(messageId: UUID, taskId: String) {
+        guard let msgIndex = messages.firstIndex(where: { $0.id == messageId }),
+              case .taskList(var tasks) = messages[msgIndex].cardData,
+              let taskIndex = tasks.firstIndex(where: { $0.id == taskId }) else { return }
+
+        let wasCompleted = tasks[taskIndex].isCompleted
+        tasks[taskIndex].isCompleted = !wasCompleted
+        messages[msgIndex].cardData = .taskList(tasks)
+        saveMessages()
+
+        Task {
+            do {
+                if wasCompleted {
+                    try await apiClient.request(
+                        endpoint: .uncompleteCalendarTask(taskId),
+                        method: .post
+                    )
+                } else {
+                    try await apiClient.request(
+                        endpoint: .completeCalendarTask(taskId),
+                        method: .post
+                    )
+                }
+                NotificationCenter.default.post(name: .calendarNeedsRefresh, object: nil)
+            } catch {
+                print("Failed to toggle task: \(error)")
+            }
+        }
+    }
+
+    func toggleRoutineCompletion(messageId: UUID, routineId: String) {
+        guard let msgIndex = messages.firstIndex(where: { $0.id == messageId }),
+              case .routineList(var routines) = messages[msgIndex].cardData,
+              let routineIndex = routines.firstIndex(where: { $0.id == routineId }) else { return }
+
+        let wasCompleted = routines[routineIndex].isCompleted
+        routines[routineIndex].isCompleted = !wasCompleted
+        messages[msgIndex].cardData = .routineList(routines)
+        saveMessages()
+
+        Task {
+            do {
+                if wasCompleted {
+                    try await apiClient.request(
+                        endpoint: .uncompleteRoutine(routineId),
+                        method: .delete
+                    )
+                } else {
+                    try await apiClient.request(
+                        endpoint: .completeRoutine(routineId),
+                        method: .post
+                    )
+                }
+                await store?.loadRituals()
+            } catch {
+                print("Failed to toggle routine: \(error)")
+            }
+        }
     }
 
     // MARK: - Persistence
@@ -552,12 +724,14 @@ struct AIResponse: Decodable {
     let tool: String?
     let messageId: String?
     let action: AIActionData?
+    let showCard: String?
 
     enum CodingKeys: String, CodingKey {
         case reply
         case tool
         case messageId = "message_id"
         case action
+        case showCard = "show_card"
     }
 }
 
@@ -566,12 +740,14 @@ struct VoiceMessageResponse: Decodable {
     let transcript: String?
     let messageId: String?
     let action: AIActionData?
+    let showCard: String?
 
     enum CodingKeys: String, CodingKey {
         case reply
         case transcript
         case messageId = "message_id"
         case action
+        case showCard = "show_card"
     }
 }
 

@@ -6,6 +6,7 @@ struct AppBlockerSettingsView: View {
     @StateObject private var viewModel = AppBlockerViewModel()
     @State private var showClearConfirmation = false
     @State private var showUnblockConfirmation = false
+    @State private var showEmergencyConfirmation = false
 
     var body: some View {
         ScrollView {
@@ -24,6 +25,11 @@ struct AppBlockerSettingsView: View {
                     if viewModel.isBlocking {
                         blockingStatusCard
                     }
+                }
+
+                // Emergency unblock
+                if viewModel.isBlocking {
+                    emergencyUnblockCard
                 }
 
                 // Info Section
@@ -66,6 +72,14 @@ struct AppBlockerSettingsView: View {
             }
         } message: {
             Text("Es-tu sûr ? Ton coach te recommande de garder le blocage actif pour rester concentré. Tu peux aussi lui demander directement dans le chat.")
+        }
+        .alert("Déblocage d'urgence", isPresented: $showEmergencyConfirmation) {
+            Button("Annuler", role: .cancel) {}
+            Button("Débloquer maintenant", role: .destructive) {
+                viewModel.stopBlocking()
+            }
+        } message: {
+            Text("Le blocage sera désactivé immédiatement. Utilise cette option uniquement en cas d'urgence réelle.")
         }
     }
 
@@ -281,6 +295,47 @@ struct AppBlockerSettingsView: View {
             RoundedRectangle(cornerRadius: RadiusTokens.xl)
                 .stroke(ColorTokens.success.opacity(0.3), lineWidth: 1)
         )
+        .cornerRadius(RadiusTokens.xl)
+    }
+
+    // MARK: - Emergency Unblock Card
+    private var emergencyUnblockCard: some View {
+        VStack(spacing: SpacingTokens.md) {
+            HStack(spacing: SpacingTokens.sm) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 14))
+                    .foregroundColor(ColorTokens.error)
+                Text("Urgence")
+                    .font(.satoshi(14, weight: .semibold))
+                    .foregroundColor(ColorTokens.error)
+                Spacer()
+            }
+
+            Text("Si tu as besoin d'accéder à une app bloquée pour une urgence, tu peux désactiver le blocage ici.")
+                .font(.satoshi(13))
+                .foregroundColor(ColorTokens.textMuted)
+
+            Button(action: {
+                showEmergencyConfirmation = true
+            }) {
+                HStack {
+                    Image(systemName: "lock.open.fill")
+                    Text("Débloquer en urgence")
+                }
+                .font(.satoshi(14, weight: .semibold))
+                .foregroundColor(ColorTokens.error)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, SpacingTokens.md)
+                .background(ColorTokens.error.opacity(0.1))
+                .overlay(
+                    RoundedRectangle(cornerRadius: RadiusTokens.lg)
+                        .stroke(ColorTokens.error.opacity(0.3), lineWidth: 1)
+                )
+                .cornerRadius(RadiusTokens.lg)
+            }
+        }
+        .padding(SpacingTokens.lg)
+        .background(ColorTokens.surface)
         .cornerRadius(RadiusTokens.xl)
     }
 
