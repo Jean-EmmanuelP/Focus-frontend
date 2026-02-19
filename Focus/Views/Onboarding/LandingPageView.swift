@@ -8,6 +8,7 @@
 import SwiftUI
 import AuthenticationServices
 import GoogleSignIn
+import CryptoKit
 
 struct LandingPageView: View {
     @EnvironmentObject var store: FocusAppStore
@@ -157,11 +158,15 @@ struct LandingPageView: View {
             return
         }
 
+        // Generate nonce for Supabase verification
+        let rawNonce = randomNonceString()
+        let hashedNonce = sha256(rawNonce)
+
         let clientID = "613349634589-1d8mmjai794ia29pluv97t21mj2349ej.apps.googleusercontent.com"
         let config = GIDConfiguration(clientID: clientID)
         GIDSignIn.sharedInstance.configuration = config
 
-        GIDSignIn.sharedInstance.signIn(withPresenting: rootVC) { result, error in
+        GIDSignIn.sharedInstance.signIn(withPresenting: rootVC, hint: nil, additionalScopes: nil, nonce: hashedNonce) { result, error in
             if let error = error {
                 print("Google Sign In error: \(error)")
                 return
@@ -174,18 +179,19 @@ struct LandingPageView: View {
             }
 
             Task {
-                await handleGoogleIdToken(idToken, user: user)
+                await handleGoogleIdToken(idToken, user: user, rawNonce: rawNonce)
             }
         }
     }
 
     @MainActor
-    private func handleGoogleIdToken(_ idToken: String, user: GIDGoogleUser) async {
+    private func handleGoogleIdToken(_ idToken: String, user: GIDGoogleUser, rawNonce: String) async {
         do {
             try await AuthService.shared.handleGoogleIdToken(
                 idToken: idToken,
                 fullName: user.profile?.name,
-                email: user.profile?.email
+                email: user.profile?.email,
+                rawNonce: rawNonce
             )
             if store.isAuthenticated {
                 showOnboarding = true
@@ -193,6 +199,25 @@ struct LandingPageView: View {
         } catch {
             print("Google Sign In Supabase error: \(error)")
         }
+    }
+
+    // MARK: - Nonce Helpers
+
+    private func randomNonceString(length: Int = 32) -> String {
+        precondition(length > 0)
+        var randomBytes = [UInt8](repeating: 0, count: length)
+        let errorCode = SecRandomCopyBytes(kSecRandomDefault, randomBytes.count, &randomBytes)
+        if errorCode != errSecSuccess {
+            fatalError("Unable to generate nonce. SecRandomCopyBytes failed with OSStatus \(errorCode)")
+        }
+        let charset: [Character] = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
+        return String(randomBytes.map { charset[Int($0) % charset.count] })
+    }
+
+    private func sha256(_ input: String) -> String {
+        let inputData = Data(input.utf8)
+        let hashedData = SHA256.hash(data: inputData)
+        return hashedData.compactMap { String(format: "%02x", $0) }.joined()
     }
 }
 

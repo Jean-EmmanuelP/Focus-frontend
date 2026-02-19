@@ -204,7 +204,7 @@ class AuthService: NSObject, ObservableObject {
     }
 
     // MARK: - Handle Google ID Token
-    func handleGoogleIdToken(idToken: String, fullName: String?, email: String?) async throws {
+    func handleGoogleIdToken(idToken: String, fullName: String?, email: String?, rawNonce: String? = nil) async throws {
         isAuthenticating = true
         error = nil
 
@@ -213,7 +213,8 @@ class AuthService: NSObject, ObservableObject {
             let session = try await supabaseClient.auth.signInWithIdToken(
                 credentials: .init(
                     provider: .google,
-                    idToken: idToken
+                    idToken: idToken,
+                    nonce: rawNonce
                 )
             )
 
