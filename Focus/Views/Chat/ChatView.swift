@@ -152,6 +152,11 @@ struct ChatView: View {
                 UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
             }
         }
+        .onChange(of: showSettings) { _, isShowing in
+            if isShowing {
+                isInputFocused = false
+            }
+        }
         .overlay {
             if showCompanionProfile {
                 CompanionProfileView(onDismiss: {
@@ -221,6 +226,7 @@ struct ChatView: View {
 
             // Center: Name bubble (clickable to open profile)
             Button(action: {
+                isInputFocused = false
                 withAnimation(.easeInOut(duration: 0.3)) {
                     showCompanionProfile = true
                 }
@@ -245,6 +251,7 @@ struct ChatView: View {
 
             // Right: Settings gear
             Button(action: {
+                isInputFocused = false
                 withAnimation(.easeInOut(duration: 0.3)) {
                     showSettings = true
                 }
@@ -274,7 +281,7 @@ struct ChatView: View {
             // Left: Home button + companion name
             HStack(spacing: 8) {
                 Button(action: {
-                    // Close overlays if open, then go to home mode
+                    isInputFocused = false
                     withAnimation(.easeInOut(duration: 0.3)) {
                         showThoughtsSheet = false
                         showTrainingSheet = false
@@ -292,6 +299,7 @@ struct ChatView: View {
                 }
 
                 Button(action: {
+                    isInputFocused = false
                     withAnimation(.easeInOut(duration: 0.3)) {
                         showCompanionProfile = true
                     }
