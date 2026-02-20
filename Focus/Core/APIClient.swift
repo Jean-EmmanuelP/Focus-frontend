@@ -403,6 +403,7 @@ enum APIConfiguration {
 
         // Chat Coach
         case chatMessage
+        case chatTTS
         case chatHistory
 
         // AI Chat (Kai v2)
@@ -789,6 +790,8 @@ enum APIConfiguration {
             // Chat Coach
             case .chatMessage:
                 return "/chat/message"
+            case .chatTTS:
+                return "/chat/tts"
             case .chatHistory:
                 return "/chat/history"
 

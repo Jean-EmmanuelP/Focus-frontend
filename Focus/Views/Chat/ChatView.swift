@@ -19,6 +19,7 @@ struct ChatView: View {
     @State private var showThoughtsSheet = false
     @State private var showTrainingSheet = false
     @State private var showCompanionProfile = false
+    @State private var showVoiceCall = false
     @State private var isHomeMode = false  // Toggle between home view and chat view
 
     @EnvironmentObject var revenueCatManager: RevenueCatManager
@@ -181,6 +182,9 @@ struct ChatView: View {
             }
         }
         .animation(.easeInOut(duration: 0.3), value: showSettings)
+        .fullScreenCover(isPresented: $showVoiceCall) {
+            VoiceCallView()
+        }
         .onChange(of: isInputFocused) { _, focused in
             // Exit home mode when user starts typing (only if there are messages)
             if focused && isHomeMode && !viewModel.messages.isEmpty {
@@ -323,8 +327,25 @@ struct ChatView: View {
 
             Spacer()
 
-            // Right: Chat (thoughts) and lightning (training) icons
+            // Right: Phone, Chat (thoughts) and lightning (training) icons
             HStack(spacing: 8) {
+                Button(action: {
+                    if revenueCatManager.isProUser {
+                        showVoiceCall = true
+                    } else {
+                        showPaywall = true
+                    }
+                }) {
+                    Image(systemName: "phone.fill")
+                        .font(.system(size: 16))
+                        .foregroundColor(.white.opacity(0.8))
+                        .frame(width: 40, height: 40)
+                        .background(
+                            Circle()
+                                .fill(Color.white.opacity(0.15))
+                        )
+                }
+
                 Button(action: {
                     withAnimation(.easeInOut(duration: 0.25)) {
                         showTrainingSheet = false
