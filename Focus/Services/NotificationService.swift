@@ -574,8 +574,8 @@ class NotificationService: ObservableObject {
 
     // MARK: - Companion Nudge Notifications
 
-    /// Schedule 2 companion nudge notifications per day for the next 7 days
-    /// These feel like the companion casually checking in, not a robotic reminder
+    /// Schedule companion nudge notifications for the next 7 days
+    /// Nudges are context-aware: reference user's quests, routines, and goals
     func scheduleCompanionNudges() async {
         guard settings.companionNudgesEnabled else {
             cancelCompanionNudges()
@@ -586,10 +586,19 @@ class NotificationService: ObservableObject {
 
         let firstName = FocusAppStore.shared.user?.firstName
         let companionName = FocusAppStore.shared.user?.companionName ?? "ton coach"
+        let activeQuests = FocusAppStore.shared.quests.filter { $0.status == .active }
         let calendar = Calendar.current
 
-        // 2 nudge slots per day: late morning (~11h) and mid-afternoon (~16h)
-        let nudgeSlots: [(baseHour: Int, label: String)] = [
+        // Build quest-specific nudge slots based on user's actual goals
+        var questNudges: [(hour: Int, phrase: String)] = []
+        for quest in activeQuests {
+            if let nudge = questNudgeForArea(quest: quest, firstName: firstName) {
+                questNudges.append(nudge)
+            }
+        }
+
+        // Base nudge slots: late morning (~11h) and mid-afternoon (~16h)
+        let baseSlots: [(baseHour: Int, label: String)] = [
             (11, "morning"),
             (16, "afternoon")
         ]
@@ -597,7 +606,8 @@ class NotificationService: ObservableObject {
         for dayOffset in 1...7 {
             guard let futureDate = calendar.date(byAdding: .day, value: dayOffset, to: Date()) else { continue }
 
-            for slot in nudgeSlots {
+            // Schedule base casual nudges
+            for slot in baseSlots {
                 let phrase = getCompanionNudgePhrase(slot: slot.label, firstName: firstName, companionName: companionName)
 
                 let content = UNMutableNotificationContent()
@@ -606,8 +616,7 @@ class NotificationService: ObservableObject {
                 content.sound = .default
                 content.userInfo = ["deepLink": "focus://dashboard"]
 
-                // Add a few minutes of variance so it doesn't feel robotic
-                let minuteVariance = (dayOffset * 7 + slot.baseHour) % 20 // 0-19 min variance per day
+                let minuteVariance = (dayOffset * 7 + slot.baseHour) % 20
                 var dateComponents = calendar.dateComponents([.year, .month, .day], from: futureDate)
                 dateComponents.hour = slot.baseHour
                 dateComponents.minute = minuteVariance
@@ -623,8 +632,119 @@ class NotificationService: ObservableObject {
                     print("❌ Failed to schedule companion nudge: \(error)")
                 }
             }
+
+            // Schedule 1 quest-specific nudge per day (rotate through quests)
+            if !questNudges.isEmpty {
+                let nudge = questNudges[(dayOffset - 1) % questNudges.count]
+
+                let content = UNMutableNotificationContent()
+                content.title = companionName
+                content.body = nudge.phrase
+                content.sound = .default
+                content.userInfo = ["deepLink": "focus://dashboard"]
+
+                let minuteVariance = (dayOffset * 3) % 15
+                var dateComponents = calendar.dateComponents([.year, .month, .day], from: futureDate)
+                dateComponents.hour = nudge.hour
+                dateComponents.minute = minuteVariance
+
+                let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: false)
+
+                let identifier = "\(companionNudgePrefix).\(dayOffset).quest"
+                let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+
+                do {
+                    try await notificationCenter.add(request)
+                } catch {
+                    print("❌ Failed to schedule quest nudge: \(error)")
+                }
+            }
         }
-        print("✅ Companion nudges scheduled for next 7 days")
+        print("✅ Companion nudges scheduled for next 7 days (\(questNudges.count) quest nudges)")
+    }
+
+    /// Generate a quest-specific nudge based on the quest area
+    private func questNudgeForArea(quest: Quest, firstName: String?) -> (hour: Int, phrase: String)? {
+        let name = (firstName != nil && !firstName!.isEmpty) ? " \(firstName!)" : ""
+        let lang = currentLanguageCode()
+
+        switch quest.area {
+        case .health:
+            let phrases = lang == "fr" ? [
+                "Hey\(name), t'es allé à la salle aujourd'hui ? 💪",
+                "Yo\(name). T'as bougé un peu aujourd'hui ?",
+                "C'est le moment de bouger\(name). Même 20 min ça compte.",
+                "Hey\(name) ! T'as pensé à ton objectif \"\(quest.title)\" ?",
+                "Petit rappel\(name) : ton corps te remerciera. Go bouger !",
+            ] : [
+                "Hey\(name), did you hit the gym today? 💪",
+                "Yo\(name). Did you move a bit today?",
+                "Time to move\(name). Even 20 min counts.",
+                "Hey\(name)! Remember your goal \"\(quest.title)\"?",
+                "Quick reminder\(name): your body will thank you. Go move!",
+            ]
+            return (17, phrases.randomElement()!) // 17h — typical gym time
+
+        case .learning:
+            let phrases = lang == "fr" ? [
+                "Hey\(name), t'as appris un truc aujourd'hui ? 📚",
+                "Yo\(name). 15 min d'apprentissage, c'est tout ce qu'il faut.",
+                "T'as avancé sur \"\(quest.title)\"\(name) ?",
+                "Hey\(name) ! Un petit chapitre ou une leçon aujourd'hui ?",
+            ] : [
+                "Hey\(name), did you learn something today? 📚",
+                "Yo\(name). 15 min of learning is all it takes.",
+                "Made progress on \"\(quest.title)\"\(name)?",
+                "Hey\(name)! A quick chapter or lesson today?",
+            ]
+            return (19, phrases.randomElement()!) // 19h — evening study
+
+        case .career:
+            let phrases = lang == "fr" ? [
+                "Hey\(name), t'as avancé sur \"\(quest.title)\" aujourd'hui ?",
+                "Yo\(name). Un petit pas pour ta carrière aujourd'hui ?",
+                "Comment avance \"\(quest.title)\"\(name) ?",
+            ] : [
+                "Hey\(name), did you work on \"\(quest.title)\" today?",
+                "Yo\(name). One small step for your career today?",
+                "How's \"\(quest.title)\" going\(name)?",
+            ]
+            return (13, phrases.randomElement()!) // 13h — during work hours
+
+        case .creativity:
+            let phrases = lang == "fr" ? [
+                "Hey\(name), t'as créé quelque chose aujourd'hui ? 🎨",
+                "Yo\(name). Même 10 min de créativité ça compte.",
+                "T'as avancé sur \"\(quest.title)\"\(name) ?",
+            ] : [
+                "Hey\(name), did you create something today? 🎨",
+                "Yo\(name). Even 10 min of creativity counts.",
+                "Made progress on \"\(quest.title)\"\(name)?",
+            ]
+            return (18, phrases.randomElement()!) // 18h — after work creative time
+
+        case .relationships:
+            let phrases = lang == "fr" ? [
+                "Hey\(name), t'as pris des nouvelles de quelqu'un aujourd'hui ? ❤️",
+                "Yo\(name). Un message à un proche, ça prend 30 secondes.",
+                "T'as pensé à \"\(quest.title)\"\(name) ?",
+            ] : [
+                "Hey\(name), did you check in with someone today? ❤️",
+                "Yo\(name). A message to a loved one takes 30 seconds.",
+                "Thought about \"\(quest.title)\"\(name)?",
+            ]
+            return (12, phrases.randomElement()!) // 12h — lunch break
+
+        case .other:
+            let phrases = lang == "fr" ? [
+                "Hey\(name), t'as pensé à \"\(quest.title)\" aujourd'hui ?",
+                "Petit rappel\(name) : \"\(quest.title)\". Tu gères ?",
+            ] : [
+                "Hey\(name), thought about \"\(quest.title)\" today?",
+                "Quick reminder\(name): \"\(quest.title)\". You got this?",
+            ]
+            return (15, phrases.randomElement()!) // 15h — mid-afternoon
+        }
     }
 
     func cancelCompanionNudges() {
@@ -632,6 +752,7 @@ class NotificationService: ObservableObject {
         for dayOffset in 1...7 {
             identifiers.append("\(companionNudgePrefix).\(dayOffset).morning")
             identifiers.append("\(companionNudgePrefix).\(dayOffset).afternoon")
+            identifiers.append("\(companionNudgePrefix).\(dayOffset).quest")
         }
         notificationCenter.removePendingNotificationRequests(withIdentifiers: identifiers)
     }

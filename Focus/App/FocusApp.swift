@@ -132,6 +132,13 @@ struct FocusApp: App {
                     // Clear badge when app becomes active
                     UNUserNotificationCenter.current().setBadgeCount(0)
 
+                    // Reset satisfaction score at the start of a new day
+                    let lastScoreDate = UserDefaults.standard.object(forKey: "satisfaction_score_date") as? Date
+                    if lastScoreDate == nil || !Calendar.current.isDateInToday(lastScoreDate!) {
+                        UserDefaults.standard.set(45, forKey: "satisfaction_score")
+                    }
+                    UserDefaults.standard.set(Date(), forKey: "satisfaction_score_date")
+
                     // Restart distraction monitoring if enabled
                     if DistractionMonitorService.shared.distractionMonitorEnabled {
                         DistractionMonitorService.shared.startMonitoring()
