@@ -13,12 +13,18 @@ final class DistractionMonitorService: ObservableObject {
     private let center = DeviceActivityCenter()
     private let sharedDefaults = UserDefaults(suiteName: "group.com.jep.volta")
 
-    // Activity & event identifiers
+    // Activity identifier
     private let activityName = DeviceActivityName("distraction.monitoring")
-    private let eventName = DeviceActivityEvent.Name("distraction.threshold")
 
-    // Threshold: minimum possible (1 minute — Apple's minimum)
-    private let thresholdMinutes = 1
+    // Multiple threshold levels — each fires separately, incrementing the distraction counter
+    // This gives a scale: 0 = clean, 1 = brief usage, 5 = heavy usage
+    private let thresholdLevels: [(name: String, minutes: Int)] = [
+        ("distraction.level.1",   1),   // Just opened a distracting app
+        ("distraction.level.2",  15),   // 15 min — starting to scroll
+        ("distraction.level.3",  30),   // 30 min — real distraction
+        ("distraction.level.4",  60),   // 1h — heavy usage
+        ("distraction.level.5", 120),   // 2h — very heavy usage
+    ]
 
     @Published var distractionMonitorEnabled: Bool {
         didSet {
@@ -63,22 +69,27 @@ final class DistractionMonitorService: ObservableObject {
             repeats: true
         )
 
-        // Event: threshold on selected apps
-        let event = DeviceActivityEvent(
-            applications: selection.applicationTokens,
-            categories: selection.categoryTokens,
-            webDomains: selection.webDomainTokens,
-            threshold: DateComponents(minute: thresholdMinutes)
-        )
+        // Register multiple threshold events — each one fires separately
+        var events: [DeviceActivityEvent.Name: DeviceActivityEvent] = [:]
+        for level in thresholdLevels {
+            let eventName = DeviceActivityEvent.Name(level.name)
+            let event = DeviceActivityEvent(
+                applications: selection.applicationTokens,
+                categories: selection.categoryTokens,
+                webDomains: selection.webDomainTokens,
+                threshold: DateComponents(minute: level.minutes)
+            )
+            events[eventName] = event
+        }
 
         do {
             try center.startMonitoring(
                 activityName,
                 during: schedule,
-                events: [eventName: event]
+                events: events
             )
-            debugInfo = "✅ Actif — \(appCount) apps, \(catCount) cats, seuil \(thresholdMinutes)min"
-            print("✅ DistractionMonitor: started (\(appCount) apps, \(catCount) categories)")
+            debugInfo = "✅ Actif — \(appCount) apps, \(catCount) cats, 5 seuils"
+            print("✅ DistractionMonitor: started (\(appCount) apps, \(catCount) cats, \(events.count) thresholds)")
         } catch {
             debugInfo = "❌ Erreur: \(error.localizedDescription)"
             print("❌ DistractionMonitor: failed to start - \(error)")
