@@ -154,8 +154,12 @@ class ChatViewModel: ObservableObject {
 
     /// Adjust satisfaction locally when user completes/uncompletes a task or routine
     private func adjustSatisfaction(completed: Bool) {
-        let delta = completed ? 5 : -5
-        let newScore = max(0, min(100, satisfactionScore + delta))
+        let delta = completed ? 8 : -5
+        // Ensure completing tasks always pushes above 50 baseline
+        var newScore = max(0, min(100, satisfactionScore + delta))
+        if completed && newScore < 50 {
+            newScore = max(newScore, 50)
+        }
         satisfactionScore = newScore
         UserDefaults.standard.set(newScore, forKey: "satisfaction_score")
     }
