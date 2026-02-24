@@ -258,19 +258,9 @@ struct SettingsView: View {
         }
         .overlay {
             if showAppBlocker {
-                NavigationStack {
-                    AppBlockerSettingsView()
-                        .toolbar {
-                            ToolbarItem(placement: .navigationBarLeading) {
-                                Button {
-                                    withAnimation(.easeInOut(duration: 0.3)) { showAppBlocker = false }
-                                } label: {
-                                    Image(systemName: "chevron.left")
-                                        .foregroundColor(.white)
-                                }
-                            }
-                        }
-                }
+                AppBlockerSettingsView(onDismiss: {
+                    withAnimation(.easeInOut(duration: 0.3)) { showAppBlocker = false }
+                })
                 .transition(.opacity)
             }
         }

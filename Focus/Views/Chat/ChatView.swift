@@ -185,22 +185,9 @@ struct ChatView: View {
         .animation(.easeInOut(duration: 0.3), value: showSettings)
         .overlay {
             if showAppBlocker {
-                NavigationStack {
-                    AppBlockerSettingsView()
-                        .toolbar {
-                            ToolbarItem(placement: .navigationBarLeading) {
-                                Button {
-                                    withAnimation(.easeInOut(duration: 0.3)) { showAppBlocker = false }
-                                } label: {
-                                    HStack(spacing: 4) {
-                                        Image(systemName: "chevron.left")
-                                        Text("Retour")
-                                    }
-                                    .foregroundColor(.white)
-                                }
-                            }
-                        }
-                }
+                AppBlockerSettingsView(onDismiss: {
+                    withAnimation(.easeInOut(duration: 0.3)) { showAppBlocker = false }
+                })
                 .transition(.opacity)
             }
         }

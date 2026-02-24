@@ -4,6 +4,7 @@ import FamilyControls
 // MARK: - App Blocker Settings View (Dark Navy style matching SettingsView)
 
 struct AppBlockerSettingsView: View {
+    var onDismiss: (() -> Void)? = nil
     @StateObject private var viewModel = AppBlockerViewModel()
     @ObservedObject private var distractionService = DistractionMonitorService.shared
     @Environment(\.dismiss) private var dismiss
@@ -27,7 +28,13 @@ struct AppBlockerSettingsView: View {
                         .foregroundColor(.white)
 
                     HStack {
-                        Button(action: { dismiss() }) {
+                        Button(action: {
+                            if let onDismiss {
+                                onDismiss()
+                            } else {
+                                dismiss()
+                            }
+                        }) {
                             Image(systemName: "chevron.left")
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundColor(.white)
