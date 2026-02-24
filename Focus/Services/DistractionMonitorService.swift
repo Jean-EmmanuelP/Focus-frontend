@@ -98,6 +98,15 @@ final class DistractionMonitorService: ObservableObject {
         startMonitoring()
     }
 
+    /// Get today's distraction count from the DeviceActivity extension (via shared UserDefaults)
+    /// Returns 0 if no distractions detected today (or monitoring not active)
+    var todayDistractionCount: Int {
+        let today = DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .none)
+        let lastDate = sharedDefaults?.string(forKey: "distraction.count.date") ?? ""
+        guard lastDate == today else { return 0 }
+        return sharedDefaults?.integer(forKey: "distraction.count.today") ?? 0
+    }
+
     /// Refresh debug info by checking actual monitoring state + shared UD
     func refreshDebugInfo() {
         let activities = center.activities

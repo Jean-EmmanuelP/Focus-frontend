@@ -39,6 +39,9 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
         logger.log("🔔 eventDidReachThreshold: event=\(event.rawValue) activity=\(activity.rawValue)")
         sharedDefaults?.set("eventDidReachThreshold: \(event.rawValue) at \(Date())", forKey: debugKey)
 
+        // Track distraction for satisfaction score
+        incrementDistractionCount()
+
         // Send the notification (no rate limiting — this only fires once per day per event)
         sendDistractionNotification()
     }
@@ -47,6 +50,24 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
         super.eventWillReachThresholdWarning(event, activity: activity)
         logger.log("⚠️ eventWillReachThresholdWarning: \(event.rawValue)")
         sharedDefaults?.set("eventWillReachThresholdWarning: \(event.rawValue) at \(Date())", forKey: debugKey)
+    }
+
+    // MARK: - Distraction Tracking
+
+    /// Increment daily distraction counter in shared UserDefaults
+    private func incrementDistractionCount() {
+        let today = DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .none)
+        let lastDate = sharedDefaults?.string(forKey: "distraction.count.date") ?? ""
+
+        if lastDate != today {
+            // New day — reset counter
+            sharedDefaults?.set(today, forKey: "distraction.count.date")
+            sharedDefaults?.set(1, forKey: "distraction.count.today")
+        } else {
+            let current = sharedDefaults?.integer(forKey: "distraction.count.today") ?? 0
+            sharedDefaults?.set(current + 1, forKey: "distraction.count.today")
+        }
+        logger.log("📊 Distraction count incremented for \(today)")
     }
 
     // MARK: - Notification

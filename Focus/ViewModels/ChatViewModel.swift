@@ -208,7 +208,7 @@ class ChatViewModel: ObservableObject {
             let response: AIResponse = try await apiClient.request(
                 endpoint: .chatMessage,
                 method: .post,
-                body: SimpleChatRequest(content: "__greeting__", source: "app", appsBlocked: false, stepsToday: nil)
+                body: SimpleChatRequest(content: "__greeting__", source: "app", appsBlocked: false, stepsToday: nil, distractionCount: nil)
             )
 
             updateSatisfactionScore(response.satisfactionScore)
@@ -283,7 +283,7 @@ class ChatViewModel: ObservableObject {
             let response: AIResponse = try await apiClient.request(
                 endpoint: .chatMessage,
                 method: .post,
-                body: SimpleChatRequest(content: "__daily_greeting__", source: "app", appsBlocked: isBlocking, stepsToday: steps)
+                body: SimpleChatRequest(content: "__daily_greeting__", source: "app", appsBlocked: isBlocking, stepsToday: steps, distractionCount: DistractionMonitorService.shared.todayDistractionCount)
             )
 
             updateSatisfactionScore(response.satisfactionScore)
@@ -612,7 +612,7 @@ class ChatViewModel: ObservableObject {
             let response: AIResponse = try await apiClient.request(
                 endpoint: .chatMessage,
                 method: .post,
-                body: SimpleChatRequest(content: text, source: "app", appsBlocked: isBlocking, stepsToday: steps)
+                body: SimpleChatRequest(content: text, source: "app", appsBlocked: isBlocking, stepsToday: steps, distractionCount: DistractionMonitorService.shared.todayDistractionCount)
             )
 
             updateSatisfactionScore(response.satisfactionScore)
@@ -976,11 +976,13 @@ struct SimpleChatRequest: Encodable {
     let source: String
     let appsBlocked: Bool
     let stepsToday: Int?
+    let distractionCount: Int?
 
     enum CodingKeys: String, CodingKey {
         case content, source
         case appsBlocked = "apps_blocked"
         case stepsToday = "steps_today"
+        case distractionCount = "distraction_count"
     }
 }
 

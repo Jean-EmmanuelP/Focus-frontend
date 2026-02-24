@@ -146,7 +146,7 @@ class VoiceCallViewModel: ObservableObject {
             let response: AIResponse = try await apiClient.request(
                 endpoint: .chatMessage,
                 method: .post,
-                body: SimpleChatRequest(content: "__greeting__", source: "voice_call", appsBlocked: isBlocking, stepsToday: steps)
+                body: SimpleChatRequest(content: "__greeting__", source: "voice_call", appsBlocked: isBlocking, stepsToday: steps, distractionCount: DistractionMonitorService.shared.todayDistractionCount)
             )
 
             guard !isCancelled else { return }
@@ -175,7 +175,7 @@ class VoiceCallViewModel: ObservableObject {
             let response: AIResponse = try await apiClient.request(
                 endpoint: .chatMessage,
                 method: .post,
-                body: SimpleChatRequest(content: text, source: "voice_call", appsBlocked: isBlocking, stepsToday: steps)
+                body: SimpleChatRequest(content: text, source: "voice_call", appsBlocked: isBlocking, stepsToday: steps, distractionCount: DistractionMonitorService.shared.todayDistractionCount)
             )
 
             guard !isCancelled else { return }
