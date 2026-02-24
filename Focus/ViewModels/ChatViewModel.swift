@@ -303,6 +303,28 @@ class ChatViewModel: ObservableObject {
         isLoading = false
     }
 
+    /// Request a coach reaction when user completes a task or routine
+    private func requestCompletionReaction(itemName: String, isTask: Bool) async {
+        let sentinel = isTask ? "__task_completed__" : "__routine_completed__"
+        do {
+            let isBlocking = ScreenTimeAppBlockerService.shared.isBlocking
+            let steps = await HealthKitService.shared.fetchTodaySteps()
+            let response: AIResponse = try await apiClient.request(
+                endpoint: .chatMessage,
+                method: .post,
+                body: SimpleChatRequest(content: "\(sentinel):\(itemName)", source: "app", appsBlocked: isBlocking, stepsToday: steps, distractionCount: DistractionMonitorService.shared.todayDistractionCount)
+            )
+
+            updateSatisfactionScore(response.satisfactionScore)
+
+            let aiMessage = SimpleChatMessage(content: response.reply, isFromUser: false)
+            messages.append(aiMessage)
+            saveMessages()
+        } catch {
+            print("Completion reaction failed: \(error)")
+        }
+    }
+
     /// Generate a varied local greeting as fallback when the backend is unreachable
     private func generateLocalDailyGreeting() -> String {
         let userName = store?.user?.pseudo ?? store?.user?.firstName ?? ""
@@ -865,15 +887,18 @@ class ChatViewModel: ObservableObject {
         guard let msgIndex = messages.firstIndex(where: { $0.id == messageId }) else { return }
 
         var wasCompleted = false
+        var taskTitle = ""
         switch messages[msgIndex].cardData {
         case .taskList(var tasks):
             guard let taskIndex = tasks.firstIndex(where: { $0.id == taskId }) else { return }
             wasCompleted = tasks[taskIndex].isCompleted
+            taskTitle = tasks[taskIndex].title
             tasks[taskIndex].isCompleted = !wasCompleted
             messages[msgIndex].cardData = .taskList(tasks)
         case .planning(var tasks, let routines):
             guard let taskIndex = tasks.firstIndex(where: { $0.id == taskId }) else { return }
             wasCompleted = tasks[taskIndex].isCompleted
+            taskTitle = tasks[taskIndex].title
             tasks[taskIndex].isCompleted = !wasCompleted
             messages[msgIndex].cardData = .planning(tasks, routines)
         default:
@@ -894,6 +919,8 @@ class ChatViewModel: ObservableObject {
                         endpoint: .completeCalendarTask(taskId),
                         method: .post
                     )
+                    // Notify coach about task completion
+                    await requestCompletionReaction(itemName: taskTitle, isTask: true)
                 }
                 NotificationCenter.default.post(name: .calendarNeedsRefresh, object: nil)
             } catch {
@@ -906,15 +933,18 @@ class ChatViewModel: ObservableObject {
         guard let msgIndex = messages.firstIndex(where: { $0.id == messageId }) else { return }
 
         var wasCompleted = false
+        var routineTitle = ""
         switch messages[msgIndex].cardData {
         case .routineList(var routines):
             guard let routineIndex = routines.firstIndex(where: { $0.id == routineId }) else { return }
             wasCompleted = routines[routineIndex].isCompleted
+            routineTitle = routines[routineIndex].title
             routines[routineIndex].isCompleted = !wasCompleted
             messages[msgIndex].cardData = .routineList(routines)
         case .planning(let tasks, var routines):
             guard let routineIndex = routines.firstIndex(where: { $0.id == routineId }) else { return }
             wasCompleted = routines[routineIndex].isCompleted
+            routineTitle = routines[routineIndex].title
             routines[routineIndex].isCompleted = !wasCompleted
             messages[msgIndex].cardData = .planning(tasks, routines)
         default:
@@ -935,6 +965,8 @@ class ChatViewModel: ObservableObject {
                         endpoint: .completeRoutine(routineId),
                         method: .post
                     )
+                    // Notify coach about routine completion
+                    await requestCompletionReaction(itemName: routineTitle, isTask: false)
                 }
                 await store?.loadRituals()
             } catch {
