@@ -198,11 +198,11 @@ struct MainTabView: View {
         case .weeklyGoals:
             WeeklyGoalsView()
         case .settings:
-            SettingsView()
+            SettingsView(onDismiss: {})
         case .notificationSettings:
-            SettingsView()
+            SettingsView(onDismiss: {})
         case .appBlockerSettings:
-            SettingsView()
+            SettingsView(onDismiss: {})
         }
     }
 }

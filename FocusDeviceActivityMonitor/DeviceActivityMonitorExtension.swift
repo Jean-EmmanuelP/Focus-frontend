@@ -42,8 +42,8 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
         // Track distraction for satisfaction score
         incrementDistractionCount()
 
-        // Send the notification (no rate limiting — this only fires once per day per event)
-        sendDistractionNotification()
+        // Send notification adapted to distraction level
+        sendDistractionNotification(level: event.rawValue)
     }
 
     override func eventWillReachThresholdWarning(_ event: DeviceActivityEvent.Name, activity: DeviceActivityName) {
@@ -72,15 +72,17 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
 
     // MARK: - Notification
 
-    private func sendDistractionNotification() {
+    private func sendDistractionNotification(level: String) {
+        let (title, body) = messageForLevel(level)
+
         let content = UNMutableNotificationContent()
-        content.title = "Ton coach pense a toi"
-        content.body = "Viens discuter avec moi"
+        content.title = title
+        content.body = body
         content.sound = .default
         content.userInfo = ["deepLink": "focus://chat"]
 
         let request = UNNotificationRequest(
-            identifier: "distraction.alert.\(UUID().uuidString)",
+            identifier: "distraction.alert.\(level)",
             content: content,
             trigger: nil // Fire immediately
         )
@@ -90,9 +92,31 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
                 logger.error("❌ Failed to send notification: \(error.localizedDescription)")
                 self.sharedDefaults?.set("notif FAILED: \(error.localizedDescription) at \(Date())", forKey: self.debugKey)
             } else {
-                logger.log("✅ Distraction notification sent")
-                self.sharedDefaults?.set("notif SENT at \(Date())", forKey: self.debugKey)
+                logger.log("✅ Distraction notification sent for level \(level)")
+                self.sharedDefaults?.set("notif SENT level=\(level) at \(Date())", forKey: self.debugKey)
             }
+        }
+    }
+
+    private func messageForLevel(_ level: String) -> (title: String, body: String) {
+        switch level {
+        case "distraction.level.1":
+            // 1 min — gentle nudge
+            return ("Hey 👀", "Tu scrolles là. T'avais pas un truc à faire ?")
+        case "distraction.level.2":
+            // 15 min
+            return ("15 min de scroll", "Ça fait un quart d'heure. Pose ton tel.")
+        case "distraction.level.3":
+            // 30 min
+            return ("30 min perdues", "Une demi-heure sur ton tel. Sérieux, arrête.")
+        case "distraction.level.4":
+            // 1h
+            return ("1h de scroll 🚨", "T'as perdu 1h. Tes objectifs avancent pas tout seuls.")
+        case "distraction.level.5":
+            // 2h
+            return ("2h... 😐", "Deux heures. T'as des rêves non ? Reviens.")
+        default:
+            return ("Ton coach", "Range ton tel et avance.")
         }
     }
 }

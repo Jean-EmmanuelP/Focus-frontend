@@ -80,10 +80,16 @@ struct ChatView: View {
             isInputFocused = false
         }
         .onReceive(NotificationCenter.default.publisher(for: .startScreenshotMode)) { _ in
-            viewModel.startScreenshotMode()
+            withAnimation(.easeInOut(duration: 0.3)) {
+                showSettings = false
+                isHomeMode = false
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                viewModel.startScreenshotMode()
+            }
         }
         .overlay(alignment: .bottom) {
-            if viewModel.screenshotMode {
+            if viewModel.screenshotMode && !viewModel.screenshotControlsHidden {
                 HStack(spacing: 12) {
                     Button {
                         viewModel.stopScreenshotMode()
@@ -110,6 +116,11 @@ struct ChatView: View {
                     }
                 }
                 .padding(.bottom, 100)
+            }
+        }
+        .onTapGesture(count: 3) {
+            if viewModel.screenshotMode {
+                viewModel.screenshotControlsHidden.toggle()
             }
         }
         .overlay {
@@ -1488,7 +1499,7 @@ struct SettingsPageView: View {
     @EnvironmentObject var store: FocusAppStore
 
     var body: some View {
-        ReplicaSettingsView(onDismiss: onDismiss)
+        SettingsView(onDismiss: onDismiss)
             .environmentObject(store)
     }
 }

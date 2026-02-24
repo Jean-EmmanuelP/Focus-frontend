@@ -98,7 +98,7 @@ struct FocusApp: App {
                     .presentationDetents([.medium])
             }
             .sheet(isPresented: $router.showSettings) {
-                SettingsView()
+                SettingsView(onDismiss: {})
                     .environmentObject(store)
             }
             .overlay {

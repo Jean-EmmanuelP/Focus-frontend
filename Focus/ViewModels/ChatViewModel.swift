@@ -1005,39 +1005,39 @@ class ChatViewModel: ObservableObject {
 
     @Published var screenshotMode = false
     @Published var screenshotIndex = 0
+    @Published var screenshotControlsHidden = false
 
     private let screenshotConversations: [[(String, Bool)]] = [
-        // 1: "Un pote exigeant dans ta poche"
+        // 1: "Un pote exigeant dans ta poche" — procrastination classique
         [
-            ("T'as bossé sur quoi aujourd'hui ?", false),
-            ("Rien encore", true),
-            ("Allez commence par le plus dur. C'est quoi ?", false),
+            ("Ça fait 40 min que t'es sur Insta là.", false),
+            ("Ouais je sais...", true),
+            ("T'avais pas un partiel à réviser ? Allez on s'y met.", false),
         ],
-        // 2: "Il te sort du scroll"
+        // 2: "Il te sort du scroll" — le blocage d'apps
         [
             ("Débloque mes apps", true),
             ("T'avais dit focus jusqu'à 16h. Tiens bon 🔒", false),
-            ("Allez juste 5 min", true),
-            ("Non. 5 min ça devient 1h et tu le sais. Reste focus.", false),
+            ("Juste 5 min stp", true),
+            ("Non. 5 min ça devient 1h et tu le sais.", false),
         ],
-        // 3: "Il te rappelle tes objectifs"
+        // 3: "Il te rappelle tes objectifs" — la flemme du soir
         [
-            ("T'es allé courir ? T'avais dit 3 fois cette semaine.", false),
-            ("Ouais ce matin 10km", true),
-            ("Bien joué 💪 Plus qu'une fois et t'as ton objectif.", false),
+            ("T'as pas médité aujourd'hui.", false),
+            ("Flemme ce soir franchement", true),
+            ("10 min. Juste 10 min et c'est fait. Tu dormiras mieux.", false),
         ],
-        // 4: "Tâches, routines, tout est là"
+        // 4: "Tâches, routines, tout est là" — organisation de journée
         [
-            ("C'est quoi le programme aujourd'hui ?", true),
-            ("Tiens regarde ⬇️", false),
-            // This one would ideally show a card — the text simulates it
-            ("✅ Cours de maths — 9h\n⬜ Rapport stage — 14h\n⬜ Sport — 18h\n⬜ Lire 30 min — 21h", false),
+            ("C'est quoi mon programme ?", true),
+            ("Check ⬇️", false),
+            ("✅ Répondre aux mails\n⬜ Finir le dossier\n⬜ Salle de sport\n⬜ Lire 20 min", false),
         ],
-        // 5: "Ton tel, enfin de ton côté"
+        // 5: "Ton tel, enfin de ton côté" — la fierté
         [
             ("Tout est coché aujourd'hui 🔥", false),
-            ("7 jours de streak. T'es en feu.", false),
-            ("Merci coach", true),
+            ("12 jours de suite. T'es une machine.", false),
+            ("Sérieux ça fait du bien", true),
             ("C'est toi qui fais le taf. Moi je te rappelle juste pourquoi.", false),
         ],
     ]
