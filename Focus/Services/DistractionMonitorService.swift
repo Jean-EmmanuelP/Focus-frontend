@@ -18,12 +18,12 @@ final class DistractionMonitorService: ObservableObject {
 
     // Multiple threshold levels — each fires separately, incrementing the distraction counter
     // This gives a scale: 0 = clean, 1 = brief usage, 5 = heavy usage
-    private let thresholdLevels: [(name: String, minutes: Int)] = [
-        ("distraction.level.1",   1),   // Just opened a distracting app
-        ("distraction.level.2",  15),   // 15 min — starting to scroll
-        ("distraction.level.3",  30),   // 30 min — real distraction
-        ("distraction.level.4",  60),   // 1h — heavy usage
-        ("distraction.level.5", 120),   // 2h — very heavy usage
+    private let thresholdLevels: [(name: String, seconds: Int)] = [
+        ("distraction.level.1",   10),   // 10s — just opened (test quickly)
+        ("distraction.level.2",  900),   // 15 min — starting to scroll
+        ("distraction.level.3", 1800),   // 30 min — real distraction
+        ("distraction.level.4", 3600),   // 1h — heavy usage
+        ("distraction.level.5", 7200),   // 2h — very heavy usage
     ]
 
     @Published var distractionMonitorEnabled: Bool {
@@ -77,7 +77,7 @@ final class DistractionMonitorService: ObservableObject {
                 applications: selection.applicationTokens,
                 categories: selection.categoryTokens,
                 webDomains: selection.webDomainTokens,
-                threshold: DateComponents(minute: level.minutes)
+                threshold: DateComponents(second: level.seconds)
             )
             events[eventName] = event
         }

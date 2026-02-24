@@ -132,6 +132,11 @@ struct FocusApp: App {
                     // Clear badge when app becomes active
                     UNUserNotificationCenter.current().setBadgeCount(0)
 
+                    // Request notification permissions if not yet granted
+                    Task {
+                        await NotificationService.shared.requestAuthorization()
+                    }
+
                     // Reset satisfaction score at the start of a new day
                     let lastScoreDate = UserDefaults.standard.object(forKey: "satisfaction_score_date") as? Date
                     if lastScoreDate == nil || !Calendar.current.isDateInToday(lastScoreDate!) {
