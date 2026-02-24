@@ -486,13 +486,6 @@ struct SettingsView: View {
                 settingsRow(title: "Test Avatar 3D", showChevron: true)
             }
 
-            replicaDivider
-
-            Button(action: {
-                NotificationCenter.default.post(name: .startScreenshotMode, object: nil)
-            }) {
-                settingsRow(title: "Mode Screenshot Store", showChevron: true)
-            }
         }
         .padding(.horizontal, 16)
     }
