@@ -99,12 +99,10 @@ struct SettingsView: View {
                             .foregroundColor(.white.opacity(0.3))
                             .padding(.bottom, 32)
 
-                        // Debug section (dev only)
-                        #if DEBUG
+                        // Debug section
                         debugSection
                             .padding(.horizontal, 16)
                             .padding(.bottom, 32)
-                        #endif
                     }
                 }
             }
@@ -344,17 +342,26 @@ struct SettingsView: View {
 
     // MARK: - Debug Section
 
-    #if DEBUG
     private var debugSection: some View {
         VStack(spacing: 0) {
             sectionLabel("Developpeur")
 
             NavigationLink(destination: NewOnboardingView().environmentObject(FocusAppStore.shared).environmentObject(SubscriptionManager.shared)) {
-                settingsRow(title: "Debug Onboarding", subtitle: nil, showChevron: true)
+                settingsRow(title: "Debug Onboarding - Oui", subtitle: nil, showChevron: true)
             }
+
+            screenshotButton
         }
     }
-    #endif
+
+    private var screenshotButton: some View {
+        Button {
+            NotificationCenter.default.post(name: .startScreenshotMode, object: nil)
+            dismiss()
+        } label: {
+            settingsRow(title: "Mode Screenshot Store", subtitle: "Fake conversations pour screenshots", showChevron: true)
+        }
+    }
 
     // MARK: - Row Components
 

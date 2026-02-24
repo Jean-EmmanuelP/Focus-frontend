@@ -6,6 +6,7 @@ import Combine
 extension Notification.Name {
     static let calendarNeedsRefresh = Notification.Name("calendarNeedsRefresh")
     static let openAppBlockerSettings = Notification.Name("openAppBlockerSettings")
+    static let startScreenshotMode = Notification.Name("startScreenshotMode")
 }
 
 // MARK: - Message Type
@@ -998,6 +999,75 @@ class ChatViewModel: ObservableObject {
                 print("Failed to clear chat history on backend: \(error)")
             }
         }
+    }
+
+    // MARK: - Screenshot Mode (App Store)
+
+    @Published var screenshotMode = false
+    @Published var screenshotIndex = 0
+
+    private let screenshotConversations: [[(String, Bool)]] = [
+        // 1: "Un pote exigeant dans ta poche"
+        [
+            ("T'as bossé sur quoi aujourd'hui ?", false),
+            ("Rien encore", true),
+            ("Allez commence par le plus dur. C'est quoi ?", false),
+        ],
+        // 2: "Il te sort du scroll"
+        [
+            ("Débloque mes apps", true),
+            ("T'avais dit focus jusqu'à 16h. Tiens bon 🔒", false),
+            ("Allez juste 5 min", true),
+            ("Non. 5 min ça devient 1h et tu le sais. Reste focus.", false),
+        ],
+        // 3: "Il te rappelle tes objectifs"
+        [
+            ("T'es allé courir ? T'avais dit 3 fois cette semaine.", false),
+            ("Ouais ce matin 10km", true),
+            ("Bien joué 💪 Plus qu'une fois et t'as ton objectif.", false),
+        ],
+        // 4: "Tâches, routines, tout est là"
+        [
+            ("C'est quoi le programme aujourd'hui ?", true),
+            ("Tiens regarde ⬇️", false),
+            // This one would ideally show a card — the text simulates it
+            ("✅ Cours de maths — 9h\n⬜ Rapport stage — 14h\n⬜ Sport — 18h\n⬜ Lire 30 min — 21h", false),
+        ],
+        // 5: "Ton tel, enfin de ton côté"
+        [
+            ("Tout est coché aujourd'hui 🔥", false),
+            ("7 jours de streak. T'es en feu.", false),
+            ("Merci coach", true),
+            ("C'est toi qui fais le taf. Moi je te rappelle juste pourquoi.", false),
+        ],
+    ]
+
+    func loadNextScreenshotConversation() {
+        guard screenshotIndex < screenshotConversations.count else {
+            screenshotMode = false
+            screenshotIndex = 0
+            return
+        }
+
+        let conversation = screenshotConversations[screenshotIndex]
+        messages = conversation.map { content, isFromUser in
+            SimpleChatMessage(content: content, isFromUser: isFromUser)
+        }
+        saveMessages()
+        screenshotIndex += 1
+    }
+
+    func startScreenshotMode() {
+        screenshotMode = true
+        screenshotIndex = 0
+        loadNextScreenshotConversation()
+    }
+
+    func stopScreenshotMode() {
+        screenshotMode = false
+        screenshotIndex = 0
+        messages = []
+        saveMessages()
     }
 }
 

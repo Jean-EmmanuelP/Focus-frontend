@@ -79,6 +79,39 @@ struct ChatView: View {
         .onTapGesture {
             isInputFocused = false
         }
+        .onReceive(NotificationCenter.default.publisher(for: .startScreenshotMode)) { _ in
+            viewModel.startScreenshotMode()
+        }
+        .overlay(alignment: .bottom) {
+            if viewModel.screenshotMode {
+                HStack(spacing: 12) {
+                    Button {
+                        viewModel.stopScreenshotMode()
+                        viewModel.loadHistory()
+                    } label: {
+                        Text("Quitter")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 12)
+                            .background(Color.red.opacity(0.8))
+                            .cornerRadius(25)
+                    }
+                    Button {
+                        viewModel.loadNextScreenshotConversation()
+                    } label: {
+                        Text("Suivant \(viewModel.screenshotIndex)/5")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 12)
+                            .background(Color.blue)
+                            .cornerRadius(25)
+                    }
+                }
+                .padding(.bottom, 100)
+            }
+        }
         .overlay {
             if showThoughtsSheet {
                 ChatFeatureOverlayContent(
@@ -723,10 +756,11 @@ struct ReplikaMessageBubble: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .bottom, spacing: 0) {
+                let isScreenshot = viewModel?.screenshotMode ?? false
                 if message.isFromUser {
-                    Spacer(minLength: 120)
+                    Spacer(minLength: isScreenshot ? 60 : 120)
                 } else {
-                    Spacer(minLength: 100)
+                    Spacer(minLength: isScreenshot ? 40 : 100)
                 }
 
                 VStack(alignment: .trailing, spacing: 4) {
@@ -755,11 +789,12 @@ struct ReplikaMessageBubble: View {
     }
 
     private var textBubble: some View {
-        Text(message.content)
-            .font(.system(size: 16))
+        let isScreenshot = viewModel?.screenshotMode ?? false
+        return Text(message.content)
+            .font(.system(size: isScreenshot ? 22 : 16))
             .foregroundColor(message.isFromUser ? .white : .black)
-            .padding(.horizontal, 18)
-            .padding(.vertical, 14)
+            .padding(.horizontal, isScreenshot ? 22 : 18)
+            .padding(.vertical, isScreenshot ? 18 : 14)
             .background(message.isFromUser ? userBubbleColor : aiBubbleColor)
             .cornerRadius(26)
     }
