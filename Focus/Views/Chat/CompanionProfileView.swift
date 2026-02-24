@@ -6,7 +6,7 @@ struct CompanionProfileView: View {
     var onDismiss: (() -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var store: FocusAppStore
-    @EnvironmentObject var revenueCatManager: RevenueCatManager
+    @EnvironmentObject var subscriptionManager: SubscriptionManager
 
     private let userService = UserService()
 
@@ -129,7 +129,7 @@ struct CompanionProfileView: View {
                         }
                     }
                 )
-                .environmentObject(revenueCatManager)
+                .environmentObject(subscriptionManager)
                 .transition(.opacity)
             }
         }
@@ -883,5 +883,5 @@ struct VoiceRowView: View {
 #Preview("Companion Profile") {
     CompanionProfileView()
         .environmentObject(FocusAppStore.shared)
-        .environmentObject(RevenueCatManager.shared)
+        .environmentObject(SubscriptionManager.shared)
 }

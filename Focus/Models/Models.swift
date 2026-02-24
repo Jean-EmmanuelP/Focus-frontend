@@ -27,6 +27,7 @@ struct User: Codable, Identifiable {
     var companionName: String?         // AI companion name (user-chosen)
     var companionGender: String?       // AI companion gender
     var avatarStyle: String?           // Avatar style choice
+    var freeVoiceMessagesUsed: Int?    // Counter for free voice messages (server-side)
     var createdAt: Date?               // Account creation date
 
     // Computed display name (pseudo > firstName lastName > email prefix)
@@ -438,6 +439,7 @@ extension User {
         self.companionName = response.companionName
         self.companionGender = response.companionGender
         self.avatarStyle = response.avatarStyle
+        self.freeVoiceMessagesUsed = response.freeVoiceMessagesUsed
         // Account metadata
         self.createdAt = response.createdAt
     }

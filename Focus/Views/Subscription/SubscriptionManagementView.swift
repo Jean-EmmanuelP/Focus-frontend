@@ -12,7 +12,7 @@ import StoreKit
 /// Main view for managing subscriptions - accessible from Settings
 struct SubscriptionManagementView: View {
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject var revenueCatManager: RevenueCatManager
+    @EnvironmentObject var subscriptionManager: SubscriptionManager
     @State private var showPaywall = false
     @State private var showCustomerCenter = false
     @State private var isRestoring = false
@@ -31,7 +31,7 @@ struct SubscriptionManagementView: View {
                         currentPlanCard
 
                         // Actions
-                        if revenueCatManager.isProUser {
+                        if subscriptionManager.isProUser {
                             // Pro user - show manage options
                             manageSubscriptionSection
                         } else {
@@ -67,11 +67,11 @@ struct SubscriptionManagementView: View {
                         showPaywall = false
                     }
                 )
-                .environmentObject(revenueCatManager)
+                .environmentObject(subscriptionManager)
             }
             .sheet(isPresented: $showCustomerCenter) {
                 ManageSubscriptionsView(onDismiss: { showCustomerCenter = false })
-                    .environmentObject(revenueCatManager)
+                    .environmentObject(subscriptionManager)
             }
             .alert("Restauration", isPresented: $showRestoreAlert) {
                 Button("OK", role: .cancel) {}
@@ -87,12 +87,12 @@ struct SubscriptionManagementView: View {
             // Status icon
             ZStack {
                 Circle()
-                    .fill(revenueCatManager.isProUser
+                    .fill(subscriptionManager.isProUser
                           ? Color(hex: "#FFD700").opacity(0.2)
                           : ColorTokens.surface)
                     .frame(width: 80, height: 80)
 
-                Text(revenueCatManager.isProUser ? "👑" : "🔓")
+                Text(subscriptionManager.isProUser ? "👑" : "🔓")
                     .font(.system(size: 40))
             }
 
@@ -117,7 +117,7 @@ struct SubscriptionManagementView: View {
             .cornerRadius(RadiusTokens.full)
 
             // Expiration date (if applicable)
-            if let expirationDate = revenueCatManager.customerInfo?.entitlements["Volta Pro"]?.expirationDate {
+            if let expirationDate = subscriptionManager.customerInfo?.entitlements["Volta Pro"]?.expirationDate {
                 Text("Renouvellement le \(formattedDate(expirationDate))")
                     .font(.satoshi(12))
                     .foregroundColor(ColorTokens.textMuted)
@@ -126,7 +126,7 @@ struct SubscriptionManagementView: View {
         .frame(maxWidth: .infinity)
         .padding(SpacingTokens.xl)
         .background(
-            revenueCatManager.isProUser
+            subscriptionManager.isProUser
             ? LinearGradient(
                 colors: [Color(hex: "#1A1A2E"), Color(hex: "#16213E")],
                 startPoint: .topLeading,
@@ -142,7 +142,7 @@ struct SubscriptionManagementView: View {
         .overlay(
             RoundedRectangle(cornerRadius: RadiusTokens.xl)
                 .stroke(
-                    revenueCatManager.isProUser ? Color(hex: "#FFD700").opacity(0.3) : ColorTokens.border,
+                    subscriptionManager.isProUser ? Color(hex: "#FFD700").opacity(0.3) : ColorTokens.border,
                     lineWidth: 1
                 )
         )
@@ -347,7 +347,7 @@ struct SubscriptionManagementView: View {
 
     // MARK: - Computed Properties
     private var currentPlanName: String {
-        switch revenueCatManager.subscriptionState {
+        switch subscriptionManager.subscriptionState {
         case .subscribed(let tier):
             switch tier {
             case .plus: return "Focus Plus"
@@ -361,7 +361,7 @@ struct SubscriptionManagementView: View {
     }
 
     private var statusColor: Color {
-        switch revenueCatManager.subscriptionState {
+        switch subscriptionManager.subscriptionState {
         case .subscribed: return ColorTokens.success
         case .expired: return ColorTokens.warning
         case .notSubscribed, .unknown: return ColorTokens.textMuted
@@ -369,7 +369,7 @@ struct SubscriptionManagementView: View {
     }
 
     private var statusText: String {
-        switch revenueCatManager.subscriptionState {
+        switch subscriptionManager.subscriptionState {
         case .subscribed: return "Actif"
         case .expired: return "Expire"
         case .notSubscribed, .unknown: return "Gratuit"
@@ -388,13 +388,13 @@ struct SubscriptionManagementView: View {
         isRestoring = true
 
         Task {
-            let success = await revenueCatManager.restorePurchases()
+            let success = await subscriptionManager.restorePurchases()
             isRestoring = false
 
             if success {
                 restoreMessage = "Vos achats ont ete restaures avec succes !"
             } else {
-                restoreMessage = revenueCatManager.errorMessage ?? "Aucun achat a restaurer"
+                restoreMessage = subscriptionManager.errorMessage ?? "Aucun achat a restaurer"
             }
             showRestoreAlert = true
         }
@@ -425,7 +425,7 @@ struct CustomerCenterView: View {
 
 // MARK: - Manage Subscriptions View
 struct ManageSubscriptionsView: View {
-    @EnvironmentObject var revenueCatManager: RevenueCatManager
+    @EnvironmentObject var subscriptionManager: SubscriptionManager
     var onDismiss: () -> Void
 
     var body: some View {
@@ -492,5 +492,5 @@ struct ManageSubscriptionsView: View {
 // MARK: - Preview
 #Preview {
     SubscriptionManagementView()
-        .environmentObject(RevenueCatManager.shared)
+        .environmentObject(SubscriptionManager.shared)
 }

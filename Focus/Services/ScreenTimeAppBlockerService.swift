@@ -13,11 +13,15 @@ final class ScreenTimeAppBlockerService: ObservableObject {
     // MARK: - Published State
     @Published private(set) var authorizationStatus: AuthorizationStatus = .notDetermined
     @Published private(set) var isBlocking: Bool = false
+    @Published private(set) var blockingEndDate: Date?
+    @Published private(set) var blockingRemainingMinutes: Int = 0
     @Published var selectedApps: FamilyActivitySelection = FamilyActivitySelection()
 
     // MARK: - Private Properties
     private let managedSettingsStore = ManagedSettingsStore()
     private let userDefaultsKey = "appBlocker.selectedApps"
+    private let sharedDefaults = UserDefaults(suiteName: "group.com.jep.volta")
+    private var blockingTimer: Timer?
 
     // MARK: - Authorization Status
     enum AuthorizationStatus {
@@ -128,9 +132,13 @@ final class ScreenTimeAppBlockerService: ObservableObject {
 
     // MARK: - Blocking Control
 
-    /// Start blocking selected apps
-    /// Call this when a focus session starts
+    /// Start blocking selected apps indefinitely
     func startBlocking() {
+        startBlocking(durationMinutes: nil)
+    }
+
+    /// Start blocking selected apps for a specific duration (in minutes)
+    func startBlocking(durationMinutes: Int?) {
         guard authorizationStatus == .approved else {
             print("⚠️ Cannot start blocking: not authorized")
             return
@@ -141,45 +149,91 @@ final class ScreenTimeAppBlockerService: ObservableObject {
             return
         }
 
+        // Cancel any existing timer
+        blockingTimer?.invalidate()
+        blockingTimer = nil
+
         // Apply shield to selected apps
         managedSettingsStore.shield.applications = selectedApps.applicationTokens
         managedSettingsStore.shield.applicationCategories = .specific(selectedApps.categoryTokens)
         managedSettingsStore.shield.webDomains = selectedApps.webDomainTokens
 
         isBlocking = true
-        print("🔒 App blocking started - \(selectedAppsCount) items blocked")
+
+        if let minutes = durationMinutes, minutes > 0 {
+            blockingEndDate = Date().addingTimeInterval(TimeInterval(minutes * 60))
+            blockingRemainingMinutes = minutes
+
+            // Update remaining time every 60s
+            blockingTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+                Task { @MainActor in
+                    self?.updateRemainingTime()
+                }
+            }
+
+            // Schedule auto-stop
+            DispatchQueue.main.asyncAfter(deadline: .now() + TimeInterval(minutes * 60)) { [weak self] in
+                self?.stopBlocking()
+            }
+
+            print("🔒 App blocking started for \(minutes) min - \(selectedAppsCount) items blocked")
+        } else {
+            blockingEndDate = nil
+            blockingRemainingMinutes = 0
+            print("🔒 App blocking started (indefinite) - \(selectedAppsCount) items blocked")
+        }
+    }
+
+    private func updateRemainingTime() {
+        guard let endDate = blockingEndDate else {
+            blockingRemainingMinutes = 0
+            return
+        }
+        let remaining = Int(endDate.timeIntervalSinceNow / 60)
+        blockingRemainingMinutes = max(0, remaining)
     }
 
     /// Stop blocking all apps
-    /// Call this when a focus session ends
     func stopBlocking() {
+        // Cancel timer
+        blockingTimer?.invalidate()
+        blockingTimer = nil
+
         // Remove all shields
         managedSettingsStore.shield.applications = nil
         managedSettingsStore.shield.applicationCategories = nil
         managedSettingsStore.shield.webDomains = nil
 
         isBlocking = false
+        blockingEndDate = nil
+        blockingRemainingMinutes = 0
         print("🔓 App blocking stopped")
     }
 
     // MARK: - Persistence
 
-    /// Save selected apps to UserDefaults
+    /// Save selected apps to both standard and shared UserDefaults
     private func saveSelection() {
         do {
             let data = try PropertyListEncoder().encode(selectedApps)
             UserDefaults.standard.set(data, forKey: userDefaultsKey)
-            print("💾 Saved app selection to UserDefaults")
+            // Also save to shared defaults so the DeviceActivityMonitor extension can read them
+            sharedDefaults?.set(data, forKey: userDefaultsKey)
+            print("💾 Saved app selection to UserDefaults (standard + shared)")
         } catch {
             print("❌ Failed to save app selection: \(error)")
         }
+
+        // Restart distraction monitoring if enabled (selection changed)
+        DistractionMonitorService.shared.restartMonitoringIfNeeded()
     }
 
-    /// Load saved selection from UserDefaults
+    /// Load saved selection from UserDefaults (shared first, fallback to standard)
     private func loadSavedSelection() {
-        guard let data = UserDefaults.standard.data(forKey: userDefaultsKey) else {
-            return
-        }
+        let data = sharedDefaults?.data(forKey: userDefaultsKey)
+            ?? UserDefaults.standard.data(forKey: userDefaultsKey)
+
+        guard let data else { return }
 
         do {
             selectedApps = try PropertyListDecoder().decode(FamilyActivitySelection.self, from: data)

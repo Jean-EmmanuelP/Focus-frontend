@@ -5,6 +5,7 @@ import Combine
 // MARK: - Notification for calendar refresh
 extension Notification.Name {
     static let calendarNeedsRefresh = Notification.Name("calendarNeedsRefresh")
+    static let openAppBlockerSettings = Notification.Name("openAppBlockerSettings")
 }
 
 // MARK: - Message Type
@@ -17,6 +18,9 @@ enum ChatMessageType: String, Codable {
 enum ChatCardData: Codable {
     case taskList([CardTask])
     case routineList([CardRoutine])
+    case questList([CardQuest])
+    case planning([CardTask], [CardRoutine])
+    case actionButton(ActionButton)
 
     struct CardTask: Codable, Identifiable {
         let id: String
@@ -29,6 +33,19 @@ enum ChatCardData: Codable {
         let title: String
         let icon: String
         var isCompleted: Bool
+    }
+
+    struct CardQuest: Codable, Identifiable {
+        let id: String
+        let title: String
+        let emoji: String
+        let progress: Double // 0.0 to 1.0
+    }
+
+    struct ActionButton: Codable {
+        let title: String
+        let icon: String
+        let deepLink: String
     }
 }
 
@@ -111,11 +128,37 @@ class ChatViewModel: ObservableObject {
     @Published var messages: [SimpleChatMessage] = []
     @Published var inputText: String = ""
     @Published var isLoading: Bool = false
+    @Published var satisfactionScore: Int = UserDefaults.standard.object(forKey: "satisfaction_score") as? Int ?? 50
+    @Published var freeVoiceMessagesUsed: Int = FocusAppStore.shared.user?.freeVoiceMessagesUsed ?? 0
+
+    var canSendFreeVoice: Bool {
+        SubscriptionManager.shared.isProUser || freeVoiceMessagesUsed < 3
+    }
 
     // MARK: - Services
 
     private let apiClient = APIClient.shared
     private weak var store: FocusAppStore?
+
+    private func updateSatisfactionScore(_ score: Int?) {
+        guard let score = score else { return }
+        let clamped = max(0, min(100, score))
+        satisfactionScore = clamped
+        UserDefaults.standard.set(clamped, forKey: "satisfaction_score")
+
+        // Refresh afternoon notification with updated score
+        Task {
+            await NotificationService.shared.scheduleAfternoonCheck()
+        }
+    }
+
+    /// Adjust satisfaction locally when user completes/uncompletes a task or routine
+    private func adjustSatisfaction(completed: Bool) {
+        let delta = completed ? 5 : -5
+        let newScore = max(0, min(100, satisfactionScore + delta))
+        satisfactionScore = newScore
+        UserDefaults.standard.set(newScore, forKey: "satisfaction_score")
+    }
 
     // MARK: - Initialization
 
@@ -123,6 +166,7 @@ class ChatViewModel: ObservableObject {
 
     func setStore(_ store: FocusAppStore) {
         self.store = store
+        self.freeVoiceMessagesUsed = store.user?.freeVoiceMessagesUsed ?? 0
     }
 
     // MARK: - Load History
@@ -131,9 +175,10 @@ class ChatViewModel: ObservableObject {
         // Load from local storage
         messages = SimpleChatPersistence.loadMessages()
 
-        // Migrate: remove old welcome messages that contain hardcoded "Kai" or placeholders
-        messages.removeAll { !$0.isFromUser && ($0.content.contains("{{COMPANION_NAME}}") || $0.content.contains("Je suis Kai, ton coach")) }
-        if !messages.isEmpty {
+        // Migrate: remove old welcome messages that contain unresolved placeholders
+        let hadPlaceholders = messages.contains { $0.content.contains("{{COMPANION_NAME}}") || $0.content.contains("{{USER_NAME}}") }
+        if hadPlaceholders {
+            messages.removeAll { !$0.isFromUser && ($0.content.contains("{{COMPANION_NAME}}") || $0.content.contains("{{USER_NAME}}")) }
             saveMessages()
         }
 
@@ -159,13 +204,22 @@ class ChatViewModel: ObservableObject {
             let response: AIResponse = try await apiClient.request(
                 endpoint: .chatMessage,
                 method: .post,
-                body: SimpleChatRequest(content: "__greeting__", source: "app", appsBlocked: false)
+                body: SimpleChatRequest(content: "__greeting__", source: "app", appsBlocked: false, stepsToday: nil)
             )
+
+            updateSatisfactionScore(response.satisfactionScore)
 
             let aiMessage = SimpleChatMessage(content: response.reply, isFromUser: false)
             messages.append(aiMessage)
             saveMessages()
         } catch {
+            // Fallback greeting for first-time users
+            let userName = store?.user?.pseudo ?? store?.user?.firstName ?? ""
+            let name = userName.isEmpty ? "" : " \(userName)"
+            let fallback = "Salut\(name) ! Je suis ton coach. Dis-moi ce que tu veux accomplir."
+            let aiMessage = SimpleChatMessage(content: fallback, isFromUser: false)
+            messages.append(aiMessage)
+            saveMessages()
             print("Greeting request failed: \(error)")
         }
 
@@ -195,15 +249,6 @@ class ChatViewModel: ObservableObject {
         }
     }
 
-    private func addWelcomeMessage() {
-        // Use placeholders so the message adapts if user/companion name changes
-        let greeting = "Salut {{USER_NAME}}. Je suis {{COMPANION_NAME}}, ton coach. Dis-moi : c'est quoi le truc que tu veux vraiment changer dans ta vie ?"
-
-        let message = SimpleChatMessage(content: greeting, isFromUser: false)
-        messages.append(message)
-        saveMessages()
-    }
-
     /// Resolve dynamic placeholders in a message string
     func resolvedContent(_ content: String) -> String {
         let userName = store?.user?.pseudo ?? store?.user?.firstName ?? "ami"
@@ -216,32 +261,102 @@ class ChatViewModel: ObservableObject {
     private func checkForDailyGreeting() {
         guard let lastMessage = messages.last else { return }
 
-        // If last message was from yesterday, add new greeting
+        // If last message was from a previous day, request a fresh AI greeting
         if !Calendar.current.isDateInToday(lastMessage.timestamp) {
-            let userName = store?.user?.pseudo ?? store?.user?.firstName ?? ""
-            let streak = store?.currentStreak ?? 0
-            let hour = Calendar.current.component(.hour, from: Date())
-
-            var greeting: String
-            switch hour {
-            case 5..<12:
-                if streak > 7 {
-                    greeting = "\(streak) jours de streak \(userName) 🔥 C'est quoi la priorité aujourd'hui ?"
-                } else {
-                    greeting = "Salut \(userName). Nouvelle journée, nouvelles opportunités. On attaque quoi ?"
-                }
-            case 12..<18:
-                greeting = "Hey \(userName). Comment avance ta journée ? T'as avancé sur tes tâches ?"
-            case 18..<22:
-                greeting = "Fin de journée \(userName). C'est quoi ta plus grande victoire aujourd'hui ?"
-            default:
-                greeting = "Il est tard \(userName). Tu veux faire un bilan rapide avant de te reposer ?"
+            Task {
+                await requestDailyGreeting()
             }
+        }
+    }
 
+    /// Request a daily greeting from the backend AI (contextual, never the same)
+    private func requestDailyGreeting() async {
+        isLoading = true
+
+        do {
+            let isBlocking = ScreenTimeAppBlockerService.shared.isBlocking
+            let steps = await HealthKitService.shared.fetchTodaySteps()
+            let response: AIResponse = try await apiClient.request(
+                endpoint: .chatMessage,
+                method: .post,
+                body: SimpleChatRequest(content: "__daily_greeting__", source: "app", appsBlocked: isBlocking, stepsToday: steps)
+            )
+
+            updateSatisfactionScore(response.satisfactionScore)
+
+            let aiMessage = SimpleChatMessage(content: response.reply, isFromUser: false)
+            messages.append(aiMessage)
+            saveMessages()
+        } catch {
+            // Fallback: varied local greeting pool
+            let greeting = generateLocalDailyGreeting()
             let message = SimpleChatMessage(content: greeting, isFromUser: false)
             messages.append(message)
             saveMessages()
+            print("Daily greeting request failed, using local fallback: \(error)")
         }
+
+        isLoading = false
+    }
+
+    /// Generate a varied local greeting as fallback when the backend is unreachable
+    private func generateLocalDailyGreeting() -> String {
+        let userName = store?.user?.pseudo ?? store?.user?.firstName ?? ""
+        let name = userName.isEmpty ? "" : " \(userName)"
+        let streak = store?.currentStreak ?? 0
+        let hour = Calendar.current.component(.hour, from: Date())
+        let tasksCount = store?.todaysTasks.filter { $0.status != "completed" }.count ?? 0
+        let ritualsCount = store?.rituals.filter { !$0.isCompleted }.count ?? 0
+
+        var pool: [String] = []
+
+        switch hour {
+        case 5..<12:
+            pool = [
+                "Yo\(name). Qu'est-ce que tu veux accomplir aujourd'hui ?",
+                "Salut\(name). C'est quoi le truc le plus important de ta journée ?",
+                "Hey\(name). Prêt à attaquer la journée ?",
+                "Nouvelle journée\(name). Sur quoi tu veux avancer ?",
+                "Bonjour\(name). Comment tu te sens ce matin ?",
+            ]
+            if streak > 3 {
+                pool.append("\(streak) jours d'affilée\(name). On lâche rien.")
+            }
+            if tasksCount > 0 {
+                pool.append("T'as \(tasksCount) truc\(tasksCount > 1 ? "s" : "") prévu\(tasksCount > 1 ? "s" : "") aujourd'hui\(name). Par quoi tu commences ?")
+            }
+        case 12..<18:
+            pool = [
+                "Salut\(name). Ça se passe comment ?",
+                "Hey\(name). Quoi de neuf ?",
+                "Yo\(name). Tu fais quoi de beau ?",
+                "De retour\(name). Raconte.",
+                "Hey\(name). Tout roule ?",
+            ]
+            if tasksCount > 0 {
+                pool.append("Il te reste \(tasksCount) tâche\(tasksCount > 1 ? "s" : "")\(name). Tu gères ?")
+            }
+            if ritualsCount > 0 {
+                pool.append("T'as encore \(ritualsCount) rituel\(ritualsCount > 1 ? "s" : "") à faire\(name). On s'y met ?")
+            }
+        case 18..<22:
+            pool = [
+                "Hey\(name). Comment s'est passée ta journée ?",
+                "Salut\(name). C'était quoi le meilleur moment aujourd'hui ?",
+                "Yo\(name). Tu peux être fier de quoi aujourd'hui ?",
+                "Bientôt la fin de journée\(name). Ça a donné quoi ?",
+                "Hey\(name). T'as kiffé ta journée ?",
+            ]
+        default:
+            pool = [
+                "Encore debout\(name) ? Tout va bien ?",
+                "Hey\(name). Tu devrais peut-être te reposer.",
+                "Salut\(name). On fait un petit bilan avant de dormir ?",
+                "Il est tard\(name). Demain c'est un nouveau jour.",
+            ]
+        }
+
+        return pool.randomElement() ?? "Hey\(name). Quoi de neuf ?"
     }
 
     // MARK: - Send Text Message
@@ -265,6 +380,11 @@ class ChatViewModel: ObservableObject {
     // MARK: - Send Voice Message
 
     func sendVoiceMessage(audioURL: URL) async {
+        // Increment local counter immediately (server will confirm)
+        if !SubscriptionManager.shared.isProUser {
+            freeVoiceMessagesUsed += 1
+        }
+
         // Get audio duration
         let duration = getAudioDuration(url: audioURL)
 
@@ -303,6 +423,7 @@ class ChatViewModel: ObservableObject {
         do {
             // Send to backend for transcription + AI response (include Supabase URL)
             let response: VoiceMessageResponse = try await uploadVoiceMessage(audioURL: audioURL, audioStorageURL: storagePath)
+            print("🎤 Voice response — showCard: \(response.showCard ?? "nil"), action: \(response.action?.type ?? "nil"), reply: \(response.reply.prefix(50))")
 
             // Update voice message with transcript and storage path
             if let index = messages.lastIndex(where: { $0.id == voiceMessage.id }) {
@@ -319,21 +440,43 @@ class ChatViewModel: ObservableObject {
                 )
             }
 
+            updateSatisfactionScore(response.satisfactionScore)
+
+            // Update free voice messages counter from server response
+            if let count = response.freeVoiceMessagesUsed {
+                freeVoiceMessagesUsed = count
+                FocusAppStore.shared.user?.freeVoiceMessagesUsed = count
+            }
+
+            // Handle coach actions FIRST (creates tasks/routines/quests)
+            if let action = response.action {
+                await handleCoachAction(action)
+            }
+
             // Add AI response
             var aiMessage = SimpleChatMessage(content: response.reply, isFromUser: false)
 
-            // Attach card data if backend requests it
-            if let showCard = response.showCard {
+            // Attach card data if backend requests it, or infer from action/reply
+            var showCard = response.showCard
+            if showCard == nil, let action = response.action {
+                if ["task_created", "task_completed"].contains(action.type) {
+                    showCard = "tasks"
+                } else if ["routine_created", "routines_created", "routines_completed"].contains(action.type) {
+                    showCard = "routines"
+                } else if ["quest_created", "quests_created", "quest_updated"].contains(action.type) {
+                    showCard = "quests"
+                }
+            }
+            // Client-side fallback: detect from reply text
+            if showCard == nil {
+                showCard = detectCardFromReply(response.reply)
+            }
+            if let showCard {
                 aiMessage.cardData = await buildCardData(for: showCard)
             }
 
             messages.append(aiMessage)
             saveMessages()
-
-            // Handle coach actions (task creation, blocking, etc.)
-            if let action = response.action {
-                await handleCoachAction(action)
-            }
 
         } catch {
             // Update message with storage path even if transcription fails
@@ -461,27 +604,45 @@ class ChatViewModel: ObservableObject {
         do {
             // Call backend chat endpoint (with coach context)
             let isBlocking = ScreenTimeAppBlockerService.shared.isBlocking
+            let steps = await HealthKitService.shared.fetchTodaySteps()
             let response: AIResponse = try await apiClient.request(
                 endpoint: .chatMessage,
                 method: .post,
-                body: SimpleChatRequest(content: text, source: "app", appsBlocked: isBlocking)
+                body: SimpleChatRequest(content: text, source: "app", appsBlocked: isBlocking, stepsToday: steps)
             )
+
+            updateSatisfactionScore(response.satisfactionScore)
+            print("💬 AI response — showCard: \(response.showCard ?? "nil"), action: \(response.action?.type ?? "nil"), reply: \(response.reply.prefix(50))")
+
+            // Handle actions from the coach FIRST (creates tasks/routines/quests)
+            if let action = response.action {
+                await handleCoachAction(action)
+            }
 
             // Add AI response
             var aiMessage = SimpleChatMessage(content: response.reply, isFromUser: false)
 
-            // Attach card data if backend requests it
-            if let showCard = response.showCard {
+            // Attach card data if backend requests it, or infer from action/reply
+            var showCard = response.showCard
+            if showCard == nil, let action = response.action {
+                if ["task_created", "task_completed"].contains(action.type) {
+                    showCard = "tasks"
+                } else if ["routine_created", "routines_created", "routines_completed"].contains(action.type) {
+                    showCard = "routines"
+                } else if ["quest_created", "quests_created", "quest_updated"].contains(action.type) {
+                    showCard = "quests"
+                }
+            }
+            // Client-side fallback: detect from reply text
+            if showCard == nil {
+                showCard = detectCardFromReply(response.reply)
+            }
+            if let showCard {
                 aiMessage.cardData = await buildCardData(for: showCard)
             }
 
             messages.append(aiMessage)
             saveMessages()
-
-            // Handle actions from the coach
-            if let action = response.action {
-                await handleCoachAction(action)
-            }
 
         } catch {
             // Fallback response
@@ -501,6 +662,7 @@ class ChatViewModel: ObservableObject {
         switch action.type {
         case "task_created":
             print("📋 Coach created task: \(action.task?.title ?? "unknown")")
+            await store?.refreshTodaysTasks()
             NotificationCenter.default.post(name: .calendarNeedsRefresh, object: nil)
 
         case "quest_created", "quests_created":
@@ -516,18 +678,25 @@ class ChatViewModel: ObservableObject {
             await store?.loadQuests()
 
         case "block_apps":
-            print("🔒 Coach triggered app blocking")
+            print("🔒 Coach triggered app blocking (duration: \(action.durationMinutes ?? 0) min)")
             let blocker = ScreenTimeAppBlockerService.shared
             if blocker.isBlockingEnabled {
-                blocker.startBlocking()
+                blocker.startBlocking(durationMinutes: action.durationMinutes)
             } else if blocker.authorizationStatus != .approved {
                 print("⚠️ ScreenTime not authorized — requesting")
                 let granted = await blocker.requestAuthorization()
-                if granted && blocker.isBlockingEnabled {
-                    blocker.startBlocking()
+                if granted {
+                    if blocker.hasSelectedApps {
+                        blocker.startBlocking(durationMinutes: action.durationMinutes)
+                    } else {
+                        appendAppBlockerPrompt("J'ai bien l'autorisation ! Maintenant, choisis les apps que tu veux bloquer.")
+                    }
+                } else {
+                    appendAppBlockerPrompt("J'ai besoin de l'autorisation Screen Time pour bloquer tes apps. Clique ci-dessous pour configurer.")
                 }
             } else {
-                print("⚠️ No apps selected for blocking")
+                // Authorized but no apps selected
+                appendAppBlockerPrompt("Tu n'as pas encore choisi d'apps à bloquer. Sélectionne-les ici :")
             }
 
         case "unblock_apps":
@@ -539,6 +708,7 @@ class ChatViewModel: ObservableObject {
 
         case "task_completed":
             print("✅ Coach completed a task")
+            await store?.refreshTodaysTasks()
             NotificationCenter.default.post(name: .calendarNeedsRefresh, object: nil)
 
         case "routines_completed":
@@ -577,6 +747,43 @@ class ChatViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Card Detection from Reply Text
+
+    private func detectCardFromReply(_ reply: String) -> String? {
+        let lower = reply.lowercased()
+
+        let taskPatterns = ["voici tes tâches", "voici tes taches", "ton planning", "ta journée",
+                            "tes tâches du jour", "voici ton programme", "voici ta journée",
+                            "voici ton planning", "prévues pour", "tes tâches", "tes taches"]
+        for pattern in taskPatterns {
+            if lower.contains(pattern) { return "tasks" }
+        }
+
+        let routinePatterns = ["voici tes rituel", "tes routine", "tes habitude", "voici tes habitude"]
+        for pattern in routinePatterns {
+            if lower.contains(pattern) { return "routines" }
+        }
+
+        let questPatterns = ["voici tes objectif", "tes objectifs", "tes quests", "tes goals"]
+        for pattern in questPatterns {
+            if lower.contains(pattern) { return "quests" }
+        }
+
+        return nil
+    }
+
+    /// Append a message with a button to open app blocker settings
+    private func appendAppBlockerPrompt(_ text: String) {
+        var msg = SimpleChatMessage(content: text, isFromUser: false)
+        msg.cardData = .actionButton(ChatCardData.ActionButton(
+            title: "Sélectionner les apps à bloquer",
+            icon: "shield.lefthalf.filled",
+            deepLink: "openAppBlockerSettings"
+        ))
+        messages.append(msg)
+        saveMessages()
+    }
+
     private func generateFallbackResponse() -> String {
         let responses = [
             "Problème technique de mon côté. Réessaie.",
@@ -589,19 +796,34 @@ class ChatViewModel: ObservableObject {
     // MARK: - Card Data
 
     private func buildCardData(for cardType: String) async -> ChatCardData? {
-        guard let store = store else { return nil }
+        guard let store = store else {
+            print("⚠️ buildCardData: store is nil")
+            return nil
+        }
+
+        print("🃏 buildCardData: building card for type '\(cardType)'")
 
         switch cardType {
         case "tasks":
             await store.refreshTodaysTasks()
-            let cards = store.todaysTasks.map { task in
+            await store.loadRituals()
+            print("🃏 buildCardData: loaded \(store.todaysTasks.count) tasks + \(store.rituals.count) routines")
+            let taskCards = store.todaysTasks.map { task in
                 ChatCardData.CardTask(
                     id: task.id,
                     title: task.title,
                     isCompleted: task.status == "completed"
                 )
             }
-            return cards.isEmpty ? nil : .taskList(cards)
+            let routineCards = store.rituals.map { ritual in
+                ChatCardData.CardRoutine(
+                    id: ritual.id,
+                    title: ritual.title,
+                    icon: ritual.icon,
+                    isCompleted: ritual.isCompleted
+                )
+            }
+            return .planning(taskCards, routineCards)
 
         case "routines":
             await store.loadRituals()
@@ -613,7 +835,22 @@ class ChatViewModel: ObservableObject {
                     isCompleted: ritual.isCompleted
                 )
             }
-            return cards.isEmpty ? nil : .routineList(cards)
+            return .routineList(cards)
+
+        case "quests":
+            await store.loadQuests()
+            print("🃏 buildCardData: loaded \(store.quests.count) quests (\(store.quests.filter { $0.status == .active }.count) active)")
+            let cards = store.quests
+                .filter { $0.status == .active }
+                .map { quest in
+                    ChatCardData.CardQuest(
+                        id: quest.id,
+                        title: quest.title,
+                        emoji: quest.area.emoji,
+                        progress: quest.progress
+                    )
+                }
+            return .questList(cards)
 
         default:
             return nil
@@ -621,14 +858,25 @@ class ChatViewModel: ObservableObject {
     }
 
     func toggleTaskCompletion(messageId: UUID, taskId: String) {
-        guard let msgIndex = messages.firstIndex(where: { $0.id == messageId }),
-              case .taskList(var tasks) = messages[msgIndex].cardData,
-              let taskIndex = tasks.firstIndex(where: { $0.id == taskId }) else { return }
+        guard let msgIndex = messages.firstIndex(where: { $0.id == messageId }) else { return }
 
-        let wasCompleted = tasks[taskIndex].isCompleted
-        tasks[taskIndex].isCompleted = !wasCompleted
-        messages[msgIndex].cardData = .taskList(tasks)
+        var wasCompleted = false
+        switch messages[msgIndex].cardData {
+        case .taskList(var tasks):
+            guard let taskIndex = tasks.firstIndex(where: { $0.id == taskId }) else { return }
+            wasCompleted = tasks[taskIndex].isCompleted
+            tasks[taskIndex].isCompleted = !wasCompleted
+            messages[msgIndex].cardData = .taskList(tasks)
+        case .planning(var tasks, let routines):
+            guard let taskIndex = tasks.firstIndex(where: { $0.id == taskId }) else { return }
+            wasCompleted = tasks[taskIndex].isCompleted
+            tasks[taskIndex].isCompleted = !wasCompleted
+            messages[msgIndex].cardData = .planning(tasks, routines)
+        default:
+            return
+        }
         saveMessages()
+        adjustSatisfaction(completed: !wasCompleted)
 
         Task {
             do {
@@ -651,14 +899,25 @@ class ChatViewModel: ObservableObject {
     }
 
     func toggleRoutineCompletion(messageId: UUID, routineId: String) {
-        guard let msgIndex = messages.firstIndex(where: { $0.id == messageId }),
-              case .routineList(var routines) = messages[msgIndex].cardData,
-              let routineIndex = routines.firstIndex(where: { $0.id == routineId }) else { return }
+        guard let msgIndex = messages.firstIndex(where: { $0.id == messageId }) else { return }
 
-        let wasCompleted = routines[routineIndex].isCompleted
-        routines[routineIndex].isCompleted = !wasCompleted
-        messages[msgIndex].cardData = .routineList(routines)
+        var wasCompleted = false
+        switch messages[msgIndex].cardData {
+        case .routineList(var routines):
+            guard let routineIndex = routines.firstIndex(where: { $0.id == routineId }) else { return }
+            wasCompleted = routines[routineIndex].isCompleted
+            routines[routineIndex].isCompleted = !wasCompleted
+            messages[msgIndex].cardData = .routineList(routines)
+        case .planning(let tasks, var routines):
+            guard let routineIndex = routines.firstIndex(where: { $0.id == routineId }) else { return }
+            wasCompleted = routines[routineIndex].isCompleted
+            routines[routineIndex].isCompleted = !wasCompleted
+            messages[msgIndex].cardData = .planning(tasks, routines)
+        default:
+            return
+        }
         saveMessages()
+        adjustSatisfaction(completed: !wasCompleted)
 
         Task {
             do {
@@ -682,7 +941,7 @@ class ChatViewModel: ObservableObject {
 
     // MARK: - Persistence
 
-    private func saveMessages() {
+    func saveMessages() {
         SimpleChatPersistence.saveMessages(messages)
     }
 
@@ -712,10 +971,12 @@ struct SimpleChatRequest: Encodable {
     let content: String
     let source: String
     let appsBlocked: Bool
+    let stepsToday: Int?
 
     enum CodingKeys: String, CodingKey {
         case content, source
         case appsBlocked = "apps_blocked"
+        case stepsToday = "steps_today"
     }
 }
 
@@ -725,14 +986,7 @@ struct AIResponse: Decodable {
     let messageId: String?
     let action: AIActionData?
     let showCard: String?
-
-    enum CodingKeys: String, CodingKey {
-        case reply
-        case tool
-        case messageId = "message_id"
-        case action
-        case showCard = "show_card"
-    }
+    let satisfactionScore: Int?
 }
 
 struct VoiceMessageResponse: Decodable {
@@ -741,27 +995,16 @@ struct VoiceMessageResponse: Decodable {
     let messageId: String?
     let action: AIActionData?
     let showCard: String?
-
-    enum CodingKeys: String, CodingKey {
-        case reply
-        case transcript
-        case messageId = "message_id"
-        case action
-        case showCard = "show_card"
-    }
+    let satisfactionScore: Int?
+    let freeVoiceMessagesUsed: Int?
 }
 
 // Action taken by Kai (task created, focus scheduled, etc.)
 struct AIActionData: Decodable {
-    let type: String           // "task_created", "focus_scheduled"
+    let type: String           // "task_created", "focus_scheduled", "block_apps"
     let taskId: String?
     let task: AITaskData?
-
-    enum CodingKeys: String, CodingKey {
-        case type
-        case taskId = "task_id"
-        case task
-    }
+    let durationMinutes: Int?
 }
 
 struct AITaskData: Decodable {
@@ -770,14 +1013,6 @@ struct AITaskData: Decodable {
     let scheduledStart: String
     let scheduledEnd: String
     let blockApps: Bool
-
-    enum CodingKeys: String, CodingKey {
-        case title
-        case date
-        case scheduledStart = "scheduled_start"
-        case scheduledEnd = "scheduled_end"
-        case blockApps = "block_apps"
-    }
 }
 
 // MARK: - Simple Chat Persistence (v3 - with voice support)

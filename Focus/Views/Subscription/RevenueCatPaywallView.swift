@@ -12,7 +12,7 @@ import StoreKit
 /// Custom-designed paywall using StoreKit 2 data
 struct VoltaPaywallView: View {
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject var revenueCatManager: RevenueCatManager
+    @EnvironmentObject var subscriptionManager: SubscriptionManager
     @State private var selectedProduct: Product?
     @State private var isPurchasing = false
     @State private var showError = false
@@ -60,9 +60,9 @@ struct VoltaPaywallView: View {
                             .padding(.bottom, SpacingTokens.xl)
 
                         // Products
-                        if revenueCatManager.isLoading && revenueCatManager.offerings == nil {
+                        if subscriptionManager.isLoading && subscriptionManager.offerings == nil {
                             loadingSection
-                        } else if revenueCatManager.currentOffering != nil {
+                        } else if subscriptionManager.currentOffering != nil {
                             productsSection
                         } else {
                             errorSection
@@ -88,13 +88,13 @@ struct VoltaPaywallView: View {
             Text(errorMessage)
         }
         .task {
-            if revenueCatManager.offerings == nil {
-                await revenueCatManager.fetchOfferings()
+            if subscriptionManager.offerings == nil {
+                await subscriptionManager.fetchOfferings()
             }
 
             // Pre-select max product
             if selectedProduct == nil {
-                selectedProduct = revenueCatManager.maxProduct ?? revenueCatManager.plusProduct
+                selectedProduct = subscriptionManager.maxProduct ?? subscriptionManager.plusProduct
             }
         }
     }
@@ -159,7 +159,7 @@ struct VoltaPaywallView: View {
     private var productsSection: some View {
         VStack(spacing: SpacingTokens.md) {
             // Focus Max
-            if let maxProduct = revenueCatManager.maxProduct {
+            if let maxProduct = subscriptionManager.maxProduct {
                 productCard(
                     product: maxProduct,
                     title: "Focus Max",
@@ -170,7 +170,7 @@ struct VoltaPaywallView: View {
             }
 
             // Focus Plus
-            if let plusProduct = revenueCatManager.plusProduct {
+            if let plusProduct = subscriptionManager.plusProduct {
                 productCard(
                     product: plusProduct,
                     title: "Focus Plus",
@@ -281,7 +281,7 @@ struct VoltaPaywallView: View {
 
             Button("Reessayer") {
                 Task {
-                    await revenueCatManager.fetchOfferings()
+                    await subscriptionManager.fetchOfferings()
                 }
             }
             .font(.satoshi(14, weight: .semibold))
@@ -405,14 +405,14 @@ struct VoltaPaywallView: View {
         HapticFeedback.medium()
 
         Task {
-            let success = await revenueCatManager.purchase(package: product)
+            let success = await subscriptionManager.purchase(package: product)
             isPurchasing = false
 
             if success {
                 HapticFeedback.success()
                 onComplete?()
                 dismiss()
-            } else if let error = revenueCatManager.errorMessage {
+            } else if let error = subscriptionManager.errorMessage {
                 errorMessage = error
                 showError = true
             }
@@ -422,14 +422,14 @@ struct VoltaPaywallView: View {
     private func handleRestore() async {
         isPurchasing = true
 
-        let success = await revenueCatManager.restorePurchases()
+        let success = await subscriptionManager.restorePurchases()
         isPurchasing = false
 
         if success {
             HapticFeedback.success()
             onComplete?()
             dismiss()
-        } else if let error = revenueCatManager.errorMessage {
+        } else if let error = subscriptionManager.errorMessage {
             errorMessage = error
             showError = true
         }
@@ -439,5 +439,5 @@ struct VoltaPaywallView: View {
 // MARK: - Preview
 #Preview {
     VoltaPaywallView()
-        .environmentObject(RevenueCatManager.shared)
+        .environmentObject(SubscriptionManager.shared)
 }

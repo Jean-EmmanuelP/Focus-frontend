@@ -21,8 +21,9 @@ struct ChatView: View {
     @State private var showCompanionProfile = false
     @State private var showVoiceCall = false
     @State private var isHomeMode = false  // Toggle between home view and chat view
+    @State private var showAppBlocker = false
 
-    @EnvironmentObject var revenueCatManager: RevenueCatManager
+    @EnvironmentObject var subscriptionManager: SubscriptionManager
 
     // Companion name (from user settings)
     private var companionName: String {
@@ -131,7 +132,7 @@ struct ChatView: View {
                         }
                     }
                 )
-                .environmentObject(revenueCatManager)
+                .environmentObject(subscriptionManager)
                 .transition(.opacity)
             }
         }
@@ -182,6 +183,45 @@ struct ChatView: View {
             }
         }
         .animation(.easeInOut(duration: 0.3), value: showSettings)
+        .overlay {
+            if showAppBlocker {
+                NavigationStack {
+                    AppBlockerSettingsView()
+                        .toolbar {
+                            ToolbarItem(placement: .navigationBarLeading) {
+                                Button {
+                                    withAnimation(.easeInOut(duration: 0.3)) { showAppBlocker = false }
+                                } label: {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "chevron.left")
+                                        Text("Retour")
+                                    }
+                                    .foregroundColor(.white)
+                                }
+                            }
+                        }
+                }
+                .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.3), value: showAppBlocker)
+        .onChange(of: showAppBlocker) { _, isShowing in
+            // Auto-start blocking when user closes the app blocker settings after selecting apps
+            if !isShowing {
+                let blocker = ScreenTimeAppBlockerService.shared
+                if blocker.hasSelectedApps && !blocker.isBlocking {
+                    blocker.startBlocking()
+                    let confirmMsg = SimpleChatMessage(content: "Apps bloquées ! Tu peux te concentrer maintenant.", isFromUser: false)
+                    viewModel.messages.append(confirmMsg)
+                    viewModel.saveMessages()
+                }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openAppBlockerSettings)) { _ in
+            withAnimation(.easeInOut(duration: 0.3)) {
+                showAppBlocker = true
+            }
+        }
         .fullScreenCover(isPresented: $showVoiceCall) {
             VoiceCallView()
         }
@@ -228,27 +268,19 @@ struct ChatView: View {
 
             Spacer()
 
-            // Center: Name bubble (clickable to open profile)
+            // Center: Satisfaction gauge + companion name
             Button(action: {
                 isInputFocused = false
                 withAnimation(.easeInOut(duration: 0.3)) {
                     showCompanionProfile = true
                 }
             }) {
-                VStack(spacing: 1) {
+                VStack(spacing: 4) {
+                    SatisfactionGaugeView(score: viewModel.satisfactionScore, size: 60)
                     Text(companionName)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.white)
-                    Text("Votre Ami")
-                        .font(.system(size: 12))
+                        .font(.system(size: 12, weight: .medium))
                         .foregroundColor(.white.opacity(0.7))
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 8)
-                .background(
-                    Capsule()
-                        .fill(.ultraThinMaterial)
-                )
             }
 
             Spacer()
@@ -308,7 +340,8 @@ struct ChatView: View {
                         showCompanionProfile = true
                     }
                 }) {
-                    HStack(spacing: 4) {
+                    HStack(spacing: 8) {
+                        SatisfactionGaugeView(score: viewModel.satisfactionScore, size: 28)
                         Text(companionName)
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundColor(.white)
@@ -330,7 +363,7 @@ struct ChatView: View {
             // Right: Phone, Chat (thoughts) and lightning (training) icons
             HStack(spacing: 8) {
                 Button(action: {
-                    if revenueCatManager.isProUser {
+                    if subscriptionManager.isProUser {
                         showVoiceCall = true
                     } else {
                         showPaywall = true
@@ -504,7 +537,7 @@ struct ChatView: View {
         HStack(spacing: 8) {
             // Left: Mic button (separate circle, grayish-taupe)
             Button(action: {
-                if revenueCatManager.isProUser {
+                if viewModel.canSendFreeVoice {
                     if isRecording {
                         stopRecordingAndSend()
                     } else {
@@ -560,11 +593,21 @@ struct ChatView: View {
                             .foregroundColor(.white)
                     }
                 } else {
-                    // Plus button inside the capsule
-                    Button(action: {}) {
-                        Image(systemName: "plus")
+                    // Mic button inside the capsule — start voice recording
+                    Button {
+                        if viewModel.canSendFreeVoice {
+                            if isRecording {
+                                stopRecordingAndSend()
+                            } else {
+                                startRecording()
+                            }
+                        } else {
+                            showPaywall = true
+                        }
+                    } label: {
+                        Image(systemName: isRecording ? "stop.circle.fill" : "mic.fill")
                             .font(.system(size: 22, weight: .semibold))
-                            .foregroundColor(.white.opacity(0.5))
+                            .foregroundColor(isRecording ? .red : .white.opacity(0.5))
                     }
                 }
             }
@@ -611,6 +654,48 @@ struct ChatView: View {
                 await viewModel.sendVoiceMessage(audioURL: audioURL)
             }
         }
+    }
+}
+
+// MARK: - Satisfaction Gauge View
+
+struct SatisfactionGaugeView: View {
+    let score: Int
+    var size: CGFloat = 60
+
+    private var progress: Double {
+        Double(max(0, min(100, score))) / 100.0
+    }
+
+    private var gaugeColor: Color {
+        switch score {
+        case ..<30: return Color(red: 0.9, green: 0.25, blue: 0.2)
+        case 30..<50: return Color(red: 0.95, green: 0.55, blue: 0.2)
+        case 50..<70: return Color(red: 0.95, green: 0.8, blue: 0.2)
+        case 70..<86: return Color(red: 0.45, green: 0.85, blue: 0.4)
+        default: return Color(red: 0.2, green: 0.85, blue: 0.35)
+        }
+    }
+
+    var body: some View {
+        ZStack {
+            // Track
+            Circle()
+                .stroke(Color.white.opacity(0.15), lineWidth: size * 0.08)
+
+            // Colored arc
+            Circle()
+                .trim(from: 0, to: progress)
+                .stroke(gaugeColor, style: StrokeStyle(lineWidth: size * 0.08, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .animation(.spring(response: 0.6, dampingFraction: 0.7), value: score)
+
+            // Score text
+            Text("\(score)")
+                .font(.system(size: size * 0.33, weight: .bold, design: .rounded))
+                .foregroundColor(.white)
+        }
+        .frame(width: size, height: size)
     }
 }
 
@@ -688,6 +773,28 @@ struct ReplikaMessageBubble: View {
             InlineTaskListCard(tasks: tasks, messageId: message.id, viewModel: viewModel)
         case .routineList(let routines):
             InlineRoutineListCard(routines: routines, messageId: message.id, viewModel: viewModel)
+        case .planning(let tasks, let routines):
+            InlinePlanningCard(tasks: tasks, routines: routines, messageId: message.id, viewModel: viewModel)
+        case .questList(let quests):
+            InlineQuestListCard(quests: quests)
+        case .actionButton(let action):
+            Button {
+                NotificationCenter.default.post(name: Notification.Name(action.deepLink), object: nil)
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: action.icon)
+                        .font(.system(size: 16, weight: .semibold))
+                    Text(action.title)
+                        .font(.system(size: 15, weight: .semibold))
+                }
+                .foregroundColor(.black)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 14)
+                .frame(maxWidth: .infinity)
+                .background(Color.white)
+                .cornerRadius(16)
+                .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
+            }
         }
     }
 
@@ -798,7 +905,7 @@ struct ReplikaMessageBubble: View {
     }
 }
 
-// MARK: - Inline Task List Card (Google Tasks style)
+// MARK: - Inline Task List Card
 
 struct InlineTaskListCard: View {
     let tasks: [ChatCardData.CardTask]
@@ -807,47 +914,79 @@ struct InlineTaskListCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(tasks.enumerated()), id: \.element.id) { index, task in
-                HStack(spacing: 12) {
+            // Header
+            HStack(spacing: 8) {
+                Image(systemName: "checklist")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.black.opacity(0.5))
+                Text("Tâches du jour")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.black.opacity(0.5))
+                    .textCase(.uppercase)
+                    .tracking(0.5)
+                Spacer()
+                Text("\(tasks.filter { $0.isCompleted }.count)/\(tasks.count)")
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundColor(.black.opacity(0.35))
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 10)
+
+            if tasks.isEmpty {
+                Text("Aucune tache pour aujourd'hui")
+                    .font(.system(size: 14))
+                    .foregroundColor(.black.opacity(0.4))
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 14)
+            } else {
+                // Tasks
+                ForEach(Array(tasks.enumerated()), id: \.element.id) { index, task in
                     Button {
                         viewModel?.toggleTaskCompletion(messageId: messageId, taskId: task.id)
                     } label: {
-                        ZStack {
-                            Circle()
-                                .stroke(task.isCompleted ? Color.clear : Color.white.opacity(0.3), lineWidth: 1.5)
-                                .frame(width: 22, height: 22)
-
-                            if task.isCompleted {
-                                Circle()
-                                    .fill(Color(hex: "#34C759").opacity(0.9))
+                        HStack(spacing: 12) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(task.isCompleted ? Color.clear : Color.black.opacity(0.2), lineWidth: 1.5)
                                     .frame(width: 22, height: 22)
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 11, weight: .bold))
-                                    .foregroundColor(.white)
+
+                                if task.isCompleted {
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(Color.black)
+                                        .frame(width: 22, height: 22)
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 11, weight: .bold))
+                                        .foregroundColor(.white)
+                                }
                             }
+
+                            Text(task.title)
+                                .font(.system(size: 15, weight: task.isCompleted ? .regular : .medium))
+                                .foregroundColor(task.isCompleted ? .black.opacity(0.3) : .black.opacity(0.85))
+                                .strikethrough(task.isCompleted, color: .black.opacity(0.2))
+                                .lineLimit(2)
+                                .multilineTextAlignment(.leading)
+
+                            Spacer()
                         }
+                        .padding(.vertical, 11)
+                        .padding(.horizontal, 16)
                     }
 
-                    Text(task.title)
-                        .font(.satoshi(15))
-                        .foregroundColor(task.isCompleted ? .white.opacity(0.35) : .white.opacity(0.85))
-                        .strikethrough(task.isCompleted, color: .white.opacity(0.2))
-                        .lineLimit(2)
-
-                    Spacer()
+                    if index < tasks.count - 1 {
+                        Rectangle()
+                            .fill(Color.black.opacity(0.06))
+                            .frame(height: 0.5)
+                            .padding(.leading, 50)
+                    }
                 }
-                .padding(.vertical, 10)
-                .padding(.horizontal, 16)
-
-                if index < tasks.count - 1 {
-                    Divider()
-                        .background(Color.white.opacity(0.06))
-                        .padding(.leading, 50)
-                }
+                .padding(.bottom, 4)
             }
         }
-        .background(Color.white.opacity(0.08))
+        .background(Color.white)
         .cornerRadius(16)
+        .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
     }
 }
 
@@ -860,50 +999,319 @@ struct InlineRoutineListCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(routines.enumerated()), id: \.element.id) { index, routine in
-                HStack(spacing: 12) {
+            // Header
+            HStack(spacing: 8) {
+                Image(systemName: "repeat")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.black.opacity(0.5))
+                Text("Rituels")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.black.opacity(0.5))
+                    .textCase(.uppercase)
+                    .tracking(0.5)
+                Spacer()
+                Text("\(routines.filter { $0.isCompleted }.count)/\(routines.count)")
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundColor(.black.opacity(0.35))
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 10)
+
+            if routines.isEmpty {
+                Text("Aucun rituel configure")
+                    .font(.system(size: 14))
+                    .foregroundColor(.black.opacity(0.4))
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 14)
+            } else {
+                // Routines
+                ForEach(Array(routines.enumerated()), id: \.element.id) { index, routine in
                     Button {
                         viewModel?.toggleRoutineCompletion(messageId: messageId, routineId: routine.id)
                     } label: {
-                        ZStack {
-                            Circle()
-                                .stroke(routine.isCompleted ? Color.clear : Color.white.opacity(0.3), lineWidth: 1.5)
-                                .frame(width: 22, height: 22)
-
-                            if routine.isCompleted {
-                                Circle()
-                                    .fill(Color(hex: "#34C759").opacity(0.9))
+                        HStack(spacing: 12) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(routine.isCompleted ? Color.clear : Color.black.opacity(0.2), lineWidth: 1.5)
                                     .frame(width: 22, height: 22)
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 11, weight: .bold))
-                                    .foregroundColor(.white)
+
+                                if routine.isCompleted {
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(Color.black)
+                                        .frame(width: 22, height: 22)
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 11, weight: .bold))
+                                        .foregroundColor(.white)
+                                }
                             }
+
+                            Text(routine.icon)
+                                .font(.system(size: 16))
+
+                            Text(routine.title)
+                                .font(.system(size: 15, weight: routine.isCompleted ? .regular : .medium))
+                                .foregroundColor(routine.isCompleted ? .black.opacity(0.3) : .black.opacity(0.85))
+                                .strikethrough(routine.isCompleted, color: .black.opacity(0.2))
+                                .lineLimit(2)
+                                .multilineTextAlignment(.leading)
+
+                            Spacer()
                         }
+                        .padding(.vertical, 11)
+                        .padding(.horizontal, 16)
                     }
 
-                    Text(routine.icon)
-                        .font(.system(size: 16))
-
-                    Text(routine.title)
-                        .font(.satoshi(15))
-                        .foregroundColor(routine.isCompleted ? .white.opacity(0.35) : .white.opacity(0.85))
-                        .strikethrough(routine.isCompleted, color: .white.opacity(0.2))
-                        .lineLimit(2)
-
-                    Spacer()
+                    if index < routines.count - 1 {
+                        Rectangle()
+                            .fill(Color.black.opacity(0.06))
+                            .frame(height: 0.5)
+                            .padding(.leading, 50)
+                    }
                 }
-                .padding(.vertical, 10)
-                .padding(.horizontal, 16)
-
-                if index < routines.count - 1 {
-                    Divider()
-                        .background(Color.white.opacity(0.06))
-                        .padding(.leading, 50)
-                }
+                .padding(.bottom, 4)
             }
         }
-        .background(Color.white.opacity(0.08))
+        .background(Color.white)
         .cornerRadius(16)
+        .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
+    }
+}
+
+// MARK: - Inline Quest List Card
+
+struct InlineQuestListCard: View {
+    let quests: [ChatCardData.CardQuest]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            HStack(spacing: 8) {
+                Image(systemName: "target")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.black.opacity(0.5))
+                Text("Objectifs")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.black.opacity(0.5))
+                    .textCase(.uppercase)
+                    .tracking(0.5)
+                Spacer()
+                Text("\(quests.count)")
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundColor(.black.opacity(0.35))
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 10)
+
+            if quests.isEmpty {
+                Text("Aucun objectif actif")
+                    .font(.system(size: 14))
+                    .foregroundColor(.black.opacity(0.4))
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 14)
+            } else {
+                // Quests
+                ForEach(Array(quests.enumerated()), id: \.element.id) { index, quest in
+                    HStack(spacing: 12) {
+                        Text(quest.emoji)
+                            .font(.system(size: 20))
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(quest.title)
+                                .font(.system(size: 15, weight: .medium))
+                                .foregroundColor(.black.opacity(0.85))
+                                .lineLimit(2)
+                                .multilineTextAlignment(.leading)
+
+                            // Progress bar
+                            GeometryReader { geometry in
+                                ZStack(alignment: .leading) {
+                                    RoundedRectangle(cornerRadius: 3)
+                                        .fill(Color.black.opacity(0.08))
+                                        .frame(height: 6)
+
+                                    RoundedRectangle(cornerRadius: 3)
+                                        .fill(Color.black.opacity(0.6))
+                                        .frame(width: geometry.size.width * quest.progress, height: 6)
+                                }
+                            }
+                            .frame(height: 6)
+                        }
+
+                        Spacer()
+
+                        Text("\(Int(quest.progress * 100))%")
+                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .foregroundColor(.black.opacity(0.4))
+                    }
+                    .padding(.vertical, 11)
+                    .padding(.horizontal, 16)
+
+                    if index < quests.count - 1 {
+                        Rectangle()
+                            .fill(Color.black.opacity(0.06))
+                            .frame(height: 0.5)
+                            .padding(.leading, 50)
+                    }
+                }
+                .padding(.bottom, 4)
+            }
+        }
+        .background(Color.white)
+        .cornerRadius(16)
+        .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
+    }
+}
+
+// MARK: - Inline Planning Card (Tasks + Routines combined)
+
+struct InlinePlanningCard: View {
+    let tasks: [ChatCardData.CardTask]
+    let routines: [ChatCardData.CardRoutine]
+    let messageId: UUID
+    var viewModel: ChatViewModel?
+
+    private var totalItems: Int { tasks.count + routines.count }
+    private var completedItems: Int {
+        tasks.filter { $0.isCompleted }.count + routines.filter { $0.isCompleted }.count
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            HStack(spacing: 8) {
+                Image(systemName: "checklist")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.black.opacity(0.5))
+                Text("Planning du jour")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.black.opacity(0.5))
+                    .textCase(.uppercase)
+                    .tracking(0.5)
+                Spacer()
+                if totalItems > 0 {
+                    Text("\(completedItems)/\(totalItems)")
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundColor(.black.opacity(0.35))
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 10)
+
+            if tasks.isEmpty && routines.isEmpty {
+                Text("Aucune tache ni rituel pour aujourd'hui")
+                    .font(.system(size: 14))
+                    .foregroundColor(.black.opacity(0.4))
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 14)
+            } else {
+                // Tasks section
+                if !tasks.isEmpty {
+                    ForEach(Array(tasks.enumerated()), id: \.element.id) { index, task in
+                        Button {
+                            viewModel?.toggleTaskCompletion(messageId: messageId, taskId: task.id)
+                        } label: {
+                            HStack(spacing: 12) {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .stroke(task.isCompleted ? Color.clear : Color.black.opacity(0.2), lineWidth: 1.5)
+                                        .frame(width: 22, height: 22)
+                                    if task.isCompleted {
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .fill(Color.black)
+                                            .frame(width: 22, height: 22)
+                                        Image(systemName: "checkmark")
+                                            .font(.system(size: 11, weight: .bold))
+                                            .foregroundColor(.white)
+                                    }
+                                }
+                                Text(task.title)
+                                    .font(.system(size: 15, weight: task.isCompleted ? .regular : .medium))
+                                    .foregroundColor(task.isCompleted ? .black.opacity(0.3) : .black.opacity(0.85))
+                                    .strikethrough(task.isCompleted, color: .black.opacity(0.2))
+                                    .lineLimit(2)
+                                    .multilineTextAlignment(.leading)
+                                Spacer()
+                            }
+                            .padding(.vertical, 11)
+                            .padding(.horizontal, 16)
+                        }
+                        if index < tasks.count - 1 || !routines.isEmpty {
+                            Rectangle()
+                                .fill(Color.black.opacity(0.06))
+                                .frame(height: 0.5)
+                                .padding(.leading, 50)
+                        }
+                    }
+                }
+
+                // Routines section
+                if !routines.isEmpty {
+                    if !tasks.isEmpty {
+                        // Section separator
+                        HStack(spacing: 8) {
+                            Image(systemName: "repeat")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(.black.opacity(0.35))
+                            Text("Rituels")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(.black.opacity(0.35))
+                                .textCase(.uppercase)
+                                .tracking(0.5)
+                            Spacer()
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 6)
+                        .padding(.bottom, 2)
+                    }
+
+                    ForEach(Array(routines.enumerated()), id: \.element.id) { index, routine in
+                        Button {
+                            viewModel?.toggleRoutineCompletion(messageId: messageId, routineId: routine.id)
+                        } label: {
+                            HStack(spacing: 12) {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .stroke(routine.isCompleted ? Color.clear : Color.black.opacity(0.2), lineWidth: 1.5)
+                                        .frame(width: 22, height: 22)
+                                    if routine.isCompleted {
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .fill(Color.black)
+                                            .frame(width: 22, height: 22)
+                                        Image(systemName: "checkmark")
+                                            .font(.system(size: 11, weight: .bold))
+                                            .foregroundColor(.white)
+                                    }
+                                }
+                                Text(routine.icon)
+                                    .font(.system(size: 16))
+                                Text(routine.title)
+                                    .font(.system(size: 15, weight: routine.isCompleted ? .regular : .medium))
+                                    .foregroundColor(routine.isCompleted ? .black.opacity(0.3) : .black.opacity(0.85))
+                                    .strikethrough(routine.isCompleted, color: .black.opacity(0.2))
+                                    .lineLimit(2)
+                                    .multilineTextAlignment(.leading)
+                                Spacer()
+                            }
+                            .padding(.vertical, 11)
+                            .padding(.horizontal, 16)
+                        }
+                        if index < routines.count - 1 {
+                            Rectangle()
+                                .fill(Color.black.opacity(0.06))
+                                .frame(height: 0.5)
+                                .padding(.leading, 50)
+                        }
+                    }
+                }
+                Spacer().frame(height: 4)
+            }
+        }
+        .background(Color.white)
+        .cornerRadius(16)
+        .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
     }
 }
 
@@ -1055,5 +1463,5 @@ struct SettingsPageView: View {
 #Preview {
     ChatView()
         .environmentObject(FocusAppStore.shared)
-        .environmentObject(RevenueCatManager.shared)
+        .environmentObject(SubscriptionManager.shared)
 }

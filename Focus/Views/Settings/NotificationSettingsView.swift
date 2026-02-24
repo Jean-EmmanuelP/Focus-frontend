@@ -28,6 +28,15 @@ struct NotificationSettingsView: View {
                     // Streak Alert Section
                     streakAlertSection
 
+                    // Afternoon Check Section
+                    afternoonCheckSection
+
+                    // Companion Nudges Section
+                    companionNudgesSection
+
+                    // Forgotten Ritual Section
+                    forgottenRitualSection
+
                     // Test Section (DEBUG)
                     #if DEBUG
                     testNotificationSection
@@ -340,6 +349,111 @@ struct NotificationSettingsView: View {
                     set: { newValue in
                         Task {
                             await notificationService.updateStreakAlertEnabled(newValue)
+                        }
+                    }
+                ))
+                .tint(ColorTokens.primaryStart)
+            }
+        }
+        .padding(SpacingTokens.lg)
+        .background(ColorTokens.surface)
+        .cornerRadius(RadiusTokens.lg)
+    }
+
+    // MARK: - Afternoon Check Section
+    private var afternoonCheckSection: some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.md) {
+            HStack {
+                Text("☀️")
+                    .font(.satoshi(24))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Check apres-midi")
+                        .font(.satoshi(16, weight: .semibold))
+                        .foregroundColor(ColorTokens.textPrimary)
+
+                    Text("Un rappel a 14h adapte a ton score du jour")
+                        .font(.satoshi(13))
+                        .foregroundColor(ColorTokens.textSecondary)
+                }
+
+                Spacer()
+
+                Toggle("", isOn: Binding(
+                    get: { notificationService.settings.afternoonCheckEnabled },
+                    set: { newValue in
+                        Task {
+                            await notificationService.updateAfternoonCheckEnabled(newValue)
+                        }
+                    }
+                ))
+                .tint(ColorTokens.primaryStart)
+            }
+        }
+        .padding(SpacingTokens.lg)
+        .background(ColorTokens.surface)
+        .cornerRadius(RadiusTokens.lg)
+    }
+
+    // MARK: - Companion Nudges Section
+    private var companionNudgesSection: some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.md) {
+            HStack {
+                Text("💬")
+                    .font(.satoshi(24))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Messages du companion")
+                        .font(.satoshi(16, weight: .semibold))
+                        .foregroundColor(ColorTokens.textPrimary)
+
+                    Text("Ton coach te ping de temps en temps pour prendre des nouvelles")
+                        .font(.satoshi(13))
+                        .foregroundColor(ColorTokens.textSecondary)
+                }
+
+                Spacer()
+
+                Toggle("", isOn: Binding(
+                    get: { notificationService.settings.companionNudgesEnabled },
+                    set: { newValue in
+                        Task {
+                            await notificationService.updateCompanionNudgesEnabled(newValue)
+                        }
+                    }
+                ))
+                .tint(ColorTokens.primaryStart)
+            }
+        }
+        .padding(SpacingTokens.lg)
+        .background(ColorTokens.surface)
+        .cornerRadius(RadiusTokens.lg)
+    }
+
+    // MARK: - Forgotten Ritual Section
+    private var forgottenRitualSection: some View {
+        VStack(alignment: .leading, spacing: SpacingTokens.md) {
+            HStack {
+                Text("⏰")
+                    .font(.satoshi(24))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Rituels oublies")
+                        .font(.satoshi(16, weight: .semibold))
+                        .foregroundColor(ColorTokens.textPrimary)
+
+                    Text("Rappel a 19h si des rituels ne sont pas faits")
+                        .font(.satoshi(13))
+                        .foregroundColor(ColorTokens.textSecondary)
+                }
+
+                Spacer()
+
+                Toggle("", isOn: Binding(
+                    get: { notificationService.settings.forgottenRitualEnabled },
+                    set: { newValue in
+                        Task {
+                            await notificationService.updateForgottenRitualEnabled(newValue)
                         }
                     }
                 ))

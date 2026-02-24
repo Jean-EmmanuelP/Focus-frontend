@@ -848,6 +848,7 @@ struct UserResponse: Codable {
     let companionName: String?
     let companionGender: String?
     let avatarStyle: String?
+    let freeVoiceMessagesUsed: Int?
     let createdAt: Date?
 }
 

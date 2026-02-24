@@ -12,6 +12,8 @@
 		623E95782EE4AC3100356DD7 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 623E95772EE4AC3100356DD7 /* WidgetKit.framework */; };
 		623E957A2EE4AC3100356DD7 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 623E95792EE4AC3100356DD7 /* SwiftUI.framework */; };
 		623E958B2EE4AC3200356DD7 /* FocusWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 623E95752EE4AC3100356DD7 /* FocusWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		6269A8912F4A51110028F63D /* DeviceActivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6269A8902F4A51110028F63D /* DeviceActivity.framework */; };
+		6269A8992F4A51110028F63D /* FocusDeviceActivityMonitor.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 6269A88F2F4A51110028F63D /* FocusDeviceActivityMonitor.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		628291752F0055D600D26C30 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 628291742F0055D600D26C30 /* FirebaseAnalytics */; };
 		628291772F0055D600D26C30 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 628291762F0055D600D26C30 /* FirebaseCore */; };
 		628291792F0055D600D26C30 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 628291782F0055D600D26C30 /* FirebaseMessaging */; };
@@ -30,6 +32,13 @@
 			remoteGlobalIDString = 623E95742EE4AC3100356DD7;
 			remoteInfo = FocusWidgetExtension;
 		};
+		6269A8972F4A51110028F63D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 623E89422EE1F65300356DD7 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6269A88E2F4A51110028F63D;
+			remoteInfo = FocusDeviceActivityMonitor;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -39,6 +48,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
+				6269A8992F4A51110028F63D /* FocusDeviceActivityMonitor.appex in Embed Foundation Extensions */,
 				623E958B2EE4AC3200356DD7 /* FocusWidgetExtension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
@@ -59,6 +69,8 @@
 		6257FB552EF6F88D0000AD1C /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
 		62587B882F2E6DF9005D910A /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
 		62587D3E2F3140B6005D910A /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
+		6269A88F2F4A51110028F63D /* FocusDeviceActivityMonitor.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FocusDeviceActivityMonitor.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		6269A8902F4A51110028F63D /* DeviceActivity.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DeviceActivity.framework; path = System/Library/Frameworks/DeviceActivity.framework; sourceTree = SDKROOT; };
 		6272BAAE2EE9D2C8002693DF /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
 		628290662F0035E800D26C30 /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
 		62864F4C2F409EF600A6BD9D /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
@@ -96,6 +108,13 @@
 			);
 			target = 623E89492EE1F65300356DD7 /* Focus */;
 		};
+		6269A89D2F4A51110028F63D /* Exceptions for "FocusDeviceActivityMonitor" folder in "FocusDeviceActivityMonitor" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 6269A88E2F4A51110028F63D /* FocusDeviceActivityMonitor */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -113,6 +132,14 @@
 				623E958F2EE4AC3200356DD7 /* Exceptions for "FocusWidget" folder in "FocusWidgetExtension" target */,
 			);
 			path = FocusWidget;
+			sourceTree = "<group>";
+		};
+		6269A8922F4A51110028F63D /* FocusDeviceActivityMonitor */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				6269A89D2F4A51110028F63D /* Exceptions for "FocusDeviceActivityMonitor" folder in "FocusDeviceActivityMonitor" target */,
+			);
+			path = FocusDeviceActivityMonitor;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -143,6 +170,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		6269A88C2F4A51110028F63D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6269A8912F4A51110028F63D /* DeviceActivity.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -167,6 +202,7 @@
 				623E95972EE4AC9000356DD7 /* FocusWidgetExtension.entitlements */,
 				623E894C2EE1F65300356DD7 /* Focus */,
 				623E957B2EE4AC3100356DD7 /* FocusWidget */,
+				6269A8922F4A51110028F63D /* FocusDeviceActivityMonitor */,
 				623E95762EE4AC3100356DD7 /* Frameworks */,
 				623E894B2EE1F65300356DD7 /* Products */,
 			);
@@ -177,6 +213,7 @@
 			children = (
 				623E894A2EE1F65300356DD7 /* Focus.app */,
 				623E95752EE4AC3100356DD7 /* FocusWidgetExtension.appex */,
+				6269A88F2F4A51110028F63D /* FocusDeviceActivityMonitor.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -187,6 +224,7 @@
 				620DD7D22EF9DC0D00BBBDD1 /* StoreKit.framework */,
 				623E95772EE4AC3100356DD7 /* WidgetKit.framework */,
 				623E95792EE4AC3100356DD7 /* SwiftUI.framework */,
+				6269A8902F4A51110028F63D /* DeviceActivity.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -368,6 +406,7 @@
 			);
 			dependencies = (
 				623E958A2EE4AC3200356DD7 /* PBXTargetDependency */,
+				6269A8982F4A51110028F63D /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				623E894C2EE1F65300356DD7 /* Focus */,
@@ -409,6 +448,28 @@
 			productReference = 623E95752EE4AC3100356DD7 /* FocusWidgetExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		6269A88E2F4A51110028F63D /* FocusDeviceActivityMonitor */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6269A89A2F4A51110028F63D /* Build configuration list for PBXNativeTarget "FocusDeviceActivityMonitor" */;
+			buildPhases = (
+				6269A88B2F4A51110028F63D /* Sources */,
+				6269A88C2F4A51110028F63D /* Frameworks */,
+				6269A88D2F4A51110028F63D /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				6269A8922F4A51110028F63D /* FocusDeviceActivityMonitor */,
+			);
+			name = FocusDeviceActivityMonitor;
+			packageProductDependencies = (
+			);
+			productName = FocusDeviceActivityMonitor;
+			productReference = 6269A88F2F4A51110028F63D /* FocusDeviceActivityMonitor.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -423,6 +484,9 @@
 						CreatedOnToolsVersion = 26.1.1;
 					};
 					623E95742EE4AC3100356DD7 = {
+						CreatedOnToolsVersion = 26.1.1;
+					};
+					6269A88E2F4A51110028F63D = {
 						CreatedOnToolsVersion = 26.1.1;
 					};
 				};
@@ -555,6 +619,7 @@
 			targets = (
 				623E89492EE1F65300356DD7 /* Focus */,
 				623E95742EE4AC3100356DD7 /* FocusWidgetExtension */,
+				6269A88E2F4A51110028F63D /* FocusDeviceActivityMonitor */,
 			);
 		};
 /* End PBXProject section */
@@ -569,6 +634,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		623E95732EE4AC3100356DD7 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6269A88D2F4A51110028F63D /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -592,6 +664,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		6269A88B2F4A51110028F63D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -599,6 +678,11 @@
 			isa = PBXTargetDependency;
 			target = 623E95742EE4AC3100356DD7 /* FocusWidgetExtension */;
 			targetProxy = 623E95892EE4AC3200356DD7 /* PBXContainerItemProxy */;
+		};
+		6269A8982F4A51110028F63D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6269A88E2F4A51110028F63D /* FocusDeviceActivityMonitor */;
+			targetProxy = 6269A8972F4A51110028F63D /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -902,6 +986,71 @@
 			};
 			name = Release;
 		};
+		6269A89B2F4A51110028F63D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = FocusDeviceActivityMonitor/FocusDeviceActivityMonitor.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 62NW6K29QN;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FocusDeviceActivityMonitor/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = FocusDeviceActivityMonitor;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jep.volta.FocusDeviceActivityMonitor;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		6269A89C2F4A51110028F63D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = FocusDeviceActivityMonitor/FocusDeviceActivityMonitor.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 62NW6K29QN;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FocusDeviceActivityMonitor/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = FocusDeviceActivityMonitor;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jep.volta.FocusDeviceActivityMonitor;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -928,6 +1077,15 @@
 			buildConfigurations = (
 				623E958D2EE4AC3200356DD7 /* Debug */,
 				623E958E2EE4AC3200356DD7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		6269A89A2F4A51110028F63D /* Build configuration list for PBXNativeTarget "FocusDeviceActivityMonitor" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6269A89B2F4A51110028F63D /* Debug */,
+				6269A89C2F4A51110028F63D /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -29,7 +29,7 @@ struct PaywallFeature: Identifiable {
 
 struct FocusPaywallView: View {
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject var revenueCatManager: RevenueCatManager
+    @EnvironmentObject var subscriptionManager: SubscriptionManager
 
     @State private var selectedPlan: PaywallPlan = .max
     @State private var isPurchasing = false
@@ -166,14 +166,14 @@ struct FocusPaywallView: View {
             Text(errorMessage)
         }
         .task {
-            if revenueCatManager.offerings == nil {
-                await revenueCatManager.fetchOfferings()
+            if subscriptionManager.offerings == nil {
+                await subscriptionManager.fetchOfferings()
             }
             // Debug: log available products
-            if let products = revenueCatManager.currentOffering {
+            if let products = subscriptionManager.currentOffering {
                 print("💰 Paywall - Available products: \(products.map { "\($0.id) → \($0.displayPrice)" })")
-                print("💰 Plus product: \(revenueCatManager.plusProduct?.id ?? "nil")")
-                print("💰 Max product: \(revenueCatManager.maxProduct?.id ?? "nil")")
+                print("💰 Plus product: \(subscriptionManager.plusProduct?.id ?? "nil")")
+                print("💰 Max product: \(subscriptionManager.maxProduct?.id ?? "nil")")
             }
         }
     }
@@ -428,7 +428,7 @@ struct FocusPaywallView: View {
             // Main CTA button
             Button(action: handlePurchase) {
                 VStack(spacing: 2) {
-                    if revenueCatManager.isLoading {
+                    if subscriptionManager.isLoading {
                         ProgressView()
                             .progressViewStyle(CircularProgressViewStyle(tint: Color(red: 0.08, green: 0.08, blue: 0.20)))
                     } else if let price = priceText {
@@ -522,10 +522,10 @@ struct FocusPaywallView: View {
     private var selectedPackage: Product? {
         if selectedPlan == .max {
             // Focus Max - 129,99€/mois
-            return revenueCatManager.maxPackage
+            return subscriptionManager.maxPackage
         } else {
             // Focus Plus - 34,99€/mois
-            return revenueCatManager.plusPackage
+            return subscriptionManager.plusPackage
         }
     }
 
@@ -547,14 +547,14 @@ struct FocusPaywallView: View {
         HapticFeedback.medium()
 
         Task {
-            let success = await revenueCatManager.purchase(package: package)
+            let success = await subscriptionManager.purchase(package: package)
             isPurchasing = false
 
             if success {
                 HapticFeedback.success()
                 onComplete?()
                 dismiss()
-            } else if let error = revenueCatManager.errorMessage {
+            } else if let error = subscriptionManager.errorMessage {
                 errorMessage = error
                 showError = true
             }
@@ -564,14 +564,14 @@ struct FocusPaywallView: View {
     private func handleRestore() async {
         isPurchasing = true
 
-        let success = await revenueCatManager.restorePurchases()
+        let success = await subscriptionManager.restorePurchases()
         isPurchasing = false
 
         if success {
             HapticFeedback.success()
             onComplete?()
             dismiss()
-        } else if let error = revenueCatManager.errorMessage {
+        } else if let error = subscriptionManager.errorMessage {
             errorMessage = error
             showError = true
         }
@@ -582,5 +582,5 @@ struct FocusPaywallView: View {
 
 #Preview {
     FocusPaywallView(companionName: "Kai")
-        .environmentObject(RevenueCatManager.shared)
+        .environmentObject(SubscriptionManager.shared)
 }

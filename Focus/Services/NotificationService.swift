@@ -13,6 +13,9 @@ struct NotificationSettings: Codable {
     var taskReminderMinutesBefore: Int // 5, 10, 15, 30 minutes
     var routineRemindersEnabled: Bool
     var streakAlertEnabled: Bool
+    var afternoonCheckEnabled: Bool
+    var forgottenRitualEnabled: Bool
+    var companionNudgesEnabled: Bool
 
     static var `default`: NotificationSettings {
         var calendar = Calendar.current
@@ -36,7 +39,10 @@ struct NotificationSettings: Codable {
             taskRemindersEnabled: true,
             taskReminderMinutesBefore: 15,
             routineRemindersEnabled: true,
-            streakAlertEnabled: true
+            streakAlertEnabled: true,
+            afternoonCheckEnabled: true,
+            forgottenRitualEnabled: true,
+            companionNudgesEnabled: true
         )
     }
 }
@@ -62,6 +68,9 @@ class NotificationService: ObservableObject {
     private let taskNotificationPrefix = "focus.task."
     private let routineNotificationPrefix = "focus.routine."
     private let streakAlertId = "focus.streak.danger"
+    private let afternoonCheckId = "focus.afternoon.check"
+    private let forgottenRitualId = "focus.ritual.forgotten"
+    private let companionNudgePrefix = "focus.companion.nudge"
 
     private init() {
         self.settings = NotificationSettings.default
@@ -356,6 +365,119 @@ class NotificationService: ObservableObject {
         await scheduleStreakDangerAlert()
     }
 
+    // MARK: - Afternoon Satisfaction Check
+
+    /// Schedule an afternoon notification at 14:00 to nudge the user based on their satisfaction score
+    func scheduleAfternoonCheck() async {
+        guard settings.afternoonCheckEnabled else {
+            cancelAfternoonCheck()
+            return
+        }
+
+        cancelAfternoonCheck()
+
+        let score = UserDefaults.standard.object(forKey: "satisfaction_score") as? Int ?? 50
+        let firstName = FocusAppStore.shared.user?.firstName
+
+        let content = UNMutableNotificationContent()
+        content.sound = .default
+        content.badge = 1
+        content.userInfo = ["deepLink": "focus://dashboard"]
+
+        // Adapt message to satisfaction score
+        if score < 40 {
+            content.title = firstName.map { "\($0), il est encore temps" } ?? "Il est encore temps"
+            content.body = getAfternoonLowScorePhrase()
+        } else if score < 70 {
+            content.title = "Mi-journée"
+            content.body = getAfternoonMediumScorePhrase()
+        } else {
+            content.title = "Continue comme ça"
+            content.body = getAfternoonHighScorePhrase()
+        }
+
+        // Schedule daily at 14:00
+        var dateComponents = DateComponents()
+        dateComponents.hour = 14
+        dateComponents.minute = 0
+
+        let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
+
+        let request = UNNotificationRequest(
+            identifier: afternoonCheckId,
+            content: content,
+            trigger: trigger
+        )
+
+        do {
+            try await notificationCenter.add(request)
+            print("✅ Afternoon check scheduled daily at 14:00 (score: \(score))")
+        } catch {
+            print("❌ Failed to schedule afternoon check: \(error)")
+        }
+    }
+
+    func cancelAfternoonCheck() {
+        notificationCenter.removePendingNotificationRequests(withIdentifiers: [afternoonCheckId])
+    }
+
+    // MARK: - Forgotten Ritual Reminder
+
+    /// Schedule a notification at 19:00 to remind about uncompleted rituals
+    func scheduleForgottenRitualReminder(uncompletedRituals: [String]) async {
+        guard settings.forgottenRitualEnabled else {
+            cancelForgottenRitualReminder()
+            return
+        }
+
+        cancelForgottenRitualReminder()
+
+        // Only schedule if there are uncompleted rituals
+        guard !uncompletedRituals.isEmpty else { return }
+
+        let content = UNMutableNotificationContent()
+        content.sound = .default
+        content.badge = 1
+        content.userInfo = ["deepLink": "focus://dashboard"]
+
+        if uncompletedRituals.count == 1 {
+            content.title = "Rituel oublié"
+            content.body = "Tu n'as pas encore fait '\(uncompletedRituals[0])' aujourd'hui."
+        } else {
+            content.title = "\(uncompletedRituals.count) rituels restants"
+            let names = uncompletedRituals.prefix(3).joined(separator: ", ")
+            content.body = "Il te reste : \(names). Coche-les avant la fin de journée !"
+        }
+
+        // Schedule today at 19:00 if not past, otherwise skip
+        let calendar = Calendar.current
+        let now = Date()
+        var dateComponents = calendar.dateComponents([.year, .month, .day], from: now)
+        dateComponents.hour = 19
+        dateComponents.minute = 0
+
+        guard let reminderDate = calendar.date(from: dateComponents), reminderDate > now else { return }
+
+        let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: false)
+
+        let request = UNNotificationRequest(
+            identifier: forgottenRitualId,
+            content: content,
+            trigger: trigger
+        )
+
+        do {
+            try await notificationCenter.add(request)
+            print("✅ Forgotten ritual reminder scheduled for 19:00 (\(uncompletedRituals.count) uncompleted)")
+        } catch {
+            print("❌ Failed to schedule forgotten ritual reminder: \(error)")
+        }
+    }
+
+    func cancelForgottenRitualReminder() {
+        notificationCenter.removePendingNotificationRequests(withIdentifiers: [forgottenRitualId])
+    }
+
     // MARK: - Task Reminder Notifications
 
     func scheduleTaskReminder(for task: CalendarTask) async {
@@ -450,26 +572,156 @@ class NotificationService: ObservableObject {
         }
     }
 
+    // MARK: - Companion Nudge Notifications
+
+    /// Schedule 2 companion nudge notifications per day for the next 7 days
+    /// These feel like the companion casually checking in, not a robotic reminder
+    func scheduleCompanionNudges() async {
+        guard settings.companionNudgesEnabled else {
+            cancelCompanionNudges()
+            return
+        }
+
+        cancelCompanionNudges()
+
+        let firstName = FocusAppStore.shared.user?.firstName
+        let companionName = FocusAppStore.shared.user?.companionName ?? "ton coach"
+        let calendar = Calendar.current
+
+        // 2 nudge slots per day: late morning (~11h) and mid-afternoon (~16h)
+        let nudgeSlots: [(baseHour: Int, label: String)] = [
+            (11, "morning"),
+            (16, "afternoon")
+        ]
+
+        for dayOffset in 1...7 {
+            guard let futureDate = calendar.date(byAdding: .day, value: dayOffset, to: Date()) else { continue }
+
+            for slot in nudgeSlots {
+                let phrase = getCompanionNudgePhrase(slot: slot.label, firstName: firstName, companionName: companionName)
+
+                let content = UNMutableNotificationContent()
+                content.title = companionName
+                content.body = phrase
+                content.sound = .default
+                content.userInfo = ["deepLink": "focus://dashboard"]
+
+                // Add a few minutes of variance so it doesn't feel robotic
+                let minuteVariance = (dayOffset * 7 + slot.baseHour) % 20 // 0-19 min variance per day
+                var dateComponents = calendar.dateComponents([.year, .month, .day], from: futureDate)
+                dateComponents.hour = slot.baseHour
+                dateComponents.minute = minuteVariance
+
+                let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: false)
+
+                let identifier = "\(companionNudgePrefix).\(dayOffset).\(slot.label)"
+                let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+
+                do {
+                    try await notificationCenter.add(request)
+                } catch {
+                    print("❌ Failed to schedule companion nudge: \(error)")
+                }
+            }
+        }
+        print("✅ Companion nudges scheduled for next 7 days")
+    }
+
+    func cancelCompanionNudges() {
+        var identifiers: [String] = []
+        for dayOffset in 1...7 {
+            identifiers.append("\(companionNudgePrefix).\(dayOffset).morning")
+            identifiers.append("\(companionNudgePrefix).\(dayOffset).afternoon")
+        }
+        notificationCenter.removePendingNotificationRequests(withIdentifiers: identifiers)
+    }
+
+    func updateCompanionNudgesEnabled(_ enabled: Bool) async {
+        settings.companionNudgesEnabled = enabled
+        if enabled {
+            await scheduleCompanionNudges()
+        } else {
+            cancelCompanionNudges()
+        }
+    }
+
     // MARK: - Phrase Generation (Local)
 
     private func getMorningPhrase() -> String {
         let lang = currentLanguageCode()
 
-        // Local motivational phrases
         let frenchPhrases = [
-            "C'est le moment de planifier ta journée et d'atteindre tes objectifs.",
-            "Une nouvelle journée, de nouvelles opportunités. Tu vas tout déchirer !",
-            "Chaque matin est une chance de devenir meilleur. Lance-toi !",
-            "Ta journée commence maintenant. Fais-en quelque chose de grand.",
-            "Le succès appartient à ceux qui commencent tôt. C'est ton moment."
+            // Stoïciens
+            "Que la force de tes pensées soit le moteur de ta journée. — Marc Aurèle",
+            "Ce n'est pas ce qui t'arrive qui compte, mais comment tu y réagis. — Épictète",
+            "La vie est courte. Cesse de remettre à demain. — Sénèque",
+            "Tu as le pouvoir sur ton esprit, pas sur les événements. Réalise cela, et tu trouveras la force. — Marc Aurèle",
+            "Le bonheur de ta vie dépend de la qualité de tes pensées. — Marc Aurèle",
+            "Ce qui trouble les hommes, ce ne sont pas les choses, mais les jugements qu'ils portent sur elles. — Épictète",
+            "Chaque jour est une petite vie. Vis-la pleinement. — Sénèque",
+            // Auteurs français
+            "Même la nuit la plus sombre prendra fin et le soleil se lèvera. — Victor Hugo",
+            "Au milieu de l'hiver, j'ai découvert en moi un invincible été. — Albert Camus",
+            "On ne voit bien qu'avec le cœur. L'essentiel est invisible pour les yeux. — Saint-Exupéry",
+            "Fais de ta vie un rêve, et d'un rêve une réalité. — Saint-Exupéry",
+            "Il n'y a qu'un héroïsme au monde : c'est de voir le monde tel qu'il est et de l'aimer. — Romain Rolland",
+            "La vraie générosité envers l'avenir consiste à tout donner au présent. — Albert Camus",
+            "Il faut imaginer Sisyphe heureux. — Albert Camus",
+            "Rien n'est petit dans l'amour. Ceux qui attendent les grandes occasions pour prouver leur tendresse ne savent pas aimer. — Laure Conan",
+            // Proverbes et sagesse
+            "Celui qui déplace une montagne commence par déplacer de petites pierres. — Confucius",
+            "Le meilleur moment pour planter un arbre était il y a vingt ans. Le deuxième meilleur moment, c'est maintenant.",
+            "Un voyage de mille lieues commence par un seul pas. — Lao Tseu",
+            "La discipline est le pont entre tes objectifs et leur réalisation.",
+            "Sois le changement que tu veux voir dans le monde. — Gandhi",
+            // Affirmations de développement personnel
+            "Aujourd'hui, je choisis d'avancer avec courage et détermination.",
+            "Je suis capable de grandes choses. Chaque petit pas compte.",
+            "Ma concentration est mon super-pouvoir. Je l'utilise avec intention.",
+            "Je ne contrôle pas tout, mais je contrôle mes efforts et mon attitude.",
+            "Chaque journée est une page blanche. Écris une belle histoire.",
+            "La constance bat le talent quand le talent manque de constance.",
+            "Progresse, pas la perfection. Un pas à la fois.",
+            "Ta seule limite est celle que tu te fixes.",
+            "L'action est la clé fondamentale de tout succès. — Pablo Picasso",
+            "Ce que tu fais aujourd'hui peut améliorer tous tes lendemains. — Ralph Marston",
         ]
 
         let englishPhrases = [
-            "Time to plan your day and crush your goals.",
-            "A new day, new opportunities. You've got this!",
-            "Every morning is a chance to be better. Let's go!",
-            "Your day starts now. Make it count.",
-            "Success belongs to those who start early. This is your moment."
+            // Stoics
+            "Let the strength of your thoughts drive your day. — Marcus Aurelius",
+            "It's not what happens to you, but how you react that matters. — Epictetus",
+            "Life is short. Stop postponing. — Seneca",
+            "You have power over your mind, not outside events. Realize this, and you will find strength. — Marcus Aurelius",
+            "The happiness of your life depends on the quality of your thoughts. — Marcus Aurelius",
+            "It is not things that disturb us, but our judgments about things. — Epictetus",
+            "Every day is a little life. Live it fully. — Seneca",
+            // Classic authors
+            "Even the darkest night will end and the sun will rise. — Victor Hugo",
+            "In the midst of winter, I found there was, within me, an invincible summer. — Albert Camus",
+            "It is only with the heart that one can see rightly. What is essential is invisible to the eye. — Saint-Exupéry",
+            "Make your life a dream, and a dream a reality. — Saint-Exupéry",
+            "There is only one heroism in the world: to see the world as it is and to love it. — Romain Rolland",
+            "Real generosity toward the future lies in giving all to the present. — Albert Camus",
+            "One must imagine Sisyphus happy. — Albert Camus",
+            "We suffer more in imagination than in reality. — Seneca",
+            // Proverbs and wisdom
+            "The man who moves a mountain begins by carrying away small stones. — Confucius",
+            "The best time to plant a tree was twenty years ago. The second best time is now.",
+            "A journey of a thousand miles begins with a single step. — Lao Tzu",
+            "Discipline is the bridge between your goals and their accomplishment.",
+            "Be the change you wish to see in the world. — Gandhi",
+            // Personal growth affirmations
+            "Today, I choose to move forward with courage and determination.",
+            "I am capable of great things. Every small step matters.",
+            "My focus is my superpower. I use it with intention.",
+            "I can't control everything, but I can control my effort and my attitude.",
+            "Every day is a blank page. Write a great story.",
+            "Consistency beats talent when talent doesn't show up consistently.",
+            "Progress, not perfection. One step at a time.",
+            "Your only limit is the one you set for yourself.",
+            "Action is the foundational key to all success. — Pablo Picasso",
+            "What you do today can improve all your tomorrows. — Ralph Marston",
         ]
 
         let phrases = lang == "fr" ? frenchPhrases : englishPhrases
@@ -538,6 +790,93 @@ class NotificationService: ObservableObject {
         return phrases.randomElement() ?? phrases[0]
     }
 
+    private func getAfternoonLowScorePhrase() -> String {
+        let phrases = [
+            "Ta journée n'a pas encore démarré côté productivité. Un seul rituel ou tâche peut tout changer.",
+            "Score bas aujourd'hui — c'est le moment de se rattraper. Choisis UNE chose et fais-la.",
+            "Il te reste l'après-midi pour remonter. Ouvre Focus et parle à ton coach.",
+            "La journée n'est pas finie. Même une petite action compte."
+        ]
+        return phrases.randomElement() ?? phrases[0]
+    }
+
+    private func getAfternoonMediumScorePhrase() -> String {
+        let phrases = [
+            "Pas mal, mais tu peux encore monter. Qu'est-ce que tu peux cocher cet après-midi ?",
+            "Mi-journée. Regarde tes tâches restantes et finis en beauté.",
+            "Tu avances bien. Continue sur cette lancée cet après-midi !",
+            "Bon rythme. Encore un ou deux rituels et ta journée sera top."
+        ]
+        return phrases.randomElement() ?? phrases[0]
+    }
+
+    private func getAfternoonHighScorePhrase() -> String {
+        let phrases = [
+            "Tu gères ! Journée excellente. Continue comme ça.",
+            "Score au top — profite de cette énergie pour finir ce qu'il reste.",
+            "Impressionnant aujourd'hui. Tu mérites cette satisfaction.",
+            "Belle journée en cours. Maintiens le cap !"
+        ]
+        return phrases.randomElement() ?? phrases[0]
+    }
+
+    private func getCompanionNudgePhrase(slot: String, firstName: String?, companionName: String) -> String {
+        let lang = currentLanguageCode()
+        let name = (firstName != nil && !firstName!.isEmpty) ? " \(firstName!)" : ""
+
+        if lang == "fr" {
+            let morningPhrases = [
+                "Ça va\(name) ? Si t'as besoin, je suis là.",
+                "Tu fais quoi de beau ce matin\(name) ?",
+                "Hey\(name). Petite pause pour checker comment tu vas.",
+                "Juste un coucou\(name). T'avances bien ?",
+                "Hey\(name) ! Raconte-moi ta matinée.",
+                "Tu tiens le rythme\(name) ? Je pense à toi.",
+                "Check rapide\(name) — t'as besoin d'un coup de main ?",
+                "Yo\(name). T'es sur quoi là ?",
+            ]
+
+            let afternoonPhrases = [
+                "Hey\(name). Comment se passe ton aprèm ?",
+                "Coucou\(name). Tu gères ?",
+                "Petite pensée pour toi\(name). Continue !",
+                "Hey\(name), t'as pris une pause aujourd'hui ?",
+                "Yo\(name). Tu kiffes ta journée ?",
+                "Juste pour dire : t'assures\(name).",
+                "Check-in de l'aprèm\(name). Tout roule ?",
+                "Hey\(name). On se fait un point rapide ?",
+            ]
+
+            let pool = slot == "morning" ? morningPhrases : afternoonPhrases
+            return pool.randomElement() ?? pool[0]
+        }
+
+        let morningPhrases = [
+            "How's it going\(name)? I'm here if you need me.",
+            "What are you working on this morning\(name)?",
+            "Hey\(name). Quick check — how are you feeling?",
+            "Just saying hi\(name). Making progress?",
+            "Morning check-in\(name). Need a hand with anything?",
+            "Hey\(name)! Tell me about your morning.",
+            "Keeping the momentum\(name)? Thinking of you.",
+            "Yo\(name). What are you up to?",
+        ]
+
+        let afternoonPhrases = [
+            "Hey\(name). How's your afternoon going?",
+            "Hi\(name). You're doing great.",
+            "Just thinking of you\(name). Keep going!",
+            "Hey\(name), have you taken a break today?",
+            "Yo\(name). Enjoying your day?",
+            "Just wanted to say: you're doing well\(name).",
+            "Afternoon check-in\(name). Everything good?",
+            "Hey\(name). Want to do a quick recap?",
+        ]
+
+        let pool = slot == "morning" ? morningPhrases : afternoonPhrases
+        return pool.randomElement() ?? pool[0]
+    }
+
     private func currentLanguageCode() -> String {
         // Use the app's localization manager for consistency
         return LocalizationManager.shared.effectiveLanguageCode
@@ -601,6 +940,22 @@ class NotificationService: ObservableObject {
             await scheduleStreakDangerAlert()
         } else {
             cancelStreakDangerAlert()
+        }
+    }
+
+    func updateAfternoonCheckEnabled(_ enabled: Bool) async {
+        settings.afternoonCheckEnabled = enabled
+        if enabled {
+            await scheduleAfternoonCheck()
+        } else {
+            cancelAfternoonCheck()
+        }
+    }
+
+    func updateForgottenRitualEnabled(_ enabled: Bool) {
+        settings.forgottenRitualEnabled = enabled
+        if !enabled {
+            cancelForgottenRitualReminder()
         }
     }
 }

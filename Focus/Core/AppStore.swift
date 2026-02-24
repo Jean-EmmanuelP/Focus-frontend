@@ -17,11 +17,11 @@ final class FocusAppStore: ObservableObject {
 
     // MARK: - Subscription State
     var isProUser: Bool {
-        RevenueCatManager.shared.isProUser
+        SubscriptionManager.shared.isProUser
     }
 
     var subscriptionState: SubscriptionState {
-        RevenueCatManager.shared.subscriptionState
+        SubscriptionManager.shared.subscriptionState
     }
 
     // MARK: - UserDefaults Keys for Onboarding Cache
@@ -175,7 +175,7 @@ final class FocusAppStore: ObservableObject {
 
         // Sync RevenueCat with user ID
         if let userId = authService.userId {
-            await RevenueCatManager.shared.configureWithUser(userId: userId)
+            await SubscriptionManager.shared.configureWithUser(userId: userId)
         }
 
         // Register FCM token for push notifications
@@ -222,47 +222,42 @@ final class FocusAppStore: ObservableObject {
     }
 
     func signOut() {
+        // Clear local data IMMEDIATELY (before any async operations)
+        SimpleChatPersistence.clearMessages()
+        ChatPersistence.clearMessages()
+        UserDefaults.standard.removeObject(forKey: "pending_chat_message")
+        UserDefaults.standard.removeObject(forKey: onboardingCompletedKey)
+        UserDefaults.standard.removeObject(forKey: onboardingUserIdKey)
+        KnowledgeManager.shared.resetAllKnowledge()
+
+        // Reset all state immediately so UI transitions to auth screen
+        self.authUserId = nil
+        self.isAuthenticated = false
+        self.hasCompletedOnboarding = false
+        self.hasLoadedInitialData = false
+        self.isCurrentlyLoadingData = false
+        self.lastDashboardLoad = nil
+        self.user = nil
+        self.todaysSessions = []
+        self.weekSessions = []
+        self.rituals = []
+        self.quests = []
+        self.morningCheckIn = nil
+        self.eveningReview = nil
+        self.areas = Self.placeholderAreas
+        self.areasLoaded = false
+        self.stats = nil
+        self.weeklyProgress = []
+
+        // Async cleanup (sign out from services)
         Task {
             do {
                 try await AuthService.shared.signOut()
             } catch {
                 print("Error signing out: \(error)")
             }
-
-            // Logout from RevenueCat
-            await RevenueCatManager.shared.logout()
-
-            // Clear onboarding cache for this user
-            UserDefaults.standard.removeObject(forKey: onboardingCompletedKey)
-            UserDefaults.standard.removeObject(forKey: onboardingUserIdKey)
-
-            // Clear all local chat messages (v1, v2, v3)
-            SimpleChatPersistence.clearMessages()
-            ChatPersistence.clearMessages()
-            UserDefaults.standard.removeObject(forKey: "pending_chat_message")
-
-            // Clear AI knowledge data
-            KnowledgeManager.shared.resetAllKnowledge()
-
-            // Reset state regardless of sign out result
-            self.authUserId = nil
-            self.isAuthenticated = false
-            self.hasCompletedOnboarding = false
-            self.hasLoadedInitialData = false
-            self.isCurrentlyLoadingData = false
-            self.lastDashboardLoad = nil
-            self.user = nil
-            self.todaysSessions = []
-            self.weekSessions = []
-            self.rituals = []
-            self.quests = []
-            self.morningCheckIn = nil
-            self.eveningReview = nil
-            self.areas = Self.placeholderAreas
-            self.areasLoaded = false
-            self.stats = nil
-            self.weeklyProgress = []
-            print("🔓 User signed out, state reset (onboarding cache cleared)")
+            await SubscriptionManager.shared.logout()
+            print("🔓 User signed out, state reset")
         }
     }
 

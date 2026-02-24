@@ -349,7 +349,7 @@ struct SettingsView: View {
         VStack(spacing: 0) {
             sectionLabel("Developpeur")
 
-            NavigationLink(destination: NewOnboardingView().environmentObject(FocusAppStore.shared).environmentObject(RevenueCatManager.shared)) {
+            NavigationLink(destination: NewOnboardingView().environmentObject(FocusAppStore.shared).environmentObject(SubscriptionManager.shared)) {
                 settingsRow(title: "Debug Onboarding", subtitle: nil, showChevron: true)
             }
         }

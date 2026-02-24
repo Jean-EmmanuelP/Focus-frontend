@@ -71,7 +71,7 @@ private enum OnboardingColors {
 
 struct NewOnboardingView: View {
     @EnvironmentObject var store: FocusAppStore
-    @EnvironmentObject var revenueCatManager: RevenueCatManager
+    @EnvironmentObject var subscriptionManager: SubscriptionManager
     @StateObject private var viewModel = NewOnboardingViewModel()
     @Environment(\.dismiss) private var dismiss
 
@@ -555,7 +555,7 @@ struct NewOnboardingView: View {
                 .foregroundColor(.white.opacity(0.5))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
-                .padding(.bottom, 30)
+                .padding(.bottom, 30)   
         }
     }
 
@@ -984,7 +984,7 @@ struct NewOnboardingView: View {
                 viewModel.currentStep = .meetCompanion
             }
         )
-        .environmentObject(revenueCatManager)
+        .environmentObject(subscriptionManager)
     }
 
     // MARK: - Step 13: Meet Companion (Avatar background)
@@ -1346,5 +1346,5 @@ class NewOnboardingViewModel: ObservableObject {
 #Preview {
     NewOnboardingView()
         .environmentObject(FocusAppStore.shared)
-        .environmentObject(RevenueCatManager.shared)
+        .environmentObject(SubscriptionManager.shared)
 }

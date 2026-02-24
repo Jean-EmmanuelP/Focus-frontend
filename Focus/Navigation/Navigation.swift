@@ -169,7 +169,7 @@ struct MainTabView: View {
         }
         .sheet(isPresented: $router.showPaywall) {
             VoltaPaywallView()
-                .environmentObject(RevenueCatManager.shared)
+                .environmentObject(SubscriptionManager.shared)
         }
         .environmentObject(router)
         .overlay {

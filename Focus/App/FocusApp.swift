@@ -17,7 +17,7 @@ struct FocusApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var store = FocusAppStore.shared
     @StateObject private var router = AppRouter.shared
-    @ObservedObject private var revenueCatManager = RevenueCatManager.shared
+    @ObservedObject private var subscriptionManager = SubscriptionManager.shared
     @StateObject private var updateService = AppUpdateService.shared
     @State private var appState: AppLaunchState = .splash
     @State private var showUpdateSheet = false
@@ -25,7 +25,7 @@ struct FocusApp: App {
 
     init() {
         // Configure StoreKit 2 subscriptions on app launch
-        RevenueCatManager.shared.configure()
+        SubscriptionManager.shared.configure()
     }
 
     enum AppLaunchState {
@@ -78,7 +78,7 @@ struct FocusApp: App {
             }
             .environmentObject(store)
             .environmentObject(router)
-            .environmentObject(revenueCatManager)
+            .environmentObject(subscriptionManager)
             .preferredColorScheme(.dark)
             .animation(.easeInOut(duration: 0.3), value: store.hasCompletedOnboarding)
             .animation(.easeInOut(duration: 0.3), value: store.isAuthenticated)
@@ -132,11 +132,24 @@ struct FocusApp: App {
                     // Clear badge when app becomes active
                     UNUserNotificationCenter.current().setBadgeCount(0)
 
+                    // Restart distraction monitoring if enabled
+                    if DistractionMonitorService.shared.distractionMonitorEnabled {
+                        DistractionMonitorService.shared.startMonitoring()
+                    }
+
                     // Refresh notifications when app becomes active
                     Task {
                         await NotificationService.shared.scheduleMorningNotification()
                         await NotificationService.shared.scheduleEveningNotification()
                         await NotificationService.shared.scheduleStreakDangerAlert()
+                        await NotificationService.shared.scheduleAfternoonCheck()
+                        await NotificationService.shared.scheduleCompanionNudges()
+
+                        // Schedule forgotten ritual reminder with uncompleted rituals
+                        let uncompleted = store.rituals
+                            .filter { !$0.isCompleted }
+                            .map { $0.title }
+                        await NotificationService.shared.scheduleForgottenRitualReminder(uncompletedRituals: uncompleted)
                     }
                 }
             }

@@ -28,7 +28,7 @@ private enum ReplicaColors {
 struct ReplicaSettingsView: View {
     var onDismiss: () -> Void
     @EnvironmentObject var store: FocusAppStore
-    @EnvironmentObject var revenueCatManager: RevenueCatManager
+    @EnvironmentObject var subscriptionManager: SubscriptionManager
 
     private var companionName: String {
         store.user?.companionName ?? "ton coach"
@@ -57,6 +57,7 @@ struct ReplicaSettingsView: View {
     @State private var showSubscription = false
     @State private var showOnboarding = false
     @State private var showAvatarTest = false
+    @State private var showAppBlocker = false
 
     private let userService = UserService()
 
@@ -226,14 +227,14 @@ struct ReplicaSettingsView: View {
                         }
                     }
                 )
-                .environmentObject(revenueCatManager)
+                .environmentObject(subscriptionManager)
                 .transition(.opacity)
             }
         }
         .fullScreenCover(isPresented: $showOnboarding) {
             NewOnboardingView()
                 .environmentObject(store)
-                .environmentObject(RevenueCatManager.shared)
+                .environmentObject(SubscriptionManager.shared)
         }
         .overlay {
             if showAvatarTest {
@@ -245,6 +246,25 @@ struct ReplicaSettingsView: View {
                 .transition(.opacity)
             }
         }
+        .overlay {
+            if showAppBlocker {
+                NavigationStack {
+                    AppBlockerSettingsView()
+                        .toolbar {
+                            ToolbarItem(placement: .navigationBarLeading) {
+                                Button {
+                                    withAnimation(.easeInOut(duration: 0.3)) { showAppBlocker = false }
+                                } label: {
+                                    Image(systemName: "chevron.left")
+                                        .foregroundColor(.white)
+                                }
+                            }
+                        }
+                }
+                .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.3), value: showAppBlocker)
         .animation(.easeInOut(duration: 0.3), value: showAvatarTest)
         .animation(.easeInOut(duration: 0.3), value: showSubscription)
         .animation(.easeInOut(duration: 0.3), value: showAccount)
@@ -367,6 +387,10 @@ struct ReplicaSettingsView: View {
             toggleRow(title: "Notifications", isOn: $notificationsEnabled)
             replicaDivider
             toggleRow(title: "Face ID", isOn: $faceID)
+            replicaDivider
+            Button(action: { withAnimation(.easeInOut(duration: 0.3)) { showAppBlocker = true } }) {
+                settingsRow(title: "Bloquer les apps", showChevron: true)
+            }
         }
     }
 
@@ -1807,7 +1831,7 @@ struct DiscordLogoView: View {
 #Preview {
     ReplicaSettingsView(onDismiss: {})
         .environmentObject(FocusAppStore.shared)
-        .environmentObject(RevenueCatManager.shared)
+        .environmentObject(SubscriptionManager.shared)
 }
 
 #Preview("Social Logos") {

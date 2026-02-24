@@ -142,10 +142,11 @@ class VoiceCallViewModel: ObservableObject {
 
         do {
             let isBlocking = ScreenTimeAppBlockerService.shared.isBlocking
+            let steps = await HealthKitService.shared.fetchTodaySteps()
             let response: AIResponse = try await apiClient.request(
                 endpoint: .chatMessage,
                 method: .post,
-                body: SimpleChatRequest(content: "__greeting__", source: "voice_call", appsBlocked: isBlocking)
+                body: SimpleChatRequest(content: "__greeting__", source: "voice_call", appsBlocked: isBlocking, stepsToday: steps)
             )
 
             guard !isCancelled else { return }
@@ -170,10 +171,11 @@ class VoiceCallViewModel: ObservableObject {
 
         do {
             let isBlocking = ScreenTimeAppBlockerService.shared.isBlocking
+            let steps = await HealthKitService.shared.fetchTodaySteps()
             let response: AIResponse = try await apiClient.request(
                 endpoint: .chatMessage,
                 method: .post,
-                body: SimpleChatRequest(content: text, source: "voice_call", appsBlocked: isBlocking)
+                body: SimpleChatRequest(content: text, source: "voice_call", appsBlocked: isBlocking, stepsToday: steps)
             )
 
             guard !isCancelled else { return }
@@ -380,7 +382,12 @@ class VoiceCallViewModel: ObservableObject {
         case "block_apps":
             let blocker = ScreenTimeAppBlockerService.shared
             if blocker.isBlockingEnabled {
-                blocker.startBlocking()
+                blocker.startBlocking(durationMinutes: action.durationMinutes)
+            } else if blocker.authorizationStatus != .approved {
+                let granted = await blocker.requestAuthorization()
+                if granted && blocker.hasSelectedApps {
+                    blocker.startBlocking(durationMinutes: action.durationMinutes)
+                }
             }
         case "unblock_apps":
             let blocker = ScreenTimeAppBlockerService.shared
