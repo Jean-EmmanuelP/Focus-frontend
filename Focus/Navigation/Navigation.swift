@@ -75,11 +75,6 @@ class AppRouter: ObservableObject {
 
     private init() {}
 
-    // REMOVED: Manual planning - now via chat
-    // func navigateToStartTheDay() {
-    //     showStartTheDay = true
-    // }
-
     func navigateToEndOfDay() {
         showEndOfDay = true
     }
@@ -206,10 +201,6 @@ struct MainTabView: View {
         }
     }
 }
-
-// MARK: - Floating Tab Bar (Disabled - Chat-only interface)
-// Tab bar removed for minimalist chat experience
-// Profile accessible from chat header
 
 // MARK: - Preview
 #Preview {

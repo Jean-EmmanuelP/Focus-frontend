@@ -21,9 +21,6 @@ struct CrewView: View {
 
                     // Content based on selected tab
                     switch viewModel.activeTab {
-                    // COMMENTED OUT - Leaderboard disabled for now
-                    // case .leaderboard:
-                    //     leaderboardSection
                     case .myCrew:
                         myCrewSection
                     case .groups:
@@ -80,21 +77,10 @@ struct CrewView: View {
         .onAppear {
             // Connect to WebSocket for real-time focus updates
             viewModel.connectWebSocket()
-            // COMMENTED OUT - Leaderboard disabled for now
-            // viewModel.startLeaderboardAutoRefresh()
         }
         .onDisappear {
-            // COMMENTED OUT - Leaderboard disabled for now
-            // viewModel.stopLeaderboardAutoRefresh()
             // Keep WebSocket connected for background updates
         }
-        // COMMENTED OUT - Leaderboard disabled for now
-        // .onChange(of: viewModel.activeTab) { _, newTab in
-        //     // Restart auto-refresh when switching to leaderboard tab
-        //     if newTab == .leaderboard {
-        //         viewModel.startLeaderboardAutoRefresh()
-        //     }
-        // }
         .id(localization.currentLanguage) // Force refresh when language changes
     }
 

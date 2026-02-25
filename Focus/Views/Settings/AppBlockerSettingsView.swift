@@ -172,7 +172,7 @@ struct AppBlockerSettingsView: View {
                                     Text("Alerte quand j'utilise mes apps")
                                         .font(.system(size: 16))
                                         .foregroundColor(.white)
-                                    Text("Notification apres 1 min sur une app selectionnee")
+                                    Text("Notification apres 10 sec sur une app selectionnee")
                                         .font(.system(size: 13))
                                         .foregroundColor(.white.opacity(0.35))
                                 }
