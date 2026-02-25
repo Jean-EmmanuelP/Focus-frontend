@@ -9,7 +9,7 @@ import logging
 from datetime import datetime
 
 import httpx
-from livekit.agents import AgentSession, Agent, RoomInputOptions, RunContext, cli
+from livekit.agents import AgentSession, Agent, RoomInputOptions, RunContext, WorkerOptions, cli
 from livekit.plugins import speechmatics, google
 
 logger = logging.getLogger("focus-agent")
@@ -143,4 +143,4 @@ async def run_agent(ctx: RunContext):
 
 
 if __name__ == "__main__":
-    cli.run_app(run_agent)
+    cli.run_app(WorkerOptions(entrypoint_fnc=run_agent))
