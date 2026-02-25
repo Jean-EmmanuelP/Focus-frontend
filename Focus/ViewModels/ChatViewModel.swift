@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import Combine
+import Speech
 
 // MARK: - Notification for calendar refresh
 extension Notification.Name {
@@ -205,15 +206,13 @@ class ChatViewModel: ObservableObject {
         isLoading = true
 
         do {
-            let response: AIResponse = try await apiClient.request(
-                endpoint: .chatMessage,
-                method: .post,
-                body: SimpleChatRequest(content: "__greeting__", source: "app", appsBlocked: false, stepsToday: nil, distractionCount: nil)
-            )
+            let (reply, sideEffects) = try await BackboardService.shared.sendMessage("Salut")
+            await applySideEffects(sideEffects)
 
-            updateSatisfactionScore(response.satisfactionScore)
-
-            let aiMessage = SimpleChatMessage(content: response.reply, isFromUser: false)
+            var aiMessage = SimpleChatMessage(content: reply, isFromUser: false)
+            if let cardType = sideEffects.firstShowCard {
+                aiMessage.cardData = await buildCardData(for: cardType)
+            }
             messages.append(aiMessage)
             saveMessages()
         } catch {
@@ -273,22 +272,18 @@ class ChatViewModel: ObservableObject {
         }
     }
 
-    /// Request a daily greeting from the backend AI (contextual, never the same)
+    /// Request a daily greeting from Backboard (contextual, never the same)
     private func requestDailyGreeting() async {
         isLoading = true
 
         do {
-            let isBlocking = ScreenTimeAppBlockerService.shared.isBlocking
-            let steps = await HealthKitService.shared.fetchTodaySteps()
-            let response: AIResponse = try await apiClient.request(
-                endpoint: .chatMessage,
-                method: .post,
-                body: SimpleChatRequest(content: "__daily_greeting__", source: "app", appsBlocked: isBlocking, stepsToday: steps, distractionCount: DistractionMonitorService.shared.todayDistractionCount)
-            )
+            let (reply, sideEffects) = try await BackboardService.shared.sendMessage("Salut, nouvelle journée")
+            await applySideEffects(sideEffects)
 
-            updateSatisfactionScore(response.satisfactionScore)
-
-            let aiMessage = SimpleChatMessage(content: response.reply, isFromUser: false)
+            var aiMessage = SimpleChatMessage(content: reply, isFromUser: false)
+            if let cardType = sideEffects.firstShowCard {
+                aiMessage.cardData = await buildCardData(for: cardType)
+            }
             messages.append(aiMessage)
             saveMessages()
         } catch {
@@ -305,19 +300,12 @@ class ChatViewModel: ObservableObject {
 
     /// Request a coach reaction when user completes a task or routine
     private func requestCompletionReaction(itemName: String, isTask: Bool) async {
-        let sentinel = isTask ? "__task_completed__" : "__routine_completed__"
+        let verb = isTask ? "la tâche" : "le rituel"
         do {
-            let isBlocking = ScreenTimeAppBlockerService.shared.isBlocking
-            let steps = await HealthKitService.shared.fetchTodaySteps()
-            let response: AIResponse = try await apiClient.request(
-                endpoint: .chatMessage,
-                method: .post,
-                body: SimpleChatRequest(content: "\(sentinel):\(itemName)", source: "app", appsBlocked: isBlocking, stepsToday: steps, distractionCount: DistractionMonitorService.shared.todayDistractionCount)
-            )
+            let (reply, sideEffects) = try await BackboardService.shared.sendMessage("J'ai terminé \(verb): \(itemName)")
+            await applySideEffects(sideEffects)
 
-            updateSatisfactionScore(response.satisfactionScore)
-
-            let aiMessage = SimpleChatMessage(content: response.reply, isFromUser: false)
+            let aiMessage = SimpleChatMessage(content: reply, isFromUser: false)
             messages.append(aiMessage)
             saveMessages()
         } catch {
@@ -406,7 +394,7 @@ class ChatViewModel: ObservableObject {
     // MARK: - Send Voice Message
 
     func sendVoiceMessage(audioURL: URL) async {
-        // Increment local counter immediately (server will confirm)
+        // Increment local counter immediately
         if !SubscriptionManager.shared.isProUser {
             freeVoiceMessagesUsed += 1
         }
@@ -417,8 +405,8 @@ class ChatViewModel: ObservableObject {
         // Copy to permanent local storage for replay
         let permanentURL = copyToPermanentStorage(audioURL)
 
-        // Add voice message to UI immediately (local storage only at first)
-        var voiceMessage = SimpleChatMessage(
+        // Add voice message to UI immediately
+        let voiceMessage = SimpleChatMessage(
             content: "🎤 Message vocal",
             isFromUser: true,
             type: .voice,
@@ -432,106 +420,99 @@ class ChatViewModel: ObservableObject {
         isLoading = true
 
         // Upload to Supabase Storage in background
-        var storagePath: String?
         if let userId = AuthService.shared.userId {
             do {
                 let audioData = try Data(contentsOf: permanentURL)
-                storagePath = try await SupabaseStorageService.shared.uploadVoiceMessage(
+                let storagePath = try await SupabaseStorageService.shared.uploadVoiceMessage(
                     audioData: audioData,
                     userId: userId
                 )
                 print("✅ Voice uploaded to Supabase: \(storagePath ?? "nil")")
+                // Update message with storage path
+                if let index = messages.lastIndex(where: { $0.id == voiceMessage.id }), let storagePath {
+                    messages[index] = SimpleChatMessage(
+                        id: voiceMessage.id,
+                        content: voiceMessage.content,
+                        isFromUser: true,
+                        timestamp: voiceMessage.timestamp,
+                        type: .voice,
+                        voiceDuration: duration,
+                        voiceURL: permanentURL,
+                        storagePath: storagePath
+                    )
+                }
             } catch {
                 print("⚠️ Supabase upload failed (local backup exists): \(error)")
             }
         }
 
+        // Client-side STT transcription
+        let transcript = await transcribeAudio(url: permanentURL)
+
+        // Update voice message with transcript
+        if let index = messages.lastIndex(where: { $0.id == voiceMessage.id }), let transcript, !transcript.isEmpty {
+            messages[index] = SimpleChatMessage(
+                id: voiceMessage.id,
+                content: transcript,
+                isFromUser: true,
+                timestamp: voiceMessage.timestamp,
+                type: .voice,
+                voiceDuration: duration,
+                voiceURL: permanentURL,
+                storagePath: messages[index].voiceStoragePath
+            )
+            saveMessages()
+        }
+
+        // Send transcribed text (or fallback) to Backboard
+        let textToSend = transcript ?? "Message vocal"
         do {
-            // Send to backend for transcription + AI response (include Supabase URL)
-            let response: VoiceMessageResponse = try await uploadVoiceMessage(audioURL: audioURL, audioStorageURL: storagePath)
-            print("🎤 Voice response — showCard: \(response.showCard ?? "nil"), action: \(response.action?.type ?? "nil"), reply: \(response.reply.prefix(50))")
+            let (reply, sideEffects) = try await BackboardService.shared.sendMessage(textToSend)
+            await applySideEffects(sideEffects)
 
-            // Update voice message with transcript and storage path
-            if let index = messages.lastIndex(where: { $0.id == voiceMessage.id }) {
-                let transcript = response.transcript ?? voiceMessage.content
-                messages[index] = SimpleChatMessage(
-                    id: voiceMessage.id,
-                    content: transcript.isEmpty ? "🎤 Message vocal" : transcript,
-                    isFromUser: true,
-                    timestamp: voiceMessage.timestamp,
-                    type: .voice,
-                    voiceDuration: duration,
-                    voiceURL: permanentURL,
-                    storagePath: storagePath
-                )
-            }
-
-            updateSatisfactionScore(response.satisfactionScore)
-
-            // Update free voice messages counter from server response
-            if let count = response.freeVoiceMessagesUsed {
-                freeVoiceMessagesUsed = count
-                FocusAppStore.shared.user?.freeVoiceMessagesUsed = count
-            }
-
-            // Handle coach actions FIRST (creates tasks/routines/quests)
-            if let action = response.action {
-                await handleCoachAction(action)
-            }
-
-            // Add AI response
-            var aiMessage = SimpleChatMessage(content: response.reply, isFromUser: false)
-
-            // Attach card data if backend requests it, or infer from action/reply
-            var showCard = response.showCard
-            if showCard == nil, let action = response.action {
-                if ["task_created", "task_completed"].contains(action.type) {
-                    showCard = "tasks"
-                } else if ["routine_created", "routines_created", "routines_completed"].contains(action.type) {
-                    showCard = "routines"
-                } else if ["quest_created", "quests_created", "quest_updated"].contains(action.type) {
-                    showCard = "quests"
-                }
-            }
-            // Client-side fallback: detect from reply text
-            if showCard == nil {
-                showCard = detectCardFromReply(response.reply)
-            }
-            if let showCard {
-                aiMessage.cardData = await buildCardData(for: showCard)
+            var aiMessage = SimpleChatMessage(content: reply, isFromUser: false)
+            if let cardType = sideEffects.firstShowCard {
+                aiMessage.cardData = await buildCardData(for: cardType)
+            } else if let cardType = detectCardFromReply(reply) {
+                aiMessage.cardData = await buildCardData(for: cardType)
             }
 
             messages.append(aiMessage)
             saveMessages()
-
         } catch {
-            // Update message with storage path even if transcription fails
-            if let index = messages.lastIndex(where: { $0.id == voiceMessage.id }), storagePath != nil {
-                messages[index] = SimpleChatMessage(
-                    id: voiceMessage.id,
-                    content: voiceMessage.content,
-                    isFromUser: true,
-                    timestamp: voiceMessage.timestamp,
-                    type: .voice,
-                    voiceDuration: duration,
-                    voiceURL: permanentURL,
-                    storagePath: storagePath
-                )
-            }
-
-            // Fallback response
             let fallback = "J'ai pas bien entendu, tu peux répéter?"
             let aiMessage = SimpleChatMessage(content: fallback, isFromUser: false)
             messages.append(aiMessage)
             saveMessages()
-
             print("Voice message error: \(error)")
         }
 
         isLoading = false
 
-        // Clean up temporary recording file (permanent copy already made)
+        // Clean up temporary recording file
         try? FileManager.default.removeItem(at: audioURL)
+    }
+
+    /// Client-side speech-to-text using SFSpeechRecognizer
+    private func transcribeAudio(url: URL) async -> String? {
+        await withCheckedContinuation { continuation in
+            let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "fr-FR"))
+            guard let recognizer, recognizer.isAvailable else {
+                continuation.resume(returning: nil)
+                return
+            }
+
+            let request = SFSpeechURLRecognitionRequest(url: url)
+            request.shouldReportPartialResults = false
+
+            recognizer.recognitionTask(with: request) { result, error in
+                if let result, result.isFinal {
+                    continuation.resume(returning: result.bestTranscription.formattedString)
+                } else if error != nil {
+                    continuation.resume(returning: nil)
+                }
+            }
+        }
     }
 
     // Copy audio to permanent storage for replay
@@ -559,112 +540,30 @@ class ChatViewModel: ObservableObject {
         return CMTimeGetSeconds(asset.duration)
     }
 
-    private func uploadVoiceMessage(audioURL: URL, audioStorageURL: String?) async throws -> VoiceMessageResponse {
-        // Read audio data
-        let audioData = try Data(contentsOf: audioURL)
 
-        // Create multipart form data request
-        let boundary = UUID().uuidString
-        var request = URLRequest(url: URL(string: "\(APIConfiguration.baseURL)/chat/voice")!)
-        request.httpMethod = "POST"
-        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-
-        // Add auth token from Supabase session (required)
-        guard let token = await AuthService.shared.getAccessToken() else {
-            print("❌ No auth token available for voice upload")
-            throw URLError(.userAuthenticationRequired)
-        }
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
-        // Build multipart body
-        var body = Data()
-
-        // Add audio file (m4a uses audio/mp4 MIME type)
-        body.append("--\(boundary)\r\n".data(using: .utf8)!)
-        body.append("Content-Disposition: form-data; name=\"audio\"; filename=\"voice.m4a\"\r\n".data(using: .utf8)!)
-        body.append("Content-Type: audio/mp4\r\n\r\n".data(using: .utf8)!)
-        body.append(audioData)
-        body.append("\r\n".data(using: .utf8)!)
-
-        // Add source field
-        body.append("--\(boundary)\r\n".data(using: .utf8)!)
-        body.append("Content-Disposition: form-data; name=\"source\"\r\n\r\n".data(using: .utf8)!)
-        body.append("app\r\n".data(using: .utf8)!)
-
-        // Add audio_url field (Supabase Storage path)
-        if let audioStorageURL = audioStorageURL {
-            body.append("--\(boundary)\r\n".data(using: .utf8)!)
-            body.append("Content-Disposition: form-data; name=\"audio_url\"\r\n\r\n".data(using: .utf8)!)
-            body.append("\(audioStorageURL)\r\n".data(using: .utf8)!)
-        }
-
-        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
-
-        request.httpBody = body
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw URLError(.badServerResponse)
-        }
-
-        // Log response for debugging
-        if httpResponse.statusCode != 200 {
-            let errorBody = String(data: data, encoding: .utf8) ?? "empty"
-            print("❌ Voice upload failed: HTTP \(httpResponse.statusCode) - \(errorBody)")
-            throw URLError(.badServerResponse)
-        }
-
-        print("✅ Voice upload success: \(data.count) bytes response")
-
-        let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
-        return try decoder.decode(VoiceMessageResponse.self, from: data)
-    }
-
-    // MARK: - Send to AI (text)
+    // MARK: - Send to AI (text) via Backboard
 
     private func sendToAI(_ text: String) async {
         isLoading = true
 
         do {
-            // Call backend chat endpoint (with coach context)
-            let isBlocking = ScreenTimeAppBlockerService.shared.isBlocking
-            let steps = await HealthKitService.shared.fetchTodaySteps()
-            let response: AIResponse = try await apiClient.request(
-                endpoint: .chatMessage,
-                method: .post,
-                body: SimpleChatRequest(content: text, source: "app", appsBlocked: isBlocking, stepsToday: steps, distractionCount: DistractionMonitorService.shared.todayDistractionCount)
-            )
+            let (reply, sideEffects) = try await BackboardService.shared.sendMessage(text)
+            print("💬 Backboard response — sideEffects: \(sideEffects.count), reply: \(reply.prefix(50))")
 
-            updateSatisfactionScore(response.satisfactionScore)
-            print("💬 AI response — showCard: \(response.showCard ?? "nil"), action: \(response.action?.type ?? "nil"), reply: \(response.reply.prefix(50))")
-
-            // Handle actions from the coach FIRST (creates tasks/routines/quests)
-            if let action = response.action {
-                await handleCoachAction(action)
-            }
+            // Apply side effects (refresh store, handle app blocking, etc.)
+            await applySideEffects(sideEffects)
 
             // Add AI response
-            var aiMessage = SimpleChatMessage(content: response.reply, isFromUser: false)
+            var aiMessage = SimpleChatMessage(content: reply, isFromUser: false)
 
-            // Attach card data if backend requests it, or infer from action/reply
-            var showCard = response.showCard
-            if showCard == nil, let action = response.action {
-                if ["task_created", "task_completed"].contains(action.type) {
-                    showCard = "tasks"
-                } else if ["routine_created", "routines_created", "routines_completed"].contains(action.type) {
-                    showCard = "routines"
-                } else if ["quest_created", "quests_created", "quest_updated"].contains(action.type) {
-                    showCard = "quests"
+            // Attach card data if a show_card tool was called
+            if let cardType = sideEffects.firstShowCard {
+                aiMessage.cardData = await buildCardData(for: cardType)
+            } else {
+                // Client-side fallback: detect from reply text
+                if let cardType = detectCardFromReply(reply) {
+                    aiMessage.cardData = await buildCardData(for: cardType)
                 }
-            }
-            // Client-side fallback: detect from reply text
-            if showCard == nil {
-                showCard = detectCardFromReply(response.reply)
-            }
-            if let showCard {
-                aiMessage.cardData = await buildCardData(for: showCard)
             }
 
             messages.append(aiMessage)
@@ -683,93 +582,57 @@ class ChatViewModel: ObservableObject {
         isLoading = false
     }
 
-    // Handle all coach actions (task creation, app blocking, quests, routines)
-    private func handleCoachAction(_ action: AIActionData) async {
-        switch action.type {
-        case "task_created":
-            print("📋 Coach created task: \(action.task?.title ?? "unknown")")
-            await store?.refreshTodaysTasks()
-            NotificationCenter.default.post(name: .calendarNeedsRefresh, object: nil)
+    // MARK: - Apply Side Effects from Backboard Tool Calls
 
-        case "quest_created", "quests_created":
-            print("🎯 Coach created quest(s)")
-            await store?.loadQuests()
+    private func applySideEffects(_ effects: [BackboardSideEffect]) async {
+        for effect in effects {
+            switch effect {
+            case .refreshTasks:
+                await store?.refreshTodaysTasks()
 
-        case "routine_created", "routines_created":
-            print("🔄 Coach created routine(s)")
-            await store?.loadRituals()
+            case .calendarNeedsRefresh:
+                NotificationCenter.default.post(name: .calendarNeedsRefresh, object: nil)
 
-        case "quest_updated":
-            print("📈 Coach updated quest progress")
-            await store?.loadQuests()
+            case .refreshRituals:
+                await store?.loadRituals()
 
-        case "block_apps":
-            print("🔒 Coach triggered app blocking (duration: \(action.durationMinutes ?? 0) min)")
-            let blocker = ScreenTimeAppBlockerService.shared
-            if blocker.isBlockingEnabled {
-                blocker.startBlocking(durationMinutes: action.durationMinutes)
-            } else if blocker.authorizationStatus != .approved {
-                print("⚠️ ScreenTime not authorized — requesting")
-                let granted = await blocker.requestAuthorization()
-                if granted {
-                    if blocker.hasSelectedApps {
-                        blocker.startBlocking(durationMinutes: action.durationMinutes)
+            case .refreshQuests:
+                await store?.loadQuests()
+
+            case .refreshReflection:
+                await store?.loadTodayReflection()
+
+            case .refreshWeeklyGoals:
+                await store?.loadWeeklyGoals()
+
+            case .blockApps(let duration):
+                let blocker = ScreenTimeAppBlockerService.shared
+                if blocker.isBlockingEnabled {
+                    blocker.startBlocking(durationMinutes: duration)
+                } else if blocker.authorizationStatus != .approved {
+                    let granted = await blocker.requestAuthorization()
+                    if granted {
+                        if blocker.hasSelectedApps {
+                            blocker.startBlocking(durationMinutes: duration)
+                        } else {
+                            appendAppBlockerPrompt("J'ai bien l'autorisation ! Maintenant, choisis les apps que tu veux bloquer.")
+                        }
                     } else {
-                        appendAppBlockerPrompt("J'ai bien l'autorisation ! Maintenant, choisis les apps que tu veux bloquer.")
+                        appendAppBlockerPrompt("J'ai besoin de l'autorisation Screen Time pour bloquer tes apps. Clique ci-dessous pour configurer.")
                     }
                 } else {
-                    appendAppBlockerPrompt("J'ai besoin de l'autorisation Screen Time pour bloquer tes apps. Clique ci-dessous pour configurer.")
+                    appendAppBlockerPrompt("Tu n'as pas encore choisi d'apps à bloquer. Sélectionne-les ici :")
                 }
-            } else {
-                // Authorized but no apps selected
-                appendAppBlockerPrompt("Tu n'as pas encore choisi d'apps à bloquer. Sélectionne-les ici :")
+
+            case .unblockApps:
+                let blocker = ScreenTimeAppBlockerService.shared
+                if blocker.isBlocking {
+                    blocker.stopBlocking()
+                }
+
+            case .showCard:
+                break // Handled in the message attachment step
             }
-
-        case "unblock_apps":
-            print("🔓 Coach approved app unblocking")
-            let blocker = ScreenTimeAppBlockerService.shared
-            if blocker.isBlocking {
-                blocker.stopBlocking()
-            }
-
-        case "task_completed":
-            print("✅ Coach completed a task")
-            await store?.refreshTodaysTasks()
-            NotificationCenter.default.post(name: .calendarNeedsRefresh, object: nil)
-
-        case "routines_completed":
-            print("✅ Coach completed routine(s)")
-            await store?.loadRituals()
-
-        case "quest_deleted":
-            print("🗑️ Coach deleted a quest")
-            await store?.loadQuests()
-
-        case "routine_deleted":
-            print("🗑️ Coach deleted a routine")
-            await store?.loadRituals()
-
-        case "morning_checkin_saved":
-            print("☀️ Morning check-in saved")
-            await store?.loadTodayReflection()
-
-        case "evening_checkin_saved":
-            print("🌙 Evening check-in saved")
-            await store?.loadTodayReflection()
-
-        case "weekly_goals_created":
-            print("🎯 Weekly goals created")
-            await store?.loadWeeklyGoals()
-
-        case "weekly_goal_completed":
-            print("✅ Weekly goal completed")
-            await store?.loadWeeklyGoals()
-
-        case "journal_entry_created":
-            print("📔 Journal entry created")
-
-        default:
-            break
         }
     }
 
@@ -987,71 +850,27 @@ class ChatViewModel: ObservableObject {
         messages = []
         SimpleChatPersistence.clearMessages()
 
-        // Also clear chat history on the backend
+        // Delete Backboard thread and create a new one
         Task {
-            do {
-                try await apiClient.request(
-                    endpoint: .chatHistory,
-                    method: .delete
-                )
-            } catch {
-                print("Failed to clear chat history on backend: \(error)")
-            }
+            await BackboardService.shared.deleteThread()
+            _ = try? await BackboardService.shared.createNewThread()
         }
     }
 
 }
 
-// MARK: - API Models
+// MARK: - BackboardSideEffect Helpers
 
-struct SimpleChatRequest: Encodable {
-    let content: String
-    let source: String
-    let appsBlocked: Bool
-    let stepsToday: Int?
-    let distractionCount: Int?
-
-    enum CodingKeys: String, CodingKey {
-        case content, source
-        case appsBlocked = "apps_blocked"
-        case stepsToday = "steps_today"
-        case distractionCount = "distraction_count"
+extension Array where Element == BackboardSideEffect {
+    /// Extract the first show_card type from side effects
+    var firstShowCard: String? {
+        for effect in self {
+            if case .showCard(let cardType) = effect {
+                return cardType
+            }
+        }
+        return nil
     }
-}
-
-struct AIResponse: Decodable {
-    let reply: String
-    let tool: String?
-    let messageId: String?
-    let action: AIActionData?
-    let showCard: String?
-    let satisfactionScore: Int?
-}
-
-struct VoiceMessageResponse: Decodable {
-    let reply: String
-    let transcript: String?
-    let messageId: String?
-    let action: AIActionData?
-    let showCard: String?
-    let satisfactionScore: Int?
-    let freeVoiceMessagesUsed: Int?
-}
-
-// Action taken by Kai (task created, focus scheduled, etc.)
-struct AIActionData: Decodable {
-    let type: String           // "task_created", "focus_scheduled", "block_apps"
-    let taskId: String?
-    let task: AITaskData?
-    let durationMinutes: Int?
-}
-
-struct AITaskData: Decodable {
-    let title: String
-    let date: String
-    let scheduledStart: String
-    let scheduledEnd: String
-    let blockApps: Bool
 }
 
 // MARK: - Simple Chat Persistence (v3 - with voice support)

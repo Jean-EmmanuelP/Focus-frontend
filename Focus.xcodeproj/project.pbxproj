@@ -20,6 +20,7 @@
 		62864EF62F409EF600A6BD9D /* GLTFKit2 in Frameworks */ = {isa = PBXBuildFile; productRef = 62GLTF0022F15A00200AVATAR /* GLTFKit2 */; };
 		6288C7682F106100008A7BF0 /* AmplitudeSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 6288C7672F106100008A7BF0 /* AmplitudeSwift */; };
 		6288C76A2F106100008A7BF0 /* AmplitudeSwiftSessionReplayPlugin in Frameworks */ = {isa = PBXBuildFile; productRef = 6288C7692F106100008A7BF0 /* AmplitudeSwiftSessionReplayPlugin */; };
+		622EA1122F4F95B500B8507E /* LiveKit in Frameworks */ = {isa = PBXBuildFile; productRef = 622EA1112F4F95B500B8507E /* LiveKit */; };
 		629D63C22EF0BFD20023C568 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 629D63C12EF0BFD20023C568 /* GoogleSignIn */; };
 		629D651C2EF417E60023C568 /* Volta.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 629D651B2EF417E60023C568 /* Volta.storekit */; };
 /* End PBXBuildFile section */
@@ -158,6 +159,7 @@
 				6288C7682F106100008A7BF0 /* AmplitudeSwift in Frameworks */,
 				6288C76A2F106100008A7BF0 /* AmplitudeSwiftSessionReplayPlugin in Frameworks */,
 				629D63C22EF0BFD20023C568 /* GoogleSignIn in Frameworks */,
+				622EA1122F4F95B500B8507E /* LiveKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -421,6 +423,7 @@
 				6288C7672F106100008A7BF0 /* AmplitudeSwift */,
 				6288C7692F106100008A7BF0 /* AmplitudeSwiftSessionReplayPlugin */,
 				62GLTF0022F15A00200AVATAR /* GLTFKit2 */,
+				622EA1112F4F95B500B8507E /* LiveKit */,
 			);
 			productName = Focus;
 			productReference = 623E894A2EE1F65300356DD7 /* Focus.app */;
@@ -509,6 +512,7 @@
 				6288C7662F10602B008A7BF0 /* XCRemoteSwiftPackageReference "Amplitude-Swift" */,
 				6288C76B2F106100008A7BF0 /* XCRemoteSwiftPackageReference "AmplitudeSessionReplay-iOS" */,
 				62GLTF0012F15A00100AVATAR /* XCRemoteSwiftPackageReference "GLTFKit2" */,
+				622EA1102F4F95B400B8507E /* XCRemoteSwiftPackageReference "client-sdk-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 623E894B2EE1F65300356DD7 /* Products */;
@@ -1093,6 +1097,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		622EA1102F4F95B400B8507E /* XCRemoteSwiftPackageReference "client-sdk-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/livekit/client-sdk-swift.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.12.1;
+			};
+		};
 		623E8A132EE22FF000356DD7 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/supabase/supabase-swift.git";
@@ -1183,6 +1195,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 62GLTF0012F15A00100AVATAR /* XCRemoteSwiftPackageReference "GLTFKit2" */;
 			productName = GLTFKit2;
+		};
+		622EA1112F4F95B500B8507E /* LiveKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 622EA1102F4F95B400B8507E /* XCRemoteSwiftPackageReference "client-sdk-swift" */;
+			productName = LiveKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

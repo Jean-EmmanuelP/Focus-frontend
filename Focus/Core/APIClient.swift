@@ -345,6 +345,7 @@ enum APIConfiguration {
         case voiceAssistant  // New endpoint with Gradium TTS
         case voiceAnalyze    // New: analyze only, return proposals (no DB write)
         case voiceIntentions
+        case livekitToken    // POST /voice/livekit-token — get LiveKit room token
 
         // Google Calendar
         case googleCalendarConfig
@@ -400,28 +401,6 @@ enum APIConfiguration {
         case upsertWeeklyGoals(weekStartDate: String)
         case deleteWeeklyGoals(weekStartDate: String)
         case toggleWeeklyGoalItem(itemId: String)
-
-        // Chat Coach
-        case chatMessage
-        case chatTTS
-        case chatHistory
-
-        // AI Chat (Kai v2)
-        case aiChat
-
-        // Knowledge / Memory System (Replika-style)
-        case knowledge
-        case updateKnowledge
-        case knowledgePersons
-        case createKnowledgePerson
-        case updateKnowledgePerson(String)
-        case deleteKnowledgePerson(String)
-        case knowledgeDomains
-        case updateKnowledgeDomain(String)
-        case knowledgeFacts(personId: String?, domainId: String?)
-        case createKnowledgeFact
-        case updateKnowledgeFact(String)
-        case deleteKnowledgeFact(String)
 
         // Gmail Integration (for AI persona building)
         case gmailConfig
@@ -687,6 +666,8 @@ enum APIConfiguration {
                 return "/assistant/analyze"
             case .voiceIntentions:
                 return "/voice/intentions"
+            case .livekitToken:
+                return "/voice/livekit-token"
 
             // Google Calendar
             case .googleCalendarConfig, .googleCalendarUpdateConfig, .googleCalendarDisconnect:
@@ -786,39 +767,6 @@ enum APIConfiguration {
                 return "/weekly-goals/\(weekStartDate)"
             case .toggleWeeklyGoalItem(let itemId):
                 return "/weekly-goals/items/\(itemId)/toggle"
-
-            // Chat Coach
-            case .chatMessage:
-                return "/chat/message"
-            case .chatTTS:
-                return "/chat/tts"
-            case .chatHistory:
-                return "/chat/history"
-
-            // AI Chat (Kai v2)
-            case .aiChat:
-                return "/ai/chat"
-
-            // Knowledge / Memory System
-            case .knowledge, .updateKnowledge:
-                return "/knowledge"
-            case .knowledgePersons, .createKnowledgePerson:
-                return "/knowledge/persons"
-            case .updateKnowledgePerson(let id), .deleteKnowledgePerson(let id):
-                return "/knowledge/persons/\(id)"
-            case .knowledgeDomains:
-                return "/knowledge/domains"
-            case .updateKnowledgeDomain(let id):
-                return "/knowledge/domains/\(id)"
-            case .knowledgeFacts(let personId, let domainId):
-                var query: [String] = []
-                if let personId = personId { query.append("person_id=\(personId)") }
-                if let domainId = domainId { query.append("domain_id=\(domainId)") }
-                return query.isEmpty ? "/knowledge/facts" : "/knowledge/facts?\(query.joined(separator: "&"))"
-            case .createKnowledgeFact:
-                return "/knowledge/facts"
-            case .updateKnowledgeFact(let id), .deleteKnowledgeFact(let id):
-                return "/knowledge/facts/\(id)"
 
             // Gmail
             case .gmailConfig, .gmailDisconnect:

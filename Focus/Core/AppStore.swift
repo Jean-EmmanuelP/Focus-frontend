@@ -224,11 +224,14 @@ final class FocusAppStore: ObservableObject {
     func signOut() {
         // Clear local data IMMEDIATELY (before any async operations)
         SimpleChatPersistence.clearMessages()
-        ChatPersistence.clearMessages()
+        UserDefaults.standard.removeObject(forKey: "chat_messages_v1") // legacy cleanup
         UserDefaults.standard.removeObject(forKey: "pending_chat_message")
         UserDefaults.standard.removeObject(forKey: onboardingCompletedKey)
         UserDefaults.standard.removeObject(forKey: onboardingUserIdKey)
         KnowledgeManager.shared.resetAllKnowledge()
+        UserDefaults.standard.removeObject(forKey: "backboard_thread_id")
+        UserDefaults.standard.removeObject(forKey: "backboard_knowledge_migrated")
+        Task { try? await BackboardService.shared.deleteThread() }
 
         // Reset all state immediately so UI transitions to auth screen
         self.authUserId = nil
@@ -500,6 +503,9 @@ final class FocusAppStore: ObservableObject {
             isCurrentlyLoadingData = false
             isLoading = false
             print("✅ loadInitialData: Complete")
+
+            // One-time migration of local knowledge to Backboard Memory
+            Task { await BackboardService.shared.migrateKnowledgeIfNeeded() }
 
             // Sync widget data after successful load
             syncWidgetData()

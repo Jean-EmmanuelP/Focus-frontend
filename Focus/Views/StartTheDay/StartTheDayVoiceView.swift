@@ -1,6 +1,4 @@
 import SwiftUI
-import AVFoundation
-import Speech
 import Combine
 
 // MARK: - Voice Start Day Step
@@ -420,18 +418,14 @@ struct ProposedTaskUIRow: View {
     }
 }
 
-// MARK: - ViewModel
+// MARK: - ViewModel (LiveKit STT + existing analyze endpoint)
 @MainActor
 class StartTheDayVoiceViewModel: ObservableObject {
+    private let liveKitService = LiveKitVoiceService()
     private let voiceService = VoiceService()
     private let calendarService = CalendarService()
     private var store: FocusAppStore { FocusAppStore.shared }
-
-    private var speechRecognizer: SFSpeechRecognizer?
-    private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
-    private var recognitionTask: SFSpeechRecognitionTask?
-    private var audioEngine = AVAudioEngine()
-    private var silenceTimer: Timer?
+    private var cancellables = Set<AnyCancellable>()
 
     @Published var currentStep: VoiceStartDayStep = .listening
     @Published var transcribedText: String = ""
@@ -443,96 +437,46 @@ class StartTheDayVoiceViewModel: ObservableObject {
     @Published var aiSummary: String = ""
 
     init() {
-        setupSpeechRecognizer()
-        requestPermissions()
+        observeLiveKit()
     }
 
-    private func setupSpeechRecognizer() {
-        speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "fr-FR"))
+    private func observeLiveKit() {
+        liveKitService.$connectionState
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] state in
+                guard let self else { return }
+                switch state {
+                case .connected:
+                    self.isRecording = true
+                case .disconnected:
+                    self.isRecording = false
+                default:
+                    break
+                }
+            }
+            .store(in: &cancellables)
+
+        liveKitService.$userTranscription
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] text in
+                guard let self, !text.isEmpty else { return }
+                self.transcribedText = text
+            }
+            .store(in: &cancellables)
     }
 
-    private func requestPermissions() {
-        SFSpeechRecognizer.requestAuthorization { _ in }
-        AVAudioSession.sharedInstance().requestRecordPermission { _ in }
-    }
-
-    // MARK: - Start Listening
+    // MARK: - Start Listening (connect to LiveKit for STT)
     func startListening() {
-        guard let speechRecognizer = speechRecognizer, speechRecognizer.isAvailable else {
-            print("Speech recognizer not available")
-            return
-        }
+        currentStep = .listening
+        transcribedText = ""
 
-        let audioSession = AVAudioSession.sharedInstance()
-        guard audioSession.recordPermission == .granted else {
-            audioSession.requestRecordPermission { granted in
-                if granted {
-                    Task { @MainActor in
-                        self.startListening()
-                    }
-                }
+        Task {
+            do {
+                try await liveKitService.connect(mode: "start_day")
+            } catch {
+                print("LiveKit connection failed: \(error)")
+                errorMessage = "Erreur de connexion micro. Reessaie."
             }
-            return
-        }
-
-        do {
-            try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
-            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
-        } catch {
-            print("Failed to set audio session: \(error)")
-            return
-        }
-
-        recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
-        guard let recognitionRequest = recognitionRequest else { return }
-
-        recognitionRequest.shouldReportPartialResults = true
-
-        let inputNode = audioEngine.inputNode
-        let recordingFormat = inputNode.outputFormat(forBus: 0)
-
-        guard recordingFormat.sampleRate > 0 && recordingFormat.channelCount > 0 else {
-            print("Invalid audio format")
-            return
-        }
-
-        recognitionTask = speechRecognizer.recognitionTask(with: recognitionRequest) { [weak self] result, error in
-            Task { @MainActor in
-                guard let self = self else { return }
-
-                if let result = result {
-                    self.transcribedText = result.bestTranscription.formattedString
-
-                    // Reset silence timer on each new word
-                    self.silenceTimer?.invalidate()
-                    self.silenceTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { [weak self] _ in
-                        Task { @MainActor in
-                            // Auto-submit after 3 seconds of silence
-                            self?.stopAndProcess()
-                        }
-                    }
-                }
-
-                if error != nil {
-                    self.stopAndProcess()
-                }
-            }
-        }
-
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { buffer, _ in
-            self.recognitionRequest?.append(buffer)
-        }
-
-        audioEngine.prepare()
-
-        do {
-            try audioEngine.start()
-            isRecording = true
-            transcribedText = ""
-            currentStep = .listening
-        } catch {
-            print("Audio engine failed to start: \(error)")
-            inputNode.removeTap(onBus: 0)
         }
     }
 
@@ -540,15 +484,10 @@ class StartTheDayVoiceViewModel: ObservableObject {
     func stopAndProcess() {
         guard isRecording else { return }
 
-        silenceTimer?.invalidate()
-        silenceTimer = nil
-
-        audioEngine.stop()
-        audioEngine.inputNode.removeTap(onBus: 0)
-        recognitionRequest?.endAudio()
-        recognitionTask?.finish()
-        recognitionRequest = nil
-        recognitionTask = nil
+        // Disconnect LiveKit (stop STT)
+        Task {
+            await liveKitService.disconnect()
+        }
         isRecording = false
 
         let text = transcribedText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -556,25 +495,22 @@ class StartTheDayVoiceViewModel: ObservableObject {
         if !text.isEmpty {
             processWithAI(text)
         } else {
-            // No text - stay on listening
             currentStep = .listening
         }
     }
 
-    // MARK: - Process with AI (using new analyze endpoint - no DB write)
+    // MARK: - Process with AI (using analyze endpoint — no DB write)
     private func processWithAI(_ text: String) {
         currentStep = .processing
         errorMessage = nil
 
         Task {
             do {
-                // Use the new analyze endpoint that only returns proposals (no DB write)
                 let response = try await voiceService.analyzeVoice(
                     text: text,
                     date: DateFormatter.yyyyMMdd.string(from: Date())
                 )
 
-                // Convert proposed goals to UI model
                 if !response.proposedGoals.isEmpty {
                     proposedTasks = response.proposedGoals.map { goal in
                         ProposedTaskUI(
@@ -601,7 +537,7 @@ class StartTheDayVoiceViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Confirm and Add Tasks (creates tasks in DB via CalendarService)
+    // MARK: - Confirm and Add Tasks
     func confirmAndAddTasks() async {
         isAddingTasks = true
         errorMessage = nil
@@ -611,7 +547,6 @@ class StartTheDayVoiceViewModel: ObservableObject {
 
         for task in selectedTasks {
             do {
-                // Use the task's date from AI response
                 _ = try await calendarService.createTask(
                     questId: nil,
                     areaId: nil,
@@ -634,7 +569,6 @@ class StartTheDayVoiceViewModel: ObservableObject {
         isAddingTasks = false
 
         if addedCount > 0 {
-            // Refresh store
             await store.refreshTodaysTasks()
             currentStep = .confirmed
         } else {
@@ -667,14 +601,9 @@ class StartTheDayVoiceViewModel: ObservableObject {
 
     // MARK: - Cleanup
     func cleanup() {
-        silenceTimer?.invalidate()
-        silenceTimer = nil
-        audioEngine.stop()
-        if isRecording {
-            audioEngine.inputNode.removeTap(onBus: 0)
+        Task {
+            await liveKitService.disconnect()
         }
-        recognitionRequest?.endAudio()
-        recognitionTask?.cancel()
         isRecording = false
     }
 }

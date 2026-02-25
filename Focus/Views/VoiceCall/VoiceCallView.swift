@@ -1,5 +1,4 @@
 import SwiftUI
-import AVFoundation
 
 struct VoiceCallView: View {
     @StateObject private var viewModel = VoiceCallViewModel()
@@ -120,7 +119,7 @@ struct VoiceCallView: View {
 
             ParticleSphereView(
                 isAnimating: viewModel.callState == .listening || viewModel.callState == .speaking,
-                intensity: viewModel.isRecording ? 1.5 : 1.0
+                intensity: viewModel.isAgentSpeaking ? 1.5 : 1.0
             )
             .frame(width: 200, height: 200)
         }
