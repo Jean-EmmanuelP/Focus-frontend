@@ -427,9 +427,9 @@ class ChatViewModel: ObservableObject {
                     audioData: audioData,
                     userId: userId
                 )
-                print("✅ Voice uploaded to Supabase: \(storagePath ?? "nil")")
+                print("✅ Voice uploaded to Supabase: \(storagePath)")
                 // Update message with storage path
-                if let index = messages.lastIndex(where: { $0.id == voiceMessage.id }), let storagePath {
+                if let index = messages.lastIndex(where: { $0.id == voiceMessage.id }) {
                     messages[index] = SimpleChatMessage(
                         id: voiceMessage.id,
                         content: voiceMessage.content,

@@ -69,13 +69,13 @@ class LiveKitVoiceService: ObservableObject {
 
 extension LiveKitVoiceService: RoomDelegate {
 
-    nonisolated func room(_ room: Room, didUpdate connectionState: ConnectionState, from oldConnectionState: ConnectionState) {
+    nonisolated func room(_ room: Room, didUpdateConnectionState connectionState: ConnectionState, from oldConnectionState: ConnectionState) {
         Task { @MainActor in
             self.connectionState = connectionState
         }
     }
 
-    nonisolated func room(_ room: Room, didUpdate speakers: [Participant]) {
+    nonisolated func room(_ room: Room, didUpdateSpeakingParticipants speakers: [Participant]) {
         Task { @MainActor in
             self.isAgentSpeaking = speakers.contains { $0 is RemoteParticipant && $0.isSpeaking }
         }
@@ -84,6 +84,8 @@ extension LiveKitVoiceService: RoomDelegate {
     nonisolated func room(_ room: Room, participant: Participant, trackPublication: TrackPublication, didReceiveTranscriptionSegments segments: [TranscriptionSegment]) {
         Task { @MainActor in
             for segment in segments {
+                guard segment.isFinal else { continue }
+
                 // Check if the transcribed track belongs to the local participant (user speech)
                 let isUserTrack = room.localParticipant.trackPublications.values.contains {
                     $0.sid == trackPublication.sid
@@ -98,7 +100,7 @@ extension LiveKitVoiceService: RoomDelegate {
         }
     }
 
-    nonisolated func room(_ room: Room, participant: RemoteParticipant, didReceiveData data: Data, forTopic topic: String) {
+    nonisolated func room(_ room: Room, participant: RemoteParticipant?, didReceiveData data: Data, forTopic topic: String, encryptionType: EncryptionType) {
         guard topic == "coach_action" else { return }
         Task { @MainActor in
             NotificationCenter.default.post(

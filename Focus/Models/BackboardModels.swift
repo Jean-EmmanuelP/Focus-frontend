@@ -117,6 +117,10 @@ struct AnyCodableValue: Codable {
             value = double
         } else if let string = try? container.decode(String.self) {
             value = string
+        } else if let array = try? container.decode([AnyCodableValue].self) {
+            value = array.map { $0.value }
+        } else if let dict = try? container.decode([String: AnyCodableValue].self) {
+            value = dict.mapValues { $0.value }
         } else {
             value = NSNull()
         }
@@ -129,6 +133,10 @@ struct AnyCodableValue: Codable {
         case let int as Int: try container.encode(int)
         case let double as Double: try container.encode(double)
         case let string as String: try container.encode(string)
+        case let array as [Any]:
+            try container.encode(array.map { AnyCodableValue($0) })
+        case let dict as [String: Any]:
+            try container.encode(dict.mapValues { AnyCodableValue($0) })
         default: try container.encodeNil()
         }
     }

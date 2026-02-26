@@ -228,7 +228,7 @@ final class FocusAppStore: ObservableObject {
         UserDefaults.standard.removeObject(forKey: "pending_chat_message")
         UserDefaults.standard.removeObject(forKey: onboardingCompletedKey)
         UserDefaults.standard.removeObject(forKey: onboardingUserIdKey)
-        KnowledgeManager.shared.resetAllKnowledge()
+        UserDefaults.standard.removeObject(forKey: "ai_knowledge_data")
         UserDefaults.standard.removeObject(forKey: "backboard_thread_id")
         UserDefaults.standard.removeObject(forKey: "backboard_knowledge_migrated")
         Task { try? await BackboardService.shared.deleteThread() }

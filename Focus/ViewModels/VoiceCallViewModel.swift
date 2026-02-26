@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import Combine
+import LiveKit
 
 // MARK: - Voice Call State Machine
 

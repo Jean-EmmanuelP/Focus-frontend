@@ -850,6 +850,7 @@ struct UserResponse: Codable {
     let avatarStyle: String?
     let freeVoiceMessagesUsed: Int?
     let createdAt: Date?
+    let backboardAssistantId: String?
 }
 
 struct Area: Codable, Identifiable {

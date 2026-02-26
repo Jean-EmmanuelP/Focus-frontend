@@ -29,6 +29,7 @@ struct User: Codable, Identifiable {
     var avatarStyle: String?           // Avatar style choice
     var freeVoiceMessagesUsed: Int?    // Counter for free voice messages (server-side)
     var createdAt: Date?               // Account creation date
+    var backboardAssistantId: String?  // Per-user Backboard assistant for isolated memory
 
     // Computed display name (pseudo > firstName lastName > email prefix)
     var name: String {
@@ -442,6 +443,7 @@ extension User {
         self.freeVoiceMessagesUsed = response.freeVoiceMessagesUsed
         // Account metadata
         self.createdAt = response.createdAt
+        self.backboardAssistantId = response.backboardAssistantId
     }
 }
 

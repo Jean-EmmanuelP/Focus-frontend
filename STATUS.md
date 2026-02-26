@@ -47,9 +47,7 @@
 
 | Fichier | Ligne | Code actuel | Fix requis |
 |---------|-------|-------------|------------|
-| `ChatModels.swift` | 135 | `static let name = "Kai"` | Passer en paramètre |
 | `Navigation.swift` | 16 | `case .chat: return "Kai"` | Utiliser `store.user?.companionName` |
-| `KaiProfileView.swift` | 296 | `Text("Kai")` | Utiliser `companionName` dynamique |
 
 ### ✅ Déjà corrigés
 
@@ -165,13 +163,12 @@
 
 | Fonctionnalité | Status |
 |----------------|--------|
-| Messages texte | ✅ |
-| Messages vocaux | ✅ |
-| Mémoire sémantique (Mira-style) | ✅ |
-| Extraction de faits | ✅ |
-| Embeddings vectoriels | ✅ |
-| Persona depuis Gmail | ✅ Backend prêt |
-| Historique conversation | ✅ |
+| Messages texte via Backboard | ✅ |
+| Messages vocaux (STT client-side) | ✅ |
+| Mémoire automatique (Backboard Memory) | ✅ |
+| 16 Tool Calls (tasks, rituals, quests, etc.) | ✅ |
+| Migration knowledge → Backboard Memory | ✅ |
+| Historique conversation (local v3) | ✅ |
 | Nom dynamique dans ChatView | ✅ |
 | Nom dynamique dans CompanionProfileView | ✅ |
 | Timer memory leak fix | ✅ |
@@ -180,9 +177,7 @@
 
 | Problème | Fichier:Ligne | Fix |
 |----------|---------------|-----|
-| **Hardcoded "Kai" dans CoachPersona** | `ChatModels.swift:135` | Passer companionName en paramètre |
 | **Hardcoded "Kai" dans Navigation** | `Navigation.swift:16` | Utiliser store.user?.companionName |
-| **Hardcoded "Kai" dans KaiProfileView** | `KaiProfileView.swift:296` | Utiliser store.user?.companionName |
 | **Voice recording Pro only** | - | Vérifier feature gating |
 
 ---
@@ -192,10 +187,10 @@
 ### ✅ ENDPOINTS EXISTANTS
 
 ```
-POST /chat/message          ✅
-POST /chat/voice            ✅
-GET  /chat/history          ✅
-DELETE /chat/history        ✅
+POST /chat/message          ❌ (migré vers Backboard)
+POST /chat/voice            ❌ (migré vers Backboard + STT client)
+GET  /chat/history          ❌ (migré vers Backboard threads)
+DELETE /chat/history        ❌ (migré vers Backboard threads)
 
 GET  /me                    ✅
 PATCH /me                   ✅
@@ -316,7 +311,7 @@ ALTER TABLE public.users ADD COLUMN IF NOT EXISTS show_level BOOLEAN DEFAULT fal
 ### 🔴 URGENTS (Avant release)
 
 1. [ ] **Corriger affichage anniversaire** - Affiche "Non défini" au lieu de la date
-2. [ ] **Corriger hardcoded "Kai"** - 3 fichiers à corriger
+2. [ ] **Corriger hardcoded "Kai"** - 1 fichier restant (Navigation.swift)
 3. [ ] Configurer RevenueCat (produits + prix dans App Store Connect)
 4. [ ] Tester onboarding complet (nouveau user)
 5. [ ] Feature gating basique (bloquer fonctionnalités gratuits)
