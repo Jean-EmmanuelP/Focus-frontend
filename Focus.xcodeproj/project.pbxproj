@@ -13,7 +13,6 @@
 		623E957A2EE4AC3100356DD7 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 623E95792EE4AC3100356DD7 /* SwiftUI.framework */; };
 		623E958B2EE4AC3200356DD7 /* FocusWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 623E95752EE4AC3100356DD7 /* FocusWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		6269A8912F4A51110028F63D /* DeviceActivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6269A8902F4A51110028F63D /* DeviceActivity.framework */; };
-		6269A8992F4A51110028F63D /* FocusDeviceActivityMonitor.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 6269A88F2F4A51110028F63D /* FocusDeviceActivityMonitor.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		628291752F0055D600D26C30 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 628291742F0055D600D26C30 /* FirebaseAnalytics */; };
 		628291772F0055D600D26C30 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 628291762F0055D600D26C30 /* FirebaseCore */; };
 		628291792F0055D600D26C30 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 628291782F0055D600D26C30 /* FirebaseMessaging */; };
@@ -33,13 +32,6 @@
 			remoteGlobalIDString = 623E95742EE4AC3100356DD7;
 			remoteInfo = FocusWidgetExtension;
 		};
-		6269A8972F4A51110028F63D /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 623E89422EE1F65300356DD7 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 6269A88E2F4A51110028F63D;
-			remoteInfo = FocusDeviceActivityMonitor;
-		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -55,27 +47,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
-
-/* Begin PBXShellScriptBuildPhase section */
-		AA000001FIXMINIOS00000001 /* Fix MinimumOSVersion */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Fix MinimumOSVersion";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "# Fix MinimumOSVersion for Xcode 26 + Google/Firebase xcframeworks\n# 1. Patch SPM cache (source of truth for CopySwiftLibs)\nSPM_ARTIFACTS=\"${BUILD_DIR%/Build/*}/SourcePackages/artifacts\"\nif [ -d \"$SPM_ARTIFACTS\" ]; then\n  find \"$SPM_ARTIFACTS\" -name Info.plist -path '*.framework*' -print0 2>/dev/null | while IFS= read -r -d '' plist; do\n    min=$(/usr/bin/defaults read \"$plist\" MinimumOSVersion 2>/dev/null)\n    if [ \"$min\" = \"100.0\" ] || [ \"$min\" = \"100\" ]; then\n      echo \"Fixing MinimumOSVersion in $plist\"\n      /usr/bin/plutil -replace MinimumOSVersion -string \"13.0\" \"$plist\"\n    fi\n  done\nfi\n# 2. Patch BUILT_PRODUCTS_DIR (frameworks staged for embedding)\nfor fw in \"${BUILT_PRODUCTS_DIR}/\"*.framework \"${BUILT_PRODUCTS_DIR}/${FRAMEWORKS_FOLDER_PATH}/\"*.framework; do\n  if [ -f \"$fw/Info.plist\" ]; then\n    min=$(/usr/bin/defaults read \"$fw/Info.plist\" MinimumOSVersion 2>/dev/null)\n    if [ \"$min\" = \"100.0\" ] || [ \"$min\" = \"100\" ]; then\n      echo \"Fixing MinimumOSVersion in $(basename \"$fw\")\"\n      /usr/bin/plutil -replace MinimumOSVersion -string \"13.0\" \"$fw/Info.plist\"\n    fi\n  fi\ndone\n";
-		};
-/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXFileReference section */
 		620DD56D2EF6F9C200BBBDD1 /* TextParticle.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = TextParticle.xcodeproj; sourceTree = "<group>"; };
@@ -533,6 +504,7 @@
 				6288C76B2F106100008A7BF0 /* XCRemoteSwiftPackageReference "AmplitudeSessionReplay-iOS" */,
 				62GLTF0012F15A00100AVATAR /* XCRemoteSwiftPackageReference "GLTFKit2" */,
 				62LK00012F60A00100LIVEKIT /* XCRemoteSwiftPackageReference "client-sdk-swift" */,
+				62946FEC2F538EC30084A56E /* XCRemoteSwiftPackageReference "components-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 623E894B2EE1F65300356DD7 /* Products */;
@@ -673,6 +645,27 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		AA000001FIXMINIOS00000001 /* Fix MinimumOSVersion */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Fix MinimumOSVersion";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Fix MinimumOSVersion for Xcode 26 + Google/Firebase xcframeworks\n# 1. Patch SPM cache (source of truth for CopySwiftLibs)\nSPM_ARTIFACTS=\"${BUILD_DIR%/Build/*}/SourcePackages/artifacts\"\nif [ -d \"$SPM_ARTIFACTS\" ]; then\n  find \"$SPM_ARTIFACTS\" -name Info.plist -path '*.framework*' -print0 2>/dev/null | while IFS= read -r -d '' plist; do\n    min=$(/usr/bin/defaults read \"$plist\" MinimumOSVersion 2>/dev/null)\n    if [ \"$min\" = \"100.0\" ] || [ \"$min\" = \"100\" ]; then\n      echo \"Fixing MinimumOSVersion in $plist\"\n      /usr/bin/plutil -replace MinimumOSVersion -string \"13.0\" \"$plist\"\n    fi\n  done\nfi\n# 2. Patch BUILT_PRODUCTS_DIR (frameworks staged for embedding)\nfor fw in \"${BUILT_PRODUCTS_DIR}/\"*.framework \"${BUILT_PRODUCTS_DIR}/${FRAMEWORKS_FOLDER_PATH}/\"*.framework; do\n  if [ -f \"$fw/Info.plist\" ]; then\n    min=$(/usr/bin/defaults read \"$fw/Info.plist\" MinimumOSVersion 2>/dev/null)\n    if [ \"$min\" = \"100.0\" ] || [ \"$min\" = \"100\" ]; then\n      echo \"Fixing MinimumOSVersion in $(basename \"$fw\")\"\n      /usr/bin/plutil -replace MinimumOSVersion -string \"13.0\" \"$fw/Info.plist\"\n    fi\n  fi\ndone\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		623E89462EE1F65300356DD7 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -702,11 +695,6 @@
 			isa = PBXTargetDependency;
 			target = 623E95742EE4AC3100356DD7 /* FocusWidgetExtension */;
 			targetProxy = 623E95892EE4AC3200356DD7 /* PBXContainerItemProxy */;
-		};
-		6269A8982F4A51110028F63D /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 6269A88E2F4A51110028F63D /* FocusDeviceActivityMonitor */;
-			targetProxy = 6269A8972F4A51110028F63D /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1147,6 +1135,14 @@
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 0.5.2;
+			};
+		};
+		62946FEC2F538EC30084A56E /* XCRemoteSwiftPackageReference "components-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/livekit/components-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.1.6;
 			};
 		};
 		629D63C02EF0BDA00023C568 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {

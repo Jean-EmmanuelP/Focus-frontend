@@ -1,6 +1,5 @@
 import Foundation
 import Combine
-import AVFoundation
 
 #if canImport(LiveKit)
 import LiveKit
@@ -25,26 +24,16 @@ class LiveKitVoiceService: ObservableObject {
     private var delegateAdded = false
     private var streamHandlersRegistered = false
 
-    // MARK: - Audio Session
-
-    private func configureAudioSession() {
-        let session = AVAudioSession.sharedInstance()
-        do {
-            try session.setCategory(
-                .playAndRecord,
-                mode: .voiceChat,
-                options: [.defaultToSpeaker, .allowBluetooth]
-            )
-            try session.setActive(true)
-        } catch {
-            print("Audio session config failed: \(error)")
-        }
-    }
-
     // MARK: - Connection
 
     func connect(mode: String = "voice_call") async throws {
-        configureAudioSession()
+        // Let LiveKit's automatic AVAudioSession management handle audio config.
+        // It uses .playAndRecord + .videoChat mode for speaker output with
+        // far-field echo cancellation — optimal for voice AI on speakerphone.
+        // Previously we manually set .voiceChat mode which conflicts with this.
+        //
+        // Pre-warm the audio engine for low-latency mic publishing.
+        try? await AudioManager.shared.setRecordingAlwaysPreparedMode(true)
 
         if !delegateAdded {
             room.delegates.add(delegate: self)
@@ -83,6 +72,7 @@ class LiveKitVoiceService: ObservableObject {
     func disconnect() async {
         await unregisterStreamHandlers()
         await room.disconnect()
+        try? await AudioManager.shared.setRecordingAlwaysPreparedMode(false)
         connectionState = .disconnected
         agentTranscription = ""
         userTranscription = ""

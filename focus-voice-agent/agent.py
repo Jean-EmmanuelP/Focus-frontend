@@ -6,13 +6,14 @@ Handles real-time voice conversations for the Focus (Volta) iOS app.
 import os
 import re
 import json
+import asyncio
 import logging
 from datetime import datetime
 
 import httpx
 from livekit.agents import AgentSession, Agent, RunContext, WorkerOptions, cli, StopResponse
 from livekit.agents import room_io
-from livekit.plugins import speechmatics, gradium, silero, noise_cancellation
+from livekit.plugins import speechmatics, elevenlabs, silero, noise_cancellation
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 logger = logging.getLogger("focus-agent")
@@ -66,6 +67,29 @@ class FocusCoachAgent(Agent):
         logger.info(f"on_enter: {len(participants)} remote participants")
 
         mode = self._extract_metadata_from_participants(participants)
+
+        # Listen for new participants joining (fixes race condition where
+        # agent enters before user — 0 remote participants at on_enter)
+        @room.on("participant_connected")
+        def _on_participant_connected(participant):
+            logger.info(f"Participant connected: {participant.identity}, metadata: {participant.metadata[:100] if participant.metadata else 'None'}")
+            if not self._metadata_extracted:
+                self._extract_metadata_from_participants([participant])
+            # If bid was empty, try fetching from /me endpoint
+            if not self._assistant_id and self._user_token:
+                import asyncio
+                asyncio.ensure_future(self._fetch_and_prepare())
+
+        # Listen for audio tracks to diagnose if user audio reaches agent
+        @room.on("track_subscribed")
+        def _on_track_subscribed(track, publication, participant):
+            logger.info(f"Track subscribed: kind={track.kind}, participant={participant.identity}, sid={track.sid}")
+
+        @room.on("active_speakers_changed")
+        def _on_active_speakers(speakers):
+            if speakers:
+                identities = [s.identity for s in speakers]
+                logger.info(f"Active speakers: {identities}")
 
         # Pre-fetch assistant ID and create thread while greeting plays
         if not self._assistant_id:
@@ -136,6 +160,16 @@ class FocusCoachAgent(Agent):
                     mode = p.metadata
         return mode
 
+    async def _fetch_and_prepare(self):
+        """Async helper: fetch assistant ID from /me and pre-create thread."""
+        try:
+            await self._fetch_assistant_id()
+            if self._assistant_id and not self._thread_id:
+                self._thread_id = await self._create_thread()
+                logger.info(f"Late-created thread: {self._thread_id}")
+        except Exception as e:
+            logger.error(f"_fetch_and_prepare failed: {e}")
+
     def _ensure_metadata(self):
         """Lazily extract metadata if not done yet (handles race condition)."""
         if self._metadata_extracted:
@@ -181,29 +215,34 @@ class FocusCoachAgent(Agent):
     async def on_user_turn_completed(self, turn_ctx, new_message):
         """Called when user finishes speaking. Filter noise, then send to Backboard."""
         user_text = new_message.text_content
+        logger.info(f"on_user_turn_completed called, text={repr(user_text)}")
 
-        # Filter empty / very short / noise transcriptions
+        # Filter empty transcriptions
         if not user_text or not user_text.strip():
+            logger.debug("Empty transcription, ignoring")
             raise StopResponse()
 
-        stripped = user_text.strip()
+        # Strip punctuation for analysis (Speechmatics adds periods)
+        stripped = user_text.strip().rstrip(".!?…,;:")
 
-        # Ignore single words or very short fragments (echo / noise)
-        if len(stripped) < 3 or len(stripped.split()) < 2:
-            logger.debug(f"Ignoring short transcript: {repr(stripped)}")
+        # Ignore very short fragments (< 2 chars = echo noise)
+        if len(stripped) < 2:
+            logger.debug(f"Ignoring noise: {repr(user_text.strip())}")
             raise StopResponse()
 
-        # Ignore common French filler / noise words
-        _noise = {"le", "la", "les", "a", "à", "de", "du", "un", "une",
-                  "et", "euh", "ah", "oh", "hm", "hmm", "ok", "au"}
-        if stripped.lower() in _noise:
-            logger.debug(f"Ignoring noise word: {repr(stripped)}")
+        # Ignore common French echo/filler that aren't real speech
+        _echo_noise = {"le", "la", "les", "a", "à", "de", "du", "un", "une",
+                       "et", "euh", "ah", "oh", "hm", "hmm", "au", "le le"}
+        if stripped.lower() in _echo_noise:
+            logger.debug(f"Ignoring echo noise: {repr(stripped)}")
             raise StopResponse()
 
         self._ensure_metadata()
+        logger.info(f"After ensure_metadata: assistant_id={repr(self._assistant_id)}, extracted={self._metadata_extracted}")
 
         if not self._assistant_id:
             await self._fetch_assistant_id()
+            logger.info(f"After fetch_assistant_id: assistant_id={repr(self._assistant_id)}")
 
         logger.info(f"User said: {stripped[:100]}")
 
@@ -359,10 +398,10 @@ def _get_lang_from_room(room) -> str:
     return "fr"
 
 
-# French voice IDs from Gradium
-GRADIUM_VOICES = {
-    "fr": "b35yykvVppLXyw_l",   # Elise - Adult Feminine (France)
-    "en": "YTpq7expH9539ERJ",   # Default English
+# ElevenLabs voice IDs
+ELEVENLABS_VOICES = {
+    "fr": "XB0fDUnXU5powFXDhCwa",   # Charlotte - French female
+    "en": "bIHbv24MWmeRgasZH58o",   # Default English (Will)
 }
 
 
@@ -371,43 +410,31 @@ async def run_agent(ctx: RunContext):
     lang = _get_lang_from_room(ctx.room)
     logger.info(f"Starting agent with language: {lang}")
 
-    voice_id = GRADIUM_VOICES.get(lang, GRADIUM_VOICES["en"])
-    logger.info(f"Using Gradium voice: {voice_id} for lang={lang}")
+    voice_id = ELEVENLABS_VOICES.get(lang, ELEVENLABS_VOICES["en"])
+    logger.info(f"Using ElevenLabs voice: {voice_id} for lang={lang}")
 
     session = AgentSession(
         stt=speechmatics.STT(
             language=lang,
             base_url="wss://us.rt.speechmatics.com/v2",
         ),
-        tts=gradium.TTS(
+        tts=elevenlabs.TTS(
             voice_id=voice_id,
-            model_name="default",
+            model="eleven_flash_v2_5",   # Fastest model for lowest latency
+            language=lang,
         ),
-        # Turn detection — dynamic model + Silero VAD for accuracy
         turn_detection=MultilingualModel(),
         vad=silero.VAD.load(),
-        min_endpointing_delay=0.8,         # Wait 0.8s silence before committing turn (default 0.5)
-        max_endpointing_delay=5.0,         # Allow longer thinking pauses (default 3.0)
-
-        # Echo cancellation
-        discard_audio_if_uninterruptible=True,
-
-        # Interruption handling — require real speech, not echo/noise
-        allow_interruptions=True,
-        min_interruption_duration=0.8,     # Need 0.8s of speech to interrupt (default 0.5)
-        min_interruption_words=2,          # Need 2+ words to interrupt (default 0)
-
-        # False interruption recovery
-        resume_false_interruption=True,
-        false_interruption_timeout=1.5,
     )
 
     await session.start(
         agent=FocusCoachAgent(),
         room=ctx.room,
         # Server-side noise cancellation — removes echo/background voices
-        room_input_options=room_io.RoomInputOptions(
-            noise_cancellation=noise_cancellation.BVC(),
+        room_options=room_io.RoomOptions(
+            audio_input=room_io.AudioInputOptions(
+                noise_cancellation=noise_cancellation.BVC(),
+            ),
         ),
     )
 
