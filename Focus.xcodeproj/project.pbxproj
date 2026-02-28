@@ -49,7 +49,6 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				6269A8992F4A51110028F63D /* FocusDeviceActivityMonitor.appex in Embed Foundation Extensions */,
 				623E958B2EE4AC3200356DD7 /* FocusWidgetExtension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
@@ -430,7 +429,6 @@
 			);
 			dependencies = (
 				623E958A2EE4AC3200356DD7 /* PBXTargetDependency */,
-				6269A8982F4A51110028F63D /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				623E894C2EE1F65300356DD7 /* Focus */,
@@ -835,7 +833,7 @@
 				CODE_SIGN_ENTITLEMENTS = Focus/Focus.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = 62NW6K29QN;
 				EMIT_FRONTEND_COMMAND_LINES = YES;
 				ENABLE_APP_SANDBOX = YES;
@@ -894,7 +892,7 @@
 				CODE_SIGN_ENTITLEMENTS = Focus/Focus.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = 62NW6K29QN;
 				EMIT_FRONTEND_COMMAND_LINES = YES;
 				ENABLE_APP_SANDBOX = YES;
@@ -949,7 +947,7 @@
 				CODE_SIGN_ENTITLEMENTS = FocusWidgetExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = 62NW6K29QN;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = FocusWidget/Info.plist;
@@ -984,7 +982,7 @@
 				CODE_SIGN_ENTITLEMENTS = FocusWidgetExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = 62NW6K29QN;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = FocusWidget/Info.plist;
@@ -1018,7 +1016,7 @@
 				CODE_SIGN_ENTITLEMENTS = FocusDeviceActivityMonitor/FocusDeviceActivityMonitor.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = 62NW6K29QN;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = FocusDeviceActivityMonitor/Info.plist;
@@ -1050,7 +1048,7 @@
 				CODE_SIGN_ENTITLEMENTS = FocusDeviceActivityMonitor/FocusDeviceActivityMonitor.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = 62NW6K29QN;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = FocusDeviceActivityMonitor/Info.plist;

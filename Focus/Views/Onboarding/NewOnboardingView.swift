@@ -1291,35 +1291,38 @@ class NewOnboardingViewModel: ObservableObject {
         }
 
         do {
-            let (email, accessToken) = try await GmailService.shared.signIn(from: rootViewController)
-            print("✅ Gmail connected: \(email)")
+            // Step 1: Google Sign-In (gets basic auth + requests gmail.readonly scope)
+            let (email, accessToken, serverAuthCode) = try await GmailService.shared.signIn(from: rootViewController)
+            print("✅ Gmail signed in: \(email)")
 
-            // Add to connected accounts if not already there
+            // Step 2: Ensure gmail.readonly scope is actually granted
+            // (If user previously signed in for Calendar only, the scope might be missing)
+            let tokenWithScope = try await GmailService.shared.ensureGmailScope(from: rootViewController)
+            print("✅ Gmail read scope confirmed")
+
             if !connectedGmailAccounts.contains(email) {
                 connectedGmailAccounts.append(email)
             }
 
-            // Save tokens to backend
-            // Note: Google Sign-In doesn't always provide refresh token on subsequent sign-ins
+            // Step 3: Save the token (with scope) to backend
             try await GmailService.shared.saveTokens(
-                accessToken: accessToken,
-                refreshToken: "", // Will be empty if user was already signed in
-                expiresIn: 3600,
+                accessToken: tokenWithScope,
+                serverAuthCode: serverAuthCode,
                 email: email
             )
 
-            // Trigger email analysis in background
+            // Step 4: Trigger email analysis in background
             Task {
                 do {
                     let result = try await GmailService.shared.analyzeEmails()
-                    print("✅ Gmail analysis complete: \(result.messagesAnalyzed) messages")
+                    print("✅ Gmail analysis complete: \(result.messagesAnalyzed) messages analyzed")
                 } catch {
                     print("⚠️ Gmail analysis failed: \(error)")
                 }
             }
 
         } catch {
-            print("❌ Gmail sign-in failed: \(error)")
+            print("❌ Gmail connection failed: \(error)")
         }
     }
 

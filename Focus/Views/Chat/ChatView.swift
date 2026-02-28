@@ -753,6 +753,22 @@ struct ReplikaMessageBubble: View {
             .padding(.vertical, 14)
             .background(message.isFromUser ? userBubbleColor : aiBubbleColor)
             .cornerRadius(26)
+            .contextMenu {
+                Button {
+                    UIPasteboard.general.string = message.content
+                } label: {
+                    Label("Copier", systemImage: "doc.on.doc")
+                }
+            } preview: {
+                Text(message.content)
+                    .font(.system(size: 16))
+                    .foregroundColor(message.isFromUser ? .white : .black)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 14)
+                    .background(message.isFromUser ? userBubbleColor : aiBubbleColor)
+                    .cornerRadius(26)
+                    .padding(8)
+            }
     }
 
     // MARK: - Card Views

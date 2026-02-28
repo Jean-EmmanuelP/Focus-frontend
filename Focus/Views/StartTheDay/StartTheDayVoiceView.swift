@@ -184,6 +184,19 @@ struct StartTheDayVoiceView: View {
             // Control buttons
             HStack(spacing: 24) {
                 if viewModel.isRecording {
+                    // Mute button
+                    Button(action: { viewModel.toggleMic() }) {
+                        Image(systemName: viewModel.isMicMuted ? "mic.slash.fill" : "mic.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(.white)
+                            .frame(width: 52, height: 52)
+                            .background(
+                                Circle().fill(
+                                    viewModel.isMicMuted ? Color.white.opacity(0.25) : Color.red.opacity(0.85)
+                                )
+                            )
+                    }
+
                     Button(action: { viewModel.stopAndProcess() }) {
                         HStack {
                             Image(systemName: "checkmark")
@@ -434,6 +447,7 @@ class StartTheDayVoiceViewModel: ObservableObject {
     @Published var currentStep: VoiceStartDayStep = .listening
     @Published var transcribedText: String = ""
     @Published var isRecording = false
+    @Published var isMicMuted = false
     @Published var proposedTasks: [ProposedTaskUI] = []
     @Published var errorMessage: String?
     @Published var isAddingTasks = false
@@ -591,6 +605,15 @@ class StartTheDayVoiceViewModel: ObservableObject {
 
         let minutes = Int(endDate.timeIntervalSince(startDate) / 60)
         return max(15, minutes)
+    }
+
+    // MARK: - Mic Control
+    func toggleMic() {
+        Task {
+            let newState = liveKitService.isMicEnabled
+            try? await liveKitService.setMicEnabled(!newState)
+            isMicMuted = !liveKitService.isMicEnabled
+        }
     }
 
     // MARK: - Reset

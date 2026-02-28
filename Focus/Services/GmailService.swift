@@ -22,12 +22,14 @@ struct GmailConfigResponse: Codable {
 // MARK: - Save Gmail Tokens Request
 
 struct SaveGmailTokensRequest: Codable {
+    let authCode: String?
     let accessToken: String
-    let refreshToken: String
+    let refreshToken: String?
     let expiresIn: Int
     let googleEmail: String
 
     enum CodingKeys: String, CodingKey {
+        case authCode = "auth_code"
         case accessToken = "access_token"
         case refreshToken = "refresh_token"
         case expiresIn = "expires_in"
@@ -64,7 +66,7 @@ class GmailService: ObservableObject {
     @Published var error: String?
     @Published var analysisProgress: String = ""
 
-    // Google OAuth - same client ID as Calendar
+    // Google OAuth — same client ID as Calendar
     private let clientID = "613349634589-1d8mmjai794ia29pluv97t21mj2349ej.apps.googleusercontent.com"
 
     // Gmail API scopes
@@ -72,21 +74,139 @@ class GmailService: ObservableObject {
     private let gmailMetadataScope = "https://www.googleapis.com/auth/gmail.metadata"
     private let userInfoScope = "https://www.googleapis.com/auth/userinfo.email"
 
-    // Stored tokens
-    private var accessToken: String?
-    private var refreshToken: String?
-
     private init() {}
-
-    // MARK: - Scopes needed for Gmail
 
     var requiredScopes: [String] {
         [gmailReadScope, userInfoScope]
     }
 
-    // MARK: - API Methods
+    // MARK: - Restore previous sign-in (call on app launch)
 
-    /// Fetch Gmail configuration
+    func restorePreviousSignIn() {
+        GIDSignIn.sharedInstance.restorePreviousSignIn { user, error in
+            if let user = user {
+                print("✅ Gmail: Restored sign-in for \(user.profile?.email ?? "unknown")")
+            }
+        }
+    }
+
+    // MARK: - Sign in with Gmail scope
+
+    func signIn(from viewController: UIViewController) async throws -> (email: String, accessToken: String, serverAuthCode: String?) {
+        return try await withCheckedThrowingContinuation { continuation in
+            // Configure with serverClientID to get a server auth code for backend exchange
+            let config = GIDConfiguration(clientID: clientID, serverClientID: clientID)
+            GIDSignIn.sharedInstance.configuration = config
+
+            GIDSignIn.sharedInstance.signIn(
+                withPresenting: viewController,
+                hint: nil,
+                additionalScopes: requiredScopes
+            ) { result, error in
+                if let error = error {
+                    continuation.resume(throwing: GmailError.signInFailed(error.localizedDescription))
+                    return
+                }
+
+                guard let user = result?.user else {
+                    continuation.resume(throwing: GmailError.noUserReturned)
+                    return
+                }
+
+                let accessToken = user.accessToken.tokenString
+                let email = user.profile?.email ?? ""
+                let serverAuthCode = result?.serverAuthCode
+
+                continuation.resume(returning: (email, accessToken, serverAuthCode))
+            }
+        }
+    }
+
+    // MARK: - Ensure gmail.readonly scope is granted
+
+    func ensureGmailScope(from viewController: UIViewController) async throws -> String {
+        guard let currentUser = GIDSignIn.sharedInstance.currentUser else {
+            throw GmailError.notAuthenticated
+        }
+
+        let grantedScopes = currentUser.grantedScopes ?? []
+        print("📧 Granted scopes: \(grantedScopes)")
+
+        if grantedScopes.contains(gmailReadScope) {
+            // Scope already granted — just refresh and return token
+            return try await refreshAccessToken()
+        }
+
+        // Scope NOT granted — explicitly request it
+        print("⚠️ gmail.readonly not granted, requesting via addScopes...")
+        return try await withCheckedThrowingContinuation { continuation in
+            currentUser.addScopes([self.gmailReadScope], presenting: viewController) { result, error in
+                if let error = error {
+                    continuation.resume(throwing: GmailError.signInFailed(error.localizedDescription))
+                    return
+                }
+                guard let user = result?.user else {
+                    continuation.resume(throwing: GmailError.scopeNotGranted)
+                    return
+                }
+
+                // Verify scope was actually granted after consent
+                let newScopes = user.grantedScopes ?? []
+                if !newScopes.contains("https://www.googleapis.com/auth/gmail.readonly") {
+                    continuation.resume(throwing: GmailError.scopeNotGranted)
+                    return
+                }
+
+                print("✅ gmail.readonly scope granted")
+                continuation.resume(returning: user.accessToken.tokenString)
+            }
+        }
+    }
+
+    // MARK: - Refresh access token via GIDSignIn SDK
+
+    func refreshAccessToken() async throws -> String {
+        guard let currentUser = GIDSignIn.sharedInstance.currentUser else {
+            throw GmailError.notAuthenticated
+        }
+
+        return try await withCheckedThrowingContinuation { continuation in
+            currentUser.refreshTokensIfNeeded { user, error in
+                if let error = error {
+                    continuation.resume(throwing: GmailError.signInFailed(error.localizedDescription))
+                    return
+                }
+                guard let user = user else {
+                    continuation.resume(throwing: GmailError.noUserReturned)
+                    return
+                }
+                continuation.resume(returning: user.accessToken.tokenString)
+            }
+        }
+    }
+
+    // MARK: - Save tokens to backend
+
+    func saveTokens(accessToken: String, serverAuthCode: String? = nil, email: String) async throws {
+        let request = SaveGmailTokensRequest(
+            authCode: serverAuthCode,
+            accessToken: accessToken,
+            refreshToken: nil,
+            expiresIn: 3600,
+            googleEmail: email
+        )
+
+        let response: GmailConfigResponse = try await APIClient.shared.request(
+            endpoint: .gmailSaveTokens,
+            method: .post,
+            body: request
+        )
+
+        self.config = response
+    }
+
+    // MARK: - Fetch Gmail configuration
+
     func fetchConfig() async {
         isLoading = true
         error = nil
@@ -111,57 +231,8 @@ class GmailService: ObservableObject {
         isLoading = false
     }
 
-    /// Sign in with Gmail scope
-    func signIn(from viewController: UIViewController) async throws -> (email: String, accessToken: String) {
-        return try await withCheckedThrowingContinuation { continuation in
-            let config = GIDConfiguration(clientID: clientID)
-            GIDSignIn.sharedInstance.configuration = config
+    // MARK: - Trigger email analysis (refreshes token first)
 
-            GIDSignIn.sharedInstance.signIn(
-                withPresenting: viewController,
-                hint: nil,
-                additionalScopes: requiredScopes
-            ) { result, error in
-                if let error = error {
-                    continuation.resume(throwing: GmailError.signInFailed(error.localizedDescription))
-                    return
-                }
-
-                guard let user = result?.user else {
-                    continuation.resume(throwing: GmailError.noUserReturned)
-                    return
-                }
-
-                let accessToken = user.accessToken.tokenString
-                let email = user.profile?.email ?? ""
-
-                continuation.resume(returning: (email, accessToken))
-            }
-        }
-    }
-
-    /// Save tokens after sign-in
-    func saveTokens(accessToken: String, refreshToken: String, expiresIn: Int, email: String) async throws {
-        self.accessToken = accessToken
-        self.refreshToken = refreshToken
-
-        let request = SaveGmailTokensRequest(
-            accessToken: accessToken,
-            refreshToken: refreshToken,
-            expiresIn: expiresIn,
-            googleEmail: email
-        )
-
-        let response: GmailConfigResponse = try await APIClient.shared.request(
-            endpoint: .gmailSaveTokens,
-            method: .post,
-            body: request
-        )
-
-        self.config = response
-    }
-
-    /// Trigger email analysis to build persona
     func analyzeEmails() async throws -> GmailAnalysisResult {
         isAnalyzing = true
         analysisProgress = "Récupération des emails..."
@@ -171,19 +242,23 @@ class GmailService: ObservableObject {
             analysisProgress = ""
         }
 
-        // Call backend to analyze emails
+        // Refresh access token via GIDSignIn and update backend before analysis
+        if let freshToken = try? await refreshAccessToken(),
+           let email = GIDSignIn.sharedInstance.currentUser?.profile?.email {
+            try? await saveTokens(accessToken: freshToken, email: email)
+        }
+
         let result: GmailAnalysisResult = try await APIClient.shared.request(
             endpoint: .gmailAnalyze,
             method: .post
         )
 
-        // Refresh config
         await fetchConfig()
-
         return result
     }
 
-    /// Disconnect Gmail
+    // MARK: - Disconnect Gmail
+
     func disconnect() async throws {
         try await APIClient.shared.request(
             endpoint: .gmailDisconnect,
@@ -198,25 +273,15 @@ class GmailService: ObservableObject {
             messagesAnalyzed: 0
         )
 
-        self.accessToken = nil
-        self.refreshToken = nil
-
-        // Sign out from Google
         GIDSignIn.sharedInstance.signOut()
     }
 
-    /// Set tokens from external sign-in
-    func setTokens(accessToken: String, refreshToken: String) {
-        self.accessToken = accessToken
-        self.refreshToken = refreshToken
-    }
+    // MARK: - Computed Properties
 
-    /// Check if user is connected to Gmail
     var isConnected: Bool {
         config?.isConnected == true
     }
 
-    /// Get connected email
     var connectedEmail: String? {
         config?.googleEmail
     }
@@ -228,6 +293,7 @@ enum GmailError: LocalizedError {
     case signInFailed(String)
     case noUserReturned
     case notAuthenticated
+    case scopeNotGranted
     case analysisTimeout
     case serverError(String)
 
@@ -239,6 +305,8 @@ enum GmailError: LocalizedError {
             return "Aucun utilisateur retourné"
         case .notAuthenticated:
             return "Non authentifié avec Gmail"
+        case .scopeNotGranted:
+            return "L'accès en lecture aux emails n'a pas été autorisé. Merci d'accepter la permission Gmail."
         case .analysisTimeout:
             return "L'analyse a pris trop de temps"
         case .serverError(let message):

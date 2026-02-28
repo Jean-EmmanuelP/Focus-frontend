@@ -28,6 +28,7 @@ class VoiceCallViewModel: ObservableObject {
     @Published var lastAIResponse: String = ""
     @Published var callDuration: TimeInterval = 0
     @Published var isAgentSpeaking = false
+    @Published var isMicMuted = false
     @Published var errorMessage: String?
 
     // MARK: - LiveKit Voice Service
@@ -114,6 +115,16 @@ class VoiceCallViewModel: ObservableObject {
                 }
             }
             .store(in: &cancellables)
+    }
+
+    // MARK: - Mic Control
+
+    func toggleMic() {
+        Task {
+            let newState = voiceService.isMicEnabled
+            try? await voiceService.setMicEnabled(!newState)
+            isMicMuted = !voiceService.isMicEnabled
+        }
     }
 
     // MARK: - Call Lifecycle

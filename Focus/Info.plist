@@ -43,6 +43,7 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
+		<string>audio</string>
 	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Focus utilise votre position pour personnaliser votre expérience et vous proposer des rappels contextuels basés sur votre emplacement.</string>
@@ -50,5 +51,7 @@
 	<string>Focus utilise le microphone pour enregistrer vos messages vocaux et notes audio.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>Focus utilise tes données de santé pour que ton coach puisse suivre ton activité physique.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Focus enregistre tes sessions de focus et activités dans Apple Santé pour suivre ta progression.</string>
 </dict>
 </plist>

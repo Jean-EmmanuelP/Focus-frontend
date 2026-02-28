@@ -1,2 +1,6 @@
-livekit-agents[speechmatics]>=1.2
+livekit-agents[turn-detector]~=1.4
+livekit-plugins-speechmatics~=1.4
+livekit-plugins-gradium~=1.3
+livekit-plugins-silero~=1.4
+livekit-plugins-noise-cancellation~=0.2
 httpx>=0.27

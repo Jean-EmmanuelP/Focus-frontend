@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import AVFoundation
 
 #if canImport(LiveKit)
 import LiveKit
@@ -24,9 +25,27 @@ class LiveKitVoiceService: ObservableObject {
     private var delegateAdded = false
     private var streamHandlersRegistered = false
 
+    // MARK: - Audio Session
+
+    private func configureAudioSession() {
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try session.setCategory(
+                .playAndRecord,
+                mode: .voiceChat,
+                options: [.defaultToSpeaker, .allowBluetooth]
+            )
+            try session.setActive(true)
+        } catch {
+            print("Audio session config failed: \(error)")
+        }
+    }
+
     // MARK: - Connection
 
     func connect(mode: String = "voice_call") async throws {
+        configureAudioSession()
+
         if !delegateAdded {
             room.delegates.add(delegate: self)
             delegateAdded = true
@@ -39,9 +58,10 @@ class LiveKitVoiceService: ObservableObject {
         // Register stream handlers before connecting so they're ready when agent sends data
         try await registerStreamHandlers()
 
-        // Send mode + assistantId so the agent can call Backboard
+        // Send mode + assistantId + language so the agent can call Backboard
         let assistantId = BackboardService.shared.currentAssistantId
-        let metadataJSON = "{\"mode\":\"\(mode)\",\"bid\":\"\(assistantId)\"}"
+        let lang = Locale.current.language.languageCode?.identifier ?? "fr"
+        let metadataJSON = "{\"mode\":\"\(mode)\",\"bid\":\"\(assistantId)\",\"lang\":\"\(lang)\"}"
 
         let response: LiveKitTokenResponse = try await apiClient.request(
             endpoint: .livekitToken,

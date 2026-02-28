@@ -24,9 +24,8 @@ struct VoiceAssistantView: View {
                 .animation(.easeInOut(duration: 0.8), value: isListening)
 
             VStack(spacing: 0) {
-                // Top bar — settings gear
-                topBar
-                    .padding(.top, 8)
+                // Spacer for status bar
+                Color.clear.frame(height: 12)
 
                 // Agent response text (top-left, large)
                 if !viewModel.agentText.isEmpty {
@@ -39,7 +38,7 @@ struct VoiceAssistantView: View {
                         .animation(.easeInOut(duration: 0.3), value: viewModel.agentText)
                 }
 
-                // User transcription (debug — what the user is saying)
+                // User transcription
                 if !viewModel.userText.isEmpty {
                     Text(viewModel.userText)
                         .font(.satoshi(16))
@@ -102,18 +101,13 @@ struct VoiceAssistantView: View {
         }
     }
 
-    // MARK: - Top Bar
+    // MARK: - Display text (last words from agent for particle rendering)
 
-    private var topBar: some View {
-        HStack {
-            Spacer()
-
-            Image(systemName: "gearshape")
-                .font(.system(size: 18))
-                .foregroundColor(.white.opacity(0.4))
-                .frame(width: 36, height: 36)
-        }
-        .padding(.horizontal, 20)
+    private var displayText: String {
+        let text = viewModel.agentText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return "" }
+        let words = text.split(separator: " ")
+        return words.suffix(3).joined(separator: " ")
     }
 
     // MARK: - Large Orb (idle / agent speaking)
@@ -143,11 +137,12 @@ struct VoiceAssistantView: View {
                     value: viewModel.isAgentSpeaking
                 )
 
-            ParticleSphereView(
-                isAnimating: viewModel.isAgentSpeaking || viewModel.isConnected,
-                intensity: viewModel.isAgentSpeaking ? 1.5 : 1.0
+            VoiceParticleTextView(
+                text: displayText,
+                isFormingText: viewModel.isAgentSpeaking && !displayText.isEmpty,
+                particleColor: ColorTokens.primaryStart
             )
-            .frame(width: 220, height: 220)
+            .frame(width: 280, height: 280)
         }
     }
 
@@ -186,19 +181,19 @@ struct VoiceAssistantView: View {
 
             Spacer()
 
-            // Mic button
+            // Mute button
             Button(action: {
                 Task {
                     try? await viewModel.toggleMic()
                 }
             }) {
-                Image(systemName: isListening ? "mic.fill" : "mic.fill")
+                Image(systemName: viewModel.isMicMuted ? "mic.slash.fill" : "mic.fill")
                     .font(.system(size: 20))
                     .foregroundColor(.white)
                     .frame(width: 56, height: 56)
                     .background(
                         Circle().fill(
-                            isListening ? Color.red.opacity(0.85) : Color.white.opacity(0.1)
+                            viewModel.isMicMuted ? Color.white.opacity(0.25) : Color.white.opacity(0.1)
                         )
                     )
             }
@@ -255,6 +250,205 @@ struct ParticleSphereView: View {
     }
 }
 
+// MARK: - Voice Text Particle
+
+struct VoiceTextParticle {
+    var x: Double
+    var y: Double
+    var vx: Double = 0
+    var vy: Double = 0
+    var baseX: Double
+    var baseY: Double
+
+    mutating func update(scattered: Bool, center: CGPoint, time: Double) {
+        if scattered {
+            // Smooth orbit with breathing
+            let toCenterX = center.x - x
+            let toCenterY = center.y - y
+            let dist = sqrt(toCenterX * toCenterX + toCenterY * toCenterY)
+
+            let perpX = -toCenterY / max(dist, 1)
+            let perpY = toCenterX / max(dist, 1)
+
+            // Orbit speed varies per particle for organic feel
+            let orbitSpeed = 0.3 + sin(baseX * 0.1 + time * 0.5) * 0.15
+            vx = vx * 0.85 + perpX * orbitSpeed
+            vy = vy * 0.85 + perpY * orbitSpeed
+
+            // Breathing: gently push in/out based on time
+            let breathRadius = 60.0 + sin(time * 0.8) * 20.0
+            if dist > breathRadius + 10 {
+                vx += toCenterX * 0.008
+                vy += toCenterY * 0.008
+            } else if dist < breathRadius - 10 {
+                vx -= toCenterX * 0.005
+                vy -= toCenterY * 0.005
+            }
+
+            x += vx
+            y += vy
+        } else {
+            // Spring physics — fast snap to text position
+            let dx = baseX - x
+            let dy = baseY - y
+
+            let springK = 0.15  // Spring constant — snappy
+            let damping = 0.7   // Damping — no overshoot
+
+            vx = (vx + dx * springK) * damping
+            vy = (vy + dy * springK) * damping
+
+            x += vx
+            y += vy
+        }
+    }
+}
+
+// MARK: - Voice Particle Text View
+
+struct VoiceParticleTextView: View {
+    let text: String
+    let isFormingText: Bool
+    let particleColor: Color
+
+    private let particleCount = 500
+    @State private var particles: [VoiceTextParticle] = []
+    @State private var viewSize: CGSize = .zero
+
+    var body: some View {
+        TimelineView(.animation) { timeline in
+            Canvas { context, size in
+                let cx = size.width / 2
+                let cy = size.height / 2
+                let maxRadius = size.width / 2
+
+                for particle in particles {
+                    let dist = sqrt(pow(particle.x - cx, 2) + pow(particle.y - cy, 2))
+                    let normalizedDist = min(dist / maxRadius, 1.0)
+
+                    // Brighter near center, larger particles
+                    let opacity = 0.3 + 0.7 * (1.0 - normalizedDist)
+                    let pSize: CGFloat = 1.5 + 1.5 * (1.0 - normalizedDist)
+
+                    let rect = CGRect(
+                        x: particle.x - pSize / 2,
+                        y: particle.y - pSize / 2,
+                        width: pSize,
+                        height: pSize
+                    )
+                    context.fill(
+                        Path(ellipseIn: rect),
+                        with: .color(particleColor.opacity(opacity))
+                    )
+                }
+            }
+            .onChange(of: timeline.date) { _, _ in
+                guard !particles.isEmpty, viewSize.width > 0 else { return }
+                let center = CGPoint(x: viewSize.width / 2, y: viewSize.height / 2)
+                let time = timeline.date.timeIntervalSinceReferenceDate
+                for i in particles.indices {
+                    particles[i].update(scattered: !isFormingText, center: center, time: time)
+                }
+            }
+        }
+        .onChange(of: text) { _, newText in
+            if !newText.isEmpty {
+                updateBasePositions(for: newText)
+            }
+        }
+        .background(
+            GeometryReader { geo in
+                Color.clear
+                    .onAppear {
+                        viewSize = geo.size
+                        initializeParticles()
+                    }
+            }
+        )
+    }
+
+    // MARK: - Particle initialization (scattered cloud)
+
+    private func initializeParticles() {
+        guard viewSize.width > 0 else { return }
+        let cx = viewSize.width / 2
+        let cy = viewSize.height / 2
+
+        particles = (0..<particleCount).map { _ in
+            let angle = Double.random(in: 0...(2 * .pi))
+            let radius = Double.random(in: 15...70)
+            let x = cx + cos(angle) * radius
+            let y = cy + sin(angle) * radius
+            return VoiceTextParticle(
+                x: x, y: y,
+                baseX: x, baseY: y
+            )
+        }
+
+        if !text.isEmpty {
+            updateBasePositions(for: text)
+        }
+    }
+
+    // MARK: - Sample text pixels → update particle targets
+
+    private func updateBasePositions(for displayText: String) {
+        guard viewSize.width > 0, !displayText.isEmpty else { return }
+
+        let fontSize: CGFloat = switch displayText.count {
+        case 0...3: 100
+        case 4...8: 70
+        case 9...15: 50
+        default: 36
+        }
+
+        let renderer = ImageRenderer(
+            content: Text(displayText)
+                .font(.system(size: fontSize, weight: .bold, design: .rounded))
+                .foregroundColor(.white)
+        )
+        renderer.scale = 1.0
+
+        guard let image = renderer.uiImage,
+              let cgImage = image.cgImage,
+              let pixelData = cgImage.dataProvider?.data,
+              let data = CFDataGetBytePtr(pixelData) else { return }
+
+        let width = Int(image.size.width)
+        let height = Int(image.size.height)
+        guard width > 0, height > 0 else { return }
+
+        let dataLength = CFDataGetLength(pixelData)
+        let offsetX = (viewSize.width - CGFloat(width)) / 2
+        let offsetY = (viewSize.height - CGFloat(height)) / 2
+
+        // Sample opaque pixels from rendered text
+        var positions: [(Double, Double)] = []
+        var attempts = 0
+        while positions.count < particleCount && attempts < particleCount * 8 {
+            let px = Int.random(in: 0..<width)
+            let py = Int.random(in: 0..<height)
+            let idx = ((width * py) + px) * 4 + 3
+            if idx >= 0 && idx < dataLength && data[idx] > 128 {
+                positions.append((Double(px) + offsetX, Double(py) + offsetY))
+            }
+            attempts += 1
+        }
+
+        guard !positions.isEmpty else { return }
+
+        if particles.isEmpty {
+            initializeParticles()
+        }
+
+        for i in particles.indices {
+            let pos = positions[i % positions.count]
+            particles[i].baseX = pos.0
+            particles[i].baseY = pos.1
+        }
+    }
+}
+
 // MARK: - Voice Assistant ViewModel (LiveKit)
 @MainActor
 class VoiceAssistantViewModel: ObservableObject {
@@ -266,6 +460,7 @@ class VoiceAssistantViewModel: ObservableObject {
     @Published var isAgentSpeaking = false
     @Published var isConnected = false
     @Published var isConnecting = false
+    @Published var isMicMuted = false
     @Published var isDone = false
 
     init() {
@@ -331,6 +526,7 @@ class VoiceAssistantViewModel: ObservableObject {
     func toggleMic() async throws {
         let newState = !voiceService.isMicEnabled
         try await voiceService.setMicEnabled(newState)
+        isMicMuted = !voiceService.isMicEnabled
     }
 
     func cleanup() {

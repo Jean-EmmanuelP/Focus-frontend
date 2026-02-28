@@ -87,6 +87,11 @@ struct FocusApp: App {
                 handleDeepLink(url)
             }
             .task {
+                // Restore Google Sign-In session (for Gmail token refresh)
+                await MainActor.run {
+                    GmailService.shared.restorePreviousSignIn()
+                }
+
                 // Check for app updates on launch
                 await updateService.checkForUpdate()
                 if updateService.updateAvailable {

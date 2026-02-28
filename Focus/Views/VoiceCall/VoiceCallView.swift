@@ -4,66 +4,62 @@ struct VoiceCallView: View {
     @StateObject private var viewModel = VoiceCallViewModel()
     @Environment(\.dismiss) private var dismiss
 
+    /// Whether user is actively being listened to
+    private var isListening: Bool {
+        viewModel.callState == .listening && !viewModel.isAgentSpeaking
+    }
+
     var body: some View {
         ZStack {
-            // Background gradient
-            LinearGradient(
-                colors: [
-                    Color(hex: "1a1a1a"),
-                    Color(hex: "2d1f1a"),
-                    Color(hex: "1a1a1a")
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
+            // Dynamic background — warm amber (idle/speaking) → teal (listening)
+            backgroundGradient
+                .ignoresSafeArea()
+                .animation(.easeInOut(duration: 0.8), value: isListening)
 
             VStack(spacing: 0) {
-                // Top bar: close + timer
+                // Top bar — timer
                 topBar
                     .padding(.top, 8)
 
-                Spacer()
-
-                // Particle orb
-                orbView
-                    .padding(.bottom, 24)
-
-                // AI response text
+                // Agent response text (top-left, large)
                 if !viewModel.lastAIResponse.isEmpty {
                     Text(viewModel.lastAIResponse)
-                        .font(.system(size: 16, weight: .regular))
-                        .foregroundColor(.white.opacity(0.9))
-                        .multilineTextAlignment(.center)
-                        .lineLimit(4)
-                        .padding(.horizontal, 32)
-                        .padding(.bottom, 16)
-                        .transition(.opacity)
+                        .font(.satoshi(24, weight: .medium))
+                        .foregroundColor(.white.opacity(0.7))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 24)
+                        .padding(.top, 24)
+                        .animation(.easeInOut(duration: 0.3), value: viewModel.lastAIResponse)
                 }
 
-                // Live transcription
-                if viewModel.callState == .listening && !viewModel.transcribedText.isEmpty {
+                // User transcription
+                if !viewModel.transcribedText.isEmpty {
                     Text(viewModel.transcribedText)
-                        .font(.system(size: 15))
-                        .foregroundColor(.white.opacity(0.5))
-                        .multilineTextAlignment(.center)
-                        .lineLimit(2)
-                        .padding(.horizontal, 32)
-                        .padding(.bottom, 12)
-                        .transition(.opacity)
+                        .font(.satoshi(16))
+                        .foregroundColor(.white.opacity(0.35))
+                        .italic()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 24)
+                        .padding(.top, 8)
+                        .lineLimit(3)
                 }
-
-                // Status indicator
-                statusIndicator
-                    .padding(.bottom, 32)
 
                 Spacer()
 
-                // Hang up button
-                hangUpButton
-                    .padding(.bottom, 48)
+                // Large centered orb (idle / agent speaking)
+                if !isListening {
+                    largeOrbView
+                        .transition(.scale.combined(with: .opacity))
+                }
+
+                Spacer()
+
+                // Bottom bar — close + center prompt/orb + mic
+                bottomBar
+                    .padding(.bottom, 40)
             }
         }
+        .animation(.easeInOut(duration: 0.5), value: isListening)
         .onAppear {
             viewModel.startCall()
         }
@@ -85,112 +81,142 @@ struct VoiceCallView: View {
         }
     }
 
+    // MARK: - Background
+
+    @ViewBuilder
+    private var backgroundGradient: some View {
+        if isListening {
+            LinearGradient(
+                colors: [
+                    Color(hex: "0f1f1f"),
+                    Color(hex: "152a2a"),
+                    Color(hex: "0f1a1a")
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        } else {
+            LinearGradient(
+                colors: [
+                    Color(hex: "1a1a1a"),
+                    Color(hex: "2d1f1a"),
+                    Color(hex: "1a1a1a")
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
+    }
+
     // MARK: - Top Bar
 
     private var topBar: some View {
         HStack {
-            Button(action: { viewModel.endCall() }) {
+            // Timer
+            Text(formatDuration(viewModel.callDuration))
+                .font(.system(size: 15, design: .monospaced))
+                .foregroundColor(.white.opacity(0.4))
+
+            Spacer()
+        }
+        .padding(.horizontal, 20)
+    }
+
+    // MARK: - Display text (last words from agent for particle rendering)
+
+    private var displayText: String {
+        let text = viewModel.lastAIResponse.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return "" }
+        let words = text.split(separator: " ")
+        return words.suffix(3).joined(separator: " ")
+    }
+
+    // MARK: - Large Orb (idle / agent speaking)
+
+    private var largeOrbView: some View {
+        ZStack {
+            // Glow
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            ColorTokens.primaryStart.opacity(viewModel.isAgentSpeaking ? 0.4 : 0.2),
+                            ColorTokens.primaryStart.opacity(0.05),
+                            Color.clear
+                        ],
+                        center: .center,
+                        startRadius: 80,
+                        endRadius: 180
+                    )
+                )
+                .frame(width: 340, height: 340)
+                .scaleEffect(viewModel.isAgentSpeaking ? 1.1 : 1.0)
+                .animation(
+                    viewModel.isAgentSpeaking
+                        ? .easeInOut(duration: 0.6).repeatForever(autoreverses: true)
+                        : .easeInOut(duration: 0.4),
+                    value: viewModel.isAgentSpeaking
+                )
+
+            VoiceParticleTextView(
+                text: displayText,
+                isFormingText: viewModel.isAgentSpeaking && !displayText.isEmpty,
+                particleColor: ColorTokens.primaryStart
+            )
+            .frame(width: 280, height: 280)
+        }
+    }
+
+    // MARK: - Bottom Bar
+
+    private var bottomBar: some View {
+        HStack {
+            // Close button
+            Button(action: {
+                viewModel.endCall()
+            }) {
                 Image(systemName: "xmark")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(.white.opacity(0.7))
-                    .frame(width: 36, height: 36)
+                    .frame(width: 56, height: 56)
                     .background(Circle().fill(Color.white.opacity(0.1)))
             }
 
             Spacer()
 
-            Text(formatDuration(viewModel.callDuration))
-                .font(.system(size: 15, design: .monospaced))
-                .foregroundColor(.white.opacity(0.6))
-        }
-        .padding(.horizontal, 20)
-    }
+            // Center: prompt text OR small listening orb
+            if isListening {
+                ParticleSphereView(isAnimating: true, intensity: 1.0)
+                    .frame(width: 80, height: 80)
+                    .transition(.scale.combined(with: .opacity))
+            } else if viewModel.callState == .connecting {
+                Text("Connexion...")
+                    .font(.satoshi(16))
+                    .foregroundColor(.white.opacity(0.4))
+            } else {
+                Text("Dites quelque chose...")
+                    .font(.satoshi(16))
+                    .foregroundColor(.white.opacity(0.4))
+            }
 
-    // MARK: - Orb
+            Spacer()
 
-    private var orbView: some View {
-        ZStack {
-            // Glow effect
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            ColorTokens.primaryStart.opacity(orbGlowOpacity),
-                            Color.clear
-                        ],
-                        center: .center,
-                        startRadius: 60,
-                        endRadius: 140
-                    )
-                )
-                .frame(width: 280, height: 280)
-
-            ParticleSphereView(
-                isAnimating: viewModel.callState == .listening || viewModel.callState == .speaking,
-                intensity: viewModel.isAgentSpeaking ? 1.5 : 1.0
-            )
-            .frame(width: 200, height: 200)
-        }
-    }
-
-    private var orbGlowOpacity: Double {
-        switch viewModel.callState {
-        case .speaking: return 0.4
-        case .listening: return 0.3
-        case .processing: return 0.2
-        default: return 0.15
-        }
-    }
-
-    // MARK: - Status Indicator
-
-    private var statusIndicator: some View {
-        HStack(spacing: 8) {
-            Circle()
-                .fill(statusColor)
-                .frame(width: 8, height: 8)
-
-            Text(statusText)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.white.opacity(0.6))
-        }
-        .animation(.easeInOut(duration: 0.3), value: viewModel.callState)
-    }
-
-    private var statusColor: Color {
-        switch viewModel.callState {
-        case .connecting: return .yellow
-        case .listening: return .red
-        case .processing: return .yellow
-        case .speaking: return ColorTokens.primaryStart
-        case .ended: return .gray
-        }
-    }
-
-    private var statusText: String {
-        switch viewModel.callState {
-        case .connecting: return "Connexion..."
-        case .listening: return "Ecoute..."
-        case .processing: return "Reflechit..."
-        case .speaking: return "Parle..."
-        case .ended: return "Appel termine"
-        }
-    }
-
-    // MARK: - Hang Up Button
-
-    private var hangUpButton: some View {
-        Button(action: { viewModel.endCall() }) {
-            ZStack {
-                Circle()
-                    .fill(ColorTokens.error)
-                    .frame(width: 64, height: 64)
-
-                Image(systemName: "phone.down.fill")
-                    .font(.system(size: 24))
+            // Mute button
+            Button(action: {
+                viewModel.toggleMic()
+            }) {
+                Image(systemName: viewModel.isMicMuted ? "mic.slash.fill" : "mic.fill")
+                    .font(.system(size: 20))
                     .foregroundColor(.white)
+                    .frame(width: 56, height: 56)
+                    .background(
+                        Circle().fill(
+                            viewModel.isMicMuted ? Color.white.opacity(0.25) : Color.white.opacity(0.1)
+                        )
+                    )
             }
         }
+        .padding(.horizontal, 24)
     }
 
     // MARK: - Helpers

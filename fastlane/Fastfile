@@ -99,7 +99,10 @@ platform :ios do
       configuration: "Release",
       export_method: "app-store",
       output_directory: "./build",
-      output_name: "Focus.ipa"
+      output_name: "Focus.ipa",
+      xcargs: "-allowProvisioningUpdates",
+      export_xcargs: "-allowProvisioningUpdates",
+      export_options: "./fastlane/ExportOptions.plist"
     )
 
     # 3. Upload to TestFlight
