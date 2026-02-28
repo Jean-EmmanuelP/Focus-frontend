@@ -26,6 +26,9 @@ class BackboardService {
         FocusAppStore.shared.user?.backboardAssistantId ?? ""
     }
 
+    /// Public accessor for voice agent metadata
+    var currentAssistantId: String { assistantId }
+
     // Thread ID persisted per user
     private let threadIdKey = "backboard_thread_id"
 

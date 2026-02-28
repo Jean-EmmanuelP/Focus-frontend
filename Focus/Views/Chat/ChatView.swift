@@ -350,11 +350,15 @@ struct ChatView: View {
             // Right: Phone, Chat (thoughts) and lightning (training) icons
             HStack(spacing: 8) {
                 Button(action: {
+                    #if DEBUG
+                    showVoiceCall = true
+                    #else
                     if subscriptionManager.isProUser {
                         showVoiceCall = true
                     } else {
                         showPaywall = true
                     }
+                    #endif
                 }) {
                     Image(systemName: "phone.fill")
                         .font(.system(size: 16))

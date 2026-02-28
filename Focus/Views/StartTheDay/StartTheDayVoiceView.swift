@@ -1,6 +1,9 @@
 import SwiftUI
 import Combine
+#if canImport(LiveKit)
 import LiveKit
+#endif
+
 
 // MARK: - Voice Start Day Step
 enum VoiceStartDayStep: Int {

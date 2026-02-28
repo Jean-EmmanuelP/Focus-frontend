@@ -1,2 +1,2 @@
-livekit-agents[speechmatics,google]>=1.2
+livekit-agents[speechmatics]>=1.2
 httpx>=0.27

@@ -32,7 +32,7 @@ enum AppConfiguration {
         static let premiumEnabled = true
 
         /// Active/désactive le mode vocal LiveKit (WebRTC temps réel)
-        static let liveKitVoiceEnabled = true
+        static let liveKitVoiceEnabled = false  // Disabled: LiveKit xcframework incompatible with Xcode 26
     }
     
     // MARK: - API Configuration

@@ -71,9 +71,17 @@ struct VoiceCallView: View {
             viewModel.endCall()
         }
         .onChange(of: viewModel.callState) { newState in
-            if newState == .ended {
+            if newState == .ended && viewModel.errorMessage == nil {
                 dismiss()
             }
+        }
+        .alert("Erreur", isPresented: .constant(viewModel.errorMessage != nil)) {
+            Button("OK") {
+                viewModel.errorMessage = nil
+                dismiss()
+            }
+        } message: {
+            Text(viewModel.errorMessage ?? "")
         }
     }
 

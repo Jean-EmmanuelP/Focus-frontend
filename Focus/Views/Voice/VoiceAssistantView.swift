@@ -1,6 +1,9 @@
 import SwiftUI
 import Combine
+#if canImport(LiveKit)
 import LiveKit
+#endif
+
 
 // MARK: - Voice Assistant View (LiveKit — agent handles conversation flow)
 struct VoiceAssistantView: View {

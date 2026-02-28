@@ -1,7 +1,10 @@
 import Foundation
 import SwiftUI
 import Combine
+#if canImport(LiveKit)
 import LiveKit
+#endif
+
 
 // MARK: - Voice Call State Machine
 
@@ -25,6 +28,7 @@ class VoiceCallViewModel: ObservableObject {
     @Published var lastAIResponse: String = ""
     @Published var callDuration: TimeInterval = 0
     @Published var isAgentSpeaking = false
+    @Published var errorMessage: String?
 
     // MARK: - LiveKit Voice Service
 
@@ -60,7 +64,9 @@ class VoiceCallViewModel: ObservableObject {
                 case .connected:
                     self.callState = .listening
                 case .disconnected:
-                    if self.callState != .ended {
+                    // Only end the call if we were actually in an active state
+                    // (avoids premature dismissal during connection setup)
+                    if self.callState == .listening || self.callState == .speaking || self.callState == .processing {
                         self.callState = .ended
                     }
                 default:
@@ -121,6 +127,8 @@ class VoiceCallViewModel: ObservableObject {
             do {
                 try await voiceService.connect(mode: "voice_call")
             } catch {
+                print("❌ Voice call error: \(error)")
+                errorMessage = "Impossible de se connecter. Réessaie plus tard."
                 callState = .ended
             }
         }
