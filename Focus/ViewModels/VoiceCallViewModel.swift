@@ -1,9 +1,6 @@
 import Foundation
 import SwiftUI
 import Combine
-#if canImport(LiveKit)
-import LiveKit
-#endif
 
 
 // MARK: - Voice Call State Machine
@@ -31,9 +28,9 @@ class VoiceCallViewModel: ObservableObject {
     @Published var isMicMuted = false
     @Published var errorMessage: String?
 
-    // MARK: - LiveKit Voice Service
+    // MARK: - Daily Voice Service
 
-    let voiceService = LiveKitVoiceService()
+    let voiceService = DailyVoiceService()
 
     // MARK: - Private
 
@@ -54,7 +51,7 @@ class VoiceCallViewModel: ObservableObject {
         observeVoiceService()
     }
 
-    // MARK: - Observe LiveKit Voice Service
+    // MARK: - Observe Daily Voice Service
 
     private func observeVoiceService() {
         voiceService.$connectionState
@@ -106,8 +103,8 @@ class VoiceCallViewModel: ObservableObject {
             }
             .store(in: &cancellables)
 
-        // Coach actions from agent via data channel
-        NotificationCenter.default.publisher(for: .liveKitCoachAction)
+        // Coach actions from agent via Daily app message
+        NotificationCenter.default.publisher(for: .dailyCoachAction)
             .compactMap { $0.userInfo?["data"] as? Data }
             .sink { [weak self] data in
                 Task { @MainActor in
@@ -138,7 +135,7 @@ class VoiceCallViewModel: ObservableObject {
             do {
                 try await voiceService.connect(mode: "voice_call")
             } catch {
-                print("❌ Voice call error: \(error)")
+                print("Voice call error: \(error)")
                 errorMessage = "Impossible de se connecter. Réessaie plus tard."
                 callState = .ended
             }
@@ -176,7 +173,7 @@ class VoiceCallViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Coach Actions (received via LiveKit data channel)
+    // MARK: - Coach Actions (received via Daily app message)
 
     private func handleCoachActionData(_ data: Data) {
         // Try parsing as BackboardSideEffect-compatible format

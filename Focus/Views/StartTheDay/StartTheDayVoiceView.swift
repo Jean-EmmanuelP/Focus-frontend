@@ -1,8 +1,5 @@
 import SwiftUI
 import Combine
-#if canImport(LiveKit)
-import LiveKit
-#endif
 
 
 // MARK: - Voice Start Day Step
@@ -435,10 +432,10 @@ struct ProposedTaskUIRow: View {
     }
 }
 
-// MARK: - ViewModel (LiveKit STT + existing analyze endpoint)
+// MARK: - ViewModel (Daily STT + existing analyze endpoint)
 @MainActor
 class StartTheDayVoiceViewModel: ObservableObject {
-    private let liveKitService = LiveKitVoiceService()
+    private let dailyService = DailyVoiceService()
     private let voiceService = VoiceService()
     private let calendarService = CalendarService()
     private var store: FocusAppStore { FocusAppStore.shared }
@@ -455,11 +452,11 @@ class StartTheDayVoiceViewModel: ObservableObject {
     @Published var aiSummary: String = ""
 
     init() {
-        observeLiveKit()
+        observeVoiceService()
     }
 
-    private func observeLiveKit() {
-        liveKitService.$connectionState
+    private func observeVoiceService() {
+        dailyService.$connectionState
             .receive(on: DispatchQueue.main)
             .sink { [weak self] state in
                 guard let self else { return }
@@ -474,7 +471,7 @@ class StartTheDayVoiceViewModel: ObservableObject {
             }
             .store(in: &cancellables)
 
-        liveKitService.$userTranscription
+        dailyService.$userTranscription
             .receive(on: DispatchQueue.main)
             .sink { [weak self] text in
                 guard let self, !text.isEmpty else { return }
@@ -483,16 +480,16 @@ class StartTheDayVoiceViewModel: ObservableObject {
             .store(in: &cancellables)
     }
 
-    // MARK: - Start Listening (connect to LiveKit for STT)
+    // MARK: - Start Listening (connect to Daily for STT)
     func startListening() {
         currentStep = .listening
         transcribedText = ""
 
         Task {
             do {
-                try await liveKitService.connect(mode: "start_day")
+                try await dailyService.connect(mode: "start_day")
             } catch {
-                print("LiveKit connection failed: \(error)")
+                print("Daily connection failed: \(error)")
                 errorMessage = "Erreur de connexion micro. Reessaie."
             }
         }
@@ -502,9 +499,9 @@ class StartTheDayVoiceViewModel: ObservableObject {
     func stopAndProcess() {
         guard isRecording else { return }
 
-        // Disconnect LiveKit (stop STT)
+        // Disconnect Daily (stop STT)
         Task {
-            await liveKitService.disconnect()
+            await dailyService.disconnect()
         }
         isRecording = false
 
@@ -610,9 +607,9 @@ class StartTheDayVoiceViewModel: ObservableObject {
     // MARK: - Mic Control
     func toggleMic() {
         Task {
-            let newState = liveKitService.isMicEnabled
-            try? await liveKitService.setMicEnabled(!newState)
-            isMicMuted = !liveKitService.isMicEnabled
+            let newState = dailyService.isMicEnabled
+            try? await dailyService.setMicEnabled(!newState)
+            isMicMuted = !dailyService.isMicEnabled
         }
     }
 
@@ -629,7 +626,7 @@ class StartTheDayVoiceViewModel: ObservableObject {
     // MARK: - Cleanup
     func cleanup() {
         Task {
-            await liveKitService.disconnect()
+            await dailyService.disconnect()
         }
         isRecording = false
     }
