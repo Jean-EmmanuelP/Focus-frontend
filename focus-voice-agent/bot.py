@@ -1,10 +1,8 @@
 """
-Focus Voice Bot — Pipecat + Daily + Speechmatics STT + Gemini LLM + Cartesia TTS
-Spawned per-session by bot_runner.py.
+Focus Voice Bot — Pipecat Cloud + Speechmatics STT + Gemini LLM + Gemini TTS
+Deployed to Pipecat Cloud, spawned per-session via their API.
 """
 
-import asyncio
-import json
 import os
 import sys
 from datetime import datetime
@@ -13,8 +11,12 @@ import httpx
 from dotenv import load_dotenv
 from loguru import logger
 
+logger.info("Loading Silero VAD model...")
 from pipecat.audio.vad.silero import SileroVADAnalyzer
-from pipecat.frames.frames import LLMRunFrame, TransportMessageFrame, TransportMessageUrgentFrame
+
+logger.info("Silero VAD loaded")
+
+from pipecat.frames.frames import LLMRunFrame
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
@@ -23,21 +25,21 @@ from pipecat.processors.aggregators.llm_response_universal import (
     LLMContextAggregatorPair,
     LLMUserAggregatorParams,
 )
+from pipecat.runner.types import RunnerArguments
+from pipecat.runner.utils import create_transport
 from pipecat.services.google.llm import GoogleLLMService
 from pipecat.services.google.tts import GeminiTTSService
 from pipecat.services.speechmatics.stt import SpeechmaticsSTTService
-from pipecat.transports.daily.transport import DailyParams, DailyTransport
+from pipecat.transports.base_transport import BaseTransport, TransportParams
+from pipecat.transports.daily.transport import DailyParams
 
 load_dotenv(override=True)
-
-logger.remove(0)
-logger.add(sys.stderr, level="DEBUG")
 
 FOCUS_API_URL = os.environ.get("FOCUS_API_URL", "https://firelevel-api.onrender.com")
 
 # Gemini TTS voices
-GEMINI_VOICE_FR = "Aoede"    # Good for French
-GEMINI_VOICE_EN = "Kore"     # Default English
+GEMINI_VOICE_FR = "Aoede"
+GEMINI_VOICE_EN = "Kore"
 
 
 def _build_system_prompt(lang: str, user_context: dict | None = None) -> str:
@@ -125,8 +127,7 @@ async def _fetch_user_context(token: str | None) -> dict | None:
 
 def _build_greeting(lang: str) -> str:
     hour = datetime.now().hour
-    is_fr = lang.startswith("fr")
-    if is_fr:
+    if lang.startswith("fr"):
         if hour < 12:
             return "Bonjour ! Comment ça va ce matin ?"
         elif hour < 18:
@@ -142,29 +143,19 @@ def _build_greeting(lang: str) -> str:
             return "Good evening! How was your day?"
 
 
-async def run_bot(room_url: str, token: str, config: dict):
-    """Main bot entry point — creates pipeline and runs until participant leaves."""
-    lang = config.get("lang", "fr")
-    mode = config.get("mode", "voice_call")
-    auth_token = config.get("auth_token")
+async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
+    """Create pipeline and run until participant leaves."""
+    # Extract config from runner_args body (passed by Go backend via Pipecat Cloud API)
+    body = getattr(runner_args, "body", {}) or {}
+    lang = body.get("lang", "fr")
+    mode = body.get("mode", "voice_call")
+    auth_token = body.get("auth_token")
 
-    logger.info(f"Starting bot: room={room_url}, lang={lang}, mode={mode}")
+    logger.info(f"Starting bot: lang={lang}, mode={mode}")
 
     # Pre-fetch user context
     user_context = await _fetch_user_context(auth_token)
     system_prompt = _build_system_prompt(lang, user_context)
-
-    # Transport
-    transport = DailyTransport(
-        room_url,
-        token,
-        "Volta",
-        DailyParams(
-            audio_in_enabled=True,
-            audio_out_enabled=True,
-            transcription_enabled=False,  # We use Speechmatics directly
-        ),
-    )
 
     # STT — Speechmatics
     stt = SpeechmaticsSTTService(
@@ -216,42 +207,53 @@ async def run_bot(room_url: str, token: str, config: dict):
         ),
     )
 
+    @transport.event_handler("on_client_connected")
+    async def on_client_connected(transport, client):
+        logger.info(f"Client connected")
+        greeting = _build_greeting(lang)
+        messages.append({"role": "assistant", "content": greeting})
+        await task.queue_frames([LLMRunFrame()])
+
     @transport.event_handler("on_first_participant_joined")
     async def on_first_participant_joined(transport, participant):
         logger.info(f"Participant joined: {participant['id']}")
-        # Greet the user
         greeting = _build_greeting(lang)
         messages.append({"role": "assistant", "content": greeting})
-        # Send transcription to iOS via app message
-        await transport.send_app_message(
-            {"type": "agent_transcription", "text": greeting},
-            participant["id"],
-        )
-        # Trigger the LLM to speak the greeting
         await task.queue_frames([LLMRunFrame()])
+
+    @transport.event_handler("on_client_disconnected")
+    async def on_client_disconnected(transport, client):
+        logger.info(f"Client disconnected")
+        await task.cancel()
 
     @transport.event_handler("on_participant_left")
     async def on_participant_left(transport, participant, reason):
         logger.info(f"Participant left: {participant['id']}, reason: {reason}")
         await task.cancel()
 
-    @transport.event_handler("on_app_message")
-    async def on_app_message(transport, message, sender):
-        logger.info(f"App message from {sender}: {message}")
-
-    runner = PipelineRunner()
+    runner = PipelineRunner(handle_sigint=runner_args.handle_sigint)
     await runner.run(task)
     logger.info("Bot finished")
 
 
+async def bot(runner_args: RunnerArguments):
+    """Main entry point — called by Pipecat Cloud or local runner."""
+    transport_params = {
+        "daily": lambda: DailyParams(
+            audio_in_enabled=True,
+            audio_out_enabled=True,
+        ),
+        "webrtc": lambda: TransportParams(
+            audio_in_enabled=True,
+            audio_out_enabled=True,
+        ),
+    }
+
+    transport = await create_transport(runner_args, transport_params)
+    await run_bot(transport, runner_args)
+
+
 if __name__ == "__main__":
-    # For local testing: python bot.py <room_url> <token>
-    if len(sys.argv) < 3:
-        print("Usage: python bot.py <room_url> <token> [config_json]")
-        sys.exit(1)
+    from pipecat.runner.run import main
 
-    room_url = sys.argv[1]
-    token = sys.argv[2]
-    config = json.loads(sys.argv[3]) if len(sys.argv) > 3 else {}
-
-    asyncio.run(run_bot(room_url, token, config))
+    main()
