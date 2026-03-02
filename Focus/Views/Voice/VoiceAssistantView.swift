@@ -2,7 +2,7 @@ import SwiftUI
 import Combine
 
 
-// MARK: - Voice Assistant View (Daily — agent handles conversation flow)
+// MARK: - Voice Assistant View (LiveKit — agent handles conversation flow)
 struct VoiceAssistantView: View {
     @StateObject private var viewModel = VoiceAssistantViewModel()
     @EnvironmentObject var store: FocusAppStore
@@ -446,10 +446,10 @@ struct VoiceParticleTextView: View {
     }
 }
 
-// MARK: - Voice Assistant ViewModel (Daily)
+// MARK: - Voice Assistant ViewModel (LiveKit)
 @MainActor
 class VoiceAssistantViewModel: ObservableObject {
-    private let voiceService = DailyVoiceService()
+    private let voiceService = LiveKitVoiceService()
     private var cancellables = Set<AnyCancellable>()
 
     @Published var agentText: String = ""

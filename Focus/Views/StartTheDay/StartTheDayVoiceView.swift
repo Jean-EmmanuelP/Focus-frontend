@@ -432,10 +432,10 @@ struct ProposedTaskUIRow: View {
     }
 }
 
-// MARK: - ViewModel (Daily STT + existing analyze endpoint)
+// MARK: - ViewModel (LiveKit STT + existing analyze endpoint)
 @MainActor
 class StartTheDayVoiceViewModel: ObservableObject {
-    private let dailyService = DailyVoiceService()
+    private let livekitService = LiveKitVoiceService()
     private let voiceService = VoiceService()
     private let calendarService = CalendarService()
     private var store: FocusAppStore { FocusAppStore.shared }
@@ -456,7 +456,7 @@ class StartTheDayVoiceViewModel: ObservableObject {
     }
 
     private func observeVoiceService() {
-        dailyService.$connectionState
+        livekitService.$connectionState
             .receive(on: DispatchQueue.main)
             .sink { [weak self] state in
                 guard let self else { return }
@@ -471,7 +471,7 @@ class StartTheDayVoiceViewModel: ObservableObject {
             }
             .store(in: &cancellables)
 
-        dailyService.$userTranscription
+        livekitService.$userTranscription
             .receive(on: DispatchQueue.main)
             .sink { [weak self] text in
                 guard let self, !text.isEmpty else { return }
@@ -480,16 +480,16 @@ class StartTheDayVoiceViewModel: ObservableObject {
             .store(in: &cancellables)
     }
 
-    // MARK: - Start Listening (connect to Daily for STT)
+    // MARK: - Start Listening (connect to LiveKit for STT)
     func startListening() {
         currentStep = .listening
         transcribedText = ""
 
         Task {
             do {
-                try await dailyService.connect(mode: "start_day")
+                try await livekitService.connect(mode: "start_day")
             } catch {
-                print("Daily connection failed: \(error)")
+                print("LiveKit connection failed: \(error)")
                 errorMessage = "Erreur de connexion micro. Reessaie."
             }
         }
@@ -499,9 +499,9 @@ class StartTheDayVoiceViewModel: ObservableObject {
     func stopAndProcess() {
         guard isRecording else { return }
 
-        // Disconnect Daily (stop STT)
+        // Disconnect LiveKit (stop STT)
         Task {
-            await dailyService.disconnect()
+            await livekitService.disconnect()
         }
         isRecording = false
 
@@ -607,9 +607,9 @@ class StartTheDayVoiceViewModel: ObservableObject {
     // MARK: - Mic Control
     func toggleMic() {
         Task {
-            let newState = dailyService.isMicEnabled
-            try? await dailyService.setMicEnabled(!newState)
-            isMicMuted = !dailyService.isMicEnabled
+            let newState = livekitService.isMicEnabled
+            try? await livekitService.setMicEnabled(!newState)
+            isMicMuted = !livekitService.isMicEnabled
         }
     }
 
@@ -626,7 +626,7 @@ class StartTheDayVoiceViewModel: ObservableObject {
     // MARK: - Cleanup
     func cleanup() {
         Task {
-            await dailyService.disconnect()
+            await livekitService.disconnect()
         }
         isRecording = false
     }

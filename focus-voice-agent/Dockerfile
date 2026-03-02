@@ -1,8 +1,12 @@
-# Focus Voice Bot — Pipecat Cloud
-# Base image handles bot.py discovery and serving automatically
-FROM dailyco/pipecat-base:latest
+# Focus Voice Agent — LiveKit Agents
+FROM python:3.12-slim
 
-COPY ./requirements.txt requirements.txt
-RUN pip install --no-cache-dir --upgrade -r requirements.txt
+WORKDIR /app
 
-COPY ./bot.py bot.py
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY agent.py .
+COPY .env* ./
+
+CMD ["python", "agent.py", "start"]

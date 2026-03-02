@@ -11,6 +11,7 @@ enum VoiceCallState: Equatable {
     case processing
     case speaking
     case ended
+    case offline
 }
 
 // MARK: - ViewModel
@@ -27,16 +28,19 @@ class VoiceCallViewModel: ObservableObject {
     @Published var isAgentSpeaking = false
     @Published var isMicMuted = false
     @Published var errorMessage: String?
+    @Published var messages: [VoiceMessage] = []
+    @Published var isOnline: Bool = true
 
-    // MARK: - Daily Voice Service
+    // MARK: - LiveKit Voice Service
 
-    let voiceService = DailyVoiceService()
+    let voiceService = LiveKitVoiceService()
 
     // MARK: - Private
 
     private var callTimer: Timer?
     private var maxDurationTimer: Timer?
     private var cancellables = Set<AnyCancellable>()
+    private let messageQueue = MessageQueueService.shared
 
     private let maxCallDuration: TimeInterval = 15 * 60 // 15 minutes
     private let warningDuration: TimeInterval = 12 * 60 // 12 minutes
@@ -49,9 +53,10 @@ class VoiceCallViewModel: ObservableObject {
     init() {
         store = FocusAppStore.shared
         observeVoiceService()
+        observeNetwork()
     }
 
-    // MARK: - Observe Daily Voice Service
+    // MARK: - Observe LiveKit Voice Service
 
     private func observeVoiceService() {
         voiceService.$connectionState
@@ -62,8 +67,6 @@ class VoiceCallViewModel: ObservableObject {
                 case .connected:
                     self.callState = .listening
                 case .disconnected:
-                    // Only end the call if we were actually in an active state
-                    // (avoids premature dismissal during connection setup)
                     if self.callState == .listening || self.callState == .speaking || self.callState == .processing {
                         self.callState = .ended
                     }
@@ -103,8 +106,13 @@ class VoiceCallViewModel: ObservableObject {
             }
             .store(in: &cancellables)
 
-        // Coach actions from agent via Daily app message
-        NotificationCenter.default.publisher(for: .dailyCoachAction)
+        // Messages (transcription history)
+        voiceService.$messages
+            .receive(on: DispatchQueue.main)
+            .assign(to: &$messages)
+
+        // Coach actions (via data messages from LiveKit agent)
+        NotificationCenter.default.publisher(for: .coachAction)
             .compactMap { $0.userInfo?["data"] as? Data }
             .sink { [weak self] data in
                 Task { @MainActor in
@@ -112,6 +120,14 @@ class VoiceCallViewModel: ObservableObject {
                 }
             }
             .store(in: &cancellables)
+    }
+
+    // MARK: - Network Observation
+
+    private func observeNetwork() {
+        messageQueue.$isOnline
+            .receive(on: DispatchQueue.main)
+            .assign(to: &$isOnline)
     }
 
     // MARK: - Mic Control
@@ -127,6 +143,12 @@ class VoiceCallViewModel: ObservableObject {
     // MARK: - Call Lifecycle
 
     func startCall() {
+        guard isOnline else {
+            callState = .offline
+            errorMessage = "Pas de connexion internet. Les messages seront envoyes quand tu seras reconnecte."
+            return
+        }
+
         callState = .connecting
         startCallTimer()
         startMaxDurationTimer()
@@ -136,7 +158,7 @@ class VoiceCallViewModel: ObservableObject {
                 try await voiceService.connect(mode: "voice_call")
             } catch {
                 print("Voice call error: \(error)")
-                errorMessage = "Impossible de se connecter. Réessaie plus tard."
+                errorMessage = "Impossible de se connecter. Reessaie plus tard."
                 callState = .ended
             }
         }
@@ -152,6 +174,24 @@ class VoiceCallViewModel: ObservableObject {
         Task {
             await voiceService.disconnect()
         }
+    }
+
+    // MARK: - Queue Message (offline)
+
+    func queueMessage(_ text: String) {
+        messageQueue.enqueueMessage(text: text)
+        // Add to local messages for display
+        messages.append(VoiceMessage(role: .user, text: text))
+        messages.append(VoiceMessage(
+            role: .agent,
+            text: "Message en attente — sera envoye quand tu seras connecte."
+        ))
+    }
+
+    // MARK: - Copy Message
+
+    func copyMessage(_ message: VoiceMessage) {
+        UIPasteboard.general.string = message.text
     }
 
     // MARK: - Call Timer
@@ -173,10 +213,9 @@ class VoiceCallViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Coach Actions (received via Daily app message)
+    // MARK: - Coach Actions
 
     private func handleCoachActionData(_ data: Data) {
-        // Try parsing as BackboardSideEffect-compatible format
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let effectType = json["type"] as? String else { return }
 
