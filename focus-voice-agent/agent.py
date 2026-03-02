@@ -142,13 +142,30 @@ class VoltaAgent(agents.Agent):
 async def entrypoint(ctx: agents.JobContext):
     await ctx.connect(auto_subscribe=agents.AutoSubscribe.AUDIO_ONLY)
 
-    # Wait for the user participant and read their metadata
-    participant = await ctx.wait_for_participant()
-    metadata_str = participant.metadata or "{}"
+    # Read metadata from room (set by backend) or participant fallback
+    metadata_str = ctx.room.metadata or "{}"
     try:
         meta = json.loads(metadata_str)
     except json.JSONDecodeError:
         meta = {}
+
+    # Also check job metadata (from dispatch)
+    if not meta.get("auth_token") and ctx.job.metadata:
+        try:
+            dispatch_meta = json.loads(ctx.job.metadata)
+            meta.update(dispatch_meta)
+        except json.JSONDecodeError:
+            pass
+
+    # Wait for the user participant
+    participant = await ctx.wait_for_participant()
+    # Merge participant metadata if room metadata was empty
+    if not meta.get("auth_token") and participant.metadata:
+        try:
+            p_meta = json.loads(participant.metadata)
+            meta.update(p_meta)
+        except json.JSONDecodeError:
+            pass
 
     lang = meta.get("lang", "fr")
     auth_token = meta.get("auth_token")

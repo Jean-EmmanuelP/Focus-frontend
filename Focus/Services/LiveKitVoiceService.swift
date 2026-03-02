@@ -122,7 +122,7 @@ class LiveKitVoiceService: ObservableObject {
 extension LiveKitVoiceService: RoomDelegate {
 
     /// Receive data messages from LiveKit agent (transcriptions, coach actions)
-    nonisolated func room(_ room: Room, participant: RemoteParticipant?, didReceiveData data: Data, forTopic topic: String) {
+    nonisolated func room(_ room: Room, participant: RemoteParticipant?, didReceiveData data: Data, forTopic topic: String, encryptionType: EncryptionType) {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let type = json["type"] as? String else { return }
 
@@ -160,14 +160,14 @@ extension LiveKitVoiceService: RoomDelegate {
 
     /// Track speaking state from audio levels
     nonisolated func room(_ room: Room, participant: Participant, trackPublication: TrackPublication, didUpdateIsSpeaking isSpeaking: Bool) {
-        guard !participant.isLocal else { return }
+        guard participant is RemoteParticipant else { return }
         Task { @MainActor in
             isAgentSpeaking = isSpeaking
         }
     }
 
     /// Agent left the room
-    nonisolated func room(_ room: Room, participantDidLeave participant: RemoteParticipant) {
+    nonisolated func room(_ room: Room, participantDidDisconnect participant: RemoteParticipant) {
         Task { @MainActor in
             isAgentSpeaking = false
         }

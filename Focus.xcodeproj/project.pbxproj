@@ -21,7 +21,7 @@
 		6288C76A2F106100008A7BF0 /* AmplitudeSwiftSessionReplayPlugin in Frameworks */ = {isa = PBXBuildFile; productRef = 6288C7692F106100008A7BF0 /* AmplitudeSwiftSessionReplayPlugin */; };
 		629D63C22EF0BFD20023C568 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 629D63C12EF0BFD20023C568 /* GoogleSignIn */; };
 		629D651C2EF417E60023C568 /* Volta.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 629D651B2EF417E60023C568 /* Volta.storekit */; };
-		62DY00032F60A00300DAILYIO /* Daily in Frameworks */ = {isa = PBXBuildFile; productRef = 62DY00022F60A00300DAILYIO /* Daily */; };
+		62DY00032F60A00300DAILYIO /* LiveKit in Frameworks */ = {isa = PBXBuildFile; productRef = 62DY00022F60A00300DAILYIO /* LiveKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -150,7 +150,7 @@
 				6288C7682F106100008A7BF0 /* AmplitudeSwift in Frameworks */,
 				6288C76A2F106100008A7BF0 /* AmplitudeSwiftSessionReplayPlugin in Frameworks */,
 				629D63C22EF0BFD20023C568 /* GoogleSignIn in Frameworks */,
-				62DY00032F60A00300DAILYIO /* Daily in Frameworks */,
+				62DY00032F60A00300DAILYIO /* LiveKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -414,7 +414,7 @@
 				6288C7672F106100008A7BF0 /* AmplitudeSwift */,
 				6288C7692F106100008A7BF0 /* AmplitudeSwiftSessionReplayPlugin */,
 				62GLTF0022F15A00200AVATAR /* GLTFKit2 */,
-				62DY00022F60A00300DAILYIO /* Daily */,
+				62DY00022F60A00300DAILYIO /* LiveKit */,
 			);
 			productName = Focus;
 			productReference = 623E894A2EE1F65300356DD7 /* Focus.app */;
@@ -503,7 +503,7 @@
 				6288C7662F10602B008A7BF0 /* XCRemoteSwiftPackageReference "Amplitude-Swift" */,
 				6288C76B2F106100008A7BF0 /* XCRemoteSwiftPackageReference "AmplitudeSessionReplay-iOS" */,
 				62GLTF0012F15A00100AVATAR /* XCRemoteSwiftPackageReference "GLTFKit2" */,
-				62946FED2F53BBFF0084A56E /* XCRemoteSwiftPackageReference "daily-client-ios" */,
+				62947B042F55F35D0084A56E /* XCRemoteSwiftPackageReference "client-sdk-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 623E894B2EE1F65300356DD7 /* Products */;
@@ -1136,12 +1136,12 @@
 				minimumVersion = 0.5.2;
 			};
 		};
-		62946FED2F53BBFF0084A56E /* XCRemoteSwiftPackageReference "daily-client-ios" */ = {
+		62947B042F55F35D0084A56E /* XCRemoteSwiftPackageReference "client-sdk-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/daily-co/daily-client-ios.git";
+			repositoryURL = "https://github.com/livekit/client-sdk-swift.git";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 0.37.0;
+				minimumVersion = 2.12.1;
 			};
 		};
 		629D63C02EF0BDA00023C568 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
@@ -1198,10 +1198,10 @@
 			package = 629D63C02EF0BDA00023C568 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
 			productName = GoogleSignIn;
 		};
-		62DY00022F60A00300DAILYIO /* Daily */ = {
+		62DY00022F60A00300DAILYIO /* LiveKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 62946FED2F53BBFF0084A56E /* XCRemoteSwiftPackageReference "daily-client-ios" */;
-			productName = Daily;
+			package = 62947B042F55F35D0084A56E /* XCRemoteSwiftPackageReference "client-sdk-swift" */;
+			productName = LiveKit;
 		};
 		62GLTF0022F15A00200AVATAR /* GLTFKit2 */ = {
 			isa = XCSwiftPackageProductDependency;
