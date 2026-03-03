@@ -1,6 +1,6 @@
 livekit-agents>=1.2
 livekit-plugins-gradium>=1.2
-livekit-plugins-google>=1.2
+livekit-plugins-openai>=1.2
 livekit-plugins-silero>=1.2
 httpx>=0.27
 python-dotenv>=1.0
