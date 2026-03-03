@@ -3,53 +3,37 @@ import SwiftUI
 struct VoiceCallView: View {
     @StateObject private var viewModel = VoiceCallViewModel()
     @Environment(\.dismiss) private var dismiss
+    @State private var showTranscript = false
     @State private var copiedMessageId: UUID?
     @State private var messageText: String = ""
 
-    /// Whether user is actively being listened to
     private var isListening: Bool {
         viewModel.callState == .listening && !viewModel.isAgentSpeaking
     }
 
+    private var isActive: Bool {
+        viewModel.callState == .listening || viewModel.callState == .speaking || viewModel.callState == .processing
+    }
+
     var body: some View {
         ZStack {
-            // Dynamic background
-            backgroundGradient
+            // Pure dark background
+            Color(hex: "050508")
                 .ignoresSafeArea()
-                .animation(.easeInOut(duration: 0.8), value: isListening)
 
-            VStack(spacing: 0) {
-                // Top bar
-                topBar
-                    .padding(.top, 8)
+            if viewModel.callState == .offline {
+                offlineView
+            } else {
+                mainCallView
+            }
 
-                // Offline banner
-                if !viewModel.isOnline {
-                    offlineBanner
-                }
-
-                if viewModel.callState == .offline {
-                    offlineView
-                } else if viewModel.messages.isEmpty {
-                    // Classic orb view when no messages yet
-                    classicOrbLayout
-                } else {
-                    // Message bubbles when conversation started
-                    messageListView
-                }
-
-                // Bottom bar
-                bottomBar
-                    .padding(.bottom, 40)
+            // Transcript overlay
+            if showTranscript {
+                transcriptOverlay
             }
         }
-        .animation(.easeInOut(duration: 0.5), value: isListening)
-        .onAppear {
-            viewModel.startCall()
-        }
-        .onDisappear {
-            viewModel.endCall()
-        }
+        .onAppear { viewModel.startCall() }
+        .onDisappear { viewModel.endCall() }
         .onChange(of: viewModel.callState) { newState in
             if newState == .ended && viewModel.errorMessage == nil {
                 dismiss()
@@ -65,30 +49,21 @@ struct VoiceCallView: View {
         }
     }
 
-    // MARK: - Background
+    // MARK: - Main Call View
 
-    @ViewBuilder
-    private var backgroundGradient: some View {
-        if isListening {
-            LinearGradient(
-                colors: [
-                    Color(hex: "0f1f1f"),
-                    Color(hex: "152a2a"),
-                    Color(hex: "0f1a1a")
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        } else {
-            LinearGradient(
-                colors: [
-                    Color(hex: "1a1a1a"),
-                    Color(hex: "2d1f1a"),
-                    Color(hex: "1a1a1a")
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
+    private var mainCallView: some View {
+        VStack(spacing: 0) {
+            topBar
+                .padding(.top, 8)
+
+            Spacer()
+
+            centralVisualization
+
+            Spacer()
+
+            bottomControls
+                .padding(.bottom, 50)
         }
     }
 
@@ -97,40 +72,264 @@ struct VoiceCallView: View {
     private var topBar: some View {
         HStack {
             Text(formatDuration(viewModel.callDuration))
-                .font(.system(size: 15, design: .monospaced))
-                .foregroundColor(.white.opacity(0.4))
+                .font(.system(size: 14, design: .monospaced))
+                .foregroundColor(.white.opacity(0.25))
 
             Spacer()
 
-            // Connection indicator
             if !viewModel.isOnline {
                 HStack(spacing: 4) {
-                    Circle()
-                        .fill(Color.orange)
-                        .frame(width: 8, height: 8)
+                    Circle().fill(Color.orange).frame(width: 6, height: 6)
                     Text("Hors ligne")
                         .font(.system(size: 12))
-                        .foregroundColor(.orange)
+                        .foregroundColor(.orange.opacity(0.8))
+                }
+            }
+
+            if !viewModel.messages.isEmpty {
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.3)) { showTranscript.toggle() }
+                }) {
+                    Image(systemName: "text.bubble")
+                        .font(.system(size: 15))
+                        .foregroundColor(.white.opacity(0.35))
+                        .frame(width: 40, height: 40)
                 }
             }
         }
         .padding(.horizontal, 20)
     }
 
-    // MARK: - Offline Banner
+    // MARK: - Central Visualization
 
-    private var offlineBanner: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "wifi.slash")
-                .font(.system(size: 14))
-            Text("Pas de connexion — les messages seront envoyes automatiquement")
-                .font(.system(size: 13))
+    private var centralVisualization: some View {
+        VStack(spacing: 0) {
+            // Agent transcription — large, centered
+            if !viewModel.lastAIResponse.isEmpty {
+                Text(viewModel.lastAIResponse)
+                    .font(.satoshi(22, weight: .medium))
+                    .foregroundColor(.white.opacity(0.85))
+                    .multilineTextAlignment(.center)
+                    .lineLimit(5)
+                    .padding(.horizontal, 32)
+                    .padding(.bottom, 32)
+                    .animation(.easeInOut(duration: 0.3), value: viewModel.lastAIResponse)
+            }
+
+            // Central orb with glow
+            ZStack {
+                // Radial glow behind orb
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                orbGlowColor.opacity(orbGlowOpacity),
+                                orbGlowColor.opacity(0.05),
+                                Color.clear
+                            ],
+                            center: .center,
+                            startRadius: 50,
+                            endRadius: 200
+                        )
+                    )
+                    .frame(width: 400, height: 400)
+                    .scaleEffect(glowScale)
+                    .animation(
+                        viewModel.isAgentSpeaking
+                            ? .easeInOut(duration: 1.0).repeatForever(autoreverses: true)
+                            : .easeInOut(duration: 0.8),
+                        value: viewModel.isAgentSpeaking
+                    )
+                    .animation(.easeInOut(duration: 0.8), value: isListening)
+
+                // Particle orb or text particles
+                if viewModel.isAgentSpeaking && !displayText.isEmpty {
+                    VoiceParticleTextView(
+                        text: displayText,
+                        isFormingText: true,
+                        particleColor: ColorTokens.primaryStart
+                    )
+                    .frame(width: 220, height: 220)
+                    .transition(.scale(scale: 0.9).combined(with: .opacity))
+                } else {
+                    ParticleSphereView(
+                        isAnimating: isActive,
+                        intensity: orbIntensity
+                    )
+                    .frame(width: 180, height: 180)
+                    .transition(.scale(scale: 0.9).combined(with: .opacity))
+                }
+            }
+            .frame(height: 260)
+            .animation(.easeInOut(duration: 0.5), value: viewModel.isAgentSpeaking)
+
+            // User transcription or status
+            Group {
+                if !viewModel.transcribedText.isEmpty && isListening {
+                    Text(viewModel.transcribedText)
+                        .font(.satoshi(16))
+                        .foregroundColor(.white.opacity(0.3))
+                        .italic()
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                        .padding(.horizontal, 40)
+                        .padding(.top, 24)
+                        .transition(.opacity)
+                } else if viewModel.callState == .connecting {
+                    Text("Connexion...")
+                        .font(.satoshi(16))
+                        .foregroundColor(.white.opacity(0.2))
+                        .padding(.top, 24)
+                }
+            }
+            .animation(.easeInOut(duration: 0.3), value: viewModel.transcribedText)
+            .animation(.easeInOut(duration: 0.3), value: viewModel.callState)
         }
-        .foregroundColor(.white)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity)
-        .background(Color.orange.opacity(0.8))
+    }
+
+    // MARK: - Orb Properties
+
+    private var orbGlowColor: Color {
+        if viewModel.isAgentSpeaking { return ColorTokens.primaryStart }
+        if isListening { return ColorTokens.accent }
+        return ColorTokens.primaryStart
+    }
+
+    private var orbGlowOpacity: Double {
+        if viewModel.isAgentSpeaking { return 0.35 }
+        if isListening { return 0.2 }
+        if viewModel.callState == .connecting { return 0.1 }
+        return 0.15
+    }
+
+    private var glowScale: CGFloat {
+        if viewModel.isAgentSpeaking { return 1.15 }
+        if isListening { return 1.05 }
+        return 0.95
+    }
+
+    private var orbIntensity: Double {
+        if viewModel.isAgentSpeaking { return 1.2 }
+        if isListening { return 0.8 }
+        if viewModel.callState == .connecting { return 0.2 }
+        return 0.4
+    }
+
+    private var displayText: String {
+        let text = viewModel.lastAIResponse.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return "" }
+        let words = text.split(separator: " ")
+        return words.suffix(3).joined(separator: " ")
+    }
+
+    // MARK: - Bottom Controls
+
+    private var bottomControls: some View {
+        HStack {
+            // End call (red)
+            Button(action: { viewModel.endCall() }) {
+                Image(systemName: "phone.down.fill")
+                    .font(.system(size: 22))
+                    .foregroundColor(.white)
+                    .frame(width: 64, height: 64)
+                    .background(Circle().fill(ColorTokens.error))
+            }
+
+            Spacer()
+
+            // Mute
+            Button(action: { viewModel.toggleMic() }) {
+                Image(systemName: viewModel.isMicMuted ? "mic.slash.fill" : "mic.fill")
+                    .font(.system(size: 20))
+                    .foregroundColor(viewModel.isMicMuted ? .white.opacity(0.5) : .white)
+                    .frame(width: 64, height: 64)
+                    .background(
+                        Circle().fill(
+                            viewModel.isMicMuted ? Color.white.opacity(0.15) : Color.white.opacity(0.08)
+                        )
+                    )
+            }
+            .disabled(viewModel.callState == .offline)
+        }
+        .padding(.horizontal, 56)
+    }
+
+    // MARK: - Transcript Overlay
+
+    private var transcriptOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.9)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    withAnimation(.easeInOut(duration: 0.3)) { showTranscript = false }
+                }
+
+            VStack(spacing: 0) {
+                // Header
+                HStack {
+                    Text("Transcription")
+                        .font(.satoshi(18, weight: .bold))
+                        .foregroundColor(.white)
+                    Spacer()
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.3)) { showTranscript = false }
+                    }) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.white.opacity(0.6))
+                            .frame(width: 32, height: 32)
+                            .background(Circle().fill(Color.white.opacity(0.1)))
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 60)
+                .padding(.bottom, 16)
+
+                // Messages
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(spacing: 8) {
+                            ForEach(viewModel.messages) { message in
+                                MessageBubble(
+                                    message: message,
+                                    isCopied: copiedMessageId == message.id
+                                )
+                                .id(message.id)
+                                .contextMenu {
+                                    Button {
+                                        viewModel.copyMessage(message)
+                                        copiedMessageId = message.id
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                            if copiedMessageId == message.id { copiedMessageId = nil }
+                                        }
+                                    } label: {
+                                        Label("Copier", systemImage: "doc.on.doc")
+                                    }
+
+                                    Button {
+                                        let allText = viewModel.messages.map { msg in
+                                            let prefix = msg.role == .agent ? "Volta" : "Moi"
+                                            return "\(prefix): \(msg.text)"
+                                        }.joined(separator: "\n")
+                                        UIPasteboard.general.string = allText
+                                    } label: {
+                                        Label("Copier tout", systemImage: "doc.on.doc.fill")
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 16)
+                    }
+                    .onChange(of: viewModel.messages.count) { _ in
+                        if let lastId = viewModel.messages.last?.id {
+                            withAnimation { proxy.scrollTo(lastId, anchor: .bottom) }
+                        }
+                    }
+                }
+            }
+        }
+        .transition(.opacity)
     }
 
     // MARK: - Offline View
@@ -155,15 +354,28 @@ struct VoiceCallView: View {
                     .padding(.horizontal, 32)
             }
 
-            // Queued messages
             if !MessageQueueService.shared.queuedMessages.isEmpty {
                 queuedMessagesView
             }
 
             Spacer()
 
-            // Text input for offline messages
             offlineMessageInput
+
+            // Bottom controls even in offline
+            HStack {
+                Button(action: { viewModel.endCall() }) {
+                    Image(systemName: "phone.down.fill")
+                        .font(.system(size: 22))
+                        .foregroundColor(.white)
+                        .frame(width: 64, height: 64)
+                        .background(Circle().fill(ColorTokens.error))
+                }
+
+                Spacer()
+            }
+            .padding(.horizontal, 56)
+            .padding(.bottom, 50)
         }
     }
 
@@ -266,198 +478,6 @@ struct VoiceCallView: View {
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 16)
-    }
-
-    // MARK: - Classic Orb Layout (no messages yet)
-
-    private var classicOrbLayout: some View {
-        VStack(spacing: 0) {
-            // Agent response text
-            if !viewModel.lastAIResponse.isEmpty {
-                Text(viewModel.lastAIResponse)
-                    .font(.satoshi(24, weight: .medium))
-                    .foregroundColor(.white.opacity(0.7))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 24)
-                    .padding(.top, 24)
-                    .animation(.easeInOut(duration: 0.3), value: viewModel.lastAIResponse)
-            }
-
-            // User transcription
-            if !viewModel.transcribedText.isEmpty {
-                Text(viewModel.transcribedText)
-                    .font(.satoshi(16))
-                    .foregroundColor(.white.opacity(0.35))
-                    .italic()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 24)
-                    .padding(.top, 8)
-                    .lineLimit(3)
-            }
-
-            Spacer()
-
-            // Large centered orb
-            if !isListening {
-                largeOrbView
-                    .transition(.scale.combined(with: .opacity))
-            }
-
-            Spacer()
-        }
-    }
-
-    // MARK: - Message List View (WhatsApp-like)
-
-    private var messageListView: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(spacing: 8) {
-                    ForEach(viewModel.messages) { message in
-                        MessageBubble(
-                            message: message,
-                            isCopied: copiedMessageId == message.id
-                        )
-                        .id(message.id)
-                        .contextMenu {
-                            Button {
-                                viewModel.copyMessage(message)
-                                copiedMessageId = message.id
-                                // Reset copied indicator after 2 seconds
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                                    if copiedMessageId == message.id {
-                                        copiedMessageId = nil
-                                    }
-                                }
-                            } label: {
-                                Label("Copier", systemImage: "doc.on.doc")
-                            }
-
-                            Button {
-                                // Copy all messages
-                                let allText = viewModel.messages.map { msg in
-                                    let prefix = msg.role == .agent ? "Volta" : "Moi"
-                                    return "\(prefix): \(msg.text)"
-                                }.joined(separator: "\n")
-                                UIPasteboard.general.string = allText
-                            } label: {
-                                Label("Copier tout", systemImage: "doc.on.doc.fill")
-                            }
-                        }
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 16)
-            }
-            .onChange(of: viewModel.messages.count) { _ in
-                if let lastId = viewModel.messages.last?.id {
-                    withAnimation {
-                        proxy.scrollTo(lastId, anchor: .bottom)
-                    }
-                }
-            }
-        }
-    }
-
-    // MARK: - Display text (last words from agent for particle rendering)
-
-    private var displayText: String {
-        let text = viewModel.lastAIResponse.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return "" }
-        let words = text.split(separator: " ")
-        return words.suffix(3).joined(separator: " ")
-    }
-
-    // MARK: - Large Orb
-
-    private var largeOrbView: some View {
-        ZStack {
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            ColorTokens.primaryStart.opacity(viewModel.isAgentSpeaking ? 0.4 : 0.2),
-                            ColorTokens.primaryStart.opacity(0.05),
-                            Color.clear
-                        ],
-                        center: .center,
-                        startRadius: 80,
-                        endRadius: 180
-                    )
-                )
-                .frame(width: 340, height: 340)
-                .scaleEffect(viewModel.isAgentSpeaking ? 1.1 : 1.0)
-                .animation(
-                    viewModel.isAgentSpeaking
-                        ? .easeInOut(duration: 0.6).repeatForever(autoreverses: true)
-                        : .easeInOut(duration: 0.4),
-                    value: viewModel.isAgentSpeaking
-                )
-
-            VoiceParticleTextView(
-                text: displayText,
-                isFormingText: viewModel.isAgentSpeaking && !displayText.isEmpty,
-                particleColor: ColorTokens.primaryStart
-            )
-            .frame(width: 280, height: 280)
-        }
-    }
-
-    // MARK: - Bottom Bar
-
-    private var bottomBar: some View {
-        HStack {
-            // Close button
-            Button(action: {
-                viewModel.endCall()
-            }) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.7))
-                    .frame(width: 56, height: 56)
-                    .background(Circle().fill(Color.white.opacity(0.1)))
-            }
-
-            Spacer()
-
-            // Center: prompt text OR small listening orb
-            if isListening {
-                ParticleSphereView(isAnimating: true, intensity: 1.0)
-                    .frame(width: 80, height: 80)
-                    .transition(.scale.combined(with: .opacity))
-            } else if viewModel.callState == .connecting {
-                Text("Connexion...")
-                    .font(.satoshi(16))
-                    .foregroundColor(.white.opacity(0.4))
-            } else if viewModel.callState == .offline {
-                Text("Hors ligne")
-                    .font(.satoshi(16))
-                    .foregroundColor(.orange.opacity(0.8))
-            } else {
-                Text("Dites quelque chose...")
-                    .font(.satoshi(16))
-                    .foregroundColor(.white.opacity(0.4))
-            }
-
-            Spacer()
-
-            // Mute button
-            Button(action: {
-                viewModel.toggleMic()
-            }) {
-                Image(systemName: viewModel.isMicMuted ? "mic.slash.fill" : "mic.fill")
-                    .font(.system(size: 20))
-                    .foregroundColor(.white)
-                    .frame(width: 56, height: 56)
-                    .background(
-                        Circle().fill(
-                            viewModel.isMicMuted ? Color.white.opacity(0.25) : Color.white.opacity(0.1)
-                        )
-                    )
-            }
-            .disabled(viewModel.callState == .offline)
-        }
-        .padding(.horizontal, 24)
     }
 
     // MARK: - Helpers
