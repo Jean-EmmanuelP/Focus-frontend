@@ -726,6 +726,21 @@ struct ReplikaMessageBubble: View {
                     } else {
                         textBubble
                     }
+
+                    // Failed status: retry button
+                    if message.isFromUser && message.status == .failed {
+                        Button {
+                            viewModel?.retryMessage(message)
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "exclamationmark.circle.fill")
+                                    .font(.system(size: 12))
+                                Text("Réessayer")
+                                    .font(.system(size: 12, weight: .medium))
+                            }
+                            .foregroundColor(.red)
+                        }
+                    }
                 }
 
                 if !message.isFromUser {
@@ -753,6 +768,11 @@ struct ReplikaMessageBubble: View {
             .padding(.vertical, 14)
             .background(message.isFromUser ? userBubbleColor : aiBubbleColor)
             .cornerRadius(26)
+            .opacity(message.status == .sending ? 0.6 : 1.0)
+            .overlay(
+                RoundedRectangle(cornerRadius: 26)
+                    .stroke(Color.red, lineWidth: message.status == .failed ? 1.5 : 0)
+            )
             .contextMenu {
                 Button {
                     UIPasteboard.general.string = message.content

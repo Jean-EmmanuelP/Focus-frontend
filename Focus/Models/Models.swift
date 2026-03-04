@@ -30,6 +30,7 @@ struct User: Codable, Identifiable {
     var freeVoiceMessagesUsed: Int?    // Counter for free voice messages (server-side)
     var createdAt: Date?               // Account creation date
     var backboardAssistantId: String?  // Per-user Backboard assistant for isolated memory
+    var voiceId: String?               // Gradium TTS voice preference
 
     // Computed display name (pseudo > firstName lastName > email prefix)
     var name: String {
@@ -444,6 +445,7 @@ extension User {
         // Account metadata
         self.createdAt = response.createdAt
         self.backboardAssistantId = response.backboardAssistantId
+        self.voiceId = response.voiceId
     }
 }
 

@@ -32,7 +32,7 @@ BACKBOARD_API_URL = "https://app.backboard.io/api"
 BACKBOARD_API_KEY = os.environ.get("BACKBOARD_API_KEY", "")
 
 # Gradium voice IDs
-GRADIUM_VOICE_FR = "YTpq7expH9539ERJ"
+GRADIUM_VOICE_FR = "b35yykvVppLXyw_l"
 GRADIUM_VOICE_EN = "YTpq7expH9539ERJ"
 
 
@@ -113,7 +113,7 @@ async def execute_tool_via_api(name: str, args: dict, auth_token: str) -> str:
 
             elif name == "uncomplete_task":
                 task_id = args.get("task_id", "")
-                resp = await client.post(f"{FOCUS_API_URL}/calendar/tasks/{task_id}/complete", headers=headers)
+                resp = await client.post(f"{FOCUS_API_URL}/calendar/tasks/{task_id}/uncomplete", headers=headers)
                 result = json.dumps({"uncompleted": resp.status_code == 200, "task_id": task_id})
 
             elif name == "create_routine":
@@ -340,15 +340,22 @@ def build_system_prompt(
 # Fetch User Context
 # =============================================================================
 
-async def fetch_user_context(token: str | None) -> dict | None:
-    if not token:
-        logger.info("No auth token, skipping user context fetch")
-        return None
+async def fetch_all_context_parallel(auth_token: str | None) -> tuple[dict | None, list[str]]:
+    """Fetch user context + Backboard memories with maximum parallelism.
 
-    headers = {"Authorization": f"Bearer {token}"}
-    ctx = {}
+    Phase 1: GET /me (need backboard_assistant_id for phase 2)
+    Phase 2: tasks + routines + Backboard memories in parallel via asyncio.gather
+    """
+    if not auth_token:
+        logger.info("No auth token, skipping context fetch")
+        return None, []
+
+    headers = {"Authorization": f"Bearer {auth_token}"}
+    bb_headers = {"X-API-Key": BACKBOARD_API_KEY}
+    ctx: dict = {}
 
     async with httpx.AsyncClient(timeout=10.0) as client:
+        # Phase 1: GET /me (need backboard_assistant_id for memories)
         t0 = time.time()
         try:
             resp = await client.get(f"{FOCUS_API_URL}/me", headers=headers)
@@ -364,28 +371,56 @@ async def fetch_user_context(token: str | None) -> dict | None:
         except Exception as e:
             logger.error("/me EXCEPTION: %s", e)
 
+        # Phase 2: tasks + routines + memories in parallel
+        bb_id = ctx.get("backboard_assistant_id", "")
         today = datetime.now().strftime("%Y-%m-%d")
-        t0 = time.time()
-        try:
-            resp = await client.get(f"{FOCUS_API_URL}/calendar/tasks?date={today}", headers=headers)
-            logger.info("GET /calendar/tasks: %s (status=%d)", _elapsed(t0), resp.status_code)
-            if resp.status_code == 200:
-                ctx["tasks"] = resp.json() if isinstance(resp.json(), list) else []
-                logger.info("Tasks today: %d", len(ctx["tasks"]))
-        except Exception as e:
-            logger.error("/calendar/tasks EXCEPTION: %s", e)
+
+        async def fetch_tasks():
+            t = time.time()
+            try:
+                r = await client.get(f"{FOCUS_API_URL}/calendar/tasks?date={today}", headers=headers)
+                logger.info("GET /calendar/tasks: %s (status=%d)", _elapsed(t), r.status_code)
+                if r.status_code == 200:
+                    data = r.json()
+                    return data if isinstance(data, list) else []
+            except Exception as e:
+                logger.error("/calendar/tasks EXCEPTION: %s", e)
+            return []
+
+        async def fetch_routines():
+            t = time.time()
+            try:
+                r = await client.get(f"{FOCUS_API_URL}/routines", headers=headers)
+                logger.info("GET /routines: %s (status=%d)", _elapsed(t), r.status_code)
+                if r.status_code == 200:
+                    data = r.json()
+                    return data if isinstance(data, list) else []
+            except Exception as e:
+                logger.error("/routines EXCEPTION: %s", e)
+            return []
+
+        async def fetch_memories():
+            if not bb_id or not BACKBOARD_API_KEY:
+                return []
+            t = time.time()
+            try:
+                r = await client.get(f"{BACKBOARD_API_URL}/assistants/{bb_id}/memories", headers=bb_headers)
+                logger.info("Backboard memories: %s (status=%d)", _elapsed(t), r.status_code)
+                if r.status_code == 200:
+                    return [m.get("content", "") for m in r.json().get("memories", []) if m.get("content")]
+            except Exception as e:
+                logger.error("Backboard memories EXCEPTION: %s", e)
+            return []
 
         t0 = time.time()
-        try:
-            resp = await client.get(f"{FOCUS_API_URL}/routines", headers=headers)
-            logger.info("GET /routines: %s (status=%d)", _elapsed(t0), resp.status_code)
-            if resp.status_code == 200:
-                ctx["rituals"] = resp.json() if isinstance(resp.json(), list) else []
-                logger.info("Rituals: %d", len(ctx["rituals"]))
-        except Exception as e:
-            logger.error("/routines EXCEPTION: %s", e)
+        tasks, routines, memories = await asyncio.gather(fetch_tasks(), fetch_routines(), fetch_memories())
+        logger.info("Phase 2 (tasks+routines+memories): %s | tasks=%d, routines=%d, memories=%d",
+                     _elapsed(t0), len(tasks), len(routines), len(memories))
 
-    return ctx if ctx else None
+        ctx["tasks"] = tasks
+        ctx["rituals"] = routines
+
+    return (ctx if ctx else None), memories
 
 
 def build_greeting(lang: str, name: str = "") -> str:
@@ -426,55 +461,55 @@ async def entrypoint(ctx: agents.JobContext):
     await ctx.connect(auto_subscribe=agents.AutoSubscribe.AUDIO_ONLY)
     logger.info("Connected to room in %s", _elapsed(t_entry))
 
-    # Read metadata from room (set by backend) or participant fallback
+    # Read metadata from room (set by backend) or job dispatch
     metadata_str = ctx.room.metadata or "{}"
     try:
         meta = json.loads(metadata_str)
     except json.JSONDecodeError:
         meta = {}
 
-    # Also check job metadata (from dispatch)
     if not meta.get("auth_token") and ctx.job.metadata:
         try:
-            dispatch_meta = json.loads(ctx.job.metadata)
-            meta.update(dispatch_meta)
+            meta.update(json.loads(ctx.job.metadata))
         except json.JSONDecodeError:
             pass
 
-    # Wait for the user participant
+    auth_token = meta.get("auth_token")
+    lang = meta.get("lang", "fr")
+    logger.info("Room metadata: lang=%s, has_auth_token=%s", lang, bool(auth_token))
+
+    # OPTIMIZATION: Start fetching context WHILE waiting for participant
+    context_task = asyncio.create_task(fetch_all_context_parallel(auth_token))
+
     participant = await ctx.wait_for_participant()
-    # Merge participant metadata if room metadata was empty
-    if not meta.get("auth_token") and participant.metadata:
+    logger.info("Participant joined in %s", _elapsed(t_entry))
+
+    # Merge participant metadata if room/job metadata was empty
+    if not auth_token and participant.metadata:
         try:
             p_meta = json.loads(participant.metadata)
             meta.update(p_meta)
+            # If we got a new auth_token from participant, re-fetch context
+            if p_meta.get("auth_token"):
+                auth_token = p_meta["auth_token"]
+                lang = meta.get("lang", lang)
+                context_task.cancel()
+                context_task = asyncio.create_task(fetch_all_context_parallel(auth_token))
         except json.JSONDecodeError:
             pass
 
-    lang = meta.get("lang", "fr")
-    auth_token = meta.get("auth_token")
-    logger.info("Room metadata: lang=%s, has_auth_token=%s", lang, bool(auth_token))
+    # Await context (likely already done — was fetching during wait_for_participant)
+    user_context, memories = await context_task
+    logger.info("Context ready in %s (parallel with wait)", _elapsed(t_entry))
 
-    # Fetch user context from backend (includes backboard_assistant_id)
-    t0 = time.time()
-    user_context = await fetch_user_context(auth_token)
-    logger.info("Focus API user context fetched in %s", _elapsed(t0))
-
-    # Fetch Backboard memories for enriched context
     backboard_assistant_id = (user_context or {}).get("backboard_assistant_id", "")
-    memories = []
-    if backboard_assistant_id:
-        logger.info("Backboard assistant_id: %s", backboard_assistant_id)
-        memories = await fetch_backboard_memories(backboard_assistant_id)
-        logger.info("Loaded %d Backboard memories", len(memories))
-    else:
-        logger.info("No backboard_assistant_id found in user context")
 
     system_prompt = build_system_prompt(lang, user_context, memories)
     logger.info("System prompt length: %d chars", len(system_prompt))
 
-    # Choose voice
-    voice_id = GRADIUM_VOICE_FR if lang.startswith("fr") else GRADIUM_VOICE_EN
+    # Choose voice: prefer metadata override, fallback to lang-based default
+    voice_id = meta.get("voice_id") or (GRADIUM_VOICE_FR if lang.startswith("fr") else GRADIUM_VOICE_EN)
+    logger.info("TTS voice_id=%s (from_metadata=%s)", voice_id, bool(meta.get("voice_id")))
 
     # Create session: Gradium STT + Blackbox AI LLM (fast model) + Gradium TTS
     llm_model = "blackboxai/google/gemini-2.5-flash"
@@ -493,19 +528,16 @@ async def entrypoint(ctx: agents.JobContext):
     # Track conversation for post-call Backboard sync
     transcript: list[dict] = []
 
-    @session.on("user_speech_committed")
-    def on_user_speech(msg):
-        text = getattr(msg, "content", "") or getattr(msg, "text", "") or str(msg)
-        if text:
-            transcript.append({"role": "user", "text": text})
-            logger.info("USER: %s", text[:120])
-
-    @session.on("agent_speech_committed")
-    def on_agent_speech(msg):
-        text = getattr(msg, "content", "") or getattr(msg, "text", "") or str(msg)
-        if text:
-            transcript.append({"role": "agent", "text": text})
-            logger.info("AGENT: %s", text[:120])
+    @session.on("conversation_item_added")
+    def on_conversation_item(item):
+        role = getattr(item, "role", None)
+        content = getattr(item, "content", "") or getattr(item, "text", "") or ""
+        if not content or role not in ("user", "assistant"):
+            return
+        transcript_role = "user" if role == "user" else "agent"
+        transcript.append({"role": transcript_role, "text": content})
+        label = "USER" if role == "user" else "AGENT"
+        logger.info("%s: %s", label, content[:120])
 
     t0 = time.time()
     await session.start(
@@ -518,9 +550,8 @@ async def entrypoint(ctx: agents.JobContext):
     user_name = (user_context or {}).get("name", "")
     greeting = build_greeting(lang, user_name)
     logger.info("Greeting: %s", greeting)
-    t0 = time.time()
-    await session.generate_reply(instructions=f"Dis exactement: {greeting}")
-    logger.info("Greeting generated in %s", _elapsed(t0))
+    session.say(greeting, add_to_chat_ctx=True)
+    logger.info("Greeting queued (direct TTS, no LLM)")
     logger.info("=== AGENT READY === (total setup: %s)", _elapsed(t_entry))
 
     # Register shutdown callback: send transcript to Backboard when call ends

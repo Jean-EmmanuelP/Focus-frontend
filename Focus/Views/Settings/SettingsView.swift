@@ -2,6 +2,7 @@ import SwiftUI
 import SceneKit
 import GLTFKit2
 import Combine
+import AVFoundation
 
 // MARK: - UserDefaults Keys for Settings Preferences
 enum SettingsPrefsKeys {
@@ -11,6 +12,7 @@ enum SettingsPrefsKeys {
     static let backgroundMusic = "pref_backgroundMusic"
     static let sounds = "pref_sounds"
     static let faceID = "pref_faceID"
+    static let voltaVoiceId = "pref_voltaVoiceId"
 }
 
 // MARK: - Replika Settings Colors
@@ -53,12 +55,14 @@ struct SettingsView: View {
     @State private var sounds = true
     @State private var notificationsEnabled = true
     @State private var faceID = false
+    @State private var selectedVoiceId: String = "b35yykvVppLXyw_l"
 
     // Tracks whether initial load is done (to avoid saving defaults on appear)
     @State private var didLoadSettings = false
 
     // Sub-page navigation (fade overlays)
     @State private var showAccount = false
+    @State private var showVoicePicker = false
     @State private var showEditName = false
     @State private var showEditPronouns = false
     @State private var showChangeEmail = false
@@ -80,6 +84,7 @@ struct SettingsView: View {
         hasher.combine(backgroundMusic)
         hasher.combine(sounds)
         hasher.combine(faceID)
+        hasher.combine(selectedVoiceId)
         return hasher.finalize()
     }
 
@@ -264,6 +269,29 @@ struct SettingsView: View {
                 .transition(.opacity)
             }
         }
+        .overlay {
+            if showVoicePicker {
+                VoltaVoicePickerView(
+                    currentVoiceId: selectedVoiceId,
+                    onDismiss: { withAnimation(.easeInOut(duration: 0.3)) { showVoicePicker = false } },
+                    onSave: { voiceId in
+                        selectedVoiceId = voiceId
+                        withAnimation(.easeInOut(duration: 0.3)) { showVoicePicker = false }
+                        // Persist to backend
+                        Task {
+                            do {
+                                let updated = try await userService.updateSettings(voiceId: voiceId)
+                                await MainActor.run { store.user = User(from: updated) }
+                            } catch {
+                                print("Failed to save voice_id: \(error)")
+                            }
+                        }
+                    }
+                )
+                .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.3), value: showVoicePicker)
         .animation(.easeInOut(duration: 0.3), value: showAppBlocker)
         .animation(.easeInOut(duration: 0.3), value: showAvatarTest)
         .animation(.easeInOut(duration: 0.3), value: showSubscription)
@@ -383,6 +411,22 @@ struct SettingsView: View {
             toggleRow(title: "Musique de fond", isOn: $backgroundMusic)
             replicaDivider
             toggleRow(title: "Sons", isOn: $sounds)
+            replicaDivider
+            Button(action: { withAnimation(.easeInOut(duration: 0.3)) { showVoicePicker = true } }) {
+                HStack {
+                    Text("Voix de Volta")
+                        .font(.system(size: 16))
+                        .foregroundColor(.white)
+                    Spacer()
+                    Text(VoltaVoicePickerView.voiceName(for: selectedVoiceId))
+                        .font(.system(size: 14))
+                        .foregroundColor(.white.opacity(0.5))
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(ReplicaColors.chevron)
+                }
+                .padding(.vertical, 14)
+            }
             replicaDivider
             toggleRow(title: "Notifications", isOn: $notificationsEnabled)
             replicaDivider
@@ -612,10 +656,17 @@ struct SettingsView: View {
         if defaults.object(forKey: SettingsPrefsKeys.faceID) != nil {
             faceID = defaults.bool(forKey: SettingsPrefsKeys.faceID)
         }
+        if let voiceId = defaults.string(forKey: SettingsPrefsKeys.voltaVoiceId) {
+            selectedVoiceId = voiceId
+        }
 
-        // Load from user profile
+        // Load from user profile (backend takes precedence)
         if let user = store.user {
             notificationsEnabled = user.notificationsEnabled ?? true
+            if let backendVoiceId = user.voiceId, !backendVoiceId.isEmpty {
+                selectedVoiceId = backendVoiceId
+                defaults.set(backendVoiceId, forKey: SettingsPrefsKeys.voltaVoiceId)
+            }
         }
 
         // Mark loading complete so onChange handlers can now save
@@ -630,6 +681,7 @@ struct SettingsView: View {
         defaults.set(backgroundMusic, forKey: SettingsPrefsKeys.backgroundMusic)
         defaults.set(sounds, forKey: SettingsPrefsKeys.sounds)
         defaults.set(faceID, forKey: SettingsPrefsKeys.faceID)
+        defaults.set(selectedVoiceId, forKey: SettingsPrefsKeys.voltaVoiceId)
     }
 
     private func saveNotificationSettings() {
@@ -1141,6 +1193,405 @@ struct ReplicaEditPronounsView: View {
         }
         .onAppear {
             selectedPronouns = currentPronouns
+        }
+    }
+}
+
+// MARK: - Gradium Voice Model
+
+struct GradiumVoice: Identifiable {
+    let id: String // voice_id
+    let name: String
+    let lang: String // "fr", "en", "es", "de", "pt"
+    let gender: String // "Feminine", "Masculine", "Neutral"
+    let description: String
+
+    static let allVoices: [GradiumVoice] = [
+        // MARK: French (fr)
+        GradiumVoice(id: "b35yykvVppLXyw_l", name: "Elise", lang: "fr", gender: "Feminine", description: "Chaleureuse et douce"),
+        GradiumVoice(id: "axlOaUiFyOZhy4nv", name: "Leo", lang: "fr", gender: "Masculine", description: "Chaleureux et doux"),
+        GradiumVoice(id: "vMYQUSzm6GRkJX6d", name: "Olivier", lang: "fr", gender: "Masculine", description: "Amical et accueillant"),
+        GradiumVoice(id: "p1fSBpcmVWngBqVd", name: "Manon", lang: "fr", gender: "Feminine", description: "Douce et posée"),
+        GradiumVoice(id: "3mM3xaoFjNMQa22C", name: "Jade", lang: "fr", gender: "Feminine", description: "Claire et limpide"),
+        GradiumVoice(id: "J4XbCGPYNMigXcfZ", name: "Amélie", lang: "fr", gender: "Feminine", description: "Amicale et agréable"),
+        GradiumVoice(id: "0LMAi0x_YVG_GLeM", name: "Adrien", lang: "fr", gender: "Masculine", description: "Clair et chaleureux"),
+        GradiumVoice(id: "-dOnYAX4N4GqSOee", name: "Sarah", lang: "fr", gender: "Feminine", description: "Chaleureuse et accueillante"),
+        GradiumVoice(id: "N8xxxD_d-ZinGVI4", name: "Jennifer", lang: "fr", gender: "Feminine", description: "Douce et bienveillante"),
+        GradiumVoice(id: "zba0owtqy4Gnewn9", name: "Élodie", lang: "fr", gender: "Feminine", description: "Confiante et professionnelle"),
+        GradiumVoice(id: "TJv-kucMsUo24VQe", name: "Justine", lang: "fr", gender: "Feminine", description: "Dynamique et pétillante"),
+        GradiumVoice(id: "YE0-JPiElafJrZaC", name: "Océane", lang: "fr", gender: "Feminine", description: "Professionnelle et posée"),
+        GradiumVoice(id: "QY_BJKHMElKDO12-", name: "Léa", lang: "fr", gender: "Feminine", description: "Formelle et précise"),
+        GradiumVoice(id: "D-IpHY1UI0iX9xQD", name: "Mathieu", lang: "fr", gender: "Masculine", description: "Énergique et assertif"),
+        GradiumVoice(id: "twLGV8mrH_ycNpUn", name: "Clément", lang: "fr", gender: "Masculine", description: "Sincère et confiant"),
+        GradiumVoice(id: "k1wgs3k8-wRxTJO6", name: "Julie", lang: "fr", gender: "Feminine", description: "Joyeuse et enthousiaste"),
+        GradiumVoice(id: "Hdf5cdfaGrLDTD63", name: "Dylan", lang: "fr", gender: "Masculine", description: "Sincère et émotionnel"),
+        GradiumVoice(id: "1VAVLmmbQFDw7TMn", name: "Marion", lang: "fr", gender: "Feminine", description: "Chaleureuse et narrative"),
+        GradiumVoice(id: "2AtP1urAQkZaeI2U", name: "Pauline", lang: "fr", gender: "Feminine", description: "Professionnelle et articulée"),
+        GradiumVoice(id: "B09t5S64xLaKwXeW", name: "Vincent", lang: "fr", gender: "Masculine", description: "Sage et bienveillant"),
+        GradiumVoice(id: "AroCL6f1qizjiZ_a", name: "Pierre", lang: "fr", gender: "Masculine", description: "Énergique et journalistique"),
+        GradiumVoice(id: "qTA0lxFpynJdoxx7", name: "Guillaume", lang: "fr", gender: "Masculine", description: "Joyeux et aventurier"),
+        GradiumVoice(id: "zpmn3GOfiU_i5QGo", name: "Romain", lang: "fr", gender: "Masculine", description: "Chaleureux et posé"),
+        GradiumVoice(id: "IB53xJtufx1sbfbt", name: "Kévin", lang: "fr", gender: "Masculine", description: "Sincère et profond"),
+        GradiumVoice(id: "kw_VWSocR7vyA9Ty", name: "Florian", lang: "fr", gender: "Masculine", description: "Joyeux et accessible"),
+        GradiumVoice(id: "hx1RAC4Lqd9xyTAr", name: "Antoine", lang: "fr", gender: "Masculine", description: "Confiant et intense"),
+        GradiumVoice(id: "pdcyd1mLmo0fcg3O", name: "Quentin", lang: "fr", gender: "Masculine", description: "Sincère et connecté"),
+        GradiumVoice(id: "xynYWquoAsrvM7UY", name: "Mélanie", lang: "fr", gender: "Feminine", description: "Claire et chaleureuse (Québec)"),
+        GradiumVoice(id: "aNiSRZ0BhQxO1FPx", name: "Adam", lang: "fr", gender: "Masculine", description: "Formel et professionnel"),
+        GradiumVoice(id: "ImBVnxSeLsdCfNIV", name: "Anaïs", lang: "fr", gender: "Feminine", description: "Distinctive et affirmée"),
+        GradiumVoice(id: "GmGF_3ETsY2Zq7_w", name: "Marine", lang: "fr", gender: "Feminine", description: "Chaleureuse et maternelle"),
+        GradiumVoice(id: "s0PhgjzOTRD5wo5L", name: "Maxime", lang: "fr", gender: "Masculine", description: "Joyeux et instructif (Québec)"),
+        GradiumVoice(id: "HBfu9XA3QfzAG1MN", name: "Alexandre", lang: "fr", gender: "Masculine", description: "Énergique et assertif (Québec)"),
+        GradiumVoice(id: "w9V1722uEmTkWqnR", name: "Camille", lang: "fr", gender: "Feminine", description: "Joyeuse et professionnelle"),
+        GradiumVoice(id: "BbLb4TxdlrldgpHI", name: "Marie", lang: "fr", gender: "Feminine", description: "Professionnelle et calme"),
+        GradiumVoice(id: "8nsAoui8Y5RK9PYw", name: "Thomas", lang: "fr", gender: "Masculine", description: "Confiant et sincère"),
+        GradiumVoice(id: "rIYDMY3dLccdauWA", name: "Chloé", lang: "fr", gender: "Feminine", description: "Lumineuse et polyvalente"),
+        GradiumVoice(id: "mxcKXLymdLQCdlEq", name: "Nicolas", lang: "fr", gender: "Masculine", description: "Assertif et charismatique"),
+        GradiumVoice(id: "Jlh1B0PKQJyup0sQ", name: "Laura", lang: "fr", gender: "Feminine", description: "Claire et pédagogique"),
+        GradiumVoice(id: "NvHEAMGiPT4u8iT-", name: "Amandine", lang: "fr", gender: "Feminine", description: "Polyvalente et joyeuse"),
+        GradiumVoice(id: "WWHSNJCSTm77dyGd", name: "Valentin", lang: "fr", gender: "Masculine", description: "Chaleureux et enthousiaste"),
+        GradiumVoice(id: "L6OaiBybqikfCBk0", name: "Manu", lang: "fr", gender: "Masculine", description: "Agréable et détendu"),
+        GradiumVoice(id: "QkmUhBH4hIV2_BkY", name: "Sarah M.", lang: "fr", gender: "Feminine", description: "Confiante et compatissante"),
+
+        // MARK: English (en)
+        GradiumVoice(id: "YTpq7expH9539ERJ", name: "Emma", lang: "en", gender: "Feminine", description: "Pleasant and smooth"),
+        GradiumVoice(id: "LFZvm12tW_z0xfGo", name: "Kent", lang: "en", gender: "Masculine", description: "Relaxed and authentic"),
+        GradiumVoice(id: "ubuXFxVQwVYnZQhy", name: "Eva", lang: "en", gender: "Feminine", description: "Joyful and dynamic (British)"),
+        GradiumVoice(id: "m86j6D7UZpGzHsNu", name: "Jack", lang: "en", gender: "Masculine", description: "Pleasant British voice"),
+        GradiumVoice(id: "jtEKaLYNn6iif5PR", name: "Sydney", lang: "en", gender: "Feminine", description: "Clear and engaging"),
+        GradiumVoice(id: "KWJiFWu2O9nMPYcR", name: "John", lang: "en", gender: "Masculine", description: "Warm and professional"),
+        GradiumVoice(id: "NoJdNY6JTz-VJLwz", name: "Max", lang: "en", gender: "Masculine", description: "Clear and calm (Canadian)"),
+        GradiumVoice(id: "Lxc7YlPC8ckLJA8H", name: "Kelly", lang: "en", gender: "Feminine", description: "Clear and soft (British)"),
+        GradiumVoice(id: "-_aUUFZaJ0CT1gks", name: "Arjun", lang: "en", gender: "Masculine", description: "Warm and smooth (Indian)"),
+        GradiumVoice(id: "W5htOuyiFI4Fwhxs", name: "Hunter", lang: "en", gender: "Masculine", description: "Joyful and smooth (Australian)"),
+        GradiumVoice(id: "Eu9iL_CYe8N-Gkx_", name: "Tiffany", lang: "en", gender: "Feminine", description: "Warm and friendly"),
+        GradiumVoice(id: "2H4HY2CBNyJHBCrP", name: "Christina", lang: "en", gender: "Feminine", description: "Joyful and efficient"),
+        GradiumVoice(id: "KNYHZTB8ZqdAZv5Q", name: "Maria", lang: "en", gender: "Feminine", description: "Joyful and energetic"),
+        GradiumVoice(id: "dh0EzP6jCroK6prq", name: "Mark", lang: "en", gender: "Masculine", description: "Warm and professional"),
+        GradiumVoice(id: "XJc-Y9tkSd1UA7s4", name: "Logan", lang: "en", gender: "Masculine", description: "Joyful and energetic"),
+        GradiumVoice(id: "78zAgQK6xmExb8wS", name: "Juan", lang: "en", gender: "Masculine", description: "Joyful and welcoming"),
+        GradiumVoice(id: "56DcpvEI0Gawpidh", name: "Kaitlyn", lang: "en", gender: "Feminine", description: "Warm and kind"),
+        GradiumVoice(id: "lt88kyLfD8Mqemla", name: "Michelle", lang: "en", gender: "Feminine", description: "Warm and friendly (Indian)"),
+        GradiumVoice(id: "wPx6HPbUQkaUHGhq", name: "Mary", lang: "en", gender: "Feminine", description: "Joyful and youthful"),
+        GradiumVoice(id: "c8BzreHTk1GG2R4z", name: "Cameron", lang: "en", gender: "Masculine", description: "Steady and casual"),
+        GradiumVoice(id: "9QHzSiOYUD-RzEzM", name: "Jeremy", lang: "en", gender: "Masculine", description: "Composed and tech-savvy"),
+        GradiumVoice(id: "P0GYBrxlhTy5CC87", name: "Charles", lang: "en", gender: "Masculine", description: "Classic British radio"),
+        GradiumVoice(id: "kr-Om35JRqmA3Hzq", name: "Olivia", lang: "en", gender: "Feminine", description: "Calm and soothing"),
+        GradiumVoice(id: "Z5GIOZR45ieZ8M-W", name: "Patrick", lang: "en", gender: "Masculine", description: "Joyful and clear"),
+        GradiumVoice(id: "Abqwk2RWxlBEyv0j", name: "Kimberly", lang: "en", gender: "Feminine", description: "Cheerful British voice"),
+        GradiumVoice(id: "4NU5PqxX2BdMEtWe", name: "Nathan", lang: "en", gender: "Masculine", description: "Warm and neighborly"),
+        GradiumVoice(id: "EbIA5CIcQoa6NNd2", name: "Adam", lang: "en", gender: "Masculine", description: "Joyful and energetic"),
+        GradiumVoice(id: "KRo-uwfno-KcEgBM", name: "Abigail", lang: "en", gender: "Feminine", description: "Warm and empathetic"),
+        GradiumVoice(id: "yU6yxQ3e8LKRwU84", name: "Allison", lang: "en", gender: "Feminine", description: "Joyful and high-energy"),
+        GradiumVoice(id: "MQC0U1yWvZXrppaF", name: "Kelsey", lang: "en", gender: "Feminine", description: "Balanced and realistic"),
+        GradiumVoice(id: "aq7ltaIQ6ZJUY0jR", name: "Haley", lang: "en", gender: "Feminine", description: "Confident British voice"),
+        GradiumVoice(id: "PS7enm5lVZiIvEKV", name: "Anna", lang: "en", gender: "Feminine", description: "Warm and supportive"),
+        GradiumVoice(id: "bvNlBZ3DWDoVy_Yc", name: "Katherine", lang: "en", gender: "Feminine", description: "Professional and kind"),
+        GradiumVoice(id: "zyLIanWKViHkc6Wp", name: "Steven", lang: "en", gender: "Masculine", description: "Steady British voice"),
+        GradiumVoice(id: "91EdXxJDbWICDBgz", name: "Alex", lang: "en", gender: "Neutral", description: "High-energy and fun"),
+        GradiumVoice(id: "fggSYM_FGJ30QTTl", name: "Brianna", lang: "en", gender: "Feminine", description: "Warm and smooth"),
+        GradiumVoice(id: "J2qsArcdozbto5Hn", name: "Kevin", lang: "en", gender: "Masculine", description: "Joyful Australian voice"),
+        GradiumVoice(id: "8dBmiTurwb7KcxLY", name: "Victoria", lang: "en", gender: "Feminine", description: "Warm and reliable"),
+        GradiumVoice(id: "T7UL6gmeDqqYiVe1", name: "Nicole", lang: "en", gender: "Feminine", description: "Sarcastic and fun"),
+        GradiumVoice(id: "auZu0iT-fniQ4cJd", name: "Jennifer", lang: "en", gender: "Feminine", description: "Warm and helpful"),
+        GradiumVoice(id: "ikbJkd83GvuyoSLb", name: "Stephanie", lang: "en", gender: "Feminine", description: "Joyful and relatable"),
+        GradiumVoice(id: "SG3KnxbSOkkrY097", name: "Lauren", lang: "en", gender: "Feminine", description: "Assertive and modern"),
+        GradiumVoice(id: "mn5sS7D8kYKETZXA", name: "Samantha", lang: "en", gender: "Feminine", description: "Warm and professional"),
+        GradiumVoice(id: "i1kmq28cO60ia35K", name: "Emily", lang: "en", gender: "Feminine", description: "Warm and modern"),
+        GradiumVoice(id: "MZWrEHL2Fe_uc2Rv", name: "James", lang: "en", gender: "Masculine", description: "Warm and resonant"),
+        GradiumVoice(id: "gTAO-3xLZ8_WSfbm", name: "Robert", lang: "en", gender: "Masculine", description: "Professional and polished"),
+        GradiumVoice(id: "8sWSyTC7byLsbHkr", name: "Alexander", lang: "en", gender: "Masculine", description: "Motivating and deep"),
+
+        // MARK: Spanish (es)
+        GradiumVoice(id: "B36pbz5_UoWn4BDl", name: "Valentina", lang: "es", gender: "Feminine", description: "Cálida y envolvente (México)"),
+        GradiumVoice(id: "xu7iJ_fn2ElcWp2s", name: "Sergio", lang: "es", gender: "Masculine", description: "Cálido y profesional"),
+        GradiumVoice(id: "s4CzgVHP5cEkB9LD", name: "Sofia", lang: "es", gender: "Feminine", description: "Suave y pausada"),
+        GradiumVoice(id: "aCWBiYUiQ4VwW8_b", name: "Pablo", lang: "es", gender: "Masculine", description: "Cálido y autoritario"),
+        GradiumVoice(id: "yPxeHKlCzaHeKd_V", name: "Carlos", lang: "es", gender: "Masculine", description: "Cálido y versátil"),
+        GradiumVoice(id: "r5WB0b126tlHSrku", name: "Adrián", lang: "es", gender: "Masculine", description: "Cálido y fluido (México)"),
+        GradiumVoice(id: "PqjKPYFyGNsg1YU-", name: "Elena", lang: "es", gender: "Feminine", description: "Cálida y accesible"),
+        GradiumVoice(id: "wGhY_zZCoQ5gB0ce", name: "Javier", lang: "es", gender: "Masculine", description: "Suave y encantador (Argentina)"),
+        GradiumVoice(id: "ynR4CAbXMiOv-vGC", name: "Ana", lang: "es", gender: "Feminine", description: "Cálida y versátil"),
+        GradiumVoice(id: "lPCVUcicz2XRaLE3", name: "Sara", lang: "es", gender: "Feminine", description: "Cálida y periodística"),
+        GradiumVoice(id: "R3L8t75ZEoZCPUA9", name: "Daniel", lang: "es", gender: "Masculine", description: "Confiado y profesional"),
+        GradiumVoice(id: "zhH3lPUo-JxmlOJT", name: "Carmen", lang: "es", gender: "Feminine", description: "Energética (Colombia)"),
+        GradiumVoice(id: "k2B3TJiffePxjeBn", name: "María", lang: "es", gender: "Feminine", description: "Cálida y amigable (Colombia)"),
+
+        // MARK: German (de)
+        GradiumVoice(id: "-uP9MuGtBqAvEyxI", name: "Mia", lang: "de", gender: "Feminine", description: "Fröhlich und energisch"),
+        GradiumVoice(id: "0y1VZjPabOBU3rWy", name: "Maximilian", lang: "de", gender: "Masculine", description: "Warm und sanft"),
+        GradiumVoice(id: "IIZIkBSZAmb9nFZb", name: "Moritz", lang: "de", gender: "Masculine", description: "Klar und ruhig"),
+        GradiumVoice(id: "kAoOc9Yb5EQDzA-N", name: "Lisa", lang: "de", gender: "Feminine", description: "Weich und klar"),
+        GradiumVoice(id: "VXA4-0_ZN4o8q3vK", name: "Franziska", lang: "de", gender: "Feminine", description: "Warm und unterstützend"),
+        GradiumVoice(id: "lSVEPWl_N_7MtcHe", name: "Lea", lang: "de", gender: "Feminine", description: "Warm und freundlich"),
+        GradiumVoice(id: "hXjVvZ6oDDGQAQFj", name: "Stefanie", lang: "de", gender: "Feminine", description: "Selbstbewusst und klar"),
+        GradiumVoice(id: "xq0vDziADfAmg6Uh", name: "Tom", lang: "de", gender: "Masculine", description: "Formell und klar"),
+        GradiumVoice(id: "-qKylkN2UPxd7Mmg", name: "Niklas", lang: "de", gender: "Masculine", description: "Fröhlich und freundlich"),
+        GradiumVoice(id: "fJDF4lEH590XplFv", name: "Michelle", lang: "de", gender: "Feminine", description: "Fröhlich und motivierend"),
+        GradiumVoice(id: "ZOiGbnYdgKSBM_rH", name: "Dominik", lang: "de", gender: "Masculine", description: "Professionell und klar"),
+
+        // MARK: Portuguese (pt)
+        GradiumVoice(id: "pYcGZz9VOo4n2ynh", name: "Alice", lang: "pt", gender: "Feminine", description: "Calorosa e suave (Brasil)"),
+        GradiumVoice(id: "M-FvVo9c-jGR4PgP", name: "Davi", lang: "pt", gender: "Masculine", description: "Envolvente e suave (Brasil)"),
+        GradiumVoice(id: "L7890s1B44FqSiGC", name: "Frederico", lang: "pt", gender: "Masculine", description: "Claro e suave (Brasil)"),
+        GradiumVoice(id: "Du_Dcv4fgXBDdubR", name: "Bruna", lang: "pt", gender: "Feminine", description: "Energética e profissional (Portugal)"),
+        GradiumVoice(id: "EzmLkNorEpZG_oNv", name: "Rodrigo", lang: "pt", gender: "Masculine", description: "Calmo e confiante (Portugal)"),
+        GradiumVoice(id: "QZtWUy8jmIroWiOu", name: "Thiago", lang: "pt", gender: "Masculine", description: "Caloroso e versátil (Brasil)"),
+    ]
+
+    static func voices(for languageCode: String) -> [GradiumVoice] {
+        let lang = String(languageCode.prefix(2))
+        let filtered = allVoices.filter { $0.lang == lang }
+        return filtered.isEmpty ? allVoices.filter { $0.lang == "en" } : filtered
+    }
+
+    static func defaultVoiceId(for languageCode: String) -> String {
+        let lang = String(languageCode.prefix(2))
+        switch lang {
+        case "fr": return "b35yykvVppLXyw_l" // Elise
+        case "en": return "YTpq7expH9539ERJ" // Emma
+        case "es": return "B36pbz5_UoWn4BDl" // Valentina
+        case "de": return "-uP9MuGtBqAvEyxI" // Mia
+        case "pt": return "pYcGZz9VOo4n2ynh" // Alice
+        default: return "YTpq7expH9539ERJ" // Emma
+        }
+    }
+}
+
+// MARK: - Voice Picker View
+
+struct VoltaVoicePickerView: View {
+    let currentVoiceId: String
+    var onDismiss: () -> Void
+    var onSave: (String) -> Void
+
+    @State private var selectedVoiceId: String = "b35yykvVppLXyw_l"
+    @State private var filterGender: String? = nil
+    @StateObject private var previewPlayer = VoicePreviewPlayer()
+
+    private var userLang: String {
+        Locale.current.language.languageCode?.identifier ?? "fr"
+    }
+
+    private var availableVoices: [GradiumVoice] {
+        let voices = GradiumVoice.voices(for: userLang)
+        if let gender = filterGender {
+            return voices.filter { $0.gender == gender }
+        }
+        return voices
+    }
+
+    private var genders: [String] {
+        let voices = GradiumVoice.voices(for: userLang)
+        return Array(Set(voices.map { $0.gender })).sorted()
+    }
+
+    static func voiceName(for voiceId: String) -> String {
+        GradiumVoice.allVoices.first(where: { $0.id == voiceId })?.name ?? "Elise"
+    }
+
+    /// Sample phrase per language for voice preview
+    private var sampleText: String {
+        switch String(userLang.prefix(2)) {
+        case "fr": return "Salut ! Je suis Volta, ton coach de productivité."
+        case "es": return "Hola, soy Volta, tu coach de productividad."
+        case "de": return "Hallo! Ich bin Volta, dein Produktivitätscoach."
+        case "pt": return "Olá! Eu sou o Volta, seu coach de produtividade."
+        default: return "Hey! I'm Volta, your productivity coach."
+        }
+    }
+
+    var body: some View {
+        ZStack {
+            ReplicaColors.background
+                .ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                replicaHeader(title: "Voix de Volta", showBack: true, onClose: {
+                    previewPlayer.stop()
+                    onDismiss()
+                })
+
+                Text("Choisissez la voix de Volta pour les appels vocaux.")
+                    .font(.system(size: 14))
+                    .foregroundColor(.white.opacity(0.7))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+                    .padding(.top, 8)
+
+                // Gender filter pills
+                HStack(spacing: 10) {
+                    genderPill(label: "Tous", value: nil)
+                    ForEach(genders, id: \.self) { gender in
+                        genderPill(label: gender == "Feminine" ? "Féminin" : gender == "Masculine" ? "Masculin" : "Neutre", value: gender)
+                    }
+                }
+                .padding(.top, 16)
+                .padding(.horizontal, 24)
+
+                // Voice list
+                ScrollView(.vertical, showsIndicators: false) {
+                    LazyVStack(spacing: 4) {
+                        ForEach(availableVoices) { voice in
+                            Button(action: { selectedVoiceId = voice.id }) {
+                                HStack(spacing: 12) {
+                                    // Play preview button
+                                    Button {
+                                        if previewPlayer.playingVoiceId == voice.id {
+                                            previewPlayer.stop()
+                                        } else {
+                                            previewPlayer.play(voiceId: voice.id, text: sampleText)
+                                        }
+                                    } label: {
+                                        ZStack {
+                                            Circle()
+                                                .fill(Color.white.opacity(0.12))
+                                                .frame(width: 36, height: 36)
+
+                                            if previewPlayer.loadingVoiceId == voice.id {
+                                                ProgressView()
+                                                    .tint(.white.opacity(0.7))
+                                                    .scaleEffect(0.7)
+                                            } else {
+                                                Image(systemName: previewPlayer.playingVoiceId == voice.id ? "stop.fill" : "play.fill")
+                                                    .font(.system(size: 13, weight: .semibold))
+                                                    .foregroundColor(.white.opacity(0.7))
+                                            }
+                                        }
+                                    }
+                                    .buttonStyle(.plain)
+
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(voice.name)
+                                            .font(.system(size: 16, weight: selectedVoiceId == voice.id ? .semibold : .regular))
+                                            .foregroundColor(selectedVoiceId == voice.id ? .white : .white.opacity(0.5))
+                                        Text(voice.description)
+                                            .font(.system(size: 12))
+                                            .foregroundColor(selectedVoiceId == voice.id ? .white.opacity(0.6) : .white.opacity(0.25))
+                                    }
+                                    Spacer()
+                                    if selectedVoiceId == voice.id {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .font(.system(size: 18))
+                                            .foregroundColor(.white.opacity(0.8))
+                                    }
+                                }
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 12)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(selectedVoiceId == voice.id ? Color.white.opacity(0.1) : Color.clear)
+                                )
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 100)
+                }
+                .padding(.top, 12)
+
+                Spacer(minLength: 0)
+
+                Button(action: {
+                    previewPlayer.stop()
+                    onSave(selectedVoiceId)
+                }) {
+                    Text("Sauvegarder")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(ReplicaColors.backgroundSolid)
+                        .frame(width: 200, height: 56)
+                        .background(
+                            Capsule()
+                                .fill(Color.white.opacity(0.9))
+                        )
+                }
+                .padding(.bottom, 50)
+            }
+        }
+        .onAppear {
+            selectedVoiceId = currentVoiceId
+        }
+        .onDisappear {
+            previewPlayer.stop()
+        }
+    }
+
+    private func genderPill(label: String, value: String?) -> some View {
+        Button(action: { withAnimation(.easeInOut(duration: 0.2)) { filterGender = value } }) {
+            Text(label)
+                .font(.system(size: 13, weight: filterGender == value ? .semibold : .regular))
+                .foregroundColor(filterGender == value ? ReplicaColors.backgroundSolid : .white.opacity(0.5))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .background(
+                    Capsule()
+                        .fill(filterGender == value ? Color.white.opacity(0.9) : Color.white.opacity(0.08))
+                )
+        }
+    }
+}
+
+// MARK: - Voice Preview Player
+
+@MainActor
+class VoicePreviewPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate {
+    @Published var playingVoiceId: String?
+    @Published var loadingVoiceId: String?
+
+    private var audioPlayer: AVAudioPlayer?
+    private let apiClient = APIClient.shared
+
+    struct TTSRequest: Encodable {
+        let text: String
+        let voiceId: String
+    }
+
+    struct TTSResponse: Decodable {
+        let audioBase64: String
+    }
+
+    func play(voiceId: String, text: String) {
+        stop()
+        loadingVoiceId = voiceId
+
+        Task {
+            do {
+                let response: TTSResponse = try await apiClient.request(
+                    endpoint: .chatTts,
+                    method: .post,
+                    body: TTSRequest(text: text, voiceId: voiceId)
+                )
+
+                guard let audioData = Data(base64Encoded: response.audioBase64) else {
+                    loadingVoiceId = nil
+                    return
+                }
+
+                try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+                try AVAudioSession.sharedInstance().setActive(true)
+
+                audioPlayer = try AVAudioPlayer(data: audioData)
+                audioPlayer?.delegate = self
+                audioPlayer?.play()
+
+                loadingVoiceId = nil
+                playingVoiceId = voiceId
+            } catch {
+                loadingVoiceId = nil
+                print("Voice preview error: \(error)")
+            }
+        }
+    }
+
+    func stop() {
+        audioPlayer?.stop()
+        audioPlayer = nil
+        playingVoiceId = nil
+        loadingVoiceId = nil
+    }
+
+    nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        Task { @MainActor in
+            playingVoiceId = nil
         }
     }
 }

@@ -158,20 +158,23 @@ class UserService {
         language: String? = nil,
         timezone: String? = nil,
         notificationsEnabled: Bool? = nil,
-        morningReminderTime: String? = nil
+        morningReminderTime: String? = nil,
+        voiceId: String? = nil
     ) async throws -> UserResponse {
         struct UpdateSettingsRequest: Encodable {
             let language: String?
             let timezone: String?
             let notificationsEnabled: Bool?
             let morningReminderTime: String?
+            let voiceId: String?
         }
 
         let request = UpdateSettingsRequest(
             language: language,
             timezone: timezone,
             notificationsEnabled: notificationsEnabled,
-            morningReminderTime: morningReminderTime
+            morningReminderTime: morningReminderTime,
+            voiceId: voiceId
         )
 
         return try await apiClient.request(
@@ -851,6 +854,7 @@ struct UserResponse: Codable {
     let freeVoiceMessagesUsed: Int?
     let createdAt: Date?
     let backboardAssistantId: String?
+    let voiceId: String?
 }
 
 struct Area: Codable, Identifiable {

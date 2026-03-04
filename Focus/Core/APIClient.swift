@@ -346,6 +346,7 @@ enum APIConfiguration {
         case voiceAnalyze    // New: analyze only, return proposals (no DB write)
         case voiceIntentions
         case livekitToken    // POST /voice/livekit-token — get LiveKit room token
+        case chatTts         // POST /chat/tts — Gradium TTS preview
 
         // Google Calendar
         case googleCalendarConfig
@@ -668,6 +669,8 @@ enum APIConfiguration {
                 return "/voice/intentions"
             case .livekitToken:
                 return "/voice/livekit-token"
+            case .chatTts:
+                return "/chat/tts"
 
             // Google Calendar
             case .googleCalendarConfig, .googleCalendarUpdateConfig, .googleCalendarDisconnect:

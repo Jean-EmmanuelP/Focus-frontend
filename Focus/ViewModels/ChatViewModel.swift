@@ -50,6 +50,14 @@ enum ChatCardData: Codable {
     }
 }
 
+// MARK: - Message Status
+
+enum MessageStatus: String, Codable {
+    case sent
+    case sending
+    case failed
+}
+
 // MARK: - Simple Chat Message Model (for WhatsApp-style UI)
 
 struct SimpleChatMessage: Identifiable, Codable {
@@ -65,6 +73,8 @@ struct SimpleChatMessage: Identifiable, Codable {
     let voiceStoragePath: String?
     // Interactive card data (task list, routine list, etc.)
     var cardData: ChatCardData?
+    // Message delivery status (for user messages)
+    var status: MessageStatus
 
     // Computed property to get local URL from filename
     var localVoiceURL: URL? {
@@ -94,10 +104,11 @@ struct SimpleChatMessage: Identifiable, Codable {
             storagePath: voiceStoragePath
         )
         msg.cardData = cardData
+        msg.status = status
         return msg
     }
 
-    init(content: String, isFromUser: Bool, type: ChatMessageType = .text, voiceDuration: TimeInterval? = nil, voiceURL: URL? = nil, storagePath: String? = nil) {
+    init(content: String, isFromUser: Bool, type: ChatMessageType = .text, voiceDuration: TimeInterval? = nil, voiceURL: URL? = nil, storagePath: String? = nil, status: MessageStatus = .sent) {
         self.id = UUID()
         self.content = content
         self.isFromUser = isFromUser
@@ -106,9 +117,10 @@ struct SimpleChatMessage: Identifiable, Codable {
         self.voiceDuration = voiceDuration
         self.voiceFilename = voiceURL?.lastPathComponent
         self.voiceStoragePath = storagePath
+        self.status = status
     }
 
-    init(id: UUID = UUID(), content: String, isFromUser: Bool, timestamp: Date = Date(), type: ChatMessageType = .text, voiceDuration: TimeInterval? = nil, voiceURL: URL? = nil, storagePath: String? = nil) {
+    init(id: UUID = UUID(), content: String, isFromUser: Bool, timestamp: Date = Date(), type: ChatMessageType = .text, voiceDuration: TimeInterval? = nil, voiceURL: URL? = nil, storagePath: String? = nil, status: MessageStatus = .sent) {
         self.id = id
         self.content = content
         self.isFromUser = isFromUser
@@ -117,6 +129,7 @@ struct SimpleChatMessage: Identifiable, Codable {
         self.voiceDuration = voiceDuration
         self.voiceFilename = voiceURL?.lastPathComponent
         self.voiceStoragePath = storagePath
+        self.status = status
     }
 }
 
@@ -379,15 +392,31 @@ class ChatViewModel: ObservableObject {
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
 
-        // Add user message
-        let userMessage = SimpleChatMessage(content: text, isFromUser: true)
+        // Add user message with sending status
+        let userMessage = SimpleChatMessage(content: text, isFromUser: true, status: .sending)
         messages.append(userMessage)
         inputText = ""
         saveMessages()
 
         // Send to AI
         Task {
-            await sendToAI(text)
+            await sendToAI(text, userMessageId: userMessage.id)
+        }
+    }
+
+    // MARK: - Retry Failed Message
+
+    func retryMessage(_ message: SimpleChatMessage) {
+        guard message.status == .failed, message.isFromUser else { return }
+
+        // Mark as sending again
+        if let index = messages.firstIndex(where: { $0.id == message.id }) {
+            messages[index].status = .sending
+            saveMessages()
+        }
+
+        Task {
+            await sendToAI(message.content, userMessageId: message.id)
         }
     }
 
@@ -412,7 +441,8 @@ class ChatViewModel: ObservableObject {
             type: .voice,
             voiceDuration: duration,
             voiceURL: permanentURL,
-            storagePath: nil
+            storagePath: nil,
+            status: .sending
         )
         messages.append(voiceMessage)
         saveMessages()
@@ -468,6 +498,12 @@ class ChatViewModel: ObservableObject {
         let textToSend = transcript ?? "Message vocal"
         do {
             let (reply, sideEffects) = try await BackboardService.shared.sendMessage(textToSend)
+
+            // Mark voice message as sent
+            if let index = messages.lastIndex(where: { $0.id == voiceMessage.id }) {
+                messages[index].status = .sent
+            }
+
             await applySideEffects(sideEffects)
 
             var aiMessage = SimpleChatMessage(content: reply, isFromUser: false)
@@ -480,9 +516,10 @@ class ChatViewModel: ObservableObject {
             messages.append(aiMessage)
             saveMessages()
         } catch {
-            let fallback = "J'ai pas bien entendu, tu peux répéter?"
-            let aiMessage = SimpleChatMessage(content: fallback, isFromUser: false)
-            messages.append(aiMessage)
+            // Mark voice message as failed
+            if let index = messages.lastIndex(where: { $0.id == voiceMessage.id }) {
+                messages[index].status = .failed
+            }
             saveMessages()
             print("Voice message error: \(error)")
         }
@@ -543,12 +580,17 @@ class ChatViewModel: ObservableObject {
 
     // MARK: - Send to AI (text) via Backboard
 
-    private func sendToAI(_ text: String) async {
+    private func sendToAI(_ text: String, userMessageId: UUID? = nil) async {
         isLoading = true
 
         do {
             let (reply, sideEffects) = try await BackboardService.shared.sendMessage(text)
             print("💬 Backboard response — sideEffects: \(sideEffects.count), reply: \(reply.prefix(50))")
+
+            // Mark user message as sent
+            if let msgId = userMessageId, let index = messages.firstIndex(where: { $0.id == msgId }) {
+                messages[index].status = .sent
+            }
 
             // Apply side effects (refresh store, handle app blocking, etc.)
             await applySideEffects(sideEffects)
@@ -570,11 +612,11 @@ class ChatViewModel: ObservableObject {
             saveMessages()
 
         } catch {
-            // Fallback response
-            let fallback = generateFallbackResponse()
-            let aiMessage = SimpleChatMessage(content: fallback, isFromUser: false)
-            messages.append(aiMessage)
-            saveMessages()
+            // Mark user message as failed
+            if let msgId = userMessageId, let index = messages.firstIndex(where: { $0.id == msgId }) {
+                messages[index].status = .failed
+                saveMessages()
+            }
 
             print("Chat AI error: \(error)")
         }

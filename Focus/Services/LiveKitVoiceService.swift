@@ -77,12 +77,13 @@ class LiveKitVoiceService: ObservableObject {
         messages = []
 
         let lang = Locale.current.language.languageCode?.identifier ?? "fr"
+        let voiceId = UserDefaults.standard.string(forKey: SettingsPrefsKeys.voltaVoiceId)
 
         // Get token from backend
         let response: LiveKitTokenResponse = try await apiClient.request(
             endpoint: .livekitToken,
             method: .post,
-            body: LiveKitTokenRequest(mode: mode, lang: lang)
+            body: LiveKitTokenRequest(mode: mode, lang: lang, voiceId: voiceId)
         )
 
         let url = response.url ?? Self.livekitURL
@@ -197,6 +198,12 @@ extension LiveKitVoiceService: RoomDelegate {
 struct LiveKitTokenRequest: Encodable {
     let mode: String
     let lang: String
+    let voiceId: String?
+
+    enum CodingKeys: String, CodingKey {
+        case mode, lang
+        case voiceId = "voice_id"
+    }
 }
 
 struct LiveKitTokenResponse: Decodable {
