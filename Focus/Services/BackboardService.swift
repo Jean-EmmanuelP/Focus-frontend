@@ -526,8 +526,8 @@ class BackboardService {
             CuratedVideo(videoId: "O-6f5wQXSu8", title: "Body Scan Relaxation", duration: "15 min", category: "meditation"),
         ],
         "breathing": [
-            CuratedVideo(videoId: "bBBZGBBNaGM", title: "Cohérence cardiaque 5 min", duration: "5 min", category: "breathing"),
-            CuratedVideo(videoId: "Huqo2IPBGNg", title: "Respiration 4-7-8", duration: "7 min", category: "breathing"),
+            CuratedVideo(videoId: "uxayUBd6T7M", title: "Calm Breathe Bubble", duration: "5 min", category: "breathing"),
+            CuratedVideo(videoId: "YRPh_GaiL8s", title: "Respiration 4-7-8", duration: "5 min", category: "breathing"),
             CuratedVideo(videoId: "tybOi4hjZFQ", title: "Breathwork guidé", duration: "10 min", category: "breathing"),
         ],
         "motivation": [
@@ -535,8 +535,8 @@ class BackboardService {
             CuratedVideo(videoId: "26U_seo0a1g", title: "Morning Routine Inspiration", duration: "6 min", category: "motivation"),
         ],
         "prayer": [
-            CuratedVideo(videoId: "cBKFgJsBSFA", title: "Prière du matin guidée", duration: "10 min", category: "prayer"),
-            CuratedVideo(videoId: "aNCjBOTCwto", title: "Moment de gratitude", duration: "5 min", category: "prayer"),
+            CuratedVideo(videoId: "j734gLbQFbU", title: "Méditation du matin guidée", duration: "5 min", category: "prayer"),
+            CuratedVideo(videoId: "cyMxWXlX9sU", title: "Méditation énergie positive", duration: "10 min", category: "prayer"),
         ]
     ]
 
