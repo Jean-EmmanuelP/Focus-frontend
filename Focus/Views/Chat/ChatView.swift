@@ -1351,9 +1351,9 @@ struct InlineVideoCard: View {
             .padding(.top, 14)
             .padding(.bottom, 10)
 
-            // YouTube Player (direct embed)
+            // YouTube Player (tap to play in Safari)
             YouTubePlayerView(videoId: video.videoId)
-                .frame(height: 200)
+                .frame(height: 180)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .padding(.horizontal, 12)
 
@@ -1382,29 +1382,75 @@ struct InlineVideoCard: View {
     }
 }
 
-// MARK: - YouTube Player (WKWebView — direct embed URL)
+// MARK: - YouTube Player (SFSafariViewController for reliable playback)
 
-struct YouTubePlayerView: UIViewRepresentable {
+import SafariServices
+
+struct YouTubePlayerView: View {
     let videoId: String
-    var onVideoEnded: (() -> Void)?
 
-    func makeUIView(context: Context) -> WKWebView {
-        let config = WKWebViewConfiguration()
-        config.allowsInlineMediaPlayback = true
-        config.mediaTypesRequiringUserActionForPlayback = []
+    @State private var showSafari = false
 
-        let webView = WKWebView(frame: .zero, configuration: config)
-        webView.scrollView.isScrollEnabled = false
-        webView.isOpaque = false
-        webView.backgroundColor = .black
-
-        // Load YouTube embed URL directly — avoids all origin/iframe API issues
-        let embedURL = URL(string: "https://www.youtube.com/embed/\(videoId)?playsinline=1&rel=0&modestbranding=1&autoplay=0")!
-        webView.load(URLRequest(url: embedURL))
-        return webView
+    private var thumbnailURL: URL? {
+        URL(string: "https://img.youtube.com/vi/\(videoId)/hqdefault.jpg")
     }
 
-    func updateUIView(_ uiView: WKWebView, context: Context) {}
+    private var youtubeURL: URL {
+        URL(string: "https://www.youtube.com/watch?v=\(videoId)")!
+    }
+
+    var body: some View {
+        Button {
+            showSafari = true
+        } label: {
+            ZStack {
+                // Thumbnail
+                AsyncImage(url: thumbnailURL) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(16/9, contentMode: .fill)
+                    default:
+                        Rectangle()
+                            .fill(Color.black)
+                    }
+                }
+
+                // Play button overlay
+                Circle()
+                    .fill(Color.red)
+                    .frame(width: 56, height: 56)
+                    .overlay(
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 22))
+                            .foregroundColor(.white)
+                            .offset(x: 2)
+                    )
+                    .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
+            }
+        }
+        .fullScreenCover(isPresented: $showSafari) {
+            SafariView(url: youtubeURL)
+                .ignoresSafeArea()
+        }
+    }
+}
+
+/// Wrapper for SFSafariViewController in SwiftUI
+struct SafariView: UIViewControllerRepresentable {
+    let url: URL
+
+    func makeUIViewController(context: Context) -> SFSafariViewController {
+        let config = SFSafariViewController.Configuration()
+        config.entersReaderIfAvailable = false
+        let safari = SFSafariViewController(url: url, configuration: config)
+        safari.preferredControlTintColor = .white
+        safari.preferredBarTintColor = .black
+        return safari
+    }
+
+    func updateUIViewController(_ uiViewController: SFSafariViewController, context: Context) {}
 }
 
 // MARK: - App Blocking Banner
