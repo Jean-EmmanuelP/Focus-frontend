@@ -1410,7 +1410,7 @@ struct YouTubePlayerView: UIViewRepresentable {
             function onYouTubeIframeAPIReady() {
                 player = new YT.Player('player', {
                     videoId: '\(videoId)',
-                    playerVars: { 'playsinline': 1, 'rel': 0, 'modestbranding': 1 },
+                    playerVars: { 'playsinline': 1, 'rel': 0, 'modestbranding': 1, 'origin': 'https://www.youtube.com' },
                     events: { 'onStateChange': onPlayerStateChange }
                 });
             }
@@ -1424,7 +1424,7 @@ struct YouTubePlayerView: UIViewRepresentable {
         </html>
         """
 
-        webView.loadHTMLString(html, baseURL: nil)
+        webView.loadHTMLString(html, baseURL: URL(string: "https://www.youtube.com"))
         return webView
     }
 
