@@ -1351,14 +1351,30 @@ struct InlineVideoCard: View {
             .padding(.top, 14)
             .padding(.bottom, 10)
 
-            // YouTube Player
-            YouTubePlayerView(videoId: video.videoId) {
-                viewModel?.videoCompleted(messageId: messageId)
+            // YouTube Player (direct embed)
+            YouTubePlayerView(videoId: video.videoId)
+                .frame(height: 200)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .padding(.horizontal, 12)
+
+            // "J'ai fini" button
+            if !video.isCompleted {
+                Button {
+                    viewModel?.videoCompleted(messageId: messageId)
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.circle")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("J'ai fini la vidéo")
+                            .font(.system(size: 14, weight: .semibold))
+                    }
+                    .foregroundColor(.black.opacity(0.6))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                }
             }
-            .frame(height: 200)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .padding(.horizontal, 12)
-            .padding(.bottom, 12)
+
+            Spacer().frame(height: 4)
         }
         .background(Color.white)
         .cornerRadius(16)
@@ -1366,7 +1382,7 @@ struct InlineVideoCard: View {
     }
 }
 
-// MARK: - YouTube Player (WKWebView)
+// MARK: - YouTube Player (WKWebView — direct embed URL)
 
 struct YouTubePlayerView: UIViewRepresentable {
     let videoId: String
@@ -1377,78 +1393,18 @@ struct YouTubePlayerView: UIViewRepresentable {
         config.allowsInlineMediaPlayback = true
         config.mediaTypesRequiringUserActionForPlayback = []
 
-        let contentController = config.userContentController
-        contentController.add(context.coordinator, name: "videoEnded")
-
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.scrollView.isScrollEnabled = false
         webView.isOpaque = false
         webView.backgroundColor = .black
 
-        let html = """
-        <!DOCTYPE html>
-        <html>
-        <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-        <style>
-            * { margin: 0; padding: 0; }
-            body { background: #000; overflow: hidden; }
-            .container { position: relative; width: 100%; padding-bottom: 56.25%; }
-            #player { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-        </style>
-        </head>
-        <body>
-        <div class="container">
-            <div id="player"></div>
-        </div>
-        <script>
-            var tag = document.createElement('script');
-            tag.src = "https://www.youtube.com/iframe_api";
-            var firstScriptTag = document.getElementsByTagName('script')[0];
-            firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-            var player;
-            function onYouTubeIframeAPIReady() {
-                player = new YT.Player('player', {
-                    videoId: '\(videoId)',
-                    playerVars: { 'playsinline': 1, 'rel': 0, 'modestbranding': 1, 'origin': 'https://www.youtube.com' },
-                    events: { 'onStateChange': onPlayerStateChange }
-                });
-            }
-            function onPlayerStateChange(event) {
-                if (event.data === YT.PlayerState.ENDED) {
-                    window.webkit.messageHandlers.videoEnded.postMessage('ended');
-                }
-            }
-        </script>
-        </body>
-        </html>
-        """
-
-        webView.loadHTMLString(html, baseURL: URL(string: "https://www.youtube.com"))
+        // Load YouTube embed URL directly — avoids all origin/iframe API issues
+        let embedURL = URL(string: "https://www.youtube.com/embed/\(videoId)?playsinline=1&rel=0&modestbranding=1&autoplay=0")!
+        webView.load(URLRequest(url: embedURL))
         return webView
     }
 
     func updateUIView(_ uiView: WKWebView, context: Context) {}
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(onVideoEnded: onVideoEnded)
-    }
-
-    class Coordinator: NSObject, WKScriptMessageHandler {
-        var onVideoEnded: (() -> Void)?
-
-        init(onVideoEnded: (() -> Void)?) {
-            self.onVideoEnded = onVideoEnded
-        }
-
-        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-            if message.name == "videoEnded" {
-                DispatchQueue.main.async {
-                    self.onVideoEnded?()
-                }
-            }
-        }
-    }
 }
 
 // MARK: - App Blocking Banner
