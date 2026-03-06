@@ -89,11 +89,12 @@ struct BackboardMemoryCreate: Encodable {
 enum BackboardSideEffect {
     case refreshTasks
     case refreshRituals
-    case refreshQuests
     case refreshReflection
     case refreshWeeklyGoals
     case calendarNeedsRefresh
-    case showCard(String) // "tasks", "routines", "quests"
+    case showCard(String) // "tasks", "routines", "planning"
+    case showVideo(url: String, title: String)
+    case showVideoSuggestions(category: String)
     case blockApps(Int?) // duration in minutes
     case unblockApps
 }

@@ -19,9 +19,10 @@ enum ChatMessageType: String, Codable {
 enum ChatCardData: Codable {
     case taskList([CardTask])
     case routineList([CardRoutine])
-    case questList([CardQuest])
     case planning([CardTask], [CardRoutine])
     case actionButton(ActionButton)
+    case videoCard(VideoCard)
+    case videoSuggestions(VideoSuggestionsData)
 
     struct CardTask: Codable, Identifiable {
         let id: String
@@ -36,17 +37,29 @@ enum ChatCardData: Codable {
         var isCompleted: Bool
     }
 
-    struct CardQuest: Codable, Identifiable {
-        let id: String
-        let title: String
-        let emoji: String
-        let progress: Double // 0.0 to 1.0
-    }
-
     struct ActionButton: Codable {
         let title: String
         let icon: String
         let deepLink: String
+    }
+
+    struct VideoCard: Codable {
+        let url: String
+        let videoId: String
+        let title: String
+        var isCompleted: Bool
+    }
+
+    struct VideoSuggestionsData: Codable {
+        let category: String
+        let videos: [VideoSuggestion]
+    }
+
+    struct VideoSuggestion: Codable, Identifiable {
+        var id: String { videoId }
+        let videoId: String
+        let title: String
+        let duration: String
     }
 }
 
@@ -135,11 +148,22 @@ struct SimpleChatMessage: Identifiable, Codable {
 
 // MARK: - Chat ViewModel
 
+// MARK: - Message Group (for date grouping)
+
+struct MessageGroup: Identifiable {
+    let date: Date
+    let messages: [SimpleChatMessage]
+    var id: Date { date }
+}
+
 @MainActor
 class ChatViewModel: ObservableObject {
     // MARK: - Published Properties
 
-    @Published var messages: [SimpleChatMessage] = []
+    @Published var messages: [SimpleChatMessage] = [] {
+        didSet { recalculateGroupedMessages() }
+    }
+    @Published var groupedMessages: [MessageGroup] = []
     @Published var inputText: String = ""
     @Published var isLoading: Bool = false
     @Published var satisfactionScore: Int = UserDefaults.standard.object(forKey: "satisfaction_score") as? Int ?? 50
@@ -147,6 +171,34 @@ class ChatViewModel: ObservableObject {
 
     var canSendFreeVoice: Bool {
         SubscriptionManager.shared.isProUser || freeVoiceMessagesUsed < 3
+    }
+
+    private func recalculateGroupedMessages() {
+        let calendar = Calendar.current
+        var groups: [MessageGroup] = []
+        var currentDate: Date?
+        var currentMessages: [SimpleChatMessage] = []
+
+        for message in messages {
+            let messageDate = calendar.startOfDay(for: message.timestamp)
+
+            if currentDate == nil {
+                currentDate = messageDate
+                currentMessages = [message]
+            } else if calendar.isDate(messageDate, inSameDayAs: currentDate!) {
+                currentMessages.append(message)
+            } else {
+                groups.append(MessageGroup(date: currentDate!, messages: currentMessages))
+                currentDate = messageDate
+                currentMessages = [message]
+            }
+        }
+
+        if let date = currentDate, !currentMessages.isEmpty {
+            groups.append(MessageGroup(date: date, messages: currentMessages))
+        }
+
+        groupedMessages = groups
     }
 
     // MARK: - Services
@@ -223,7 +275,11 @@ class ChatViewModel: ObservableObject {
             await applySideEffects(sideEffects)
 
             var aiMessage = SimpleChatMessage(content: reply, isFromUser: false)
-            if let cardType = sideEffects.firstShowCard {
+            if let video = sideEffects.firstShowVideo {
+                aiMessage.cardData = makeVideoCard(url: video.url, title: video.title)
+            } else if let category = sideEffects.firstShowVideoSuggestions {
+                aiMessage.cardData = makeVideoSuggestionsCard(for: category)
+            } else if let cardType = sideEffects.firstShowCard {
                 aiMessage.cardData = await buildCardData(for: cardType)
             }
             messages.append(aiMessage)
@@ -294,7 +350,11 @@ class ChatViewModel: ObservableObject {
             await applySideEffects(sideEffects)
 
             var aiMessage = SimpleChatMessage(content: reply, isFromUser: false)
-            if let cardType = sideEffects.firstShowCard {
+            if let video = sideEffects.firstShowVideo {
+                aiMessage.cardData = makeVideoCard(url: video.url, title: video.title)
+            } else if let category = sideEffects.firstShowVideoSuggestions {
+                aiMessage.cardData = makeVideoSuggestionsCard(for: category)
+            } else if let cardType = sideEffects.firstShowCard {
                 aiMessage.cardData = await buildCardData(for: cardType)
             }
             messages.append(aiMessage)
@@ -507,7 +567,11 @@ class ChatViewModel: ObservableObject {
             await applySideEffects(sideEffects)
 
             var aiMessage = SimpleChatMessage(content: reply, isFromUser: false)
-            if let cardType = sideEffects.firstShowCard {
+            if let video = sideEffects.firstShowVideo {
+                aiMessage.cardData = makeVideoCard(url: video.url, title: video.title)
+            } else if let category = sideEffects.firstShowVideoSuggestions {
+                aiMessage.cardData = makeVideoSuggestionsCard(for: category)
+            } else if let cardType = sideEffects.firstShowCard {
                 aiMessage.cardData = await buildCardData(for: cardType)
             } else if let cardType = detectCardFromReply(reply) {
                 aiMessage.cardData = await buildCardData(for: cardType)
@@ -598,14 +662,15 @@ class ChatViewModel: ObservableObject {
             // Add AI response
             var aiMessage = SimpleChatMessage(content: reply, isFromUser: false)
 
-            // Attach card data if a show_card tool was called
-            if let cardType = sideEffects.firstShowCard {
+            // Attach card data if a video or show_card tool was called
+            if let video = sideEffects.firstShowVideo {
+                aiMessage.cardData = makeVideoCard(url: video.url, title: video.title)
+            } else if let category = sideEffects.firstShowVideoSuggestions {
+                aiMessage.cardData = makeVideoSuggestionsCard(for: category)
+            } else if let cardType = sideEffects.firstShowCard {
                 aiMessage.cardData = await buildCardData(for: cardType)
-            } else {
-                // Client-side fallback: detect from reply text
-                if let cardType = detectCardFromReply(reply) {
-                    aiMessage.cardData = await buildCardData(for: cardType)
-                }
+            } else if let cardType = detectCardFromReply(reply) {
+                aiMessage.cardData = await buildCardData(for: cardType)
             }
 
             messages.append(aiMessage)
@@ -637,9 +702,6 @@ class ChatViewModel: ObservableObject {
 
             case .refreshRituals:
                 await store?.loadRituals()
-
-            case .refreshQuests:
-                await store?.loadQuests()
 
             case .refreshReflection:
                 await store?.loadTodayReflection()
@@ -674,6 +736,101 @@ class ChatViewModel: ObservableObject {
 
             case .showCard:
                 break // Handled in the message attachment step
+
+            case .showVideo:
+                break // Handled in the message attachment step
+
+            case .showVideoSuggestions:
+                break // Handled in the message attachment step
+            }
+        }
+    }
+
+    // MARK: - YouTube Helpers
+
+    private func extractYouTubeId(from url: String) -> String? {
+        // youtube.com/watch?v=ID
+        if let components = URLComponents(string: url),
+           let vItem = components.queryItems?.first(where: { $0.name == "v" }),
+           let videoId = vItem.value, !videoId.isEmpty {
+            return videoId
+        }
+        // youtu.be/ID
+        if let parsed = URL(string: url), parsed.host == "youtu.be" || parsed.host == "www.youtu.be" {
+            let id = parsed.lastPathComponent
+            if !id.isEmpty && id != "/" { return id }
+        }
+        // youtube.com/embed/ID
+        if let parsed = URL(string: url),
+           let embedIndex = parsed.pathComponents.firstIndex(of: "embed"),
+           embedIndex + 1 < parsed.pathComponents.count {
+            return parsed.pathComponents[embedIndex + 1]
+        }
+        return nil
+    }
+
+    private func makeVideoCard(url: String, title: String) -> ChatCardData {
+        let videoId = extractYouTubeId(from: url) ?? ""
+        return .videoCard(ChatCardData.VideoCard(
+            url: url, videoId: videoId, title: title, isCompleted: false
+        ))
+    }
+
+    private func makeVideoSuggestionsCard(for category: String) -> ChatCardData {
+        let videos = BackboardService.curatedVideos[category] ?? BackboardService.curatedVideos["meditation"]!
+        let suggestions = videos.map { video in
+            ChatCardData.VideoSuggestion(
+                videoId: video.videoId,
+                title: video.title,
+                duration: video.duration
+            )
+        }
+        return .videoSuggestions(ChatCardData.VideoSuggestionsData(
+            category: category,
+            videos: suggestions
+        ))
+    }
+
+    func selectSuggestedVideo(messageId: UUID, video: ChatCardData.VideoSuggestion) {
+        let url = "https://www.youtube.com/watch?v=\(video.videoId)"
+
+        // Save as favorite video
+        UserDefaults.standard.set(url, forKey: "favorite_video_url")
+        UserDefaults.standard.set(video.title, forKey: "favorite_video_title")
+        FocusAppStore.shared.user?.favoriteVideoUrl = url
+        FocusAppStore.shared.user?.favoriteVideoTitle = video.title
+
+        // Transform the suggestions card into a video player card
+        if let msgIndex = messages.firstIndex(where: { $0.id == messageId }) {
+            messages[msgIndex].cardData = makeVideoCard(url: url, title: video.title)
+            saveMessages()
+        }
+
+        // Send confirmation to Kai
+        let userMsg = SimpleChatMessage(content: "J'ai choisi cette vidéo : \(video.title)", isFromUser: true)
+        messages.append(userMsg)
+        saveMessages()
+
+        Task {
+            // Also save to Backboard memory
+            try? await BackboardService.shared.addMemory(content: "Vidéo favorite de l'utilisateur pour rituel quotidien: \(video.title) - \(url)")
+            await sendToAI("J'ai choisi cette vidéo : \(video.title)", userMessageId: userMsg.id)
+        }
+    }
+
+    func videoCompleted(messageId: UUID) {
+        guard let msgIndex = messages.firstIndex(where: { $0.id == messageId }) else { return }
+        if case .videoCard(var video) = messages[msgIndex].cardData {
+            video.isCompleted = true
+            messages[msgIndex].cardData = .videoCard(video)
+            saveMessages()
+
+            let userMsg = SimpleChatMessage(content: "J'ai fini de regarder ma vidéo ✅", isFromUser: true)
+            messages.append(userMsg)
+            saveMessages()
+
+            Task {
+                await sendToAI("J'ai fini de regarder ma vidéo : \(video.title)", userMessageId: userMsg.id)
             }
         }
     }
@@ -693,11 +850,6 @@ class ChatViewModel: ObservableObject {
         let routinePatterns = ["voici tes rituel", "tes routine", "tes habitude", "voici tes habitude"]
         for pattern in routinePatterns {
             if lower.contains(pattern) { return "routines" }
-        }
-
-        let questPatterns = ["voici tes objectif", "tes objectifs", "tes quests", "tes goals"]
-        for pattern in questPatterns {
-            if lower.contains(pattern) { return "quests" }
         }
 
         return nil
@@ -767,21 +919,6 @@ class ChatViewModel: ObservableObject {
                 )
             }
             return .routineList(cards)
-
-        case "quests":
-            await store.loadQuests()
-            print("🃏 buildCardData: loaded \(store.quests.count) quests (\(store.quests.filter { $0.status == .active }.count) active)")
-            let cards = store.quests
-                .filter { $0.status == .active }
-                .map { quest in
-                    ChatCardData.CardQuest(
-                        id: quest.id,
-                        title: quest.title,
-                        emoji: quest.area.emoji,
-                        progress: quest.progress
-                    )
-                }
-            return .questList(cards)
 
         default:
             return nil
@@ -909,6 +1046,26 @@ extension Array where Element == BackboardSideEffect {
         for effect in self {
             if case .showCard(let cardType) = effect {
                 return cardType
+            }
+        }
+        return nil
+    }
+
+    /// Extract the first show_video from side effects
+    var firstShowVideo: (url: String, title: String)? {
+        for effect in self {
+            if case .showVideo(let url, let title) = effect {
+                return (url, title)
+            }
+        }
+        return nil
+    }
+
+    /// Extract the first show_video_suggestions category from side effects
+    var firstShowVideoSuggestions: String? {
+        for effect in self {
+            if case .showVideoSuggestions(let category) = effect {
+                return category
             }
         }
         return nil

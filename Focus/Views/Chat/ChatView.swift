@@ -1,6 +1,7 @@
 import SwiftUI
 import AVFoundation
 import Combine
+import WebKit
 
 // MARK: - Replika-Style Chat View
 
@@ -22,6 +23,7 @@ struct ChatView: View {
     @State private var showVoiceCall = false
     @State private var isHomeMode = false  // Toggle between home view and chat view
     @State private var showAppBlocker = false
+    @State private var isAvatarPaused = false
 
     @EnvironmentObject var subscriptionManager: SubscriptionManager
 
@@ -213,10 +215,19 @@ struct ChatView: View {
             VoiceCallView()
         }
         .onChange(of: isInputFocused) { _, focused in
-            // Exit home mode when user starts typing (only if there are messages)
-            if focused && isHomeMode && !viewModel.messages.isEmpty {
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    isHomeMode = false
+            if focused {
+                // Pause 3D scene immediately to free GPU for keyboard animation
+                isAvatarPaused = true
+                // Exit home mode when user starts typing (only if there are messages)
+                if isHomeMode && !viewModel.messages.isEmpty {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        isHomeMode = false
+                    }
+                }
+            } else {
+                // Resume 3D scene after keyboard dismiss animation completes
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    isAvatarPaused = false
                 }
             }
         }
@@ -230,7 +241,8 @@ struct ChatView: View {
             avatarURL: AvatarURLs.cesiumMan,
             backgroundColor: UIColor(red: 0.10, green: 0.12, blue: 0.20, alpha: 1.0),
             enableRotation: false,
-            autoRotate: false
+            autoRotate: false,
+            isPaused: isAvatarPaused
         )
         .ignoresSafeArea()
     }
@@ -347,29 +359,8 @@ struct ChatView: View {
 
             Spacer()
 
-            // Right: Phone, Chat (thoughts) and lightning (training) icons
+            // Right: Chat (thoughts) and lightning (training) icons
             HStack(spacing: 8) {
-                Button(action: {
-                    #if DEBUG
-                    showVoiceCall = true
-                    #else
-                    if subscriptionManager.isProUser {
-                        showVoiceCall = true
-                    } else {
-                        showPaywall = true
-                    }
-                    #endif
-                }) {
-                    Image(systemName: "phone.fill")
-                        .font(.system(size: 16))
-                        .foregroundColor(.white.opacity(0.8))
-                        .frame(width: 40, height: 40)
-                        .background(
-                            Circle()
-                                .fill(Color.white.opacity(0.15))
-                        )
-                }
-
                 Button(action: {
                     withAnimation(.easeInOut(duration: 0.25)) {
                         showTrainingSheet = false
@@ -416,7 +407,7 @@ struct ChatView: View {
             ScrollView(showsIndicators: false) {
                 LazyVStack(spacing: 8) {
                     // Group messages by date
-                    ForEach(groupedMessages, id: \.date) { group in
+                    ForEach(viewModel.groupedMessages) { group in
                         // Date separator
                         dateSeparator(date: group.date)
 
@@ -443,9 +434,9 @@ struct ChatView: View {
             }
             .onChange(of: isInputFocused) { _, focused in
                 if focused {
-                    // Delay to let keyboard animation start, then scroll
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        withAnimation(.easeOut(duration: 0.25)) {
+                    // Wait for keyboard animation to finish, then scroll
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        withAnimation(.easeOut(duration: 0.15)) {
                             proxy.scrollTo("bottom", anchor: .bottom)
                         }
                     }
@@ -457,41 +448,15 @@ struct ChatView: View {
         }
     }
 
-    // Group messages by date
-    private var groupedMessages: [MessageGroup] {
-        let calendar = Calendar.current
-        var groups: [MessageGroup] = []
-        var currentDate: Date?
-        var currentMessages: [SimpleChatMessage] = []
-
-        for message in viewModel.messages {
-            let messageDate = calendar.startOfDay(for: message.timestamp)
-
-            if currentDate == nil {
-                currentDate = messageDate
-                currentMessages = [message]
-            } else if calendar.isDate(messageDate, inSameDayAs: currentDate!) {
-                currentMessages.append(message)
-            } else {
-                groups.append(MessageGroup(date: currentDate!, messages: currentMessages))
-                currentDate = messageDate
-                currentMessages = [message]
-            }
-        }
-
-        if let date = currentDate, !currentMessages.isEmpty {
-            groups.append(MessageGroup(date: date, messages: currentMessages))
-        }
-
-        return groups
-    }
-
-    private func dateSeparator(date: Date) -> some View {
+    private static let dateSeparatorFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "fr_FR")
         formatter.dateFormat = "d MMMM yyyy"
+        return formatter
+    }()
 
-        return Text(formatter.string(from: date))
+    private func dateSeparator(date: Date) -> some View {
+        return Text(Self.dateSeparatorFormatter.string(from: date))
             .font(.system(size: 13, weight: .medium))
             .foregroundColor(.white)
             .padding(.horizontal, 16)
@@ -526,37 +491,26 @@ struct ChatView: View {
 
     private var replikaInputBar: some View {
         HStack(spacing: 8) {
-            // Left: Mic button (separate circle, grayish-taupe)
+            // Left: Phone call button
             Button(action: {
-                if viewModel.canSendFreeVoice {
-                    if isRecording {
-                        stopRecordingAndSend()
-                    } else {
-                        startRecording()
-                    }
+                #if DEBUG
+                showVoiceCall = true
+                #else
+                if subscriptionManager.isProUser {
+                    showVoiceCall = true
                 } else {
                     showPaywall = true
                 }
+                #endif
             }) {
                 ZStack {
                     Circle()
-                        .fill(Color(red: 0.58, green: 0.53, blue: 0.55)) // Grayish-taupe like Replika
+                        .fill(Color(red: 0.58, green: 0.53, blue: 0.55))
                         .frame(width: 52, height: 52)
 
-                    if isRecording {
-                        Image(systemName: "waveform")
-                            .font(.system(size: 20, weight: .medium))
-                            .foregroundColor(.red)
-                    } else {
-                        // Three dots/bars like Replika mic icon
-                        HStack(spacing: 4) {
-                            ForEach(0..<3, id: \.self) { i in
-                                Capsule()
-                                    .fill(Color.white)
-                                    .frame(width: 5, height: [10, 16, 10][i])
-                            }
-                        }
-                    }
+                    Image(systemName: "phone.fill")
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundColor(.white)
                 }
             }
 
@@ -607,11 +561,7 @@ struct ChatView: View {
             .padding(.vertical, 14)
             .background(
                 Capsule()
-                    .fill(.ultraThinMaterial) // Blur/glass effect
-                    .overlay(
-                        Capsule()
-                            .fill(Color(red: 0.45, green: 0.50, blue: 0.58).opacity(0.4))
-                    )
+                    .fill(Color(red: 0.25, green: 0.28, blue: 0.35).opacity(0.85))
             )
         }
         .padding(.horizontal, 12)
@@ -688,13 +638,6 @@ struct SatisfactionGaugeView: View {
         }
         .frame(width: size, height: size)
     }
-}
-
-// MARK: - Message Group (for date grouping)
-
-struct MessageGroup {
-    let date: Date
-    let messages: [SimpleChatMessage]
 }
 
 // MARK: - Replika Message Bubble
@@ -802,8 +745,10 @@ struct ReplikaMessageBubble: View {
             InlineRoutineListCard(routines: routines, messageId: message.id, viewModel: viewModel)
         case .planning(let tasks, let routines):
             InlinePlanningCard(tasks: tasks, routines: routines, messageId: message.id, viewModel: viewModel)
-        case .questList(let quests):
-            InlineQuestListCard(quests: quests)
+        case .videoCard(let video):
+            InlineVideoCard(video: video, messageId: message.id, viewModel: viewModel)
+        case .videoSuggestions(let data):
+            VideoSuggestionsCard(data: data, messageId: message.id, viewModel: viewModel)
         case .actionButton(let action):
             Button {
                 NotificationCenter.default.post(name: Notification.Name(action.deepLink), object: nil)
@@ -1105,92 +1050,6 @@ struct InlineRoutineListCard: View {
     }
 }
 
-// MARK: - Inline Quest List Card
-
-struct InlineQuestListCard: View {
-    let quests: [ChatCardData.CardQuest]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Header
-            HStack(spacing: 8) {
-                Image(systemName: "target")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.black.opacity(0.5))
-                Text("Objectifs")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.black.opacity(0.5))
-                    .textCase(.uppercase)
-                    .tracking(0.5)
-                Spacer()
-                Text("\(quests.count)")
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(.black.opacity(0.35))
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 14)
-            .padding(.bottom, 10)
-
-            if quests.isEmpty {
-                Text("Aucun objectif actif")
-                    .font(.system(size: 14))
-                    .foregroundColor(.black.opacity(0.4))
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 14)
-            } else {
-                // Quests
-                ForEach(Array(quests.enumerated()), id: \.element.id) { index, quest in
-                    HStack(spacing: 12) {
-                        Text(quest.emoji)
-                            .font(.system(size: 20))
-
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(quest.title)
-                                .font(.system(size: 15, weight: .medium))
-                                .foregroundColor(.black.opacity(0.85))
-                                .lineLimit(2)
-                                .multilineTextAlignment(.leading)
-
-                            // Progress bar
-                            GeometryReader { geometry in
-                                ZStack(alignment: .leading) {
-                                    RoundedRectangle(cornerRadius: 3)
-                                        .fill(Color.black.opacity(0.08))
-                                        .frame(height: 6)
-
-                                    RoundedRectangle(cornerRadius: 3)
-                                        .fill(Color.black.opacity(0.6))
-                                        .frame(width: geometry.size.width * quest.progress, height: 6)
-                                }
-                            }
-                            .frame(height: 6)
-                        }
-
-                        Spacer()
-
-                        Text("\(Int(quest.progress * 100))%")
-                            .font(.system(size: 13, weight: .medium, design: .rounded))
-                            .foregroundColor(.black.opacity(0.4))
-                    }
-                    .padding(.vertical, 11)
-                    .padding(.horizontal, 16)
-
-                    if index < quests.count - 1 {
-                        Rectangle()
-                            .fill(Color.black.opacity(0.06))
-                            .frame(height: 0.5)
-                            .padding(.leading, 50)
-                    }
-                }
-                .padding(.bottom, 4)
-            }
-        }
-        .background(Color.white)
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
-    }
-}
-
 // MARK: - Inline Planning Card (Tasks + Routines combined)
 
 struct InlinePlanningCard: View {
@@ -1339,6 +1198,256 @@ struct InlinePlanningCard: View {
         .background(Color.white)
         .cornerRadius(16)
         .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
+    }
+}
+
+// MARK: - Video Suggestions Card
+
+struct VideoSuggestionsCard: View {
+    let data: ChatCardData.VideoSuggestionsData
+    let messageId: UUID
+    var viewModel: ChatViewModel?
+
+    private var categoryLabel: String {
+        switch data.category {
+        case "meditation": return "Méditation"
+        case "breathing": return "Respiration"
+        case "motivation": return "Motivation"
+        case "prayer": return "Prière"
+        default: return data.category.capitalized
+        }
+    }
+
+    private var categoryIcon: String {
+        switch data.category {
+        case "meditation": return "brain.head.profile"
+        case "breathing": return "wind"
+        case "motivation": return "bolt.fill"
+        case "prayer": return "hands.sparkles.fill"
+        default: return "play.circle.fill"
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            HStack(spacing: 8) {
+                Image(systemName: categoryIcon)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.black.opacity(0.5))
+                Text("Vidéos de \(categoryLabel)")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.black.opacity(0.5))
+                    .textCase(.uppercase)
+                    .tracking(0.5)
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 10)
+
+            // Video list
+            ForEach(Array(data.videos.enumerated()), id: \.element.id) { index, video in
+                HStack(spacing: 12) {
+                    // YouTube thumbnail
+                    AsyncImage(url: URL(string: "https://img.youtube.com/vi/\(video.videoId)/mqdefault.jpg")) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .aspectRatio(16/9, contentMode: .fill)
+                        case .failure:
+                            Rectangle()
+                                .fill(Color.black.opacity(0.1))
+                                .overlay(
+                                    Image(systemName: "play.circle.fill")
+                                        .font(.system(size: 20))
+                                        .foregroundColor(.black.opacity(0.3))
+                                )
+                        default:
+                            Rectangle()
+                                .fill(Color.black.opacity(0.05))
+                                .overlay(ProgressView().tint(.black.opacity(0.3)))
+                        }
+                    }
+                    .frame(width: 100, height: 56)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                    // Title + duration
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(video.title)
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.black.opacity(0.85))
+                            .lineLimit(2)
+                        Text(video.duration)
+                            .font(.system(size: 12))
+                            .foregroundColor(.black.opacity(0.4))
+                    }
+
+                    Spacer()
+
+                    // Choose button
+                    Button {
+                        viewModel?.selectSuggestedVideo(messageId: messageId, video: video)
+                    } label: {
+                        Text("Choisir")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(Color.black)
+                            .cornerRadius(20)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+
+                if index < data.videos.count - 1 {
+                    Rectangle()
+                        .fill(Color.black.opacity(0.06))
+                        .frame(height: 0.5)
+                        .padding(.leading, 128)
+                }
+            }
+
+            Spacer().frame(height: 6)
+        }
+        .background(Color.white)
+        .cornerRadius(16)
+        .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
+    }
+}
+
+// MARK: - Inline Video Card
+
+struct InlineVideoCard: View {
+    let video: ChatCardData.VideoCard
+    let messageId: UUID
+    var viewModel: ChatViewModel?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            HStack(spacing: 8) {
+                Image(systemName: "play.circle.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.red)
+                Text(video.title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.black.opacity(0.85))
+                    .lineLimit(1)
+                Spacer()
+                if video.isCompleted {
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 12))
+                        Text("Terminé")
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .foregroundColor(.green)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 10)
+
+            // YouTube Player
+            YouTubePlayerView(videoId: video.videoId) {
+                viewModel?.videoCompleted(messageId: messageId)
+            }
+            .frame(height: 200)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .padding(.horizontal, 12)
+            .padding(.bottom, 12)
+        }
+        .background(Color.white)
+        .cornerRadius(16)
+        .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
+    }
+}
+
+// MARK: - YouTube Player (WKWebView)
+
+struct YouTubePlayerView: UIViewRepresentable {
+    let videoId: String
+    var onVideoEnded: (() -> Void)?
+
+    func makeUIView(context: Context) -> WKWebView {
+        let config = WKWebViewConfiguration()
+        config.allowsInlineMediaPlayback = true
+        config.mediaTypesRequiringUserActionForPlayback = []
+
+        let contentController = config.userContentController
+        contentController.add(context.coordinator, name: "videoEnded")
+
+        let webView = WKWebView(frame: .zero, configuration: config)
+        webView.scrollView.isScrollEnabled = false
+        webView.isOpaque = false
+        webView.backgroundColor = .black
+
+        let html = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+        <style>
+            * { margin: 0; padding: 0; }
+            body { background: #000; overflow: hidden; }
+            .container { position: relative; width: 100%; padding-bottom: 56.25%; }
+            #player { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        </style>
+        </head>
+        <body>
+        <div class="container">
+            <div id="player"></div>
+        </div>
+        <script>
+            var tag = document.createElement('script');
+            tag.src = "https://www.youtube.com/iframe_api";
+            var firstScriptTag = document.getElementsByTagName('script')[0];
+            firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+            var player;
+            function onYouTubeIframeAPIReady() {
+                player = new YT.Player('player', {
+                    videoId: '\(videoId)',
+                    playerVars: { 'playsinline': 1, 'rel': 0, 'modestbranding': 1 },
+                    events: { 'onStateChange': onPlayerStateChange }
+                });
+            }
+            function onPlayerStateChange(event) {
+                if (event.data === YT.PlayerState.ENDED) {
+                    window.webkit.messageHandlers.videoEnded.postMessage('ended');
+                }
+            }
+        </script>
+        </body>
+        </html>
+        """
+
+        webView.loadHTMLString(html, baseURL: nil)
+        return webView
+    }
+
+    func updateUIView(_ uiView: WKWebView, context: Context) {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onVideoEnded: onVideoEnded)
+    }
+
+    class Coordinator: NSObject, WKScriptMessageHandler {
+        var onVideoEnded: (() -> Void)?
+
+        init(onVideoEnded: (() -> Void)?) {
+            self.onVideoEnded = onVideoEnded
+        }
+
+        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            if message.name == "videoEnded" {
+                DispatchQueue.main.async {
+                    self.onVideoEnded?()
+                }
+            }
+        }
     }
 }
 

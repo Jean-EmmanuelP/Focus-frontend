@@ -229,10 +229,6 @@ class BackboardService {
                 let result = try await getRituals()
                 return (result, [])
 
-            case "get_quests":
-                let result = try await getQuests()
-                return (result, [])
-
             case "create_task":
                 let result = try await createTask(args: args)
                 return (result, [.refreshTasks, .calendarNeedsRefresh, .showCard("tasks")])
@@ -256,10 +252,6 @@ class BackboardService {
                 let result = try await completeRoutine(routineId: routineId)
                 return (result, [.refreshRituals])
 
-            case "create_quest":
-                let result = try await createQuest(args: args)
-                return (result, [.refreshQuests, .showCard("quests")])
-
             case "block_apps":
                 let duration = args["duration_minutes"] as? Int
                 return (blockApps(duration: duration), [.blockApps(duration)])
@@ -282,6 +274,17 @@ class BackboardService {
             case "show_card":
                 let cardType = args["card_type"] as? String ?? "tasks"
                 return (toJSON(["shown": true] as [String: Any]), [.showCard(cardType)])
+
+            case "save_favorite_video":
+                let result = await saveFavoriteVideo(args: args)
+                return (result, [])
+
+            case "get_favorite_video":
+                return getFavoriteVideo()
+
+            case "suggest_ritual_videos":
+                let category = args["category"] as? String ?? "meditation"
+                return suggestRitualVideos(category: category)
 
             default:
                 print("⚠️ Unknown tool: \(name)")
@@ -356,26 +359,12 @@ class BackboardService {
         return toJSON(["rituals": rituals])
     }
 
-    private func getQuests() async throws -> String {
-        await FocusAppStore.shared.loadQuests()
-        let quests = FocusAppStore.shared.quests.filter { $0.status == .active }.map { quest in
-            [
-                "id": quest.id,
-                "title": quest.title,
-                "area": quest.area.rawValue,
-                "progress": quest.progress
-            ] as [String: Any]
-        }
-        return toJSON(["quests": quests])
-    }
-
     private func createTask(args: [String: Any]) async throws -> String {
         let apiClient = APIClient.shared
         let title = args["title"] as? String ?? "Nouvelle tâche"
         let dateStr = args["date"] as? String ?? todayString()
         let priority = args["priority"] as? String
         let timeBlock = args["time_block"] as? String
-        let questId = args["quest_id"] as? String
 
         var body: [String: Any] = [
             "title": title,
@@ -383,7 +372,6 @@ class BackboardService {
         ]
         if let priority { body["priority"] = priority }
         if let timeBlock { body["time_block"] = timeBlock }
-        if let questId { body["quest_id"] = questId }
 
         let bodyData = try JSONSerialization.data(withJSONObject: body)
         let _: EmptyResponse = try await apiClient.request(
@@ -438,26 +426,6 @@ class BackboardService {
             method: .post
         )
         return toJSON(["completed": true, "routine_id": routineId] as [String: Any])
-    }
-
-    private func createQuest(args: [String: Any]) async throws -> String {
-        let title = args["title"] as? String ?? "Nouvel objectif"
-        let area = args["area"] as? String ?? "other"
-        let targetDate = args["target_date"] as? String
-
-        var body: [String: Any] = [
-            "title": title,
-            "area": area
-        ]
-        if let targetDate { body["target_date"] = targetDate }
-
-        let bodyData = try JSONSerialization.data(withJSONObject: body)
-        let _: EmptyResponse = try await APIClient.shared.request(
-            endpoint: .createQuest,
-            method: .post,
-            body: RawJSON(data: bodyData)
-        )
-        return toJSON(["created": true, "title": title] as [String: Any])
     }
 
     private func blockApps(duration: Int?) -> String {
@@ -540,6 +508,88 @@ class BackboardService {
             body: RawJSON(data: bodyData)
         )
         return toJSON(["created": true, "count": goals.count] as [String: Any])
+    }
+
+    // MARK: - Curated Video Catalogue
+
+    struct CuratedVideo {
+        let videoId: String
+        let title: String
+        let duration: String
+        let category: String
+    }
+
+    static let curatedVideos: [String: [CuratedVideo]] = [
+        "meditation": [
+            CuratedVideo(videoId: "VJcPtspJP0g", title: "Wim Hof Breathing Method", duration: "11 min", category: "meditation"),
+            CuratedVideo(videoId: "inpok4MKVLM", title: "Méditation guidée 10 min", duration: "10 min", category: "meditation"),
+            CuratedVideo(videoId: "O-6f5wQXSu8", title: "Body Scan Relaxation", duration: "15 min", category: "meditation"),
+        ],
+        "breathing": [
+            CuratedVideo(videoId: "bBBZGBBNaGM", title: "Cohérence cardiaque 5 min", duration: "5 min", category: "breathing"),
+            CuratedVideo(videoId: "Huqo2IPBGNg", title: "Respiration 4-7-8", duration: "7 min", category: "breathing"),
+            CuratedVideo(videoId: "tybOi4hjZFQ", title: "Breathwork guidé", duration: "10 min", category: "breathing"),
+        ],
+        "motivation": [
+            CuratedVideo(videoId: "mgmVOuLgFB0", title: "Discours motivant matin", duration: "8 min", category: "motivation"),
+            CuratedVideo(videoId: "26U_seo0a1g", title: "Morning Routine Inspiration", duration: "6 min", category: "motivation"),
+        ],
+        "prayer": [
+            CuratedVideo(videoId: "cBKFgJsBSFA", title: "Prière du matin guidée", duration: "10 min", category: "prayer"),
+            CuratedVideo(videoId: "aNCjBOTCwto", title: "Moment de gratitude", duration: "5 min", category: "prayer"),
+        ]
+    ]
+
+    private func suggestRitualVideos(category: String) -> (String, [BackboardSideEffect]) {
+        let videos = Self.curatedVideos[category] ?? Self.curatedVideos["meditation"]!
+        let list = videos.map { video -> [String: Any] in
+            [
+                "video_id": video.videoId,
+                "title": video.title,
+                "duration": video.duration
+            ]
+        }
+        return (toJSON(["videos": list, "category": category] as [String: Any]),
+                [.showVideoSuggestions(category: category)])
+    }
+
+    // MARK: - Favorite Video
+
+    private func saveFavoriteVideo(args: [String: Any]) async -> String {
+        let url = args["url"] as? String ?? ""
+        let title = args["title"] as? String ?? "Ma vidéo"
+
+        UserDefaults.standard.set(url, forKey: "favorite_video_url")
+        UserDefaults.standard.set(title, forKey: "favorite_video_title")
+
+        // Update in-memory user model
+        FocusAppStore.shared.user?.favoriteVideoUrl = url
+        FocusAppStore.shared.user?.favoriteVideoTitle = title
+
+        // Save to Backboard memory for AI recall
+        try? await addMemory(content: "Vidéo favorite de l'utilisateur pour rituel quotidien: \(title) - \(url)")
+
+        return toJSON(["saved": true, "url": url, "title": title] as [String: Any])
+    }
+
+    private func getFavoriteVideo() -> (String, [BackboardSideEffect]) {
+        let url = UserDefaults.standard.string(forKey: "favorite_video_url")
+        let title = UserDefaults.standard.string(forKey: "favorite_video_title") ?? "Ma vidéo"
+
+        if let url, !url.isEmpty {
+            return (toJSON(["url": url, "title": title] as [String: Any]), [.showVideo(url: url, title: title)])
+        }
+
+        // No favorite video — auto-show suggestions card
+        let hour = Calendar.current.component(.hour, from: Date())
+        let category: String
+        switch hour {
+        case 5..<12: category = "meditation"
+        case 18..<24: category = "motivation"
+        default: category = "breathing"
+        }
+        return (toJSON(["has_video": false, "suggested_category": category] as [String: Any]),
+                [.showVideoSuggestions(category: category)])
     }
 
     // MARK: - Memory Management
@@ -680,7 +730,6 @@ class BackboardService {
         - Au début de chaque conversation (premier message), appelle TOUJOURS get_user_context
         - Quand l'utilisateur parle de ses tâches, appelle get_today_tasks
         - Quand il parle de rituels/routines, appelle get_rituals
-        - Quand il parle d'objectifs/quests, appelle get_quests
         - Quand il te demande de créer quelque chose, utilise le tool correspondant
         - Quand il dit avoir terminé une tâche, utilise complete_task avec le bon ID
         - Quand il veut se concentrer ou bloquer ses apps, utilise block_apps
@@ -694,6 +743,16 @@ class BackboardService {
         - L'après-midi (12h-18h): check progress, encourage
         - Le soir (18h-22h): bilan, célèbre les victoires
         - La nuit (22h-5h): encourage le repos
+        - Si l'utilisateur partage un lien YouTube et dit de le regarder régulièrement, appelle save_favorite_video
+        - Le matin, après get_user_context, appelle get_favorite_video pour proposer la vidéo favorite
+        - Quand get_favorite_video retourne has_video=false, une card de suggestions vidéo est DÉJÀ affichée automatiquement. Dis juste à l'utilisateur de choisir une vidéo dans la liste
+        - Si l'utilisateur dit avoir fini sa vidéo, félicite-le brièvement
+        - VIDÉOS À LA DEMANDE: Si l'utilisateur mentionne vouloir méditer, faire du breathwork, respirer, se motiver, prier, ou tout sujet lié → appelle suggest_ritual_videos avec la catégorie correspondante :
+          • méditer, méditation, calme, relaxation, zen → category: "meditation"
+          • respirer, respiration, breathwork, cohérence cardiaque, stress, anxiété → category: "breathing"
+          • motivation, énergie, se motiver, inspirant → category: "motivation"
+          • prier, prière, gratitude, spiritualité → category: "prayer"
+        - Après que l'utilisateur choisit une vidéo dans le catalogue, confirme avec enthousiasme
 
         MÉMOIRE:
         - Tu as accès à une mémoire automatique. Les faits importants sont retenus entre les conversations.
@@ -726,13 +785,11 @@ class BackboardService {
             tool("get_user_context", "Récupère le contexte actuel: streak, tâches, rituels, minutes focus, moment de la journée, statut blocage apps."),
             tool("get_today_tasks", "Récupère la liste des tâches du jour avec statut, bloc horaire et priorité."),
             tool("get_rituals", "Récupère la liste des rituels quotidiens avec statut de complétion."),
-            tool("get_quests", "Récupère la liste des objectifs actifs avec domaine et progression."),
             tool("create_task", "Crée une nouvelle tâche dans le calendrier.", [
                 "title": param("string", "Le titre de la tâche"),
                 "date": param("string", "Date YYYY-MM-DD (défaut: aujourd'hui)"),
                 "priority": param("string", "Priorité", enumValues: ["high", "medium", "low"]),
-                "time_block": param("string", "Bloc horaire", enumValues: ["morning", "afternoon", "evening"]),
-                "quest_id": param("string", "ID du quest lié (optionnel)")
+                "time_block": param("string", "Bloc horaire", enumValues: ["morning", "afternoon", "evening"])
             ], required: ["title"]),
             tool("complete_task", "Marque une tâche comme complétée.", [
                 "task_id": param("string", "L'ID de la tâche")
@@ -749,11 +806,6 @@ class BackboardService {
             tool("complete_routine", "Marque un rituel comme complété.", [
                 "routine_id": param("string", "L'ID du rituel")
             ], required: ["routine_id"]),
-            tool("create_quest", "Crée un nouvel objectif.", [
-                "title": param("string", "Le titre de l'objectif"),
-                "area": param("string", "Domaine de vie", enumValues: ["health", "learning", "career", "relationships", "creativity", "other"]),
-                "target_date": param("string", "Date cible YYYY-MM-DD (optionnel)")
-            ], required: ["title", "area"]),
             tool("block_apps", "Active le blocage d'apps pour aider la concentration.", [
                 "duration_minutes": param("integer", "Durée en minutes (optionnel)")
             ]),
@@ -772,8 +824,16 @@ class BackboardService {
                 "goals": ["type": "array", "description": "Liste des objectifs", "items": ["type": "string"]]
             ], required: ["goals"]),
             tool("show_card", "Affiche une card interactive dans le chat.", [
-                "card_type": param("string", "Type de card", enumValues: ["tasks", "routines", "quests", "planning"])
-            ], required: ["card_type"])
+                "card_type": param("string", "Type de card", enumValues: ["tasks", "routines", "planning"])
+            ], required: ["card_type"]),
+            tool("save_favorite_video", "Sauvegarde le lien de la vidéo favorite de l'utilisateur pour son rituel quotidien (méditation, prière, motivation, etc.).", [
+                "url": param("string", "L'URL YouTube de la vidéo"),
+                "title": param("string", "Le titre ou description courte de la vidéo (optionnel)")
+            ], required: ["url"]),
+            tool("get_favorite_video", "Récupère la vidéo favorite de l'utilisateur pour la proposer dans le chat."),
+            tool("suggest_ritual_videos", "Suggère des vidéos populaires pour un rituel quotidien selon la catégorie.", [
+                "category": param("string", "Catégorie de vidéo", enumValues: ["meditation", "breathing", "motivation", "prayer"])
+            ], required: ["category"])
         ]
 
         return [
