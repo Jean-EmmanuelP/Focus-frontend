@@ -31,6 +31,8 @@ struct User: Codable, Identifiable {
     var createdAt: Date?               // Account creation date
     var backboardAssistantId: String?  // Per-user Backboard assistant for isolated memory
     var voiceId: String?               // Gradium TTS voice preference
+    var favoriteVideoUrl: String?      // Favorite ritual video URL
+    var favoriteVideoTitle: String?    // Favorite ritual video title
 
     // Computed display name (pseudo > firstName lastName > email prefix)
     var name: String {
@@ -54,7 +56,6 @@ struct FocusSession: Codable, Identifiable {
     let durationMinutes: Int // Planned duration
     let startTime: Date
     let endTime: Date?
-    let questId: String?
     let description: String?
     let isManuallyLogged: Bool
 
@@ -94,82 +95,6 @@ struct FocusSession: Codable, Identifiable {
         }
         return "\(mins)m"
     }
-}
-
-// MARK: - Quest
-struct Quest: Codable, Identifiable, Hashable {
-    let id: String
-    let userId: String
-    let title: String
-    let area: QuestArea
-    var progress: Double // 0.0 to 1.0
-    let status: QuestStatus
-    let createdAt: Date
-    let targetDate: Date?
-
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(id)
-    }
-
-    static func == (lhs: Quest, rhs: Quest) -> Bool {
-        lhs.id == rhs.id
-    }
-}
-
-enum QuestArea: String, Codable, CaseIterable {
-    case health = "Health"
-    case learning = "Learning"
-    case career = "Career"
-    case relationships = "Relationships"
-    case creativity = "Creativity"
-    case other = "Other"
-    
-    var emoji: String {
-        switch self {
-        case .health: return "💪"
-        case .learning: return "📚"
-        case .career: return "💼"
-        case .relationships: return "❤️"
-        case .creativity: return "🎨"
-        case .other: return "✨"
-        }
-    }
-    
-    var color: String {
-        switch self {
-        case .health: return "#34C759"      // iOS Green
-        case .learning: return "#5AC8FA"    // Sky Blue
-        case .career: return "#4ECDC4"      // Teal
-        case .relationships: return "#FF6B9D" // Soft Pink
-        case .creativity: return "#BF5AF2"  // Purple
-        case .other: return "#8E8E93"       // Gray
-        }
-    }
-
-    var localizedName: String {
-        switch self {
-        case .health: return "area.health".localized
-        case .learning: return "area.learning".localized
-        case .career: return "area.career".localized
-        case .relationships: return "area.relationships".localized
-        case .creativity: return "area.creativity".localized
-        case .other: return "area.other".localized
-        }
-    }
-}
-
-enum QuestStatus: String, Codable {
-    case active = "active"
-    case completed = "completed"
-    case paused = "paused"
-    case archived = "archived"
-}
-
-// MARK: - Area Progress
-struct AreaProgress: Identifiable {
-    let id = UUID()
-    let area: QuestArea
-    let progress: Double // 0.0 to 1.0
 }
 
 // MARK: - Daily Ritual
@@ -291,13 +216,56 @@ enum RitualCategory: String, Codable {
     case other
 }
 
+// MARK: - Life Area
+enum LifeArea: String, Codable, CaseIterable {
+    case health = "Health"
+    case learning = "Learning"
+    case career = "Career"
+    case relationships = "Relationships"
+    case creativity = "Creativity"
+    case other = "Other"
+
+    var emoji: String {
+        switch self {
+        case .health: return "\u{1F4AA}"
+        case .learning: return "\u{1F4DA}"
+        case .career: return "\u{1F4BC}"
+        case .relationships: return "\u{2764}\u{FE0F}"
+        case .creativity: return "\u{1F3A8}"
+        case .other: return "\u{2728}"
+        }
+    }
+
+    var color: String {
+        switch self {
+        case .health: return "#34C759"
+        case .learning: return "#5AC8FA"
+        case .career: return "#4ECDC4"
+        case .relationships: return "#FF6B9D"
+        case .creativity: return "#BF5AF2"
+        case .other: return "#8E8E93"
+        }
+    }
+
+    var localizedName: String {
+        switch self {
+        case .health: return "area.health".localized
+        case .learning: return "area.learning".localized
+        case .career: return "area.career".localized
+        case .relationships: return "area.relationships".localized
+        case .creativity: return "area.creativity".localized
+        case .other: return "area.other".localized
+        }
+    }
+}
+
 // MARK: - Daily Intention
 struct DailyIntention: Codable, Identifiable {
     let id: String
     let userId: String
     let date: Date
     let intention: String
-    let area: QuestArea
+    let area: LifeArea
     var isCompleted: Bool
 }
 
@@ -425,6 +393,7 @@ extension User {
         self.avatarURL = response.avatarUrl
         self.gender = response.gender
         self.age = response.age
+        self.birthday = response.birthday
         self.description = response.description
         self.hobbies = response.hobbies
         self.lifeGoal = response.lifeGoal
@@ -446,6 +415,8 @@ extension User {
         self.createdAt = response.createdAt
         self.backboardAssistantId = response.backboardAssistantId
         self.voiceId = response.voiceId
+        self.favoriteVideoUrl = nil
+        self.favoriteVideoTitle = nil
     }
 }
 
@@ -463,39 +434,6 @@ extension DailyRitual {
     }
 }
 
-extension Quest {
-    /// Create Quest from API QuestResponse with area info
-    init(from response: QuestResponse, area: Area?) {
-        self.id = response.id
-        self.userId = ""
-        self.title = response.title
-        self.area = Quest.mapAreaToQuestArea(slug: area?.slug)
-        self.progress = response.progress
-        self.status = QuestStatus(rawValue: response.status) ?? .active
-        self.createdAt = Date()
-
-        // Parse targetDate from ISO string
-        if let dateString = response.targetDate {
-            let formatter = ISO8601DateFormatter()
-            self.targetDate = formatter.date(from: dateString)
-        } else {
-            self.targetDate = nil
-        }
-    }
-
-    private static func mapAreaToQuestArea(slug: String?) -> QuestArea {
-        guard let slug = slug else { return .other }
-        switch slug.lowercased() {
-        case "health": return .health
-        case "learning": return .learning
-        case "career": return .career
-        case "relationships": return .relationships
-        case "creativity": return .creativity
-        default: return .other
-        }
-    }
-}
-
 extension FocusSession {
     /// Create FocusSession from API response
     init(from response: FocusSessionResponse) {
@@ -504,7 +442,6 @@ extension FocusSession {
         self.durationMinutes = response.durationMinutes
         self.startTime = response.startedAt
         self.endTime = response.completedAt
-        self.questId = response.questId
         self.description = response.description
         self.isManuallyLogged = false
     }

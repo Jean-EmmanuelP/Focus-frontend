@@ -218,12 +218,6 @@ enum APIConfiguration {
         case updateArea(String)
         case deleteArea(String)
 
-        // Quests
-        case quests(areaId: String?)
-        case createQuest
-        case updateQuest(String)
-        case deleteQuest(String)
-
         // Routines (formerly rituals)
         case routines(areaId: String?)
         case createRoutine
@@ -256,7 +250,6 @@ enum APIConfiguration {
         // Dashboard & Stats
         case dashboard(date: String)
         case firemode
-        case questsTab
         case statsFocus
         case statsRoutines
 
@@ -432,17 +425,6 @@ enum APIConfiguration {
             case .updateArea(let id), .deleteArea(let id):
                 return "/areas/\(id)"
 
-            // Quests
-            case .quests(let areaId):
-                if let areaId = areaId {
-                    return "/quests?area_id=\(areaId)"
-                }
-                return "/quests"
-            case .createQuest:
-                return "/quests"
-            case .updateQuest(let id), .deleteQuest(let id):
-                return "/quests/\(id)"
-
             // Routines
             case .routines(let areaId):
                 if let areaId = areaId {
@@ -509,8 +491,6 @@ enum APIConfiguration {
                 return "/dashboard?date=\(date)"
             case .firemode:
                 return "/firemode"
-            case .questsTab:
-                return "/quests-tab"
             case .statsFocus:
                 return "/stats/focus"
             case .statsRoutines:
@@ -871,6 +851,18 @@ class APIClient {
             let formatter = DateFormatter()
             formatter.locale = Locale(identifier: "en_US_POSIX")
             formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
+            if let date = formatter.date(from: dateString) {
+                return date
+            }
+
+            // PostgreSQL timestamp format: "2026-02-21 10:37:36.623576+00"
+            formatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSSSSSxx"
+            if let date = formatter.date(from: dateString) {
+                return date
+            }
+
+            // PostgreSQL timestamp without fractional seconds
+            formatter.dateFormat = "yyyy-MM-dd HH:mm:ssxx"
             if let date = formatter.date(from: dateString) {
                 return date
             }

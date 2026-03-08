@@ -166,8 +166,9 @@ struct SettingsView: View {
                     currentName: store.user?.firstName ?? store.user?.name ?? "",
                     onDismiss: { withAnimation(.easeInOut(duration: 0.3)) { showEditName = false } },
                     onSave: { name in
-                        Task { await updateName(name) }
+                        store.user?.firstName = name
                         withAnimation(.easeInOut(duration: 0.3)) { showEditName = false }
+                        Task { await updateName(name) }
                     }
                 )
                 .transition(.opacity)
@@ -179,8 +180,9 @@ struct SettingsView: View {
                     currentPronouns: store.user?.gender ?? "male",
                     onDismiss: { withAnimation(.easeInOut(duration: 0.3)) { showEditPronouns = false } },
                     onSave: { pronouns in
-                        Task { await updatePronouns(pronouns) }
+                        store.user?.gender = pronouns
                         withAnimation(.easeInOut(duration: 0.3)) { showEditPronouns = false }
+                        Task { await updatePronouns(pronouns) }
                     }
                 )
                 .transition(.opacity)
@@ -196,6 +198,7 @@ struct SettingsView: View {
                             do {
                                 try await AuthService.shared.updateEmail(newEmail: email)
                                 await MainActor.run {
+                                    store.user?.email = email
                                     withAnimation(.easeInOut(duration: 0.3)) { showChangeEmail = false }
                                 }
                             } catch {
@@ -1428,6 +1431,16 @@ struct VoltaVoicePickerView: View {
                 .padding(.top, 16)
                 .padding(.horizontal, 24)
 
+                // Error message
+                if let error = previewPlayer.errorMessage {
+                    Text(error)
+                        .font(.system(size: 13))
+                        .foregroundColor(.red.opacity(0.9))
+                        .padding(.horizontal, 24)
+                        .padding(.top, 8)
+                        .transition(.opacity)
+                }
+
                 // Voice list
                 ScrollView(.vertical, showsIndicators: false) {
                     LazyVStack(spacing: 4) {
@@ -1536,6 +1549,7 @@ struct VoltaVoicePickerView: View {
 class VoicePreviewPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate {
     @Published var playingVoiceId: String?
     @Published var loadingVoiceId: String?
+    @Published var errorMessage: String?
 
     private var audioPlayer: AVAudioPlayer?
     private let apiClient = APIClient.shared
@@ -1543,14 +1557,24 @@ class VoicePreviewPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate {
     struct TTSRequest: Encodable {
         let text: String
         let voiceId: String
+
+        enum CodingKeys: String, CodingKey {
+            case text
+            case voiceId = "voice_id"
+        }
     }
 
     struct TTSResponse: Decodable {
         let audioBase64: String
+
+        enum CodingKeys: String, CodingKey {
+            case audioBase64 = "audio_base64"
+        }
     }
 
     func play(voiceId: String, text: String) {
         stop()
+        errorMessage = nil
         loadingVoiceId = voiceId
 
         Task {
@@ -1563,6 +1587,7 @@ class VoicePreviewPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate {
 
                 guard let audioData = Data(base64Encoded: response.audioBase64) else {
                     loadingVoiceId = nil
+                    errorMessage = "Impossible de décoder l'audio"
                     return
                 }
 
@@ -1577,6 +1602,7 @@ class VoicePreviewPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate {
                 playingVoiceId = voiceId
             } catch {
                 loadingVoiceId = nil
+                errorMessage = "Aperçu indisponible"
                 print("Voice preview error: \(error)")
             }
         }
