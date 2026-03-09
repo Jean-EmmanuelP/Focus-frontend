@@ -16,15 +16,8 @@ class DashboardViewModel: ObservableObject {
     @Published var morningCheckIn: MorningCheckIn?
     @Published var todaysSessions: [FocusSession] = []
     @Published var weekSessions: [FocusSession] = []
-    @Published var quests: [Quest] = []
     @Published var todaysTasks: [CalendarTask] = []
     @Published var upcomingWeekTasks: [CalendarTask] = []
-
-    // MARK: - Journal State
-    @Published var todayJournalEntry: JournalEntryResponse?
-    @Published var recentJournalEntries: [JournalEntryResponse] = []
-    @Published var journalStreak: Int = 0
-    @Published var isLoadingJournal: Bool = false
 
     init() {
         setupBindings()
@@ -63,10 +56,6 @@ class DashboardViewModel: ObservableObject {
         store.$weekSessions
             .receive(on: DispatchQueue.main)
             .assign(to: &$weekSessions)
-
-        store.$quests
-            .receive(on: DispatchQueue.main)
-            .assign(to: &$quests)
 
         store.$todaysTasks
             .receive(on: DispatchQueue.main)
@@ -141,15 +130,6 @@ class DashboardViewModel: ObservableObject {
         morningCheckIn?.feeling
     }
 
-    var morningIntentions: [DailyIntention] {
-        morningCheckIn?.intentions ?? []
-    }
-
-    // Aliases for Dashboard display
-    var todaysIntentions: [DailyIntention] {
-        morningIntentions
-    }
-
     var todaysFeeling: Feeling? {
         morningFeeling
     }
@@ -172,49 +152,6 @@ class DashboardViewModel: ObservableObject {
     }
 
     // MARK: - Computed Properties
-    var currentStreak: Int {
-        store.currentStreak
-    }
-
-    var flameLevels: [FlameLevel] {
-        store.streakData?.flameLevels ?? []
-    }
-
-    var currentFlameLevel: Int {
-        store.streakData?.currentFlameLevel ?? 1
-    }
-
-    var todayValidation: DayValidationResponse? {
-        store.streakData?.todayValidation
-    }
-
-    var streakStartDate: String {
-        // Use streak start date from API if available
-        if let streakStart = store.streakStartDateString {
-            // Convert from "YYYY-MM-DD" to "dd/MM"
-            let inputFormatter = DateFormatter()
-            inputFormatter.dateFormat = "yyyy-MM-dd"
-            let outputFormatter = DateFormatter()
-            outputFormatter.dateFormat = "dd/MM"
-
-            if let date = inputFormatter.date(from: streakStart) {
-                return outputFormatter.string(from: date)
-            }
-        }
-
-        // Fallback: calculate from current streak
-        let calendar = Calendar.current
-        let formatter = DateFormatter()
-        formatter.dateFormat = "dd/MM"
-
-        if currentStreak > 0 {
-            let startDate = calendar.date(byAdding: .day, value: -(currentStreak - 1), to: Date()) ?? Date()
-            return formatter.string(from: startDate)
-        }
-        // If streak is 0, show today's date
-        return formatter.string(from: Date())
-    }
-
     var focusedMinutesToday: Int {
         store.focusedMinutesToday
     }
@@ -240,15 +177,6 @@ class DashboardViewModel: ObservableObject {
 
     var totalTasksCount: Int {
         todaysTasks.count
-    }
-
-    // MARK: - Active Quests (top 3 by progress)
-    var activeQuests: [Quest] {
-        quests
-            .filter { $0.status == .active }
-            .sorted { $0.progress > $1.progress }
-            .prefix(3)
-            .map { $0 }
     }
 
     // MARK: - Daily Progress (Tasks + Rituals combined)
@@ -431,92 +359,6 @@ class DashboardViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Journal Actions
-    private let journalService = JournalService()
-
-    /// Load journal data (today's entry, recent entries, streak)
-    func loadJournalData() async {
-        isLoadingJournal = true
-
-        async let todayTask: () = loadTodayEntry()
-        async let recentTask: () = loadRecentEntries()
-        async let streakTask: () = loadJournalStreak()
-
-        _ = await (todayTask, recentTask, streakTask)
-
-        isLoadingJournal = false
-    }
-
-    private func loadTodayEntry() async {
-        do {
-            todayJournalEntry = try await journalService.fetchTodayEntry()
-        } catch {
-            // 404 is expected if no entry today
-            todayJournalEntry = nil
-        }
-    }
-
-    private func loadRecentEntries() async {
-        do {
-            let response = try await journalService.fetchEntries(limit: 7, offset: 0)
-            recentJournalEntries = response.entries
-        } catch {
-            print("❌ Failed to load recent journal entries: \(error)")
-        }
-    }
-
-    private func loadJournalStreak() async {
-        do {
-            journalStreak = try await journalService.fetchStreak()
-        } catch {
-            print("❌ Failed to load journal streak: \(error)")
-        }
-    }
-
-    /// Called when a new journal entry is saved
-    func onJournalEntrySaved(_ entry: JournalEntryResponse) {
-        todayJournalEntry = entry
-        // Add to recent entries if not already present
-        if !recentJournalEntries.contains(where: { $0.id == entry.id }) {
-            recentJournalEntries.insert(entry, at: 0)
-            // Keep only last 7
-            if recentJournalEntries.count > 7 {
-                recentJournalEntries = Array(recentJournalEntries.prefix(7))
-            }
-        }
-        // Refresh streak
-        Task {
-            await loadJournalStreak()
-        }
-    }
-
-    /// Delete today's journal entry
-    func deleteTodayJournalEntry() async {
-        guard let entry = todayJournalEntry else { return }
-
-        do {
-            try await journalService.deleteEntry(id: entry.id)
-            todayJournalEntry = nil
-            recentJournalEntries.removeAll { $0.id == entry.id }
-            await loadJournalStreak()
-        } catch {
-            print("❌ Failed to delete journal entry: \(error)")
-        }
-    }
-
-    /// Check if user has journaled today
-    var hasJournaledToday: Bool {
-        todayJournalEntry != nil
-    }
-
-    /// Get mood data points for graph
-    var journalMoodData: [MoodDataPoint] {
-        recentJournalEntries.compactMap { entry -> MoodDataPoint? in
-            guard let score = entry.moodScore else { return nil }
-            return MoodDataPoint(date: entry.entryDate, score: score, mood: entry.mood)
-        }.reversed()
-    }
-
     // MARK: - Profile Update
     func updateProfile(
         pseudo: String?,
@@ -546,82 +388,6 @@ class DashboardViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Intentions Update
-    private let intentionsService = IntentionsService()
-
-    func updateIntentions(_ edits: [(id: String, text: String, area: QuestArea)]) async {
-        guard let checkIn = store.morningCheckIn else { return }
-
-        // Build new intentions array
-        let intentionInputs = edits.compactMap { edit -> IntentionInput? in
-            guard !edit.text.isEmpty else { return nil }
-            return IntentionInput(
-                areaId: nil,
-                content: "\(edit.area.emoji) \(edit.text)"
-            )
-        }
-
-        // Re-save with updated intentions
-        do {
-            _ = try await intentionsService.saveIntentions(
-                date: Date(),
-                moodRating: feelingToMoodRating(checkIn.feeling),
-                moodEmoji: checkIn.feeling.rawValue,
-                sleepRating: (checkIn.sleepQuality + 1) / 2,
-                sleepEmoji: sleepEmoji(for: checkIn.sleepQuality),
-                intentions: intentionInputs
-            )
-
-            // Update local store (include emoji prefix for display consistency)
-            let updatedIntentions = edits.enumerated().compactMap { index, edit -> DailyIntention? in
-                guard !edit.text.isEmpty else { return nil }
-                return DailyIntention(
-                    id: edit.id,
-                    userId: store.authUserId ?? "",
-                    date: Date(),
-                    intention: "\(edit.area.emoji) \(edit.text)",
-                    area: edit.area,
-                    isCompleted: checkIn.intentions.first(where: { $0.id == edit.id })?.isCompleted ?? false
-                )
-            }
-
-            store.morningCheckIn = MorningCheckIn(
-                id: checkIn.id,
-                userId: checkIn.userId,
-                date: checkIn.date,
-                feeling: checkIn.feeling,
-                feelingNote: checkIn.feelingNote,
-                sleepQuality: checkIn.sleepQuality,
-                sleepNote: checkIn.sleepNote,
-                intentions: updatedIntentions
-            )
-
-            print("✅ Intentions updated successfully")
-        } catch {
-            print("❌ Failed to update intentions: \(error)")
-        }
-    }
-
-    private func feelingToMoodRating(_ feeling: Feeling) -> Int {
-        switch feeling {
-        case .happy, .excited: return 5
-        case .calm: return 4
-        case .neutral: return 3
-        case .tired, .anxious: return 2
-        case .sad, .frustrated: return 1
-        }
-    }
-
-    private func sleepEmoji(for quality: Int) -> String {
-        switch quality {
-        case 1...3: return "😴"
-        case 4...5: return "😐"
-        case 6...7: return "🙂"
-        case 8...9: return "😊"
-        case 10: return "🌟"
-        default: return "😴"
-        }
-    }
 }
 
 // MARK: - Adaptive CTA Model

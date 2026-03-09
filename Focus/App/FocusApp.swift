@@ -158,7 +158,6 @@ struct FocusApp: App {
                     Task {
                         await NotificationService.shared.scheduleMorningNotification()
                         await NotificationService.shared.scheduleEveningNotification()
-                        await NotificationService.shared.scheduleStreakDangerAlert()
                         await NotificationService.shared.scheduleAfternoonCheck()
                         await NotificationService.shared.scheduleCompanionNudges()
 

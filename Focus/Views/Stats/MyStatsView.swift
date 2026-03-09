@@ -254,6 +254,95 @@ struct MyStatsView: View {
     }
 }
 
+// MARK: - Stat Summary Card
+
+struct StatSummaryCard: View {
+    let title: String
+    let value: String
+    let subtitle: String
+    let icon: String
+    let color: Color
+
+    var body: some View {
+        Card {
+            VStack(alignment: .leading, spacing: SpacingTokens.sm) {
+                HStack {
+                    Image(systemName: icon)
+                        .foregroundColor(color)
+                        .font(.system(size: 16))
+                    Spacer()
+                }
+                Text(value)
+                    .font(.satoshi(24, weight: .bold))
+                    .foregroundColor(ColorTokens.textPrimary)
+                Text(title)
+                    .caption()
+                    .foregroundColor(ColorTokens.textSecondary)
+                Text(subtitle)
+                    .font(.system(size: 11))
+                    .foregroundColor(ColorTokens.textMuted)
+            }
+        }
+    }
+}
+
+// MARK: - Weekly Bar Chart (for 7 days)
+
+struct WeeklyBarChart: View {
+    let data: [DailyStat]
+    let color: Color
+
+    private var maxValue: Int {
+        data.map { $0.value }.max() ?? 1
+    }
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: SpacingTokens.sm) {
+            ForEach(data) { stat in
+                VStack(spacing: 4) {
+                    // Value label
+                    if stat.value > 0 {
+                        Text("\(stat.value)")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(ColorTokens.textMuted)
+                    }
+
+                    // Bar
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(stat.value > 0 ? color : ColorTokens.surface)
+                        .frame(height: barHeight(for: stat.value))
+
+                    // Day label
+                    Text(dayLabel(from: stat.date))
+                        .font(.system(size: 11))
+                        .foregroundColor(ColorTokens.textMuted)
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .frame(height: 120)
+    }
+
+    private func barHeight(for value: Int) -> CGFloat {
+        let minHeight: CGFloat = 4
+        let maxHeight: CGFloat = 80
+        guard maxValue > 0 else { return minHeight }
+        let ratio = CGFloat(value) / CGFloat(maxValue)
+        return max(minHeight, ratio * maxHeight)
+    }
+
+    private func dayLabel(from dateString: String) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        guard let date = formatter.date(from: dateString) else {
+            return String(dateString.suffix(2))
+        }
+        let dayFormatter = DateFormatter()
+        dayFormatter.dateFormat = "E"
+        return String(dayFormatter.string(from: date).prefix(1))
+    }
+}
+
 // MARK: - Monthly Bar Chart (for 30 days)
 
 struct MonthlyBarChart: View {

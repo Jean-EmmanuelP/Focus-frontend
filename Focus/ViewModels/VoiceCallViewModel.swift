@@ -226,8 +226,6 @@ class VoiceCallViewModel: ObservableObject {
                 NotificationCenter.default.post(name: .calendarNeedsRefresh, object: nil)
             case "refresh_rituals", "routine_created", "routines_created", "routines_completed", "routine_deleted":
                 await store?.loadRituals()
-            case "refresh_quests", "quest_created", "quests_created", "quest_updated", "quest_deleted":
-                await store?.loadQuests()
             case "refresh_reflection":
                 await store?.loadTodayReflection()
             case "refresh_weekly_goals", "weekly_goals_created", "weekly_goal_completed":

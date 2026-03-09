@@ -33,6 +33,7 @@ struct User: Codable, Identifiable {
     var voiceId: String?               // Gradium TTS voice preference
     var favoriteVideoUrl: String?      // Favorite ritual video URL
     var favoriteVideoTitle: String?    // Favorite ritual video title
+    var coachHarshMode: Bool?          // Harsh coaching mode preference
 
     // Computed display name (pseudo > firstName lastName > email prefix)
     var name: String {
@@ -417,6 +418,7 @@ extension User {
         self.voiceId = response.voiceId
         self.favoriteVideoUrl = nil
         self.favoriteVideoTitle = nil
+        self.coachHarshMode = response.coachHarshMode
     }
 }
 

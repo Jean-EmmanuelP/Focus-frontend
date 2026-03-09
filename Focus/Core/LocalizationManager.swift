@@ -155,7 +155,6 @@ enum L10n {
     // MARK: - Tabs
     static var tabDashboard: String { "tab.dashboard".localized }
     static var tabFire: String { "tab.fire".localized }
-    static var tabQuests: String { "tab.quests".localized }
     static var tabCrew: String { "tab.crew".localized }
 
     // MARK: - Dashboard
@@ -167,8 +166,6 @@ enum L10n {
     static var dashboardEndDay: String { "dashboard.end_day".localized }
     static var dashboardTodaysRoutines: String { "dashboard.todays_routines".localized }
     static var dashboardFocusTime: String { "dashboard.focus_time".localized }
-    static var dashboardStreak: String { "dashboard.streak".localized }
-    static var dashboardDayStreak: String { "dashboard.day_streak".localized }
     static var dashboardWeeklyProgress: String { "dashboard.weekly_progress".localized }
 
     // MARK: - Fire Mode
@@ -179,18 +176,8 @@ enum L10n {
     static var fireSessionsToday: String { "fire.sessions_today".localized }
     static var fireSessionsThisWeek: String { "fire.sessions_this_week".localized }
     static var fireFocusTime: String { "fire.focus_time".localized }
-    static var fireSelectQuest: String { "fire.select_quest".localized }
-    static var fireNoQuest: String { "fire.no_quest".localized }
     static var fireDescription: String { "fire.description".localized }
     static var fireDescriptionPlaceholder: String { "fire.description_placeholder".localized }
-
-    // MARK: - Quests
-    static var questsTitle: String { "quests.title".localized }
-    static var questsActive: String { "quests.active".localized }
-    static var questsCompleted: String { "quests.completed".localized }
-    static var questsAddQuest: String { "quests.add_quest".localized }
-    static var questsProgress: String { "quests.progress".localized }
-    static var questsNoQuests: String { "quests.no_quests".localized }
 
     // MARK: - Routines
     static var routinesTitle: String { "routines.title".localized }
@@ -319,7 +306,7 @@ extension LocalizationManager {
         // Auth / Sign In
         "auth.tagline": "Ship your side project",
         "auth.feature.focus": "Deep focus sessions",
-        "auth.feature.quests": "Track quests and goals",
+        "auth.feature.goals": "Track your goals",
         "auth.feature.habits": "Level up with habits",
         "auth.feature.rituals": "Daily rituals",
         "auth.terms.agree": "By continuing, you agree to our",
@@ -333,7 +320,6 @@ extension LocalizationManager {
         // Tabs
         "tab.dashboard": "Dashboard",
         "tab.fire": "Fire",
-        "tab.quests": "Quests",
         "tab.crew": "Crew",
 
         // Dashboard
@@ -349,8 +335,6 @@ extension LocalizationManager {
         "dashboard.daily_habits": "Daily Habits",
         "dashboard.evening_reflection": "Evening Reflection",
         "dashboard.focus_time": "Focus Time",
-        "dashboard.streak": "Streak",
-        "dashboard.day_streak": "day streak",
         "dashboard.weekly_progress": "Weekly Progress",
         "dashboard.sessions_this_week": "Sessions This Week",
         "dashboard.loading": "Loading your dashboard...",
@@ -376,10 +360,6 @@ extension LocalizationManager {
         "fire.sessions_today": "Today's Sessions",
         "fire.sessions_this_week": "Sessions this week",
         "fire.focus_time": "Focus time",
-        "fire.link_quest": "Link to Quest (optional)",
-        "fire.select_quest": "Select a quest...",
-        "fire.no_active_quests": "No active quests",
-        "fire.no_quest": "No quest selected",
         "fire.description": "What will you work on?",
         "fire.description_placeholder": "Describe your focus area...",
         "fire.log_past_session": "Log Past Session",
@@ -394,41 +374,6 @@ extension LocalizationManager {
         "fire.launch_session": "Launch a focus session now",
         "fire.delete_session": "Delete Session?",
         "fire.delete_session_confirm": "This will permanently delete this focus session.",
-
-        // Quests
-        "quests.title": "QUESTS",
-        "quests.subtitle": "Track your progress and build habits.",
-        "quests.active": "Active",
-        "quests.completed": "Completed",
-        "quests.add_quest": "Add Quest",
-        "quests.new_quest": "New Quest",
-        "quests.progress": "Progress",
-        "quests.no_quests": "No quests yet",
-        "quests.quest_title": "Quest title",
-        "quests.target": "Target (optional)",
-        "quests.target_hint": "How many times do you want to achieve this?",
-        "quests.current_progress": "Current Progress",
-        "quests.progress_hint": "Use the slider on the quest card to update progress",
-        "quests.mark_complete": "Mark as Complete",
-        "quests.swipe_hint": "Swipe right to complete",
-        "quests.areas": "Areas",
-        "quests.quests": "Quests",
-        "quests.no_areas": "No areas tracked yet",
-        "quests.no_areas_hint": "Create quests to see your progress by area",
-        "quests.no_quests_hint": "Create your first quest to start tracking progress",
-        "quests.create_quest": "Create Quest",
-        "quests.quest_placeholder": "e.g., Read 12 books, Run a marathon...",
-        "quests.edit_quest": "Edit Quest",
-        "quests.delete_quest": "Delete Quest",
-        "quests.delete_confirm": "This action cannot be undone.",
-        "quests.quest_details": "Quest Details",
-        "quests.target_date": "Target Date",
-        "quests.update_progress": "Update Progress",
-        "quests.swipe_to_update": "Swipe to update progress",
-        "quests.deadline": "Deadline",
-        "quests.deadline_hint": "Set a target date for completing this quest (optional)",
-        "quests.no_deadline": "No deadline",
-        "quests.due_by": "Due by %@",
 
         // Routines / Rituals
         "routines.title": "Daily Rituals",
@@ -697,17 +642,6 @@ extension LocalizationManager {
         "time.1_min_ago": "1 min ago",
         "time.mins_ago": "%d min ago",
 
-        // Streak
-        "streak.active": "Active Streak",
-        "streak.day_count": "Day %d",
-        "streak.free_for": "You've been on fire for:",
-        "streak.motivational": "A new day to make progress",
-        "streak.name": "Name",
-        "streak.since": "Streak since",
-        "streak.start_today": "Start a focus session to begin your streak!",
-        "streak.today_done": "Done",
-        "streak.today_pending": "Pending",
-
         // CTA (Call to Action)
         "cta.start_day.title": "Start your day right",
         "cta.start_day.subtitle": "Complete your morning check-in",
@@ -785,7 +719,7 @@ extension LocalizationManager {
         // Auth / Sign In
         "auth.tagline": "Lance ton side project",
         "auth.feature.focus": "Sessions de focus intense",
-        "auth.feature.quests": "Suis tes quêtes et objectifs",
+        "auth.feature.goals": "Suis tes objectifs",
         "auth.feature.habits": "Progresse avec tes habitudes",
         "auth.feature.rituals": "Rituels quotidiens",
         "auth.terms.agree": "En continuant, tu acceptes nos",
@@ -799,7 +733,6 @@ extension LocalizationManager {
         // Tabs
         "tab.dashboard": "Tableau de bord",
         "tab.fire": "Fire",
-        "tab.quests": "Quêtes",
         "tab.crew": "Équipe",
 
         // Dashboard
@@ -815,8 +748,6 @@ extension LocalizationManager {
         "dashboard.daily_habits": "Habitudes quotidiennes",
         "dashboard.evening_reflection": "Réflexion du soir",
         "dashboard.focus_time": "Temps de focus",
-        "dashboard.streak": "Série",
-        "dashboard.day_streak": "jours de suite",
         "dashboard.weekly_progress": "Progression hebdo",
         "dashboard.sessions_this_week": "Sessions cette semaine",
         "dashboard.loading": "Chargement du tableau de bord...",
@@ -842,10 +773,6 @@ extension LocalizationManager {
         "fire.sessions_today": "Sessions du jour",
         "fire.sessions_this_week": "Sessions cette semaine",
         "fire.focus_time": "Temps de focus",
-        "fire.link_quest": "Lier à une quête (optionnel)",
-        "fire.select_quest": "Sélectionne une quête...",
-        "fire.no_active_quests": "Aucune quête active",
-        "fire.no_quest": "Aucune quête sélectionnée",
         "fire.description": "Sur quoi vas-tu travailler ?",
         "fire.description_placeholder": "Décris ton domaine de focus...",
         "fire.log_past_session": "Ajouter une session passée",
@@ -859,41 +786,6 @@ extension LocalizationManager {
         "fire.launch_session": "Lance une session de focus maintenant",
         "fire.delete_session": "Supprimer la session ?",
         "fire.delete_session_confirm": "Cette action supprimera définitivement cette session.",
-
-        // Quests
-        "quests.title": "QUÊTES",
-        "quests.subtitle": "Suis ta progression et construis des habitudes.",
-        "quests.active": "Actives",
-        "quests.completed": "Terminées",
-        "quests.add_quest": "Ajouter une quête",
-        "quests.new_quest": "Nouvelle quête",
-        "quests.progress": "Progression",
-        "quests.no_quests": "Pas encore de quêtes",
-        "quests.quest_title": "Titre de la quête",
-        "quests.target": "Objectif (optionnel)",
-        "quests.target_hint": "Combien de fois veux-tu accomplir cela ?",
-        "quests.current_progress": "Progression actuelle",
-        "quests.progress_hint": "Utilise le curseur sur la carte pour mettre à jour",
-        "quests.mark_complete": "Marquer comme terminée",
-        "quests.swipe_hint": "Glisse à droite pour terminer",
-        "quests.areas": "Domaines",
-        "quests.quests": "Quêtes",
-        "quests.no_areas": "Aucun domaine suivi",
-        "quests.no_areas_hint": "Crée des quêtes pour voir ta progression par domaine",
-        "quests.no_quests_hint": "Crée ta première quête pour commencer",
-        "quests.create_quest": "Créer une quête",
-        "quests.quest_placeholder": "ex. Lire 12 livres, Courir un marathon...",
-        "quests.edit_quest": "Modifier la quête",
-        "quests.delete_quest": "Supprimer la quête",
-        "quests.delete_confirm": "Cette action est irréversible.",
-        "quests.quest_details": "Détails de la quête",
-        "quests.target_date": "Date cible",
-        "quests.update_progress": "Mettre à jour",
-        "quests.swipe_to_update": "Glisse pour mettre à jour",
-        "quests.deadline": "Échéance",
-        "quests.deadline_hint": "Définis une date cible pour accomplir cette quête (optionnel)",
-        "quests.no_deadline": "Pas d'échéance",
-        "quests.due_by": "Pour le %@",
 
         // Routines / Rituals
         "routines.title": "Rituels quotidiens",
@@ -1162,17 +1054,6 @@ extension LocalizationManager {
         "time.1_min_ago": "Il y a 1 min",
         "time.mins_ago": "Il y a %d min",
 
-        // Streak
-        "streak.active": "Série active",
-        "streak.day_count": "Jour %d",
-        "streak.free_for": "Tu es en feu depuis :",
-        "streak.motivational": "Un nouveau jour pour progresser",
-        "streak.name": "Nom",
-        "streak.since": "Depuis le",
-        "streak.start_today": "Lance une session focus pour démarrer ta série !",
-        "streak.today_done": "Fait",
-        "streak.today_pending": "En attente",
-
         // CTA (Call to Action)
         "cta.start_day.title": "Bien démarrer ta journée",
         "cta.start_day.subtitle": "Complète ton check-in du matin",
@@ -1250,7 +1131,7 @@ extension LocalizationManager {
         // Auth / Sign In
         "auth.tagline": "Enfócate. Construye. Progresa.",
         "auth.feature.focus": "Sesiones de enfoque profundo",
-        "auth.feature.quests": "Sigue tus metas y objetivos",
+        "auth.feature.goals": "Sigue tus metas y objetivos",
         "auth.feature.habits": "Sube de nivel con hábitos",
         "auth.feature.rituals": "Rituales diarios",
         "auth.terms.agree": "Al continuar, aceptas nuestros",
@@ -1264,7 +1145,6 @@ extension LocalizationManager {
         // Tabs
         "tab.dashboard": "Inicio",
         "tab.fire": "Enfoque",
-        "tab.quests": "Metas",
         "tab.crew": "Equipo",
 
         // Dashboard
@@ -1280,8 +1160,6 @@ extension LocalizationManager {
         "dashboard.daily_habits": "Hábitos Diarios",
         "dashboard.evening_reflection": "Reflexión Nocturna",
         "dashboard.focus_time": "Tiempo de Enfoque",
-        "dashboard.streak": "Racha",
-        "dashboard.day_streak": "días de racha",
         "dashboard.weekly_progress": "Progreso Semanal",
         "dashboard.sessions_this_week": "Sesiones de la Semana",
         "dashboard.loading": "Cargando tu dashboard...",
@@ -1307,10 +1185,6 @@ extension LocalizationManager {
         "fire.sessions_today": "Sesiones de Hoy",
         "fire.sessions_this_week": "Sesiones esta semana",
         "fire.focus_time": "Tiempo de enfoque",
-        "fire.link_quest": "Vincular a Meta (opcional)",
-        "fire.select_quest": "Selecciona una meta...",
-        "fire.no_active_quests": "Sin metas activas",
-        "fire.no_quest": "Sin meta seleccionada",
         "fire.description": "¿En qué trabajarás?",
         "fire.description_placeholder": "Describe tu área de enfoque...",
         "fire.log_past_session": "Registrar Sesión Pasada",
@@ -1324,37 +1198,6 @@ extension LocalizationManager {
         "fire.launch_session": "Lanza una sesión de enfoque ahora",
         "fire.delete_session": "¿Eliminar Sesión?",
         "fire.delete_session_confirm": "Esto eliminará permanentemente esta sesión de enfoque.",
-
-        // Quests
-        "quests.title": "METAS",
-        "quests.subtitle": "Sigue tu progreso y construye hábitos.",
-        "quests.active": "Activas",
-        "quests.completed": "Completadas",
-        "quests.add_quest": "Añadir Meta",
-        "quests.new_quest": "Nueva Meta",
-        "quests.progress": "Progreso",
-        "quests.no_quests": "Sin metas aún",
-        "quests.quest_title": "Título de la meta",
-        "quests.target": "Objetivo (opcional)",
-        "quests.target_hint": "¿Cuántas veces quieres lograr esto?",
-        "quests.current_progress": "Progreso Actual",
-        "quests.progress_hint": "Usa el deslizador en la tarjeta para actualizar el progreso",
-        "quests.mark_complete": "Marcar como Completada",
-        "quests.swipe_hint": "Desliza a la derecha para completar",
-        "quests.areas": "Áreas",
-        "quests.quests": "Metas",
-        "quests.no_areas": "Sin áreas registradas aún",
-        "quests.no_areas_hint": "Crea metas para ver tu progreso por área",
-        "quests.no_quests_hint": "Crea tu primera meta para comenzar a seguir tu progreso",
-        "quests.create_quest": "Crear Meta",
-        "quests.quest_placeholder": "ej., Leer 12 libros, Correr un maratón...",
-        "quests.edit_quest": "Editar Meta",
-        "quests.delete_quest": "Eliminar Meta",
-        "quests.delete_confirm": "Esta acción no se puede deshacer.",
-        "quests.quest_details": "Detalles de la Meta",
-        "quests.target_date": "Fecha Objetivo",
-        "quests.update_progress": "Actualizar Progreso",
-        "quests.swipe_to_update": "Desliza para actualizar progreso",
 
         // Routines / Rituals
         "routines.title": "Rituales Diarios",
@@ -1586,17 +1429,6 @@ extension LocalizationManager {
         "time.hours_ago": "hace %d horas",
         "time.1_min_ago": "hace 1 min",
         "time.mins_ago": "hace %d min",
-
-        // Streak
-        "streak.active": "Racha Activa",
-        "streak.day_count": "Día %d",
-        "streak.free_for": "Has estado en fuego por:",
-        "streak.motivational": "Un nuevo día para progresar",
-        "streak.name": "Nombre",
-        "streak.since": "Racha desde",
-        "streak.start_today": "¡Inicia una sesión de enfoque para comenzar tu racha!",
-        "streak.today_done": "Hecho",
-        "streak.today_pending": "Pendiente",
 
         // CTA (Call to Action)
         "cta.start_day.title": "Comienza bien tu día",

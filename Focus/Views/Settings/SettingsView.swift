@@ -54,6 +54,7 @@ struct SettingsView: View {
     @State private var backgroundMusic = false
     @State private var sounds = true
     @State private var notificationsEnabled = true
+    @State private var coachHarshMode = false
     @State private var faceID = false
     @State private var selectedVoiceId: String = "b35yykvVppLXyw_l"
 
@@ -72,6 +73,7 @@ struct SettingsView: View {
     @State private var showOnboarding = false
     @State private var showAvatarTest = false
     @State private var showAppBlocker = false
+    @State private var showEditCoachName = false
 
     private let userService = UserService()
 
@@ -89,50 +91,62 @@ struct SettingsView: View {
     }
 
     var body: some View {
+        settingsContent
+            .onAppear { loadSettings() }
+            .onChange(of: notificationsEnabled) { _, _ in if didLoadSettings { saveNotificationSettings() } }
+            .onChange(of: coachHarshMode) { _, _ in if didLoadSettings { saveCoachHarshMode() } }
+            .onChange(of: preferencesHash) { _, _ in if didLoadSettings { savePreferences() } }
+            .overlay { accountOverlays }
+            .overlay { editOverlays }
+            .overlay { miscOverlays }
+            .fullScreenCover(isPresented: $showOnboarding) {
+                NewOnboardingView()
+                    .environmentObject(store)
+                    .environmentObject(SubscriptionManager.shared)
+            }
+            .animation(.easeInOut(duration: 0.3), value: showEditCoachName)
+            .animation(.easeInOut(duration: 0.3), value: showVoicePicker)
+            .animation(.easeInOut(duration: 0.3), value: showAppBlocker)
+            .animation(.easeInOut(duration: 0.3), value: showAvatarTest)
+            .animation(.easeInOut(duration: 0.3), value: showSubscription)
+            .animation(.easeInOut(duration: 0.3), value: showAccount)
+            .animation(.easeInOut(duration: 0.3), value: showEditName)
+            .animation(.easeInOut(duration: 0.3), value: showEditPronouns)
+            .animation(.easeInOut(duration: 0.3), value: showChangeEmail)
+            .animation(.easeInOut(duration: 0.3), value: showChangePassword)
+            .animation(.easeInOut(duration: 0.3), value: showDeleteAccount)
+    }
+
+    // MARK: - Settings Content
+
+    private var settingsContent: some View {
         ZStack {
-            // Background
             ReplicaColors.background
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                // Header with X button
                 replicaHeader(title: "Paramètres", showBack: false, onClose: onDismiss)
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 0) {
-                        // Promo banner for subscription
                         promoBanner
                             .padding(.top, 8)
-
-                        // Account Section (Compte, Historique)
                         accountSection
                             .padding(.top, 24)
-
-                        // Preferences Section
                         preferencesSection
                             .padding(.top, 24)
-
-                        // Resources Section
                         resourcesSection
                             .padding(.top, 24)
-
-                        // Community Section
                         communitySection
                             .padding(.top, 24)
-
-                        // Sign out button
                         signOutButton
                             .padding(.top, 32)
                             .padding(.horizontal, 40)
-
-                        // Version
                         Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")")
                             .font(.system(size: 13))
                             .foregroundColor(.white.opacity(0.35))
                             .padding(.top, 16)
                             .padding(.bottom, 40)
-
-                        // Debug section (dev only)
                         #if DEBUG
                         debugSection
                             .padding(.bottom, 32)
@@ -142,168 +156,141 @@ struct SettingsView: View {
                 }
             }
         }
-        .onAppear { loadSettings() }
-        .onChange(of: notificationsEnabled) { _, _ in if didLoadSettings { saveNotificationSettings() } }
-        .onChange(of: preferencesHash) { _, _ in if didLoadSettings { savePreferences() } }
-        // Sub-page overlays with fade transitions
-        .overlay {
-            if showAccount {
-                ReplicaAccountView(
-                    onDismiss: { withAnimation(.easeInOut(duration: 0.3)) { showAccount = false } },
-                    onShowEditName: { withAnimation(.easeInOut(duration: 0.3)) { showEditName = true } },
-                    onShowEditPronouns: { withAnimation(.easeInOut(duration: 0.3)) { showEditPronouns = true } },
-                    onShowChangeEmail: { withAnimation(.easeInOut(duration: 0.3)) { showChangeEmail = true } },
-                    onShowChangePassword: { withAnimation(.easeInOut(duration: 0.3)) { showChangePassword = true } },
-                    onShowDeleteAccount: { withAnimation(.easeInOut(duration: 0.3)) { showDeleteAccount = true } }
-                )
-                .environmentObject(store)
-                .transition(.opacity)
-            }
+    }
+
+    // MARK: - Account Overlays
+
+    @ViewBuilder
+    private var accountOverlays: some View {
+        if showAccount {
+            ReplicaAccountView(
+                onDismiss: { withAnimation(.easeInOut(duration: 0.3)) { showAccount = false } },
+                onShowEditName: { withAnimation(.easeInOut(duration: 0.3)) { showEditName = true } },
+                onShowEditPronouns: { withAnimation(.easeInOut(duration: 0.3)) { showEditPronouns = true } },
+                onShowChangeEmail: { withAnimation(.easeInOut(duration: 0.3)) { showChangeEmail = true } },
+                onShowChangePassword: { withAnimation(.easeInOut(duration: 0.3)) { showChangePassword = true } },
+                onShowDeleteAccount: { withAnimation(.easeInOut(duration: 0.3)) { showDeleteAccount = true } }
+            )
+            .environmentObject(store)
+            .transition(.opacity)
+        } else if showSubscription {
+            FocusPaywallView(
+                companionName: companionName,
+                onComplete: {
+                    withAnimation(.easeInOut(duration: 0.3)) { showSubscription = false }
+                },
+                onSkip: {
+                    withAnimation(.easeInOut(duration: 0.3)) { showSubscription = false }
+                }
+            )
+            .environmentObject(subscriptionManager)
+            .transition(.opacity)
+        } else if showDeleteAccount {
+            ReplicaDeleteAccountView(
+                userName: store.user?.firstName ?? store.user?.name ?? "Utilisateur",
+                onDismiss: { withAnimation(.easeInOut(duration: 0.3)) { showDeleteAccount = false } },
+                onConfirm: { deleteAccount() }
+            )
+            .transition(.opacity)
         }
-        .overlay {
-            if showEditName {
-                ReplicaEditNameView(
-                    currentName: store.user?.firstName ?? store.user?.name ?? "",
-                    onDismiss: { withAnimation(.easeInOut(duration: 0.3)) { showEditName = false } },
-                    onSave: { name in
-                        store.user?.firstName = name
-                        withAnimation(.easeInOut(duration: 0.3)) { showEditName = false }
-                        Task { await updateName(name) }
-                    }
-                )
-                .transition(.opacity)
-            }
-        }
-        .overlay {
-            if showEditPronouns {
-                ReplicaEditPronounsView(
-                    currentPronouns: store.user?.gender ?? "male",
-                    onDismiss: { withAnimation(.easeInOut(duration: 0.3)) { showEditPronouns = false } },
-                    onSave: { pronouns in
-                        store.user?.gender = pronouns
-                        withAnimation(.easeInOut(duration: 0.3)) { showEditPronouns = false }
-                        Task { await updatePronouns(pronouns) }
-                    }
-                )
-                .transition(.opacity)
-            }
-        }
-        .overlay {
-            if showChangeEmail {
-                ReplicaChangeEmailView(
-                    currentEmail: store.user?.email ?? "",
-                    onDismiss: { withAnimation(.easeInOut(duration: 0.3)) { showChangeEmail = false } },
-                    onSave: { email, password in
-                        Task {
-                            do {
-                                try await AuthService.shared.updateEmail(newEmail: email)
-                                await MainActor.run {
-                                    store.user?.email = email
-                                    withAnimation(.easeInOut(duration: 0.3)) { showChangeEmail = false }
-                                }
-                            } catch {
-                                print("Failed to update email: \(error)")
+    }
+
+    // MARK: - Edit Overlays
+
+    @ViewBuilder
+    private var editOverlays: some View {
+        if showEditName {
+            ReplicaEditNameView(
+                currentName: store.user?.firstName ?? store.user?.name ?? "",
+                onDismiss: { withAnimation(.easeInOut(duration: 0.3)) { showEditName = false } },
+                onSave: { name in
+                    store.user?.firstName = name
+                    withAnimation(.easeInOut(duration: 0.3)) { showEditName = false }
+                    Task { await updateName(name) }
+                }
+            )
+            .transition(.opacity)
+        } else if showEditPronouns {
+            ReplicaEditPronounsView(
+                currentPronouns: store.user?.gender ?? "male",
+                onDismiss: { withAnimation(.easeInOut(duration: 0.3)) { showEditPronouns = false } },
+                onSave: { pronouns in
+                    store.user?.gender = pronouns
+                    withAnimation(.easeInOut(duration: 0.3)) { showEditPronouns = false }
+                    Task { await updatePronouns(pronouns) }
+                }
+            )
+            .transition(.opacity)
+        } else if showChangeEmail {
+            ReplicaChangeEmailView(
+                currentEmail: store.user?.email ?? "",
+                onDismiss: { withAnimation(.easeInOut(duration: 0.3)) { showChangeEmail = false } },
+                onSave: { email, password in
+                    Task {
+                        do {
+                            try await AuthService.shared.updateEmail(newEmail: email)
+                            await MainActor.run {
+                                store.user?.email = email
+                                withAnimation(.easeInOut(duration: 0.3)) { showChangeEmail = false }
                             }
+                        } catch {
+                            print("Failed to update email: \(error)")
                         }
                     }
-                )
-                .transition(.opacity)
-            }
+                }
+            )
+            .transition(.opacity)
+        } else if showChangePassword {
+            ReplicaChangePasswordView(
+                onDismiss: { withAnimation(.easeInOut(duration: 0.3)) { showChangePassword = false } }
+            )
+            .transition(.opacity)
+        } else if showEditCoachName {
+            ReplicaEditNameView(
+                currentName: companionName,
+                onDismiss: { withAnimation(.easeInOut(duration: 0.3)) { showEditCoachName = false } },
+                onSave: { name in
+                    withAnimation(.easeInOut(duration: 0.3)) { showEditCoachName = false }
+                    Task { await updateCoachName(name) }
+                }
+            )
+            .transition(.opacity)
         }
-        .overlay {
-            if showChangePassword {
-                ReplicaChangePasswordView(
-                    onDismiss: { withAnimation(.easeInOut(duration: 0.3)) { showChangePassword = false } }
-                )
-                .transition(.opacity)
-            }
-        }
-        .overlay {
-            if showDeleteAccount {
-                ReplicaDeleteAccountView(
-                    userName: store.user?.firstName ?? store.user?.name ?? "Utilisateur",
-                    onDismiss: { withAnimation(.easeInOut(duration: 0.3)) { showDeleteAccount = false } },
-                    onConfirm: {
-                        deleteAccount()
-                    }
-                )
-                .transition(.opacity)
-            }
-        }
-        .overlay {
-            if showSubscription {
-                FocusPaywallView(
-                    companionName: companionName,
-                    onComplete: {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            showSubscription = false
-                        }
-                    },
-                    onSkip: {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            showSubscription = false
-                        }
-                    }
-                )
-                .environmentObject(subscriptionManager)
-                .transition(.opacity)
-            }
-        }
-        .fullScreenCover(isPresented: $showOnboarding) {
-            NewOnboardingView()
-                .environmentObject(store)
-                .environmentObject(SubscriptionManager.shared)
-        }
-        .overlay {
-            if showAvatarTest {
-                AvatarTestView(onDismiss: {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        showAvatarTest = false
-                    }
-                })
-                .transition(.opacity)
-            }
-        }
-        .overlay {
-            if showAppBlocker {
-                AppBlockerSettingsView(onDismiss: {
-                    withAnimation(.easeInOut(duration: 0.3)) { showAppBlocker = false }
-                })
-                .transition(.opacity)
-            }
-        }
-        .overlay {
-            if showVoicePicker {
-                VoltaVoicePickerView(
-                    currentVoiceId: selectedVoiceId,
-                    onDismiss: { withAnimation(.easeInOut(duration: 0.3)) { showVoicePicker = false } },
-                    onSave: { voiceId in
-                        selectedVoiceId = voiceId
-                        withAnimation(.easeInOut(duration: 0.3)) { showVoicePicker = false }
-                        // Persist to backend
-                        Task {
-                            do {
-                                let updated = try await userService.updateSettings(voiceId: voiceId)
-                                await MainActor.run { store.user = User(from: updated) }
-                            } catch {
-                                print("Failed to save voice_id: \(error)")
-                            }
+    }
+
+    // MARK: - Misc Overlays
+
+    @ViewBuilder
+    private var miscOverlays: some View {
+        if showAvatarTest {
+            AvatarTestView(onDismiss: {
+                withAnimation(.easeInOut(duration: 0.3)) { showAvatarTest = false }
+            })
+            .transition(.opacity)
+        } else if showAppBlocker {
+            AppBlockerSettingsView(onDismiss: {
+                withAnimation(.easeInOut(duration: 0.3)) { showAppBlocker = false }
+            })
+            .transition(.opacity)
+        } else if showVoicePicker {
+            VoltaVoicePickerView(
+                currentVoiceId: selectedVoiceId,
+                onDismiss: { withAnimation(.easeInOut(duration: 0.3)) { showVoicePicker = false } },
+                onSave: { voiceId in
+                    selectedVoiceId = voiceId
+                    withAnimation(.easeInOut(duration: 0.3)) { showVoicePicker = false }
+                    Task {
+                        do {
+                            let updated = try await userService.updateSettings(voiceId: voiceId)
+                            await MainActor.run { store.user = User(from: updated) }
+                        } catch {
+                            print("Failed to save voice_id: \(error)")
                         }
                     }
-                )
-                .transition(.opacity)
-            }
+                }
+            )
+            .transition(.opacity)
         }
-        .animation(.easeInOut(duration: 0.3), value: showVoicePicker)
-        .animation(.easeInOut(duration: 0.3), value: showAppBlocker)
-        .animation(.easeInOut(duration: 0.3), value: showAvatarTest)
-        .animation(.easeInOut(duration: 0.3), value: showSubscription)
-        .animation(.easeInOut(duration: 0.3), value: showAccount)
-        .animation(.easeInOut(duration: 0.3), value: showEditName)
-        .animation(.easeInOut(duration: 0.3), value: showEditPronouns)
-        .animation(.easeInOut(duration: 0.3), value: showChangeEmail)
-        .animation(.easeInOut(duration: 0.3), value: showChangePassword)
-        .animation(.easeInOut(duration: 0.3), value: showDeleteAccount)
     }
 
     // MARK: - Promo Banner
@@ -431,7 +418,25 @@ struct SettingsView: View {
                 .padding(.vertical, 14)
             }
             replicaDivider
+            Button(action: { withAnimation(.easeInOut(duration: 0.3)) { showEditCoachName = true } }) {
+                HStack {
+                    Text("Nom du coach")
+                        .font(.system(size: 16))
+                        .foregroundColor(.white)
+                    Spacer()
+                    Text(companionName)
+                        .font(.system(size: 14))
+                        .foregroundColor(.white.opacity(0.5))
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(ReplicaColors.chevron)
+                }
+                .padding(.vertical, 14)
+            }
+            replicaDivider
             toggleRow(title: "Notifications", isOn: $notificationsEnabled)
+            replicaDivider
+            toggleRow(title: "Mode coach dur", isOn: $coachHarshMode)
             replicaDivider
             toggleRow(title: "Face ID", isOn: $faceID)
             replicaDivider
@@ -666,6 +671,7 @@ struct SettingsView: View {
         // Load from user profile (backend takes precedence)
         if let user = store.user {
             notificationsEnabled = user.notificationsEnabled ?? true
+            coachHarshMode = user.coachHarshMode ?? false
             if let backendVoiceId = user.voiceId, !backendVoiceId.isEmpty {
                 selectedVoiceId = backendVoiceId
                 defaults.set(backendVoiceId, forKey: SettingsPrefsKeys.voltaVoiceId)
@@ -703,6 +709,21 @@ struct SettingsView: View {
         }
     }
 
+    private func saveCoachHarshMode() {
+        Task {
+            do {
+                let updated = try await userService.updateSettings(
+                    coachHarshMode: coachHarshMode
+                )
+                await MainActor.run {
+                    store.user = User(from: updated)
+                }
+            } catch {
+                print("Failed to save coach harsh mode: \(error)")
+            }
+        }
+    }
+
     private func updateName(_ name: String) async {
         do {
             let updated = try await userService.updateProfile(firstName: name)
@@ -711,6 +732,19 @@ struct SettingsView: View {
             }
         } catch {
             print("Failed to update name: \(error)")
+        }
+    }
+
+    private func updateCoachName(_ name: String) async {
+        do {
+            let updated = try await userService.updateProfile(companionName: name)
+            await MainActor.run {
+                FocusAppStore.shared.user = User(from: updated)
+            }
+            // Recreate assistant so the new companion name is reflected in the system prompt
+            await BackboardService.shared.recreateAssistant()
+        } catch {
+            print("Failed to update coach name: \(error)")
         }
     }
 

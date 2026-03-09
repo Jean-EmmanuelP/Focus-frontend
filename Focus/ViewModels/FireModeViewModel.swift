@@ -13,9 +13,6 @@ class FireModeViewModel: ObservableObject {
     // UserDefaults for blocking toggle (same as in AppBlockerViewModel)
     @AppStorage("appBlocker.enableDuringFocus") private var enableBlockingDuringFocus: Bool = true
 
-    // UserDefaults key for last used quest
-    private let lastUsedQuestKey = "firemode.lastUsedQuestId"
-
     // MARK: - Timer State
     enum TimerState {
         case idle
@@ -37,14 +34,6 @@ class FireModeViewModel: ObservableObject {
     // MARK: - Published UI State
     @Published var selectedDuration: Int = 25
     @Published var customDuration: Double = 25
-    @Published var selectedQuestId: String? {
-        didSet {
-            // Save last used quest to UserDefaults when changed
-            if let questId = selectedQuestId {
-                UserDefaults.standard.set(questId, forKey: lastUsedQuestKey)
-            }
-        }
-    }
     @Published var sessionDescription: String = ""
     @Published var showingLogManualSession = false
     @Published var isLoading = false
@@ -54,7 +43,6 @@ class FireModeViewModel: ObservableObject {
     @Published var staleSession: FocusSessionResponse?
 
     // MARK: - Published Data (from store)
-    @Published var quests: [Quest] = []
     @Published var firemodeStats: FiremodeResponse?
     @Published var todaysSessions: [FocusSession] = []
 
@@ -63,15 +51,9 @@ class FireModeViewModel: ObservableObject {
 
     init() {
         setupBindings()
-        // Load firemode data and quests on init
+        // Load firemode data on init
         Task {
             await store.loadFiremodeData()
-            // Ensure quests are loaded for "Link to Quest" feature
-            if store.quests.isEmpty {
-                await store.loadQuestsIfNeeded()
-            }
-            // Set default quest to last used (after quests are loaded)
-            selectLastUsedQuest()
             // Check for stale sessions
             await checkForStaleSessions()
         }
@@ -82,26 +64,11 @@ class FireModeViewModel: ObservableObject {
         timer = nil
     }
 
-    /// Select the last used quest if it exists and is still active
-    private func selectLastUsedQuest() {
-        guard selectedQuestId == nil else { return } // Don't override if already set
-
-        if let lastQuestId = UserDefaults.standard.string(forKey: lastUsedQuestKey) {
-            // Check if the quest still exists and is active
-            if availableQuests.contains(where: { $0.id == lastQuestId }) {
-                selectedQuestId = lastQuestId
-            }
-        }
-    }
-
     /// Apply preset values from router and auto-start if all required fields are set
-    func applyPresets(duration: Int?, questId: String?, description: String?, taskId: String? = nil, ritualId: String? = nil) {
+    func applyPresets(duration: Int?, description: String?, taskId: String? = nil, ritualId: String? = nil) {
         if let duration = duration {
             selectedDuration = duration
             customDuration = Double(duration)
-        }
-        if let questId = questId {
-            selectedQuestId = questId
         }
         if let description = description {
             sessionDescription = description
@@ -122,10 +89,6 @@ class FireModeViewModel: ObservableObject {
     }
 
     private func setupBindings() {
-        store.$quests
-            .receive(on: DispatchQueue.main)
-            .assign(to: &$quests)
-
         store.$firemodeStats
             .receive(on: DispatchQueue.main)
             .assign(to: &$firemodeStats)
@@ -158,10 +121,6 @@ class FireModeViewModel: ObservableObject {
 
     var sessionsLast7Days: Int {
         firemodeStats?.sessionsLast7 ?? 0
-    }
-
-    var availableQuests: [Quest] {
-        quests.filter { $0.status == .active }
     }
 
     var hasAnySessions: Bool {
@@ -225,19 +184,18 @@ class FireModeViewModel: ObservableObject {
         }
 
         // Start Live Activity
-        let quest = quests.first { $0.id == selectedQuestId }
         LiveActivityManager.shared.startLiveActivity(
             sessionId: currentSessionId ?? UUID().uuidString,
             totalDuration: selectedDuration,
             description: sessionDescription.isEmpty ? nil : sessionDescription,
-            questTitle: quest?.title,
-            questEmoji: quest?.area.emoji
+            sessionTitle: nil,
+            sessionEmoji: nil
         )
 
         // Update widget with session end date for real-time countdown
         store.startWidgetSession(
             durationMinutes: selectedDuration,
-            questEmoji: quest?.area.emoji,
+            emoji: nil,
             description: sessionDescription.isEmpty ? nil : sessionDescription
         )
 
@@ -248,7 +206,6 @@ class FireModeViewModel: ObservableObject {
         do {
             let session = try await store.startSession(
                 durationMinutes: selectedDuration,
-                questId: selectedQuestId,
                 description: sessionDescription.isEmpty ? nil : sessionDescription
             )
             currentSessionId = session.id
@@ -542,17 +499,14 @@ class FireModeViewModel: ObservableObject {
         await store.logManualSession(
             durationMinutes: durationMinutes,
             startTime: startTime,
-            questId: selectedQuestId,
             description: sessionDescription.isEmpty ? nil : sessionDescription
         )
         resetForm()
         isLoading = false
     }
 
-    // Reset form - keeps last used quest as default
+    // Reset form
     func resetForm() {
         sessionDescription = ""
-        // Don't clear selectedQuestId - keep last used quest as default for next session
-        // User can change it if needed
     }
 }

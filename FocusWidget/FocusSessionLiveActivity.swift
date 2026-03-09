@@ -21,8 +21,8 @@ struct FocusSessionActivityAttributes: ActivityAttributes {
     var sessionId: String
     var totalDuration: Int
     var description: String?
-    var questTitle: String?
-    var questEmoji: String?
+    var sessionTitle: String?
+    var sessionEmoji: String?
     var startTime: Date
 }
 
@@ -36,7 +36,7 @@ struct FocusSessionLiveActivity: Widget {
                 // Expanded view
                 DynamicIslandExpandedRegion(.leading) {
                     HStack(spacing: 4) {
-                        Text(context.attributes.questEmoji ?? "🔥")
+                        Text(context.attributes.sessionEmoji ?? "🔥")
                             .font(.system(size: 24))
                     }
                 }
@@ -55,7 +55,7 @@ struct FocusSessionLiveActivity: Widget {
 
                 DynamicIslandExpandedRegion(.center) {
                     VStack(spacing: 4) {
-                        if let title = context.attributes.questTitle {
+                        if let title = context.attributes.sessionTitle {
                             Text(title)
                                 .font(.system(size: 14, weight: .medium))
                                 .lineLimit(1)
@@ -97,7 +97,7 @@ struct FocusSessionLiveActivity: Widget {
                 }
             } compactLeading: {
                 HStack(spacing: 4) {
-                    Text(context.attributes.questEmoji ?? "🔥")
+                    Text(context.attributes.sessionEmoji ?? "🔥")
                         .font(.system(size: 14))
 
                     if context.state.isPaused {
@@ -117,7 +117,7 @@ struct FocusSessionLiveActivity: Widget {
                         .stroke(Color.liveAccent, lineWidth: 2)
                         .rotationEffect(.degrees(-90))
 
-                    Text(context.attributes.questEmoji ?? "🔥")
+                    Text(context.attributes.sessionEmoji ?? "🔥")
                         .font(.system(size: 10))
                 }
             }
@@ -145,11 +145,11 @@ struct LockScreenLiveActivityView: View {
             // Left: Icon and info
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
-                    Text(context.attributes.questEmoji ?? "🔥")
+                    Text(context.attributes.sessionEmoji ?? "🔥")
                         .font(.system(size: 28))
 
                     VStack(alignment: .leading, spacing: 2) {
-                        if let title = context.attributes.questTitle {
+                        if let title = context.attributes.sessionTitle {
                             Text(title)
                                 .font(.system(size: 14, weight: .semibold))
                                 .foregroundColor(.white)
@@ -221,8 +221,8 @@ struct LockScreenLiveActivityView: View {
     sessionId: "preview",
     totalDuration: 25,
     description: "Working on iOS app",
-    questTitle: "Build MVP",
-    questEmoji: "💼",
+    sessionTitle: "Build MVP",
+    sessionEmoji: "💼",
     startTime: Date()
 )) {
     FocusSessionLiveActivity()

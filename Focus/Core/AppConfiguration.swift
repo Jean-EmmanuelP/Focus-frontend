@@ -19,9 +19,6 @@ enum AppConfiguration {
     
     // MARK: - Feature Flags
     struct FeatureFlags {
-        /// Active/désactive les quests (écran optionnel)
-        static let questsEnabled = true
-        
         /// Active/désactive les analytics
         static let analyticsEnabled = false
         
@@ -73,12 +70,6 @@ enum AppConfiguration {
     
     // MARK: - Limits
     struct Limits {
-        /// Nombre maximum de quests pour les utilisateurs free
-        static let maxQuestsFree = 3
-        
-        /// Nombre maximum de quests pour les utilisateurs premium
-        static let maxQuestsPremium = 999
-        
         /// Nombre maximum de rituels quotidiens
         static let maxRituals = 10
         
@@ -109,11 +100,6 @@ enum AppConfiguration {
         /// XP gagné pour une review du soir
         static let xpPerEveningReview = 30
         
-        /// XP bonus pour un streak de 7 jours
-        static let xpBonusWeekStreak = 100
-        
-        /// XP bonus pour un streak de 30 jours
-        static let xpBonusMonthStreak = 500
     }
     
     // MARK: - UI Configuration

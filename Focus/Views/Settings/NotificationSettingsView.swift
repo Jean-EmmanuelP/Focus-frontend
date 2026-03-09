@@ -25,9 +25,6 @@ struct NotificationSettingsView: View {
                     // Routine Reminders Section
                     routineRemindersSection
 
-                    // Streak Alert Section
-                    streakAlertSection
-
                     // Afternoon Check Section
                     afternoonCheckSection
 
@@ -62,7 +59,7 @@ struct NotificationSettingsView: View {
                         .font(.satoshi(16, weight: .semibold))
                         .foregroundColor(ColorTokens.textPrimary)
 
-                    Text(notificationService.isAuthorized ? "Notifications activees" : "Notifications desactivees")
+                    Text(notificationService.isAuthorized ? "Notifications activées" : "Notifications désactivées")
                         .font(.satoshi(13))
                         .foregroundColor(notificationService.isAuthorized ? ColorTokens.success : ColorTokens.textSecondary)
                 }
@@ -107,7 +104,7 @@ struct NotificationSettingsView: View {
                         .font(.satoshi(16, weight: .semibold))
                         .foregroundColor(ColorTokens.textPrimary)
 
-                    Text("Recois une phrase motivante chaque matin")
+                    Text("Reçois une phrase motivante chaque matin")
                         .font(.satoshi(13))
                         .foregroundColor(ColorTokens.textSecondary)
                 }
@@ -170,11 +167,11 @@ struct NotificationSettingsView: View {
                     .font(.satoshi(24))
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Rappels de taches")
+                    Text("Rappels de tâches")
                         .font(.satoshi(16, weight: .semibold))
                         .foregroundColor(ColorTokens.textPrimary)
 
-                    Text("Recois un rappel avant tes taches planifiees")
+                    Text("Reçois un rappel avant tes tâches planifiées")
                         .font(.satoshi(13))
                         .foregroundColor(ColorTokens.textSecondary)
                 }
@@ -199,7 +196,7 @@ struct NotificationSettingsView: View {
                     Image(systemName: "timer")
                         .foregroundColor(ColorTokens.textMuted)
 
-                    Text("Rappel avant la tache")
+                    Text("Rappel avant la tâche")
                         .font(.satoshi(14))
                         .foregroundColor(ColorTokens.textSecondary)
 
@@ -238,7 +235,7 @@ struct NotificationSettingsView: View {
                         .font(.satoshi(16, weight: .semibold))
                         .foregroundColor(ColorTokens.textPrimary)
 
-                    Text("Rappel pour faire le point sur ta journee")
+                    Text("Rappel pour faire le point sur ta journée")
                         .font(.satoshi(13))
                         .foregroundColor(ColorTokens.textSecondary)
                 }
@@ -304,7 +301,7 @@ struct NotificationSettingsView: View {
                         .font(.satoshi(16, weight: .semibold))
                         .foregroundColor(ColorTokens.textPrimary)
 
-                    Text("Notification a l'heure de chaque rituel")
+                    Text("Notification à l'heure de chaque rituel")
                         .font(.satoshi(13))
                         .foregroundColor(ColorTokens.textSecondary)
                 }
@@ -325,41 +322,6 @@ struct NotificationSettingsView: View {
         .cornerRadius(RadiusTokens.lg)
     }
 
-    // MARK: - Streak Alert Section
-    private var streakAlertSection: some View {
-        VStack(alignment: .leading, spacing: SpacingTokens.md) {
-            HStack {
-                Text("🔥")
-                    .font(.satoshi(24))
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Alerte streak")
-                        .font(.satoshi(16, weight: .semibold))
-                        .foregroundColor(ColorTokens.textPrimary)
-
-                    Text("Prevenu a 20h si tu n'as pas ete actif")
-                        .font(.satoshi(13))
-                        .foregroundColor(ColorTokens.textSecondary)
-                }
-
-                Spacer()
-
-                Toggle("", isOn: Binding(
-                    get: { notificationService.settings.streakAlertEnabled },
-                    set: { newValue in
-                        Task {
-                            await notificationService.updateStreakAlertEnabled(newValue)
-                        }
-                    }
-                ))
-                .tint(ColorTokens.primaryStart)
-            }
-        }
-        .padding(SpacingTokens.lg)
-        .background(ColorTokens.surface)
-        .cornerRadius(RadiusTokens.lg)
-    }
-
     // MARK: - Afternoon Check Section
     private var afternoonCheckSection: some View {
         VStack(alignment: .leading, spacing: SpacingTokens.md) {
@@ -368,11 +330,11 @@ struct NotificationSettingsView: View {
                     .font(.satoshi(24))
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Check apres-midi")
+                    Text("Check après-midi")
                         .font(.satoshi(16, weight: .semibold))
                         .foregroundColor(ColorTokens.textPrimary)
 
-                    Text("Un rappel a 14h adapte a ton score du jour")
+                    Text("Un rappel à 14h adapté à ton score du jour")
                         .font(.satoshi(13))
                         .foregroundColor(ColorTokens.textSecondary)
                 }
@@ -438,11 +400,11 @@ struct NotificationSettingsView: View {
                     .font(.satoshi(24))
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Rituels oublies")
+                    Text("Rituels oubliés")
                         .font(.satoshi(16, weight: .semibold))
                         .foregroundColor(ColorTokens.textPrimary)
 
-                    Text("Rappel a 19h si des rituels ne sont pas faits")
+                    Text("Rappel à 19h si des rituels ne sont pas faits")
                         .font(.satoshi(13))
                         .foregroundColor(ColorTokens.textSecondary)
                 }
@@ -509,7 +471,7 @@ struct NotificationSettingsView: View {
                 }) {
                     HStack {
                         Image(systemName: "checklist")
-                        Text("Tache")
+                        Text("Tâche")
                     }
                     .font(.satoshi(14, weight: .medium))
                     .foregroundColor(.white)
@@ -521,7 +483,7 @@ struct NotificationSettingsView: View {
             }
 
             if testNotificationSent {
-                Text("Notification envoyee ! Elle arrivera dans 5 secondes.")
+                Text("Notification envoyée ! Elle arrivera dans 5 secondes.")
                     .font(.satoshi(12))
                     .foregroundColor(ColorTokens.success)
             }
@@ -539,7 +501,7 @@ struct NotificationSettingsView: View {
         } else {
             content.title = "Bonjour !"
         }
-        content.body = "C'est le moment de planifier ta journee et d'atteindre tes objectifs. Tu es capable de grandes choses !"
+        content.body = "C'est le moment de planifier ta journée et d'atteindre tes objectifs. Tu es capable de grandes choses !"
         content.sound = .default
         content.userInfo = ["deepLink": "focus://starttheday"]
 
@@ -563,8 +525,8 @@ struct NotificationSettingsView: View {
 
     private func sendTestTaskNotification() {
         let content = UNMutableNotificationContent()
-        content.title = "Rappel de tache"
-        content.body = "C'est l'heure de te concentrer sur 'Tache de test' ! Tu vas gerer !"
+        content.title = "Rappel de tâche"
+        content.body = "C'est l'heure de te concentrer sur 'Tâche de test' ! Tu vas gérer !"
         content.sound = .default
         content.userInfo = ["deepLink": "focus://calendar"]
 

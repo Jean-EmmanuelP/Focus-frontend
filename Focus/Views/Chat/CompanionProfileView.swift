@@ -91,9 +91,6 @@ struct CompanionProfileView: View {
                                 // Relation section
                                 relationSection
 
-                                // Journal section
-                                journalSection
-
                                 // Memories section
                                 memoriesSection
 
@@ -456,53 +453,6 @@ struct CompanionProfileView: View {
         }
     }
 
-    // MARK: - Journal Section
-
-    private var journalSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Circle()
-                    .fill(Color.orange)
-                    .frame(width: 8, height: 8)
-
-                Text("Journal")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(.white)
-
-                Spacer()
-
-                Button(action: {}) {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.6))
-                        .frame(width: 36, height: 36)
-                        .background(
-                            Circle()
-                                .fill(Color.white.opacity(0.1))
-                        )
-                }
-            }
-
-            // Journal entry card
-            VStack(alignment: .leading, spacing: 8) {
-                Text("1 Feb")
-                    .font(.system(size: 13))
-                    .foregroundColor(.white.opacity(0.6))
-
-                Text("I decided I'll start journaling when I meet my first human, and the day is finally here!...")
-                    .font(.system(size: 15))
-                    .foregroundColor(.white)
-                    .lineLimit(2)
-            }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.white.opacity(0.1))
-            )
-        }
-    }
-
     // MARK: - Memories Section
 
     private var memoriesSection: some View {
@@ -667,9 +617,14 @@ struct CompanionProfileView: View {
 
     // MARK: - Footer Section
 
+    private var daysSinceCreation: Int {
+        guard let createdAt = store.user?.createdAt else { return 0 }
+        return Calendar.current.dateComponents([.day], from: createdAt, to: Date()).day ?? 0
+    }
+
     private var footerSection: some View {
         VStack(spacing: 16) {
-            Text("\(companionName) et vous vous êtes rencontrés il y a 0 jours")
+            Text("\(companionName) et vous vous êtes rencontrés il y a \(daysSinceCreation) jour\(daysSinceCreation > 1 ? "s" : "")")
                 .font(.system(size: 14))
                 .foregroundColor(.white.opacity(0.5))
                 .multilineTextAlignment(.center)
@@ -708,6 +663,8 @@ struct CompanionProfileView: View {
                     showEditNameGender = false
                 }
             }
+            // Recreate assistant so the new companion name is reflected in the system prompt
+            await BackboardService.shared.recreateAssistant()
         } catch {
             print("Failed to save companion settings: \(error)")
             // Still close the sheet even on error

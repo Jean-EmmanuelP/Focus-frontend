@@ -29,7 +29,6 @@ enum NavigationDestination: Hashable {
     case startTheDay
     case endOfDay
     case focusSession
-    case questDetail(Quest)
     case manageRituals
     case weeklyGoals
     case settings
@@ -62,7 +61,6 @@ class AppRouter: ObservableObject {
 
     // FireMode pre-configured session parameters
     @Published var fireModePresetDuration: Int?
-    @Published var fireModePresetQuestId: String?
     @Published var fireModePresetDescription: String?
     @Published var fireModePresetTaskId: String?  // Task ID from calendar for post-session validation
     @Published var fireModePresetRitualId: String?  // Ritual ID from calendar for post-session validation
@@ -79,10 +77,9 @@ class AppRouter: ObservableObject {
         showEndOfDay = true
     }
 
-    func navigateToFireMode(duration: Int? = nil, questId: String? = nil, description: String? = nil, taskId: String? = nil, ritualId: String? = nil) {
+    func navigateToFireMode(duration: Int? = nil, description: String? = nil, taskId: String? = nil, ritualId: String? = nil) {
         // Set preset values if provided
         fireModePresetDuration = duration
-        fireModePresetQuestId = questId
         fireModePresetDescription = description
         fireModePresetTaskId = taskId
         fireModePresetRitualId = ritualId
@@ -97,7 +94,6 @@ class AppRouter: ObservableObject {
 
     func clearFireModePresets() {
         fireModePresetDuration = nil
-        fireModePresetQuestId = nil
         fireModePresetDescription = nil
         fireModePresetTaskId = nil
         fireModePresetRitualId = nil
@@ -185,9 +181,7 @@ struct MainTabView: View {
         case .endOfDay:
             EndOfDayView()
         case .focusSession:
-            FocusSessionView()
-        case .questDetail(let quest):
-            QuestDetailView(quest: quest)
+            FireModeView()
         case .manageRituals:
             ManageRitualsView()
         case .weeklyGoals:

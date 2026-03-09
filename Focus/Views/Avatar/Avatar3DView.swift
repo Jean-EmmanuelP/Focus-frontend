@@ -10,13 +10,16 @@ struct Avatar3DView: UIViewRepresentable {
     var backgroundColor: UIColor = UIColor(red: 0.1, green: 0.1, blue: 0.15, alpha: 1.0)
     var enableRotation: Bool = true
     var autoRotate: Bool = false
+    var isPaused: Bool = false
 
     func makeUIView(context: Context) -> SCNView {
         let sceneView = SCNView()
         sceneView.backgroundColor = backgroundColor
         sceneView.allowsCameraControl = enableRotation
-        sceneView.autoenablesDefaultLighting = true
-        sceneView.antialiasingMode = .multisampling4X
+        sceneView.autoenablesDefaultLighting = false
+        sceneView.antialiasingMode = .multisampling2X
+        sceneView.preferredFramesPerSecond = 30
+        sceneView.rendersContinuously = false
 
         // Create scene
         let scene = SCNScene()
@@ -56,6 +59,8 @@ struct Avatar3DView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: SCNView, context: Context) {
+        uiView.scene?.isPaused = isPaused
+        uiView.isPlaying = !isPaused
         // Update if URL changes
         if context.coordinator.currentURL != avatarURL {
             context.coordinator.loadAvatar(url: avatarURL, into: uiView, autoRotate: autoRotate)
@@ -71,6 +76,15 @@ struct Avatar3DView: UIViewRepresentable {
         var avatarNode: SCNNode?
         var animationPlayers: [SCNAnimationPlayer] = []
 
+        private func cachedFileURL(for url: String) -> URL? {
+            guard let cacheDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else { return nil }
+            let fileName = url.data(using: .utf8)?.base64EncodedString()
+                .replacingOccurrences(of: "/", with: "_")
+                .replacingOccurrences(of: "+", with: "-")
+                .prefix(80) ?? "avatar"
+            return cacheDir.appendingPathComponent("glb_cache_\(fileName).glb")
+        }
+
         func loadAvatar(url: String, into sceneView: SCNView, autoRotate: Bool) {
             currentURL = url
 
@@ -83,6 +97,13 @@ struct Avatar3DView: UIViewRepresentable {
                 return
             }
 
+            // Check disk cache first
+            if let cachedURL = cachedFileURL(for: url), FileManager.default.fileExists(atPath: cachedURL.path) {
+                print("📦 Loading avatar from cache")
+                self.loadGLB(from: cachedURL, into: sceneView, autoRotate: autoRotate)
+                return
+            }
+
             print("📥 Downloading avatar from: \(url)")
 
             // Download GLB file
@@ -92,77 +113,65 @@ struct Avatar3DView: UIViewRepresentable {
                     return
                 }
 
-                print("✅ Download complete, loading GLB...")
-
-                // Load GLB using GLTFKit2
-                do {
-                    let asset = try GLTFAsset(url: localURL)
-
-                    // Convert GLTF to SceneKit
-                    let sceneSource = GLTFSCNSceneSource(asset: asset)
-                    guard let loadedScene = sceneSource.defaultScene else {
-                        print("❌ Failed to get scene from GLTF asset")
-                        return
-                    }
-
-                    // Get animations from the asset
-                    let animations = sceneSource.animations
-
-                    DispatchQueue.main.async {
-                        // Clone the root node
-                        let avatarNode = loadedScene.rootNode.clone()
-
-                        // CesiumMan is ~1.8m tall, already in meters, Y-up
-                        // Scale to fit nicely in view
-                        avatarNode.scale = SCNVector3(x: 1.0, y: 1.0, z: 1.0)
-
-                        // Position at origin (feet at y=0)
-                        avatarNode.position = SCNVector3(x: 0, y: 0, z: 0)
-
-                        // CesiumMan faces -Z by default (toward camera), no rotation needed
-                        avatarNode.eulerAngles = SCNVector3(x: 0, y: 0, z: 0)
-
-                        // Store reference
-                        self.avatarNode = avatarNode
-
-                        // Add to scene
-                        sceneView.scene?.rootNode.addChildNode(avatarNode)
-
-                        // Play all animations (idle, etc.)
-                        if !animations.isEmpty {
-                            print("🎬 Found \(animations.count) animation(s), playing...")
-                            for (index, animation) in animations.enumerated() {
-                                // GLTFSCNAnimation has an animationPlayer property
-                                animation.animationPlayer.animation.usesSceneTimeBase = false
-                                animation.animationPlayer.animation.repeatCount = .greatestFiniteMagnitude
-                                avatarNode.addAnimationPlayer(animation.animationPlayer, forKey: "animation_\(index)")
-                                animation.animationPlayer.play()
-                                self.animationPlayers.append(animation.animationPlayer)
-                            }
-                        } else {
-                            print("⚠️ No animations found in model")
-                            // Apply simple breathing animation as fallback
-                            let breatheIn = SCNAction.scale(to: 1.02, duration: 1.5)
-                            let breatheOut = SCNAction.scale(to: 1.0, duration: 1.5)
-                            let breathe = SCNAction.sequence([breatheIn, breatheOut])
-                            let breatheForever = SCNAction.repeatForever(breathe)
-                            avatarNode.runAction(breatheForever)
-                        }
-
-                        // Optional auto-rotation animation
-                        if autoRotate {
-                            let rotation = SCNAction.rotateBy(x: 0, y: CGFloat.pi * 2, z: 0, duration: 8)
-                            let repeatRotation = SCNAction.repeatForever(rotation)
-                            avatarNode.runAction(repeatRotation)
-                        }
-
-                        print("✅ Avatar loaded successfully with GLTFKit2!")
-                    }
-
-                } catch {
-                    print("❌ GLTFKit2 loading error: \(error)")
+                // Save to disk cache
+                if let cachedURL = self.cachedFileURL(for: url) {
+                    try? FileManager.default.copyItem(at: localURL, to: cachedURL)
                 }
+
+                print("✅ Download complete, loading GLB...")
+                self.loadGLB(from: localURL, into: sceneView, autoRotate: autoRotate)
             }.resume()
+        }
+
+        private func loadGLB(from fileURL: URL, into sceneView: SCNView, autoRotate: Bool) {
+            do {
+                let asset = try GLTFAsset(url: fileURL)
+                let sceneSource = GLTFSCNSceneSource(asset: asset)
+                guard let loadedScene = sceneSource.defaultScene else {
+                    print("❌ Failed to get scene from GLTF asset")
+                    return
+                }
+
+                let animations = sceneSource.animations
+
+                DispatchQueue.main.async {
+                    let avatarNode = loadedScene.rootNode.clone()
+                    avatarNode.scale = SCNVector3(x: 1.0, y: 1.0, z: 1.0)
+                    avatarNode.position = SCNVector3(x: 0, y: 0, z: 0)
+                    avatarNode.eulerAngles = SCNVector3(x: 0, y: 0, z: 0)
+
+                    self.avatarNode = avatarNode
+                    sceneView.scene?.rootNode.addChildNode(avatarNode)
+
+                    if !animations.isEmpty {
+                        print("🎬 Found \(animations.count) animation(s), playing...")
+                        for (index, animation) in animations.enumerated() {
+                            animation.animationPlayer.animation.usesSceneTimeBase = false
+                            animation.animationPlayer.animation.repeatCount = .greatestFiniteMagnitude
+                            avatarNode.addAnimationPlayer(animation.animationPlayer, forKey: "animation_\(index)")
+                            animation.animationPlayer.play()
+                            self.animationPlayers.append(animation.animationPlayer)
+                        }
+                    } else {
+                        print("⚠️ No animations found in model")
+                        let breatheIn = SCNAction.scale(to: 1.02, duration: 1.5)
+                        let breatheOut = SCNAction.scale(to: 1.0, duration: 1.5)
+                        let breathe = SCNAction.sequence([breatheIn, breatheOut])
+                        let breatheForever = SCNAction.repeatForever(breathe)
+                        avatarNode.runAction(breatheForever)
+                    }
+
+                    if autoRotate {
+                        let rotation = SCNAction.rotateBy(x: 0, y: CGFloat.pi * 2, z: 0, duration: 8)
+                        let repeatRotation = SCNAction.repeatForever(rotation)
+                        avatarNode.runAction(repeatRotation)
+                    }
+
+                    print("✅ Avatar loaded successfully with GLTFKit2!")
+                }
+            } catch {
+                print("❌ GLTFKit2 loading error: \(error)")
+            }
         }
     }
 }

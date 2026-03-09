@@ -37,12 +37,13 @@ struct CalendarTask: Codable, Identifiable {
     var aiNotes: String?
     var isPrivate: Bool?                    // If true, task content is hidden from friends
     var blockApps: Bool?                     // If true, block distracting apps during this task
+    var photosCount: Int?                    // Number of photos attached to this task
     let createdAt: Date
     var updatedAt: Date
     var questTitle: String?
     var areaName: String?
     var areaIcon: String?
-    var photosCount: Int?                   // Number of community photos linked to this task
+
 
     var isCompleted: Bool {
         status == "completed"
@@ -137,11 +138,6 @@ struct GenerateDayPlanResponse: Codable {
 }
 
 // MARK: - Request Types
-struct CreateDayPlanRequest: Codable {
-    var date: String
-    var idealDayPrompt: String
-}
-
 struct CreateTaskRequest: Codable {
     var questId: String?
     var areaId: String?

@@ -15,8 +15,8 @@ struct FocusSessionActivityAttributes: ActivityAttributes {
     var sessionId: String
     var totalDuration: Int // minutes
     var description: String?
-    var questTitle: String?
-    var questEmoji: String?
+    var sessionTitle: String?
+    var sessionEmoji: String?
     var startTime: Date
 }
 
@@ -34,8 +34,8 @@ class LiveActivityManager: ObservableObject {
         sessionId: String,
         totalDuration: Int,
         description: String?,
-        questTitle: String?,
-        questEmoji: String?
+        sessionTitle: String?,
+        sessionEmoji: String?
     ) {
         // Check if Live Activities are supported and enabled
         let authInfo = ActivityAuthorizationInfo()
@@ -53,8 +53,8 @@ class LiveActivityManager: ObservableObject {
             sessionId: sessionId,
             totalDuration: totalDuration,
             description: description,
-            questTitle: questTitle,
-            questEmoji: questEmoji,
+            sessionTitle: sessionTitle,
+            sessionEmoji: sessionEmoji,
             startTime: Date()
         )
 

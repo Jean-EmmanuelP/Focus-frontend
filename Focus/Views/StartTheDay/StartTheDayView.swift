@@ -60,13 +60,13 @@ class StartTheDayViewModel: ObservableObject {
     @Published var isComplete = false
 
     // Services
-    private let intentionsService = IntentionsService()
+    private let reflectionService = ReflectionService()
     private var store: FocusAppStore { FocusAppStore.shared }
 
     struct Intention: Identifiable {
         let id = UUID()
         var text: String
-        var area: QuestArea
+        var area: LifeArea
     }
 
     var canProceed: Bool {
@@ -131,54 +131,30 @@ class StartTheDayViewModel: ObservableObject {
         errorMessage = nil
 
         do {
-            // Convert feeling to mood rating (1-5) and emoji
-            let moodRating = feelingToMoodRating(selectedFeeling ?? .neutral)
-            let moodEmoji = selectedFeeling?.rawValue ?? "😐"
+            // Save morning reflection to backend
+            let intentionsText = intentions
+                .filter { !$0.text.trimmingCharacters(in: .whitespaces).isEmpty }
+                .map { "\($0.area.emoji) \($0.text)" }
+                .joined(separator: "\n")
 
-            // Convert sleep quality (1-10) to sleep rating (1-5) and emoji
-            let sleepRating = (sleepQuality + 1) / 2 // Convert 1-10 to 1-5
-            let sleepEmojiStr = sleepQualityEmoji(sleepQuality)
-
-            // Convert intentions to API format
-            let intentionInputs = intentions.map { intention in
-                IntentionInput(
-                    areaId: nil, // Area is optional, could map QuestArea to area ID if needed
-                    content: "\(intention.area.emoji) \(intention.text)"
-                )
-            }
-
-            // Save intentions to backend using correct API
-            let response = try await intentionsService.saveIntentions(
+            _ = try await reflectionService.upsertReflection(
                 date: Date(),
-                moodRating: moodRating,
-                moodEmoji: moodEmoji,
-                sleepRating: sleepRating,
-                sleepEmoji: sleepEmojiStr,
-                intentions: intentionInputs
+                morningFeeling: selectedFeeling?.rawValue,
+                sleepQuality: sleepQuality,
+                intentions: intentionsText.isEmpty ? nil : intentionsText,
+                morningNote: feelingNote.isEmpty ? nil : feelingNote
             )
-
-            // Update store directly with the morning check-in data
-            let dailyIntentions = intentions.map { intention in
-                DailyIntention(
-                    id: UUID().uuidString,
-                    userId: store.authUserId ?? "",
-                    date: Date(),
-                    intention: intention.text,
-                    area: intention.area,
-                    isCompleted: false
-                )
-            }
 
             await MainActor.run {
                 store.morningCheckIn = MorningCheckIn(
-                    id: response.id,
+                    id: UUID().uuidString,
                     userId: store.authUserId ?? "",
                     date: Date(),
                     feeling: selectedFeeling ?? .neutral,
                     feelingNote: feelingNote.isEmpty ? nil : feelingNote,
                     sleepQuality: sleepQuality,
                     sleepNote: sleepNote.isEmpty ? nil : sleepNote,
-                    intentions: dailyIntentions
+                    intentions: []
                 )
 
                 isComplete = true
@@ -638,7 +614,7 @@ struct StartTheDayView: View {
 
                     // Area picker - flexible flow layout
                     FlowLayout(spacing: SpacingTokens.sm) {
-                        ForEach(QuestArea.allCases, id: \.self) { area in
+                        ForEach(LifeArea.allCases, id: \.self) { area in
                             AreaChip(
                                 area: area,
                                 isSelected: viewModel.intentions[index].area == area
@@ -907,7 +883,7 @@ struct StartTheDayView: View {
 
 // MARK: - Area Chip Component
 struct AreaChip: View {
-    let area: QuestArea
+    let area: LifeArea
     let isSelected: Bool
     let action: () -> Void
 

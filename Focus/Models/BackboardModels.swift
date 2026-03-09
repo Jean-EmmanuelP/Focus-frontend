@@ -97,6 +97,7 @@ enum BackboardSideEffect {
     case showVideoSuggestions(category: String)
     case blockApps(Int?) // duration in minutes
     case unblockApps
+    case startFocusSession(duration: Int?, taskId: String?, taskTitle: String?)
 }
 
 // MARK: - AnyCodableValue (for memory metadata)

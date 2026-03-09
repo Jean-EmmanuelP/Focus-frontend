@@ -17,8 +17,6 @@ struct ChatView: View {
     @State private var recordingTime: TimeInterval = 0
     @State private var recordingTimer: Timer?
     @State private var showPaywall = false
-    @State private var showThoughtsSheet = false
-    @State private var showTrainingSheet = false
     @State private var showCompanionProfile = false
     @State private var showVoiceCall = false
     @State private var isHomeMode = false  // Toggle between home view and chat view
@@ -82,44 +80,6 @@ struct ChatView: View {
             isInputFocused = false
         }
         .overlay {
-            if showThoughtsSheet {
-                ChatFeatureOverlayContent(
-                    featureType: .thoughts,
-                    companionName: companionName,
-                    onShowPaywall: {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            showPaywall = true
-                        }
-                    },
-                    onDismiss: {
-                        withAnimation(.easeOut(duration: 0.25)) {
-                            showThoughtsSheet = false
-                        }
-                    }
-                )
-                .transition(.opacity)
-            }
-        }
-        .overlay {
-            if showTrainingSheet {
-                ChatFeatureOverlayContent(
-                    featureType: .training,
-                    companionName: companionName,
-                    onShowPaywall: {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            showPaywall = true
-                        }
-                    },
-                    onDismiss: {
-                        withAnimation(.easeOut(duration: 0.25)) {
-                            showTrainingSheet = false
-                        }
-                    }
-                )
-                .transition(.opacity)
-            }
-        }
-        .overlay {
             if showPaywall {
                 FocusPaywallView(
                     companionName: companionName,
@@ -138,20 +98,8 @@ struct ChatView: View {
                 .transition(.opacity)
             }
         }
-        .animation(.easeInOut(duration: 0.25), value: showThoughtsSheet)
-        .animation(.easeInOut(duration: 0.25), value: showTrainingSheet)
         .animation(.easeInOut(duration: 0.3), value: showPaywall)
         .onChange(of: showPaywall) { _, isShowing in
-            if isShowing {
-                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-            }
-        }
-        .onChange(of: showThoughtsSheet) { _, isShowing in
-            if isShowing {
-                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-            }
-        }
-        .onChange(of: showTrainingSheet) { _, isShowing in
             if isShowing {
                 UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
             }
@@ -307,10 +255,6 @@ struct ChatView: View {
 
     // MARK: - Conversation Header
 
-    private var isShowingFeatureOverlay: Bool {
-        showThoughtsSheet || showTrainingSheet
-    }
-
     private var conversationHeader: some View {
         HStack(spacing: 12) {
             // Left: Home button + companion name
@@ -318,8 +262,6 @@ struct ChatView: View {
                 Button(action: {
                     isInputFocused = false
                     withAnimation(.easeInOut(duration: 0.3)) {
-                        showThoughtsSheet = false
-                        showTrainingSheet = false
                         isHomeMode = true
                     }
                 }) {
@@ -359,39 +301,21 @@ struct ChatView: View {
 
             Spacer()
 
-            // Right: Chat (thoughts) and lightning (training) icons
-            HStack(spacing: 8) {
-                Button(action: {
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        showTrainingSheet = false
-                        showThoughtsSheet = true
-                    }
-                }) {
-                    Image(systemName: "message.fill")
-                        .font(.system(size: 16))
-                        .foregroundColor(.white.opacity(0.8))
-                        .frame(width: 40, height: 40)
-                        .background(
-                            Circle()
-                                .fill(Color.white.opacity(0.15))
-                        )
+            // Right: Settings gear
+            Button(action: {
+                isInputFocused = false
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showSettings = true
                 }
-
-                Button(action: {
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        showThoughtsSheet = false
-                        showTrainingSheet = true
-                    }
-                }) {
-                    Image(systemName: "bolt.fill")
-                        .font(.system(size: 16))
-                        .foregroundColor(.white.opacity(0.8))
-                        .frame(width: 40, height: 40)
-                        .background(
-                            Circle()
-                                .fill(Color.white.opacity(0.15))
-                        )
-                }
+            }) {
+                Image(systemName: "gearshape.fill")
+                    .font(.system(size: 16))
+                    .foregroundColor(.white.opacity(0.8))
+                    .frame(width: 40, height: 40)
+                    .background(
+                        Circle()
+                            .fill(Color.white.opacity(0.15))
+                    )
             }
         }
         .padding(.horizontal, 16)
@@ -470,17 +394,11 @@ struct ChatView: View {
 
     private var typingIndicator: some View {
         HStack {
-            HStack(spacing: 5) {
-                ForEach(0..<3, id: \.self) { index in
-                    Circle()
-                        .fill(Color.black.opacity(0.4))
-                        .frame(width: 8, height: 8)
-                }
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-            .background(Color.white.opacity(0.95))
-            .cornerRadius(20)
+            TypingDotsView()
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
+                .background(Color.white.opacity(0.95))
+                .cornerRadius(20)
 
             Spacer()
         }
@@ -676,12 +594,12 @@ struct ReplikaMessageBubble: View {
                             viewModel?.retryMessage(message)
                         } label: {
                             HStack(spacing: 4) {
-                                Image(systemName: "exclamationmark.circle.fill")
-                                    .font(.system(size: 12))
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.system(size: 11, weight: .medium))
                                 Text("Réessayer")
                                     .font(.system(size: 12, weight: .medium))
                             }
-                            .foregroundColor(.red)
+                            .foregroundColor(.white.opacity(0.5))
                         }
                     }
                 }
@@ -712,10 +630,7 @@ struct ReplikaMessageBubble: View {
             .background(message.isFromUser ? userBubbleColor : aiBubbleColor)
             .cornerRadius(26)
             .opacity(message.status == .sending ? 0.6 : 1.0)
-            .overlay(
-                RoundedRectangle(cornerRadius: 26)
-                    .stroke(Color.red, lineWidth: message.status == .failed ? 1.5 : 0)
-            )
+            .opacity(message.status == .failed ? 0.5 : 1.0)
             .contextMenu {
                 Button {
                     UIPasteboard.general.string = message.content
@@ -743,8 +658,8 @@ struct ReplikaMessageBubble: View {
             InlineTaskListCard(tasks: tasks, messageId: message.id, viewModel: viewModel)
         case .routineList(let routines):
             InlineRoutineListCard(routines: routines, messageId: message.id, viewModel: viewModel)
-        case .planning(let tasks, let routines):
-            InlinePlanningCard(tasks: tasks, routines: routines, messageId: message.id, viewModel: viewModel)
+        case .planning(let tasks, let routines, let focusState):
+            InlinePlanningCard(tasks: tasks, routines: routines, focusState: focusState, messageId: message.id, viewModel: viewModel)
         case .videoCard(let video):
             InlineVideoCard(video: video, messageId: message.id, viewModel: viewModel)
         case .videoSuggestions(let data):
@@ -1055,8 +970,15 @@ struct InlineRoutineListCard: View {
 struct InlinePlanningCard: View {
     let tasks: [ChatCardData.CardTask]
     let routines: [ChatCardData.CardRoutine]
+    let focusState: ChatCardData.PlanningFocusState?
     let messageId: UUID
     var viewModel: ChatViewModel?
+
+    @State private var selectedDuration: Int = 25
+    @State private var showCustomDuration = false
+    @State private var customMinutes: String = ""
+    @State private var customFocusTitle: String = ""
+    @State private var showConfetti = false
 
     private var totalItems: Int { tasks.count + routines.count }
     private var completedItems: Int {
@@ -1065,37 +987,60 @@ struct InlinePlanningCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Header
-            HStack(spacing: 8) {
-                Image(systemName: "checklist")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.black.opacity(0.5))
-                Text("Planning du jour")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.black.opacity(0.5))
-                    .textCase(.uppercase)
-                    .tracking(0.5)
-                Spacer()
-                if totalItems > 0 {
-                    Text("\(completedItems)/\(totalItems)")
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
-                        .foregroundColor(.black.opacity(0.35))
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 14)
-            .padding(.bottom, 10)
-
-            if tasks.isEmpty && routines.isEmpty {
-                Text("Aucune tache ni rituel pour aujourd'hui")
-                    .font(.system(size: 14))
-                    .foregroundColor(.black.opacity(0.4))
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 14)
+            if let focus = focusState, focus.timerState == .running || focus.timerState == .paused {
+                timerActiveView(focus: focus)
+            } else if let focus = focusState, focus.timerState == .completed {
+                completedView(focus: focus)
             } else {
-                // Tasks section
-                if !tasks.isEmpty {
-                    ForEach(Array(tasks.enumerated()), id: \.element.id) { index, task in
+                normalPlanningView
+            }
+        }
+        .background(Color.white)
+        .cornerRadius(16)
+        .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
+        .onAppear {
+            if let focus = focusState {
+                selectedDuration = focus.duration
+            }
+        }
+    }
+
+    // MARK: - Normal / Idle Planning View
+
+    @ViewBuilder
+    private var normalPlanningView: some View {
+        // Header
+        HStack(spacing: 8) {
+            Image(systemName: focusState != nil ? "flame.fill" : "checklist")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(focusState != nil ? .orange : .black.opacity(0.5))
+            Text(focusState != nil ? "Session Focus" : "Planning du jour")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(.black.opacity(0.5))
+                .textCase(.uppercase)
+                .tracking(0.5)
+            Spacer()
+            if focusState == nil && totalItems > 0 {
+                Text("\(completedItems)/\(totalItems)")
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundColor(.black.opacity(0.35))
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 14)
+        .padding(.bottom, 10)
+
+        if tasks.isEmpty && routines.isEmpty {
+            Text("Aucune tache ni rituel pour aujourd'hui")
+                .font(.system(size: 14))
+                .foregroundColor(.black.opacity(0.4))
+                .padding(.horizontal, 16)
+                .padding(.bottom, 14)
+        } else {
+            // Tasks section
+            if !tasks.isEmpty {
+                ForEach(Array(tasks.enumerated()), id: \.element.id) { index, task in
+                    HStack(spacing: 0) {
                         Button {
                             viewModel?.toggleTaskCompletion(messageId: messageId, taskId: task.id)
                         } label: {
@@ -1121,83 +1066,444 @@ struct InlinePlanningCard: View {
                                     .multilineTextAlignment(.leading)
                                 Spacer()
                             }
-                            .padding(.vertical, 11)
-                            .padding(.horizontal, 16)
                         }
-                        if index < tasks.count - 1 || !routines.isEmpty {
-                            Rectangle()
-                                .fill(Color.black.opacity(0.06))
-                                .frame(height: 0.5)
-                                .padding(.leading, 50)
+                        // Focus button on each task (only in focus mode, idle state, non-completed tasks)
+                        if focusState != nil && !task.isCompleted {
+                            Button {
+                                viewModel?.selectTaskForFocus(messageId: messageId, taskId: task.id, taskTitle: task.title)
+                                if let est = task.estimatedMinutes, est > 0 {
+                                    selectedDuration = est
+                                }
+                            } label: {
+                                Image(systemName: focusState?.activeTaskId == task.id ? "flame.fill" : "flame")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(focusState?.activeTaskId == task.id ? .orange : .black.opacity(0.2))
+                                    .frame(width: 36, height: 36)
+                            }
                         }
                     }
+                    .padding(.vertical, 11)
+                    .padding(.horizontal, 16)
+
+                    if index < tasks.count - 1 || !routines.isEmpty {
+                        Rectangle()
+                            .fill(Color.black.opacity(0.06))
+                            .frame(height: 0.5)
+                            .padding(.leading, 50)
+                    }
+                }
+            }
+
+            // Routines section (hidden during focus mode to save space)
+            if !routines.isEmpty && focusState == nil {
+                if !tasks.isEmpty {
+                    HStack(spacing: 8) {
+                        Image(systemName: "repeat")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.black.opacity(0.35))
+                        Text("Rituels")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.black.opacity(0.35))
+                            .textCase(.uppercase)
+                            .tracking(0.5)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 6)
+                    .padding(.bottom, 2)
                 }
 
-                // Routines section
-                if !routines.isEmpty {
-                    if !tasks.isEmpty {
-                        // Section separator
-                        HStack(spacing: 8) {
-                            Image(systemName: "repeat")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundColor(.black.opacity(0.35))
-                            Text("Rituels")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundColor(.black.opacity(0.35))
-                                .textCase(.uppercase)
-                                .tracking(0.5)
+                ForEach(Array(routines.enumerated()), id: \.element.id) { index, routine in
+                    Button {
+                        viewModel?.toggleRoutineCompletion(messageId: messageId, routineId: routine.id)
+                    } label: {
+                        HStack(spacing: 12) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(routine.isCompleted ? Color.clear : Color.black.opacity(0.2), lineWidth: 1.5)
+                                    .frame(width: 22, height: 22)
+                                if routine.isCompleted {
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(Color.black)
+                                        .frame(width: 22, height: 22)
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 11, weight: .bold))
+                                        .foregroundColor(.white)
+                                }
+                            }
+                            Text(routine.icon)
+                                .font(.system(size: 16))
+                            Text(routine.title)
+                                .font(.system(size: 15, weight: routine.isCompleted ? .regular : .medium))
+                                .foregroundColor(routine.isCompleted ? .black.opacity(0.3) : .black.opacity(0.85))
+                                .strikethrough(routine.isCompleted, color: .black.opacity(0.2))
+                                .lineLimit(2)
+                                .multilineTextAlignment(.leading)
                             Spacer()
                         }
+                        .padding(.vertical, 11)
                         .padding(.horizontal, 16)
-                        .padding(.top, 6)
-                        .padding(.bottom, 2)
+                    }
+                    if index < routines.count - 1 {
+                        Rectangle()
+                            .fill(Color.black.opacity(0.06))
+                            .frame(height: 0.5)
+                            .padding(.leading, 50)
+                    }
+                }
+            }
+            Spacer().frame(height: 4)
+        }
+
+        // Focus controls (duration + start button) — only in focus/idle mode
+        if let focus = focusState, focus.timerState == .idle {
+            focusIdleControls(focus: focus)
+        }
+    }
+
+    // MARK: - Focus Idle Controls (duration chips + start)
+
+    private func focusIdleControls(focus: ChatCardData.PlanningFocusState) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Rectangle()
+                .fill(Color.black.opacity(0.06))
+                .frame(height: 0.5)
+
+            // Duration chips
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Durée")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.black.opacity(0.4))
+                    .padding(.horizontal, 16)
+
+                HStack(spacing: 8) {
+                    ForEach([25, 50, 90], id: \.self) { minutes in
+                        Button {
+                            selectedDuration = minutes
+                            showCustomDuration = false
+                            viewModel?.updateFocusDuration(messageId: messageId, duration: minutes)
+                        } label: {
+                            Text("\(minutes) min")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(selectedDuration == minutes && !showCustomDuration ? .white : .black.opacity(0.7))
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 10)
+                                .background(selectedDuration == minutes && !showCustomDuration ? Color.black : Color.black.opacity(0.06))
+                                .cornerRadius(12)
+                        }
                     }
 
-                    ForEach(Array(routines.enumerated()), id: \.element.id) { index, routine in
-                        Button {
-                            viewModel?.toggleRoutineCompletion(messageId: messageId, routineId: routine.id)
-                        } label: {
-                            HStack(spacing: 12) {
-                                ZStack {
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .stroke(routine.isCompleted ? Color.clear : Color.black.opacity(0.2), lineWidth: 1.5)
-                                        .frame(width: 22, height: 22)
-                                    if routine.isCompleted {
-                                        RoundedRectangle(cornerRadius: 6)
-                                            .fill(Color.black)
-                                            .frame(width: 22, height: 22)
-                                        Image(systemName: "checkmark")
-                                            .font(.system(size: 11, weight: .bold))
-                                            .foregroundColor(.white)
+                    Button {
+                        showCustomDuration = true
+                    } label: {
+                        if showCustomDuration {
+                            HStack(spacing: 4) {
+                                TextField("", text: $customMinutes)
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .keyboardType(.numberPad)
+                                    .frame(width: 30)
+                                    .multilineTextAlignment(.center)
+                                    .onChange(of: customMinutes) { _, newValue in
+                                        if let val = Int(newValue), val > 0 {
+                                            selectedDuration = val
+                                            viewModel?.updateFocusDuration(messageId: messageId, duration: val)
+                                        }
                                     }
-                                }
-                                Text(routine.icon)
-                                    .font(.system(size: 16))
-                                Text(routine.title)
-                                    .font(.system(size: 15, weight: routine.isCompleted ? .regular : .medium))
-                                    .foregroundColor(routine.isCompleted ? .black.opacity(0.3) : .black.opacity(0.85))
-                                    .strikethrough(routine.isCompleted, color: .black.opacity(0.2))
-                                    .lineLimit(2)
-                                    .multilineTextAlignment(.leading)
-                                Spacer()
+                                Text("min")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(.white.opacity(0.7))
                             }
-                            .padding(.vertical, 11)
-                            .padding(.horizontal, 16)
-                        }
-                        if index < routines.count - 1 {
-                            Rectangle()
-                                .fill(Color.black.opacity(0.06))
-                                .frame(height: 0.5)
-                                .padding(.leading, 50)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
+                            .background(Color.black)
+                            .cornerRadius(12)
+                        } else {
+                            Image(systemName: "slider.horizontal.3")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.black.opacity(0.7))
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 10)
+                                .background(Color.black.opacity(0.06))
+                                .cornerRadius(12)
                         }
                     }
                 }
-                Spacer().frame(height: 4)
+                .padding(.horizontal, 16)
+            }
+
+            // Free subject field (when no task selected)
+            if focus.activeTaskId == nil {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Sujet")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.black.opacity(0.4))
+                        .padding(.horizontal, 16)
+
+                    TextField("Sur quoi tu veux focus ?", text: $customFocusTitle)
+                        .font(.system(size: 14, weight: .medium))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(Color.black.opacity(0.04))
+                        .cornerRadius(12)
+                        .padding(.horizontal, 16)
+                }
+            }
+
+            // Start button
+            Button {
+                viewModel?.startInlineFocusTimer(
+                    messageId: messageId,
+                    taskId: focus.activeTaskId,
+                    taskTitle: focus.activeTaskId != nil ? focus.activeTaskTitle : (customFocusTitle.isEmpty ? nil : customFocusTitle),
+                    duration: selectedDuration
+                )
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "flame.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                    Text("Commencer")
+                        .font(.system(size: 16, weight: .bold))
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(Color.black)
+                .cornerRadius(14)
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 14)
+        }
+    }
+
+    // MARK: - Timer Active View (running / paused)
+
+    private func timerActiveView(focus: ChatCardData.PlanningFocusState) -> some View {
+        let isPaused = focus.timerState == .paused
+        return VStack(spacing: 16) {
+            // Header
+            HStack(spacing: 8) {
+                Image(systemName: "flame.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.orange)
+                Text(isPaused ? "En pause" : "Focus en cours")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.black.opacity(0.5))
+                    .textCase(.uppercase)
+                    .tracking(0.5)
+                Spacer()
+                if let title = focus.activeTaskTitle {
+                    Text(title)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.black.opacity(0.4))
+                        .lineLimit(1)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+
+            // Progress ring + countdown
+            ZStack {
+                Circle()
+                    .stroke(Color.black.opacity(0.08), lineWidth: 6)
+
+                Circle()
+                    .trim(from: 0, to: timerProgress(focus: focus))
+                    .stroke(
+                        isPaused ? Color.orange : Color.black,
+                        style: StrokeStyle(lineWidth: 6, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90))
+                    .animation(.linear(duration: 1), value: focus.timeRemaining)
+
+                VStack(spacing: 2) {
+                    Text(formattedTime(focus: focus))
+                        .font(.system(size: 32, weight: .bold, design: .monospaced))
+                        .foregroundColor(.black)
+
+                    if isPaused {
+                        Text("pause")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.orange)
+                    }
+                }
+            }
+            .frame(width: 140, height: 140)
+
+            // Controls
+            HStack(spacing: 20) {
+                Button {
+                    viewModel?.stopInlineFocusTimer(messageId: messageId)
+                } label: {
+                    Image(systemName: "stop.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(width: 50, height: 50)
+                        .background(Color.red.opacity(0.85))
+                        .clipShape(Circle())
+                }
+
+                Button {
+                    if isPaused {
+                        viewModel?.resumeInlineFocusTimer(messageId: messageId)
+                    } else {
+                        viewModel?.pauseInlineFocusTimer(messageId: messageId)
+                    }
+                } label: {
+                    Image(systemName: isPaused ? "play.fill" : "pause.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(width: 50, height: 50)
+                        .background(Color.black)
+                        .clipShape(Circle())
+                }
+            }
+            .padding(.bottom, 16)
+        }
+    }
+
+    // MARK: - Completed View
+
+    private func completedView(focus: ChatCardData.PlanningFocusState) -> some View {
+        VStack(spacing: 14) {
+            if showConfetti {
+                InlineConfettiView()
+                    .frame(height: 60)
+            }
+
+            VStack(spacing: 6) {
+                Text("🔥")
+                    .font(.system(size: 40))
+                Text("Session terminée !")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(.black)
+                Text("\(focus.duration) minutes de focus")
+                    .font(.system(size: 14))
+                    .foregroundColor(.black.opacity(0.5))
+            }
+            .padding(.top, 16)
+
+            if focus.activeTaskId != nil, let title = focus.activeTaskTitle {
+                VStack(spacing: 10) {
+                    Text("Tu as terminé « \(title) » ?")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.black.opacity(0.7))
+                        .multilineTextAlignment(.center)
+
+                    HStack(spacing: 12) {
+                        Button {
+                            viewModel?.validateFocusTimerTask(messageId: messageId, completed: false)
+                        } label: {
+                            Text("Pas encore")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.black.opacity(0.6))
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 10)
+                                .background(Color.black.opacity(0.06))
+                                .cornerRadius(12)
+                        }
+
+                        Button {
+                            viewModel?.validateFocusTimerTask(messageId: messageId, completed: true)
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 12, weight: .bold))
+                                Text("Oui !")
+                                    .font(.system(size: 14, weight: .semibold))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 10)
+                            .background(Color.black)
+                            .cornerRadius(12)
+                        }
+                    }
+                }
+            } else {
+                Button {
+                    viewModel?.validateFocusTimerTask(messageId: messageId, completed: false)
+                } label: {
+                    Text("Fermer")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.black.opacity(0.6))
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 10)
+                        .background(Color.black.opacity(0.06))
+                        .cornerRadius(12)
+                }
+            }
+
+            Spacer().frame(height: 12)
+        }
+        .onAppear {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                showConfetti = true
             }
         }
-        .background(Color.white)
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
+    }
+
+    // MARK: - Helpers
+
+    private func timerProgress(focus: ChatCardData.PlanningFocusState) -> Double {
+        let total = Double(focus.duration * 60)
+        guard total > 0, let remaining = focus.timeRemaining else { return 0 }
+        return 1.0 - (Double(remaining) / total)
+    }
+
+    private func formattedTime(focus: ChatCardData.PlanningFocusState) -> String {
+        let remaining = focus.timeRemaining ?? 0
+        let minutes = remaining / 60
+        let seconds = remaining % 60
+        return String(format: "%02d:%02d", minutes, seconds)
+    }
+}
+
+// MARK: - Inline Confetti View
+
+struct InlineConfettiView: View {
+    @State private var particles: [(id: Int, x: CGFloat, y: CGFloat, color: Color, rotation: Double)] = []
+
+    private let colors: [Color] = [.orange, .yellow, .red, .green, .blue, .purple]
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                ForEach(particles, id: \.id) { particle in
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(particle.color)
+                        .frame(width: 6, height: 10)
+                        .rotationEffect(.degrees(particle.rotation))
+                        .position(x: particle.x, y: particle.y)
+                }
+            }
+            .onAppear {
+                for i in 0..<20 {
+                    let x = CGFloat.random(in: 0...geo.size.width)
+                    particles.append((
+                        id: i,
+                        x: x,
+                        y: -10,
+                        color: colors.randomElement()!,
+                        rotation: Double.random(in: 0...360)
+                    ))
+                }
+
+                withAnimation(.easeIn(duration: 1.2)) {
+                    for i in particles.indices {
+                        particles[i].y = CGFloat.random(in: 20...60)
+                        particles[i].rotation += Double.random(in: 90...270)
+                    }
+                }
+
+                // Fade out
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    withAnimation(.easeOut(duration: 0.5)) {
+                        particles.removeAll()
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -1387,7 +1693,11 @@ struct InlineVideoCard: View {
 struct YouTubePlayerView: UIViewRepresentable {
     let videoId: String
 
-    private static let safariUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"
+    /// Bundle-ID origin — WKWebView sends this as HTTP Referer, which YouTube requires for embeds
+    private static let origin: String = {
+        let bundleID = Bundle.main.bundleIdentifier ?? "com.jep.volta"
+        return "https://\(bundleID)".lowercased()
+    }()
 
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
@@ -1398,12 +1708,31 @@ struct YouTubePlayerView: UIViewRepresentable {
         webView.scrollView.isScrollEnabled = false
         webView.isOpaque = false
         webView.backgroundColor = .black
-        webView.customUserAgent = Self.safariUserAgent
         webView.navigationDelegate = context.coordinator
 
-        // Use youtube-nocookie.com — fewer embedding restrictions
-        let embedURL = URL(string: "https://www.youtube-nocookie.com/embed/\(videoId)?playsinline=1&rel=0&modestbranding=1")!
-        webView.load(URLRequest(url: embedURL))
+        let html = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+        <style>
+            * { margin: 0; padding: 0; }
+            html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
+            iframe { width: 100%; height: 100%; border: none; }
+        </style>
+        </head>
+        <body>
+        <iframe
+            src="https://www.youtube.com/embed/\(videoId)?playsinline=1&rel=0&modestbranding=1&origin=\(Self.origin)"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowfullscreen>
+        </iframe>
+        </body>
+        </html>
+        """
+
+        // baseURL sets the security origin → WKWebView sends it as Referer header to YouTube
+        webView.loadHTMLString(html, baseURL: URL(string: Self.origin))
         return webView
     }
 
@@ -1412,25 +1741,57 @@ struct YouTubePlayerView: UIViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     class Coordinator: NSObject, WKNavigationDelegate {
-        // Prevent navigation away from the embed page (e.g., tapping YouTube logo)
         func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
             if let url = navigationAction.request.url?.absoluteString {
-                // Allow the initial embed load and YouTube internal navigation
-                if url.contains("youtube-nocookie.com/embed") ||
-                   url.contains("youtube.com/embed") ||
-                   url.contains("accounts.google.com") ||
+                // Allow YouTube embed, API, and media resources
+                if url.contains("youtube.com/embed") ||
+                   url.contains("youtube-nocookie.com/embed") ||
                    url.contains("youtube.com/iframe_api") ||
+                   url.contains("accounts.google.com") ||
                    url.contains("ytimg.com") ||
                    url.contains("googlevideo.com") ||
                    url.contains("google.com/recaptcha") ||
                    url.contains("gstatic.com") ||
+                   url.hasPrefix(Self.bundleOrigin) ||
                    navigationAction.navigationType == .other {
                     decisionHandler(.allow)
                     return
                 }
             }
-            // Block navigation to youtube.com main site
             decisionHandler(.cancel)
+        }
+
+        private static let bundleOrigin: String = {
+            let bundleID = Bundle.main.bundleIdentifier ?? "com.jep.volta"
+            return "https://\(bundleID)".lowercased()
+        }()
+    }
+}
+
+// MARK: - Typing Dots Animation
+
+struct TypingDotsView: View {
+    @State private var dotOffsets: [CGFloat] = [0, 0, 0]
+
+    var body: some View {
+        HStack(spacing: 5) {
+            ForEach(0..<3, id: \.self) { index in
+                Circle()
+                    .fill(Color.black.opacity(0.4))
+                    .frame(width: 8, height: 8)
+                    .offset(y: dotOffsets[index])
+            }
+        }
+        .onAppear {
+            for i in 0..<3 {
+                withAnimation(
+                    .easeInOut(duration: 0.4)
+                    .repeatForever(autoreverses: true)
+                    .delay(Double(i) * 0.15)
+                ) {
+                    dotOffsets[i] = -5
+                }
+            }
         }
     }
 }

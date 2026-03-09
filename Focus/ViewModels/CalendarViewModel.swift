@@ -93,10 +93,6 @@ class CalendarViewModel: ObservableObject {
         return peak.peakHours.contains(hour)
     }
 
-    var quests: [Quest] {
-        store.quests.filter { $0.status == .active }
-    }
-
     /// All rituals (for week view indicators)
     var allRituals: [DailyRitual] {
         store.rituals
@@ -120,11 +116,6 @@ class CalendarViewModel: ObservableObject {
         let dateStr = dateFormatter.string(from: date)
 
         return ritualCompletionsByDate[ritualId]?.contains(dateStr) ?? false
-    }
-
-    /// Load quests from store if needed
-    func loadQuestsIfNeeded() async {
-        await store.loadQuestsIfNeeded()
     }
 
     /// Toggle ritual completion for the selected date
@@ -222,13 +213,6 @@ class CalendarViewModel: ObservableObject {
 
     private func setupBindings() {
         store.$areas
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.objectWillChange.send()
-            }
-            .store(in: &cancellables)
-
-        store.$quests
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.objectWillChange.send()
@@ -357,9 +341,6 @@ class CalendarViewModel: ObservableObject {
         }
         await googleService.syncIfNeeded()
 
-        // Load quests in parallel for quick access
-        async let questsLoad: () = store.loadQuestsIfNeeded()
-
         // Use the new week endpoint
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
@@ -414,8 +395,6 @@ class CalendarViewModel: ObservableObject {
             ritualCompletionsByDate = [:]
         }
 
-        // Wait for quests to load
-        await questsLoad
     }
 
     func loadDayData() async {

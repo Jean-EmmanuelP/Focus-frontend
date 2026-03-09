@@ -13,7 +13,7 @@ enum FeedbackMode {
 struct PlanIntention: Identifiable {
     let id = UUID()
     var text: String
-    var area: QuestArea
+    var area: LifeArea
 }
 
 // MARK: - ViewModel
@@ -22,7 +22,7 @@ class PlanYourDayViewModel: ObservableObject {
     // MARK: - Services
     private let voiceService = VoiceService()
     private let calendarService = CalendarService()
-    private let intentionsService = IntentionsService()
+    private let reflectionService = ReflectionService()
     private var store: FocusAppStore?
 
     // MARK: - Speech Recognition
@@ -163,24 +163,12 @@ class PlanYourDayViewModel: ObservableObject {
             selectedFeeling = existingCheckIn.feeling
             sleepQuality = existingCheckIn.sleepQuality
 
-            // Pre-fill intentions from existing check-in
-            let existingIntentions = existingCheckIn.intentions
-            if !existingIntentions.isEmpty {
-                for (index, intention) in existingIntentions.prefix(3).enumerated() {
-                    intentions[index].text = intention.intention
-                    intentions[index].area = intention.area
-                }
-            }
         }
     }
 
-    /// Check if user has already set intentions today
+    /// Check if user has already done morning check-in today
     var hasExistingIntentions: Bool {
-        guard let store = store,
-              let checkIn = store.morningCheckIn else {
-            return false
-        }
-        return !checkIn.intentions.isEmpty
+        store?.morningCheckIn != nil
     }
 
     private func setupSpeechRecognizer() {
@@ -273,43 +261,22 @@ class PlanYourDayViewModel: ObservableObject {
         errorMessage = nil
 
         do {
-            // Save intentions only (no tasks)
-            let moodRating = feelingToMoodRating(selectedFeeling ?? .neutral)
-            let moodEmoji = selectedFeeling?.rawValue ?? "😐"
-            let sleepRating = (sleepQuality + 1) / 2
-            let sleepEmojiStr = sleepEmoji
+            // Save morning reflection
+            let intentionsText = intentions
+                .filter { !$0.text.trimmingCharacters(in: .whitespaces).isEmpty }
+                .map { "\($0.area.emoji) \($0.text)" }
+                .joined(separator: "\n")
 
-            let intentionInputs = intentions.compactMap { intention -> IntentionInput? in
-                guard !intention.text.isEmpty else { return nil }
-                return IntentionInput(
-                    areaId: nil,
-                    content: "\(intention.area.emoji) \(intention.text)"
-                )
-            }
-
-            _ = try await intentionsService.saveIntentions(
+            _ = try await reflectionService.upsertReflection(
                 date: Date(),
-                moodRating: moodRating,
-                moodEmoji: moodEmoji,
-                sleepRating: sleepRating,
-                sleepEmoji: sleepEmojiStr,
-                intentions: intentionInputs
+                morningFeeling: selectedFeeling?.rawValue,
+                sleepQuality: sleepQuality,
+                intentions: intentionsText.isEmpty ? nil : intentionsText,
+                morningNote: feelingNote.isEmpty ? nil : feelingNote
             )
 
-            // Update store with intentions (no tasks)
+            // Update store
             if let store = store {
-                let dailyIntentions = intentions.compactMap { intention -> DailyIntention? in
-                    guard !intention.text.isEmpty else { return nil }
-                    return DailyIntention(
-                        id: UUID().uuidString,
-                        userId: store.authUserId ?? "",
-                        date: Date(),
-                        intention: intention.text,
-                        area: intention.area,
-                        isCompleted: false
-                    )
-                }
-
                 store.morningCheckIn = MorningCheckIn(
                     id: UUID().uuidString,
                     userId: store.authUserId ?? "",
@@ -318,7 +285,7 @@ class PlanYourDayViewModel: ObservableObject {
                     feelingNote: feelingNote.isEmpty ? nil : feelingNote,
                     sleepQuality: sleepQuality,
                     sleepNote: nil,
-                    intentions: dailyIntentions
+                    intentions: []
                 )
             }
 
@@ -573,27 +540,18 @@ class PlanYourDayViewModel: ObservableObject {
         errorMessage = nil
 
         do {
-            // 1. Save intentions first
-            let moodRating = feelingToMoodRating(selectedFeeling ?? .neutral)
-            let moodEmoji = selectedFeeling?.rawValue ?? "😐"
-            let sleepRating = (sleepQuality + 1) / 2
-            let sleepEmojiStr = sleepEmoji
+            // 1. Save morning reflection
+            let intentionsText = intentions
+                .filter { !$0.text.trimmingCharacters(in: .whitespaces).isEmpty }
+                .map { "\($0.area.emoji) \($0.text)" }
+                .joined(separator: "\n")
 
-            let intentionInputs = intentions.compactMap { intention -> IntentionInput? in
-                guard !intention.text.isEmpty else { return nil }
-                return IntentionInput(
-                    areaId: nil,
-                    content: "\(intention.area.emoji) \(intention.text)"
-                )
-            }
-
-            _ = try await intentionsService.saveIntentions(
+            _ = try await reflectionService.upsertReflection(
                 date: Date(),
-                moodRating: moodRating,
-                moodEmoji: moodEmoji,
-                sleepRating: sleepRating,
-                sleepEmoji: sleepEmojiStr,
-                intentions: intentionInputs
+                morningFeeling: selectedFeeling?.rawValue,
+                sleepQuality: sleepQuality,
+                intentions: intentionsText.isEmpty ? nil : intentionsText,
+                morningNote: feelingNote.isEmpty ? nil : feelingNote
             )
 
             // 2. Create selected tasks
@@ -603,7 +561,6 @@ class PlanYourDayViewModel: ObservableObject {
             for task in selectedTasks {
                 do {
                     _ = try await calendarService.createTask(
-                        questId: nil,
                         areaId: nil,
                         title: task.title,
                         description: nil,
@@ -624,18 +581,6 @@ class PlanYourDayViewModel: ObservableObject {
 
             // 3. Update store
             if let store = store {
-                let dailyIntentions = intentions.compactMap { intention -> DailyIntention? in
-                    guard !intention.text.isEmpty else { return nil }
-                    return DailyIntention(
-                        id: UUID().uuidString,
-                        userId: store.authUserId ?? "",
-                        date: Date(),
-                        intention: intention.text,
-                        area: intention.area,
-                        isCompleted: false
-                    )
-                }
-
                 store.morningCheckIn = MorningCheckIn(
                     id: UUID().uuidString,
                     userId: store.authUserId ?? "",
@@ -644,7 +589,7 @@ class PlanYourDayViewModel: ObservableObject {
                     feelingNote: feelingNote.isEmpty ? nil : feelingNote,
                     sleepQuality: sleepQuality,
                     sleepNote: nil,
-                    intentions: dailyIntentions
+                    intentions: []
                 )
 
                 await store.refreshTodaysTasks()
@@ -656,16 +601,6 @@ class PlanYourDayViewModel: ObservableObject {
         }
 
         isLoading = false
-    }
-
-    private func feelingToMoodRating(_ feeling: Feeling) -> Int {
-        switch feeling {
-        case .happy, .excited: return 5
-        case .calm: return 4
-        case .neutral: return 3
-        case .tired, .anxious: return 2
-        case .sad, .frustrated: return 1
-        }
     }
 
     private func estimateDuration(start: String?, end: String?) -> Int {

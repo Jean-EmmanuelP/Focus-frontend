@@ -130,7 +130,7 @@ struct VoltaPaywallView: View {
             benefitRow(icon: "person.3.fill", text: "Rejoins la communaute", color: ColorTokens.accent)
             benefitRow(icon: "star.fill", text: "Gamifie ta vie", color: .yellow)
             benefitRow(icon: "chart.bar.fill", text: "Statistiques avancees", color: ColorTokens.success)
-            benefitRow(icon: "target", text: "Quests & objectifs illimites", color: .purple)
+            benefitRow(icon: "target", text: "Objectifs illimités", color: .purple)
             benefitRow(icon: "bell.fill", text: "Rappels intelligents", color: .cyan)
         }
         .padding(.horizontal, SpacingTokens.xl)

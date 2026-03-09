@@ -49,3 +49,7 @@ vendor/bundle/
 .bundle/
 Gemfile.lock
 .env.local
+
+# superturtle
+.superturtle/
+.subturtles/

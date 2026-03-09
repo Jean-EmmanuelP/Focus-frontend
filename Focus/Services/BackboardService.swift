@@ -80,6 +80,22 @@ class BackboardService {
         print("🤖 Created per-user Backboard assistant: \(newId)")
     }
 
+    /// Force-recreate the assistant (e.g. after companion name change) so a fresh system prompt is used.
+    func recreateAssistant() async {
+        // Clear local assistant ID so ensureAssistant() creates a new one
+        FocusAppStore.shared.user?.backboardAssistantId = nil
+
+        // Delete old thread – the new assistant will get a fresh conversation
+        await deleteThread()
+
+        do {
+            try await ensureAssistant()
+            print("🔄 Backboard assistant recreated with updated prompt")
+        } catch {
+            print("⚠️ Failed to recreate assistant: \(error)")
+        }
+    }
+
     // MARK: - Thread Management
 
     /// Get existing thread ID or create a new one
@@ -252,6 +268,26 @@ class BackboardService {
                 let result = try await completeRoutine(routineId: routineId)
                 return (result, [.refreshRituals])
 
+            case "update_task":
+                let result = try await updateTask(args: args)
+                return (result, [.refreshTasks, .calendarNeedsRefresh])
+
+            case "delete_task":
+                let taskId = args["task_id"] as? String ?? ""
+                let result = try await deleteTask(taskId: taskId)
+                return (result, [.refreshTasks, .calendarNeedsRefresh])
+
+            case "delete_routine":
+                let routineId = args["routine_id"] as? String ?? ""
+                let result = try await deleteRoutine(routineId: routineId)
+                return (result, [.refreshRituals])
+
+            case "start_focus_session":
+                let duration = args["duration_minutes"] as? Int
+                let taskId = args["task_id"] as? String
+                let taskTitle = args["task_title"] as? String
+                return (toJSON(["started": true, "duration_minutes": duration ?? 25] as [String: Any]), [.startFocusSession(duration: duration, taskId: taskId, taskTitle: taskTitle)])
+
             case "block_apps":
                 let duration = args["duration_minutes"] as? Int
                 return (blockApps(duration: duration), [.blockApps(duration)])
@@ -300,12 +336,11 @@ class BackboardService {
 
     private func getUserContext() -> String {
         let store = FocusAppStore.shared
-        let streak = store.currentStreak
         let tasksTotal = store.todaysTasks.count
         let tasksCompleted = store.todaysTasks.filter { $0.status == "completed" }.count
         let ritualsTotal = store.rituals.count
         let ritualsCompleted = store.rituals.filter { $0.isCompleted }.count
-        let focusMinutes = store.todaysSessions.reduce(0) { $0 + ($1.durationMinutes ?? 0) }
+        let focusMinutes = store.todaysSessions.reduce(0) { $0 + $1.durationMinutes }
         let userName = store.user?.pseudo ?? store.user?.firstName ?? ""
         let isBlocking = ScreenTimeAppBlockerService.shared.isBlocking
 
@@ -318,17 +353,70 @@ class BackboardService {
         default: timeOfDay = "night"
         }
 
-        let context: [String: Any] = [
+        // Satisfaction score (displayed in UI as coach gauge)
+        let satisfactionScore = UserDefaults.standard.object(forKey: "satisfaction_score") as? Int ?? 50
+
+        // Companion identity
+        let companionName = store.user?.companionName ?? "Kai"
+
+        // Check-in status
+        let morningCheckinDone = store.hasDoneMorningCheckIn
+        let eveningReviewDone = store.hasDoneEveningReview
+
+        // Days since last chat message
+        let lastMessages = SimpleChatPersistence.loadMessages()
+        let daysSinceLastMessage: Int
+        if let lastMsg = lastMessages.last {
+            daysSinceLastMessage = Calendar.current.dateComponents([.day], from: lastMsg.timestamp, to: Date()).day ?? 0
+        } else {
+            daysSinceLastMessage = -1 // No message history = new user
+        }
+
+        // Account age
+        let accountAgeDays: Int
+        if let createdAt = store.user?.createdAt {
+            accountAgeDays = Calendar.current.dateComponents([.day], from: createdAt, to: Date()).day ?? 0
+        } else {
+            accountAgeDays = 0
+        }
+
+        // Weekly goals
+        var weeklyGoalsList: [[String: Any]] = []
+        if let goals = store.currentWeekGoals {
+            weeklyGoalsList = goals.items.map { item in
+                ["title": item.content, "completed": item.isCompleted] as [String: Any]
+            }
+        }
+
+        // All completed flags (for "perfect day" detection)
+        let allTasksCompleted = tasksTotal > 0 && tasksCompleted == tasksTotal
+        let allRitualsCompleted = ritualsTotal > 0 && ritualsCompleted == ritualsTotal
+
+        // User language preference
+        let userLanguage = store.user?.language ?? "fr"
+
+        var context: [String: Any] = [
             "user_name": userName,
-            "streak": streak,
+            "companion_name": companionName,
             "tasks_today": tasksTotal,
             "tasks_completed": tasksCompleted,
             "rituals_today": ritualsTotal,
             "rituals_completed": ritualsCompleted,
             "focus_minutes_today": focusMinutes,
             "time_of_day": timeOfDay,
-            "apps_blocked": isBlocking
+            "apps_blocked": isBlocking,
+            "satisfaction_score": satisfactionScore,
+            "morning_checkin_done": morningCheckinDone,
+            "evening_review_done": eveningReviewDone,
+            "days_since_last_message": daysSinceLastMessage,
+            "account_age_days": accountAgeDays,
+            "all_tasks_completed": allTasksCompleted,
+            "all_rituals_completed": allRitualsCompleted,
+            "user_language": userLanguage
         ]
+        if !weeklyGoalsList.isEmpty {
+            context["weekly_goals"] = weeklyGoalsList
+        }
         return toJSON(context)
     }
 
@@ -428,6 +516,39 @@ class BackboardService {
         return toJSON(["completed": true, "routine_id": routineId] as [String: Any])
     }
 
+    private func updateTask(args: [String: Any]) async throws -> String {
+        let taskId = args["task_id"] as? String ?? ""
+        var body: [String: Any] = [:]
+        if let title = args["title"] as? String { body["title"] = title }
+        if let date = args["date"] as? String { body["date"] = date }
+        if let priority = args["priority"] as? String { body["priority"] = priority }
+        if let timeBlock = args["time_block"] as? String { body["time_block"] = timeBlock }
+
+        let bodyData = try JSONSerialization.data(withJSONObject: body)
+        let _: EmptyResponse = try await APIClient.shared.request(
+            endpoint: .updateCalendarTask(taskId),
+            method: .patch,
+            body: RawJSON(data: bodyData)
+        )
+        return toJSON(["updated": true, "task_id": taskId] as [String: Any])
+    }
+
+    private func deleteTask(taskId: String) async throws -> String {
+        try await APIClient.shared.request(
+            endpoint: .deleteCalendarTask(taskId),
+            method: .delete
+        )
+        return toJSON(["deleted": true, "task_id": taskId] as [String: Any])
+    }
+
+    private func deleteRoutine(routineId: String) async throws -> String {
+        try await APIClient.shared.request(
+            endpoint: .deleteRoutine(routineId),
+            method: .delete
+        )
+        return toJSON(["deleted": true, "routine_id": routineId] as [String: Any])
+    }
+
     private func blockApps(duration: Int?) -> String {
         let blocker = ScreenTimeAppBlockerService.shared
         if blocker.isBlockingEnabled {
@@ -459,7 +580,7 @@ class BackboardService {
 
         let bodyData = try JSONSerialization.data(withJSONObject: body)
         let _: EmptyResponse = try await APIClient.shared.request(
-            endpoint: .upsertIntentions(date: todayString()),
+            endpoint: .upsertReflection(date: todayString()),
             method: .put,
             body: RawJSON(data: bodyData)
         )
@@ -715,16 +836,37 @@ class BackboardService {
     /// Template config for creating per-user assistants (system prompt + tools)
     static let assistantTemplate: [String: Any] = {
         let systemPrompt = """
-        Tu es Kai, le coach de vie personnel de l'utilisateur. Tu l'accompagnes au quotidien dans ses objectifs, sa productivité et son bien-être.
+        Tu es le coach de vie personnel de l'utilisateur. Ton nom (comment l'utilisateur t'appelle) est dans get_user_context → companion_name. Le prénom de l'UTILISATEUR est dans get_user_context → user_name. Quand tu salues, utilise le prénom de l'utilisateur (user_name), PAS ton propre nom. Tu l'accompagnes au quotidien dans TOUS les domaines de sa vie : productivité, carrière, relations, santé, émotions, créativité, finances, développement perso.
 
         TON STYLE:
-        - C'est un CHAT sur mobile — réponses courtes, 2-3 phrases max
+        - C'est un CHAT sur mobile — réponses courtes par défaut (2-3 phrases)
+        - MAIS adapte la longueur au message : message court → réponse courte, message long/émotionnel → réponse plus développée (5-6 phrases OK)
         - Tu tutoies toujours
         - Ton naturel, direct, pas de blabla motivation LinkedIn
         - Tu challenges quand nécessaire, tu célèbres les vraies victoires
         - Un emoji max par message, seulement si naturel
         - Tu finis souvent par une question ou une action concrète
-        - Tu parles TOUJOURS en français
+        - Tu parles dans la langue de l'utilisateur (champ user_language dans get_user_context : "fr" = français, "en" = anglais). Si l'utilisateur écrit dans une autre langue, réponds dans cette langue.
+
+        COACHING DE VIE:
+        - Quand l'utilisateur partage un problème personnel, pose des questions ouvertes AVANT de conseiller
+        - Quand il partage un succès (promo, examen, objectif atteint, rupture surmontée...), célèbre avec enthousiasme et demande le contexte
+        - Technique : reformule ce que l'utilisateur dit pour montrer que tu comprends, PUIS pose une question
+        - Domaines : carrière, relations, santé, émotions, créativité, finances, développement perso — tu es compétent sur tout
+        - Tu n'es pas un simple assistant tâches. Tu t'intéresses à la personne derrière les tâches.
+
+        SUJETS SENSIBLES:
+        - Si l'utilisateur exprime de la détresse, du désespoir ou des pensées sombres :
+          1. Valide ses émotions ("Je comprends que c'est dur")
+          2. Ne minimise JAMAIS ("Ça va aller" = interdit)
+          3. Oriente vers une aide pro : "Si tu traverses un moment très difficile, le 3114 (numéro national de prévention du suicide) est disponible 24h/24"
+          4. Reste disponible : "Je suis là si tu veux en parler"
+        - Tu n'es PAS un thérapeute. Si quelqu'un te demande un diagnostic ou un traitement, oriente-le vers un professionnel.
+        - Si l'utilisateur est frustré par toi, réponds avec empathie : "Qu'est-ce qui n'a pas marché ? Dis-moi ce que tu attends de moi."
+
+        SUJETS HORS SCOPE:
+        - Questions politiques, crypto, IA, actualités → Recentre : "Mon domaine c'est t'aider à avancer. Pourquoi ça t'intéresse ? C'est lié à un objectif ?"
+        - Demandes techniques/code → "C'est pas mon domaine, mais dis-moi sur quoi tu travailles, je peux t'aider à t'organiser"
 
         COMMENT UTILISER LES TOOLS:
         - Au début de chaque conversation (premier message), appelle TOUJOURS get_user_context
@@ -732,27 +874,42 @@ class BackboardService {
         - Quand il parle de rituels/routines, appelle get_rituals
         - Quand il te demande de créer quelque chose, utilise le tool correspondant
         - Quand il dit avoir terminé une tâche, utilise complete_task avec le bon ID
-        - Quand il veut se concentrer ou bloquer ses apps, utilise block_apps
+        - Quand il veut supprimer une tâche, utilise delete_task. Quand il veut modifier une tâche, utilise update_task.
+        - Quand il veut supprimer un rituel, utilise delete_routine.
+        - FOCUS & BLOCAGE — FLOW INTELLIGENT:
+          1. Quand l'utilisateur veut se concentrer, bloquer ses apps, lancer un timer, ou dit quelque chose comme "je bosse", "focus", "bloque mes apps", "je vais bosser" :
+             a) Appelle d'abord get_today_tasks pour connaître ses tâches du jour
+             b) Si l'utilisateur a DÉJÀ précisé la tâche ET la durée dans son message → appelle block_apps + start_focus_session avec task_id, task_title et duration_minutes directement. Pas besoin de demander.
+             c) Si l'utilisateur a précisé SEULEMENT la durée (ex: "focus 50 min") → appelle block_apps + start_focus_session avec la durée. La card planning s'affichera avec les tâches du jour et un sélecteur de tâche intégré.
+             d) Si l'utilisateur a précisé SEULEMENT la tâche → appelle block_apps + start_focus_session avec task_id/task_title. La durée par défaut (25 min) sera pré-sélectionnée, modifiable dans la card.
+             e) Si l'utilisateur n'a rien précisé (juste "focus" ou "bloque mes apps") → appelle block_apps + start_focus_session sans params. La card planning affichera les tâches avec des boutons focus, les choix de durée et le bouton Commencer.
+          2. TOUJOURS appeler block_apps ET start_focus_session ensemble. Le blocage d'apps et le timer vont de pair.
+          3. Dans ta réponse texte, sois bref : "C'est parti !" ou "Allez, on focus." — la card planning avec mode focus fait le reste.
+          4. NE DEMANDE PAS "combien de temps ?" ou "sur quoi ?" — la card a déjà ces options intégrées. Lance-la directement.
         - Quand tu veux montrer une liste interactive, appelle show_card avec le bon type
         - Utilise les données réelles des tools — mentionne les vrais noms, les vrais chiffres
 
-        COMPORTEMENT SPÉCIAL:
-        - Si le premier message est "Salut" ou similaire, appelle get_user_context et fais un greeting contextuel
+        COMPORTEMENT CONTEXTUEL:
+        - Si le premier message est "Salut" ou similaire, appelle get_user_context et fais un greeting contextuel en utilisant le user_name (PAS le companion_name qui est TON nom)
         - Si le message contient "J'ai terminé la tâche:", réagis avec enthousiasme court
-        - Le matin (5h-12h): encourage à démarrer, demande les priorités
+        - Le matin (5h-12h): encourage à démarrer, propose le check-in matin si morning_checkin_done=false
         - L'après-midi (12h-18h): check progress, encourage
-        - Le soir (18h-22h): bilan, célèbre les victoires
+        - Le soir (18h-22h): bilan, célèbre les victoires, propose la review du soir si evening_review_done=false
         - La nuit (22h-5h): encourage le repos
+        - Si days_since_last_message >= 3 : "Ça fait quelques jours qu'on s'est pas parlé. Tout va bien ?"
+        - Si days_since_last_message == -1 (nouvel utilisateur) : présente-toi brièvement et demande "C'est quoi ton objectif principal en ce moment ?" — NE propose PAS de tâches/rituels tout de suite
+        - Si all_tasks_completed=true ET all_rituals_completed=true : félicite pour la journée parfaite, suggère de se reposer ou planifier demain
+        - Si satisfaction_score < 30 : sois plus empathique et encourageant
+
+        VIDÉOS:
+        - NE PAS appeler get_favorite_video automatiquement le matin
+        - Proposer des vidéos UNIQUEMENT quand l'utilisateur en fait la demande explicite (méditation, respiration, etc.)
         - Si l'utilisateur partage un lien YouTube et dit de le regarder régulièrement, appelle save_favorite_video
-        - Le matin, après get_user_context, appelle get_favorite_video pour proposer la vidéo favorite
-        - Quand get_favorite_video retourne has_video=false, une card de suggestions vidéo est DÉJÀ affichée automatiquement. Dis juste à l'utilisateur de choisir une vidéo dans la liste
-        - Si l'utilisateur dit avoir fini sa vidéo, félicite-le brièvement
-        - VIDÉOS À LA DEMANDE: Si l'utilisateur mentionne vouloir méditer, faire du breathwork, respirer, se motiver, prier, ou tout sujet lié → appelle suggest_ritual_videos avec la catégorie correspondante :
+        - VIDÉOS À LA DEMANDE: Si l'utilisateur mentionne vouloir méditer, faire du breathwork, respirer, se motiver, prier → appelle suggest_ritual_videos avec la catégorie correspondante :
           • méditer, méditation, calme, relaxation, zen → category: "meditation"
           • respirer, respiration, breathwork, cohérence cardiaque, stress, anxiété → category: "breathing"
           • motivation, énergie, se motiver, inspirant → category: "motivation"
           • prier, prière, gratitude, spiritualité → category: "prayer"
-        - Après que l'utilisateur choisit une vidéo dans le catalogue, confirme avec enthousiasme
 
         MÉMOIRE:
         - Tu as accès à une mémoire automatique. Les faits importants sont retenus entre les conversations.
@@ -782,7 +939,7 @@ class BackboardService {
         }
 
         let tools: [[String: Any]] = [
-            tool("get_user_context", "Récupère le contexte actuel: streak, tâches, rituels, minutes focus, moment de la journée, statut blocage apps."),
+            tool("get_user_context", "Récupère le contexte actuel: tâches, rituels, minutes focus, moment de la journée, statut blocage apps."),
             tool("get_today_tasks", "Récupère la liste des tâches du jour avec statut, bloc horaire et priorité."),
             tool("get_rituals", "Récupère la liste des rituels quotidiens avec statut de complétion."),
             tool("create_task", "Crée une nouvelle tâche dans le calendrier.", [
@@ -806,6 +963,24 @@ class BackboardService {
             tool("complete_routine", "Marque un rituel comme complété.", [
                 "routine_id": param("string", "L'ID du rituel")
             ], required: ["routine_id"]),
+            tool("update_task", "Modifie une tâche existante (titre, priorité, date, bloc horaire).", [
+                "task_id": param("string", "L'ID de la tâche à modifier"),
+                "title": param("string", "Nouveau titre (optionnel)"),
+                "date": param("string", "Nouvelle date YYYY-MM-DD (optionnel)"),
+                "priority": param("string", "Nouvelle priorité", enumValues: ["high", "medium", "low"]),
+                "time_block": param("string", "Nouveau bloc horaire", enumValues: ["morning", "afternoon", "evening"])
+            ], required: ["task_id"]),
+            tool("delete_task", "Supprime une tâche.", [
+                "task_id": param("string", "L'ID de la tâche à supprimer")
+            ], required: ["task_id"]),
+            tool("delete_routine", "Supprime un rituel.", [
+                "routine_id": param("string", "L'ID du rituel à supprimer")
+            ], required: ["routine_id"]),
+            tool("start_focus_session", "Affiche le planning du jour en mode focus : les tâches avec boutons de sélection, choix de durée et timer intégré dans la même card.", [
+                "duration_minutes": param("integer", "Durée en minutes (25, 50, 90 ou personnalisé)"),
+                "task_id": param("string", "ID de la tâche liée (optionnel)"),
+                "task_title": param("string", "Titre de la tâche liée (optionnel)")
+            ]),
             tool("block_apps", "Active le blocage d'apps pour aider la concentration.", [
                 "duration_minutes": param("integer", "Durée en minutes (optionnel)")
             ]),

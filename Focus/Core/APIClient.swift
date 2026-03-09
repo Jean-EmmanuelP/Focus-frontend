@@ -315,8 +315,6 @@ enum APIConfiguration {
 
         // Calendar - Day Plans
         case calendarDay(date: String)
-        case createDayPlan
-        case updateDayPlan(String)
 
         // Calendar - Tasks
         case calendarTasks(date: String?)
@@ -348,30 +346,6 @@ enum APIConfiguration {
         case googleCalendarDisconnect
         case googleCalendarSync
         case googleCalendarCheckWeekly
-
-        // Community Feed
-        case communityFeed(limit: Int?, offset: Int?)
-        case communityMyPosts(limit: Int?, offset: Int?)
-        case createCommunityPost
-        case communityPost(String)
-        case deleteCommunityPost(String)
-        case likeCommunityPost(String)
-        case unlikeCommunityPost(String)
-        case reportCommunityPost(String)
-        case taskPosts(taskId: String)
-        case routinePosts(routineId: String)
-
-        // Journal - Audio/Video Progress Journal
-        case journalEntries(limit: Int?, offset: Int?, dateFrom: String?, dateTo: String?)
-        case journalEntryToday
-        case journalEntry(String)
-        case createJournalEntry
-        case deleteJournalEntry(String)
-        case journalStreak
-        case journalStats(days: Int?)
-        case journalBilans
-        case generateWeeklyBilan
-        case generateMonthlyBilan
 
         // Push Notifications (FCM)
         case registerFCMToken
@@ -606,10 +580,6 @@ enum APIConfiguration {
             // Calendar - Day Plans
             case .calendarDay(let date):
                 return "/calendar/day?date=\(date)"
-            case .createDayPlan:
-                return "/calendar/day"
-            case .updateDayPlan(let id):
-                return "/calendar/day/\(id)"
 
             // Calendar - Tasks
             case .calendarTasks(let date):
@@ -661,61 +631,6 @@ enum APIConfiguration {
                 return "/google-calendar/sync"
             case .googleCalendarCheckWeekly:
                 return "/google-calendar/check-weekly"
-
-            // Community Feed
-            case .communityFeed(let limit, let offset):
-                var query: [String] = []
-                if let limit = limit { query.append("limit=\(limit)") }
-                if let offset = offset { query.append("offset=\(offset)") }
-                let queryString = query.isEmpty ? "" : "?\(query.joined(separator: "&"))"
-                return "/community/feed\(queryString)"
-            case .communityMyPosts(let limit, let offset):
-                var query: [String] = []
-                if let limit = limit { query.append("limit=\(limit)") }
-                if let offset = offset { query.append("offset=\(offset)") }
-                let queryString = query.isEmpty ? "" : "?\(query.joined(separator: "&"))"
-                return "/community/my-posts\(queryString)"
-            case .createCommunityPost:
-                return "/community/posts"
-            case .communityPost(let id), .deleteCommunityPost(let id):
-                return "/community/posts/\(id)"
-            case .likeCommunityPost(let id), .unlikeCommunityPost(let id):
-                return "/community/posts/\(id)/like"
-            case .reportCommunityPost(let id):
-                return "/community/posts/\(id)/report"
-            case .taskPosts(let taskId):
-                return "/tasks/\(taskId)/posts"
-            case .routinePosts(let routineId):
-                return "/routines/\(routineId)/posts"
-
-            // Journal
-            case .journalEntries(let limit, let offset, let dateFrom, let dateTo):
-                var query: [String] = []
-                if let limit = limit { query.append("limit=\(limit)") }
-                if let offset = offset { query.append("offset=\(offset)") }
-                if let dateFrom = dateFrom { query.append("date_from=\(dateFrom)") }
-                if let dateTo = dateTo { query.append("date_to=\(dateTo)") }
-                let queryString = query.isEmpty ? "" : "?\(query.joined(separator: "&"))"
-                return "/journal/entries\(queryString)"
-            case .journalEntryToday:
-                return "/journal/entries/today"
-            case .journalEntry(let id), .deleteJournalEntry(let id):
-                return "/journal/entries/\(id)"
-            case .createJournalEntry:
-                return "/journal/entries"
-            case .journalStreak:
-                return "/journal/entries/streak"
-            case .journalStats(let days):
-                if let days = days {
-                    return "/journal/stats?days=\(days)"
-                }
-                return "/journal/stats"
-            case .journalBilans:
-                return "/journal/bilans"
-            case .generateWeeklyBilan:
-                return "/journal/bilans/weekly"
-            case .generateMonthlyBilan:
-                return "/journal/bilans/monthly"
 
             // Push Notifications
             case .registerFCMToken:

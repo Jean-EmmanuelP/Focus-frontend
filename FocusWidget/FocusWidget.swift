@@ -22,13 +22,11 @@ struct WidgetDataKeys {
     // Focus stats
     static let minutesToday = "widget_minutes_today"
     static let sessionsToday = "widget_sessions_today"
-    static let streakDays = "widget_streak_days"
-
     // Active session
     static let isInSession = "widget_is_in_session"
     static let sessionEndDate = "widget_session_end_date" // Date when session ends
     static let sessionTotalDuration = "widget_session_total_duration"
-    static let sessionQuestEmoji = "widget_session_quest_emoji"
+    static let sessionEmoji = "widget_session_quest_emoji" // Key kept for backwards compat
     static let sessionDescription = "widget_session_description"
 
     // Rituals
@@ -43,11 +41,10 @@ struct FocusWidgetEntry: TimelineEntry {
     let date: Date
     let minutesToday: Int
     let sessionsToday: Int
-    let streakDays: Int
     let isInSession: Bool
     let sessionEndDate: Date?
     let totalDuration: Int
-    let questEmoji: String?
+    let sessionEmoji: String?
     let sessionDescription: String?
 
     var progress: Double {
@@ -70,11 +67,10 @@ struct FocusWidgetProvider: TimelineProvider {
             date: Date(),
             minutesToday: 45,
             sessionsToday: 2,
-            streakDays: 5,
             isInSession: false,
             sessionEndDate: nil,
             totalDuration: 0,
-            questEmoji: nil,
+            sessionEmoji: nil,
             sessionDescription: nil
         )
     }
@@ -95,11 +91,10 @@ struct FocusWidgetProvider: TimelineProvider {
                 date: endDate,
                 minutesToday: entry.minutesToday + entry.totalDuration,
                 sessionsToday: entry.sessionsToday + 1,
-                streakDays: entry.streakDays,
                 isInSession: false,
                 sessionEndDate: nil,
                 totalDuration: 0,
-                questEmoji: nil,
+                sessionEmoji: nil,
                 sessionDescription: nil
             )
             entries.append(endEntry)
@@ -129,11 +124,10 @@ struct FocusWidgetProvider: TimelineProvider {
             date: Date(),
             minutesToday: sharedDefaults?.integer(forKey: WidgetDataKeys.minutesToday) ?? 0,
             sessionsToday: sharedDefaults?.integer(forKey: WidgetDataKeys.sessionsToday) ?? 0,
-            streakDays: sharedDefaults?.integer(forKey: WidgetDataKeys.streakDays) ?? 0,
             isInSession: sharedDefaults?.bool(forKey: WidgetDataKeys.isInSession) ?? false,
             sessionEndDate: sessionEndDate,
             totalDuration: sharedDefaults?.integer(forKey: WidgetDataKeys.sessionTotalDuration) ?? 0,
-            questEmoji: sharedDefaults?.string(forKey: WidgetDataKeys.sessionQuestEmoji),
+            sessionEmoji: sharedDefaults?.string(forKey: WidgetDataKeys.sessionEmoji),
             sessionDescription: sharedDefaults?.string(forKey: WidgetDataKeys.sessionDescription)
         )
     }
@@ -176,7 +170,7 @@ struct SmallFocusWidgetView: View {
         VStack(alignment: .leading, spacing: 8) {
             // Header with status
             HStack {
-                Text(entry.questEmoji ?? "🔥")
+                Text(entry.sessionEmoji ?? "🔥")
                     .font(.system(size: 24))
                 Spacer()
                 Text("LIVE")
@@ -230,15 +224,6 @@ struct SmallFocusWidgetView: View {
                     Text("🔥")
                         .font(.system(size: 24))
                     Spacer()
-                    if entry.streakDays > 0 {
-                        HStack(spacing: 2) {
-                            Image(systemName: "flame.fill")
-                                .font(.system(size: 10))
-                            Text("\(entry.streakDays)")
-                                .font(.system(size: 11, weight: .semibold))
-                        }
-                        .foregroundColor(.focusAccent)
-                    }
                 }
 
                 Spacer()
@@ -291,7 +276,7 @@ struct MediumFocusWidgetView: View {
             // Left: Timer and progress
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Text(entry.questEmoji ?? "🔥")
+                    Text(entry.sessionEmoji ?? "🔥")
                         .font(.system(size: 28))
 
                     Text("FOCUSING")
@@ -406,14 +391,6 @@ struct MediumFocusWidgetView: View {
                                 .foregroundColor(.secondary)
                         }
 
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("\(entry.streakDays)")
-                                .font(.system(size: 18, weight: .bold))
-                                .foregroundColor(.focusAccent)
-                            Text("day streak")
-                                .font(.system(size: 11))
-                                .foregroundColor(.secondary)
-                        }
                     }
 
                     Spacer()
@@ -457,7 +434,7 @@ struct CircularFocusWidgetView: View {
                     .rotationEffect(.degrees(-90))
 
                 VStack(spacing: 0) {
-                    Text(entry.questEmoji ?? "🔥")
+                    Text(entry.sessionEmoji ?? "🔥")
                         .font(.system(size: 12))
                     Text("\(Int(entry.timeRemaining / 60))")
                         .font(.system(size: 14, weight: .bold))
@@ -490,7 +467,7 @@ struct RectangularFocusWidgetView: View {
         if entry.isInSession, let endDate = entry.sessionEndDate, endDate > Date() {
             // Active session with real-time timer
             HStack(spacing: 8) {
-                Text(entry.questEmoji ?? "🔥")
+                Text(entry.sessionEmoji ?? "🔥")
                     .font(.system(size: 20))
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -525,7 +502,7 @@ struct RectangularFocusWidgetView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("\(entry.minutesToday) min")
                             .font(.system(size: 14, weight: .bold))
-                        Text("\(entry.sessionsToday) sessions • \(entry.streakDays)🔥")
+                        Text("\(entry.sessionsToday) sessions")
                             .font(.system(size: 11))
                             .foregroundColor(.secondary)
                     }
@@ -569,11 +546,10 @@ struct FocusWidget: Widget {
         date: Date(),
         minutesToday: 75,
         sessionsToday: 3,
-        streakDays: 5,
         isInSession: false,
         sessionEndDate: nil,
         totalDuration: 0,
-        questEmoji: nil,
+        sessionEmoji: nil,
         sessionDescription: nil
     )
 }
@@ -585,11 +561,10 @@ struct FocusWidget: Widget {
         date: Date(),
         minutesToday: 75,
         sessionsToday: 3,
-        streakDays: 5,
         isInSession: true,
         sessionEndDate: Date().addingTimeInterval(25 * 60),
         totalDuration: 25,
-        questEmoji: "💼",
+        sessionEmoji: "💼",
         sessionDescription: "Working on app"
     )
 }
@@ -601,11 +576,10 @@ struct FocusWidget: Widget {
         date: Date(),
         minutesToday: 120,
         sessionsToday: 5,
-        streakDays: 12,
         isInSession: false,
         sessionEndDate: nil,
         totalDuration: 0,
-        questEmoji: nil,
+        sessionEmoji: nil,
         sessionDescription: nil
     )
 }
@@ -617,11 +591,10 @@ struct FocusWidget: Widget {
         date: Date(),
         minutesToday: 120,
         sessionsToday: 5,
-        streakDays: 12,
         isInSession: true,
         sessionEndDate: Date().addingTimeInterval(14 * 60 + 5),
         totalDuration: 50,
-        questEmoji: "🎨",
+        sessionEmoji: "🎨",
         sessionDescription: "Design review for new feature"
     )
 }

@@ -84,61 +84,6 @@ struct EstimatedTimeButton: View {
     }
 }
 
-// MARK: - Quest Picker Section
-struct QuestPickerSection: View {
-    @ObservedObject var viewModel: CalendarViewModel
-    @Binding var selectedQuestId: String?
-
-    var body: some View {
-        if !viewModel.quests.isEmpty {
-            VStack(alignment: .leading, spacing: SpacingTokens.sm) {
-                Text("calendar.link_quest".localized)
-                    .font(.satoshi(14, weight: .semibold))
-                    .foregroundColor(ColorTokens.textSecondary)
-
-                Menu {
-                    Button(action: { selectedQuestId = nil }) {
-                        Text("common.none".localized)
-                    }
-
-                    ForEach(viewModel.quests) { quest in
-                        Button(action: { selectedQuestId = quest.id }) {
-                            Text("\(quest.area.emoji) \(quest.title)")
-                        }
-                    }
-                } label: {
-                    QuestPickerLabel(viewModel: viewModel, selectedQuestId: selectedQuestId)
-                }
-            }
-        }
-    }
-}
-
-struct QuestPickerLabel: View {
-    @ObservedObject var viewModel: CalendarViewModel
-    let selectedQuestId: String?
-
-    var body: some View {
-        HStack {
-            if let questId = selectedQuestId,
-               let quest = viewModel.quests.first(where: { $0.id == questId }) {
-                Text("\(quest.area.emoji) \(quest.title)")
-                    .foregroundColor(ColorTokens.textPrimary)
-            } else {
-                Text("calendar.select_quest".localized)
-                    .foregroundColor(ColorTokens.textMuted)
-            }
-            Spacer()
-            Image(systemName: "chevron.up.chevron.down")
-                .font(.satoshi(12))
-                .foregroundColor(ColorTokens.textMuted)
-        }
-        .padding(SpacingTokens.md)
-        .background(ColorTokens.surface)
-        .cornerRadius(RadiusTokens.md)
-    }
-}
-
 // MARK: - Private Task Toggle Row
 struct PrivateTaskToggleRow: View {
     @Binding var isPrivate: Bool
@@ -289,7 +234,6 @@ struct CreateScheduledTaskSheet: View {
     @State private var description: String = ""
     @State private var startTime: Date = Date()
     @State private var endTime: Date = Date().addingTimeInterval(3600) // 1 hour later
-    @State private var selectedQuestId: String?
     @State private var priority: TaskPriority = .medium
     @State private var isPrivate: Bool = false
 
@@ -366,9 +310,6 @@ struct CreateScheduledTaskSheet: View {
                             PriorityButtonRow(priority: $priority)
                         }
 
-                        // Link to Quest (optional)
-                        QuestPickerSection(viewModel: viewModel, selectedQuestId: $selectedQuestId)
-
                         // Private toggle
                         PrivateTaskToggleRow(isPrivate: $isPrivate)
 
@@ -424,7 +365,6 @@ struct CreateScheduledTaskSheet: View {
                 scheduledStart: scheduledStart,
                 scheduledEnd: scheduledEnd,
                 timeBlock: timeBlock,
-                questId: selectedQuestId,
                 estimatedMinutes: estimatedMinutes,
                 priority: priority.rawValue,
                 isPrivate: isPrivate
@@ -444,7 +384,6 @@ struct CreateTaskSheet: View {
     @State private var description: String = ""
     @State private var estimatedMinutes: Int = 30
     @State private var priority: TaskPriority = .medium
-    @State private var selectedQuestId: String?
     @State private var isPrivate: Bool = false
 
     var body: some View {
@@ -500,9 +439,6 @@ struct CreateTaskSheet: View {
                             PriorityButtonRow(priority: $priority)
                         }
 
-                        // Link to Quest (optional)
-                        QuestPickerSection(viewModel: viewModel, selectedQuestId: $selectedQuestId)
-
                         // Private toggle
                         PrivateTaskToggleRow(isPrivate: $isPrivate)
 
@@ -536,7 +472,6 @@ struct CreateTaskSheet: View {
                 title: title,
                 description: description.isEmpty ? nil : description,
                 timeBlock: timeBlock,
-                questId: selectedQuestId,
                 estimatedMinutes: estimatedMinutes,
                 priority: priority.rawValue,
                 isPrivate: isPrivate

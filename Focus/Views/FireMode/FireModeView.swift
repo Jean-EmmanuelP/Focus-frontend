@@ -3,7 +3,6 @@ import SwiftUI
 struct FireModeView: View {
     @StateObject private var viewModel = FireModeViewModel()
     @EnvironmentObject var router: AppRouter
-    @State private var showingQuestPicker = false
     @State private var hasAppliedPresets = false
 
     var body: some View {
@@ -30,7 +29,6 @@ struct FireModeView: View {
                 hasAppliedPresets = true
                 viewModel.applyPresets(
                     duration: duration,
-                    questId: router.fireModePresetQuestId,
                     description: router.fireModePresetDescription,
                     taskId: router.fireModePresetTaskId,
                     ritualId: router.fireModePresetRitualId
@@ -184,19 +182,6 @@ struct FireModeView: View {
                 Divider()
                     .background(ColorTokens.border)
 
-                // Quest Link Section
-                VStack(alignment: .leading, spacing: SpacingTokens.sm) {
-                    Text("fire.link_quest".localized)
-                        .caption()
-                        .fontWeight(.semibold)
-                        .foregroundColor(ColorTokens.textMuted)
-
-                    questSelector
-                }
-
-                Divider()
-                    .background(ColorTokens.border)
-
                 // Description Section
                 VStack(alignment: .leading, spacing: SpacingTokens.sm) {
                     Text("fire.description".localized)
@@ -212,67 +197,6 @@ struct FireModeView: View {
                 }
             }
             .padding(SpacingTokens.sm)
-        }
-    }
-
-    // MARK: - Quest Selector
-    private var questSelector: some View {
-        Group {
-            if viewModel.availableQuests.isEmpty {
-                HStack {
-                    Text("fire.no_active_quests".localized)
-                        .bodyText()
-                        .foregroundColor(ColorTokens.textMuted)
-                    Spacer()
-                }
-                .padding(SpacingTokens.sm)
-                .background(ColorTokens.surfaceElevated)
-                .cornerRadius(RadiusTokens.sm)
-            } else {
-                Menu {
-                    Button(action: {
-                        viewModel.selectedQuestId = nil
-                    }) {
-                        Label("common.none".localized, systemImage: "xmark.circle")
-                    }
-
-                    ForEach(viewModel.availableQuests) { quest in
-                        Button(action: {
-                            viewModel.selectedQuestId = quest.id
-                        }) {
-                            Text("\(quest.area.emoji) \(quest.title)")
-                        }
-                    }
-                } label: {
-                    HStack {
-                        if let selectedId = viewModel.selectedQuestId,
-                           let quest = viewModel.quests.first(where: { $0.id == selectedId }) {
-                            Text(quest.area.emoji)
-                                .font(.satoshi(16))
-                            Text(quest.title)
-                                .bodyText()
-                                .foregroundColor(ColorTokens.textPrimary)
-                                .lineLimit(1)
-                        } else {
-                            Image(systemName: "link")
-                                .font(.satoshi(14))
-                                .foregroundColor(ColorTokens.textMuted)
-                            Text("fire.select_quest".localized)
-                                .bodyText()
-                                .foregroundColor(ColorTokens.textMuted)
-                        }
-
-                        Spacer()
-
-                        Image(systemName: "chevron.up.chevron.down")
-                            .font(.satoshi(10, weight: .medium))
-                            .foregroundColor(ColorTokens.textMuted)
-                    }
-                    .padding(SpacingTokens.sm)
-                    .background(ColorTokens.surfaceElevated)
-                    .cornerRadius(RadiusTokens.sm)
-                }
-            }
         }
     }
 
@@ -349,20 +273,6 @@ struct FireModeView: View {
             timerCircleView
 
             Spacer()
-
-            // Session Info
-            if let quest = viewModel.quests.first(where: { $0.id == viewModel.selectedQuestId }) {
-                VStack(spacing: SpacingTokens.sm) {
-                    Text(quest.area.emoji)
-                        .font(.satoshi(24))
-
-                    Text(quest.title)
-                        .bodyText()
-                        .foregroundColor(ColorTokens.textSecondary)
-                        .multilineTextAlignment(.center)
-                }
-                .padding(.horizontal, SpacingTokens.xl)
-            }
 
             if !viewModel.sessionDescription.isEmpty {
                 Text(viewModel.sessionDescription)
@@ -520,60 +430,6 @@ struct LogManualSessionSheet: View {
                             step: 5,
                             label: "fire.duration".localized
                         )
-
-                        // Quest link
-                        if !viewModel.availableQuests.isEmpty {
-                            VStack(alignment: .leading, spacing: SpacingTokens.md) {
-                                Text("fire.link_quest".localized)
-                                    .subtitle()
-                                    .foregroundColor(ColorTokens.textPrimary)
-
-                                Menu {
-                                    Button(action: {
-                                        viewModel.selectedQuestId = nil
-                                    }) {
-                                        Text("common.none".localized)
-                                    }
-
-                                    ForEach(viewModel.availableQuests) { quest in
-                                        Button(action: {
-                                            viewModel.selectedQuestId = quest.id
-                                        }) {
-                                            Text("\(quest.area.emoji) \(quest.title)")
-                                        }
-                                    }
-                                } label: {
-                                    HStack {
-                                        if let selectedId = viewModel.selectedQuestId,
-                                           let quest = viewModel.quests.first(where: { $0.id == selectedId }) {
-                                            Text(quest.area.emoji)
-                                                .font(.satoshi(18))
-                                            Text(quest.title)
-                                                .bodyText()
-                                                .foregroundColor(ColorTokens.textPrimary)
-                                                .lineLimit(1)
-                                        } else {
-                                            Text("fire.select_quest".localized)
-                                                .bodyText()
-                                                .foregroundColor(ColorTokens.textMuted)
-                                        }
-
-                                        Spacer()
-
-                                        Image(systemName: "chevron.down")
-                                            .font(.satoshi(12, weight: .medium))
-                                            .foregroundColor(ColorTokens.textMuted)
-                                    }
-                                    .padding(SpacingTokens.md)
-                                    .background(ColorTokens.surface)
-                                    .cornerRadius(RadiusTokens.md)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: RadiusTokens.md)
-                                            .stroke(ColorTokens.border, lineWidth: 1)
-                                    )
-                                }
-                            }
-                        }
 
                         // Description
                         VStack(alignment: .leading, spacing: SpacingTokens.md) {

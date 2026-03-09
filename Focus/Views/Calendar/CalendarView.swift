@@ -426,12 +426,6 @@ struct TaskRowCard: View {
                             .foregroundColor(ColorTokens.textMuted)
                     }
 
-                    if let questTitle = task.questTitle {
-                        Text("• \(questTitle)")
-                            .font(.satoshi(11))
-                            .foregroundColor(ColorTokens.primaryStart)
-                            .lineLimit(1)
-                    }
                 }
             }
 

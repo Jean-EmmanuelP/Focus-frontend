@@ -13,27 +13,6 @@ class CalendarService {
         )
     }
 
-    func createDayPlan(date: String, idealDayPrompt: String) async throws -> DayPlan {
-        let request = CreateDayPlanRequest(date: date, idealDayPrompt: idealDayPrompt)
-        return try await apiClient.request(
-            endpoint: .createDayPlan,
-            method: .post,
-            body: request
-        )
-    }
-
-    func updateDayPlan(id: String, status: String? = nil, aiSummary: String? = nil) async throws -> DayPlan {
-        struct UpdateRequest: Codable {
-            var status: String?
-            var aiSummary: String?
-        }
-        return try await apiClient.request(
-            endpoint: .updateDayPlan(id),
-            method: .patch,
-            body: UpdateRequest(status: status, aiSummary: aiSummary)
-        )
-    }
-
     // MARK: - Tasks
 
     func getTasks(date: String? = nil) async throws -> [CalendarTask] {

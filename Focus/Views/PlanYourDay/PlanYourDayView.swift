@@ -321,8 +321,8 @@ struct PlanYourDayView: View {
                 // Area selection (horizontal scroll, compact)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: SpacingTokens.sm) {
-                        ForEach(QuestArea.allCases, id: \.self) { questArea in
-                            areaChipButton(questArea: questArea, intentionIndex: index)
+                        ForEach(LifeArea.allCases, id: \.self) { lifeArea in
+                            areaChipButton(lifeArea: lifeArea, intentionIndex: index)
                         }
                     }
                     .padding(.horizontal, 24)
@@ -338,19 +338,19 @@ struct PlanYourDayView: View {
 
     // MARK: - Area Chip Button
     @ViewBuilder
-    private func areaChipButton(questArea: QuestArea, intentionIndex: Int) -> some View {
-        let isSelected = viewModel.intentions[intentionIndex].area == questArea
+    private func areaChipButton(lifeArea: LifeArea, intentionIndex: Int) -> some View {
+        let isSelected = viewModel.intentions[intentionIndex].area == lifeArea
 
         Button(action: {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                viewModel.intentions[intentionIndex].area = questArea
+                viewModel.intentions[intentionIndex].area = lifeArea
             }
             HapticFeedback.selection()
         }) {
             HStack(spacing: 6) {
-                Text(questArea.emoji)
+                Text(lifeArea.emoji)
                     .font(.system(size: 16))
-                Text(questArea.localizedName)
+                Text(lifeArea.localizedName)
                     .font(.satoshi(13, weight: .medium))
             }
             .foregroundColor(isSelected ? .white : .white.opacity(0.6))

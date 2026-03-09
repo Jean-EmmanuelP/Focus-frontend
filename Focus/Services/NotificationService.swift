@@ -12,7 +12,6 @@ struct NotificationSettings: Codable {
     var taskRemindersEnabled: Bool
     var taskReminderMinutesBefore: Int // 5, 10, 15, 30 minutes
     var routineRemindersEnabled: Bool
-    var streakAlertEnabled: Bool
     var afternoonCheckEnabled: Bool
     var forgottenRitualEnabled: Bool
     var companionNudgesEnabled: Bool
@@ -39,7 +38,6 @@ struct NotificationSettings: Codable {
             taskRemindersEnabled: true,
             taskReminderMinutesBefore: 15,
             routineRemindersEnabled: true,
-            streakAlertEnabled: true,
             afternoonCheckEnabled: true,
             forgottenRitualEnabled: true,
             companionNudgesEnabled: true
@@ -67,7 +65,6 @@ class NotificationService: ObservableObject {
     private let eveningNotificationId = "focus.evening.reminder"
     private let taskNotificationPrefix = "focus.task."
     private let routineNotificationPrefix = "focus.routine."
-    private let streakAlertId = "focus.streak.danger"
     private let afternoonCheckId = "focus.afternoon.check"
     private let forgottenRitualId = "focus.ritual.forgotten"
     private let companionNudgePrefix = "focus.companion.nudge"
@@ -308,63 +305,6 @@ class NotificationService: ObservableObject {
         }
     }
 
-    // MARK: - Streak Danger Alert
-
-    /// Schedule a daily streak danger alert at 20:00
-    /// This gets cancelled when the user is active (message, task, routine, focus)
-    func scheduleStreakDangerAlert() async {
-        guard settings.streakAlertEnabled else {
-            cancelStreakDangerAlert()
-            return
-        }
-
-        cancelStreakDangerAlert()
-
-        let content = UNMutableNotificationContent()
-        content.title = "Ta streak est en danger !"
-        content.body = getStreakDangerPhrase()
-        content.sound = .default
-        content.badge = 1
-        content.userInfo = ["deepLink": "focus://dashboard"]
-
-        // Schedule daily at 20:00
-        var dateComponents = DateComponents()
-        dateComponents.hour = 20
-        dateComponents.minute = 0
-
-        let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
-
-        let request = UNNotificationRequest(
-            identifier: streakAlertId,
-            content: content,
-            trigger: trigger
-        )
-
-        do {
-            try await notificationCenter.add(request)
-            print("✅ Streak danger alert scheduled daily at 20:00")
-        } catch {
-            print("❌ Failed to schedule streak danger alert: \(error)")
-        }
-    }
-
-    /// Cancel today's streak alert (user was active)
-    func cancelStreakDangerAlert() {
-        notificationCenter.removePendingNotificationRequests(withIdentifiers: [streakAlertId])
-    }
-
-    /// Call this when the user completes an engagement action today
-    /// Reschedules the streak alert for the next day only
-    func markUserActiveToday() async {
-        guard settings.streakAlertEnabled else { return }
-
-        // Remove current alert
-        cancelStreakDangerAlert()
-
-        // Reschedule for tomorrow at 20:00 (will trigger only if user is inactive tomorrow)
-        await scheduleStreakDangerAlert()
-    }
-
     // MARK: - Afternoon Satisfaction Check
 
     /// Schedule an afternoon notification at 14:00 to nudge the user based on their satisfaction score
@@ -586,16 +526,7 @@ class NotificationService: ObservableObject {
 
         let firstName = FocusAppStore.shared.user?.firstName
         let companionName = FocusAppStore.shared.user?.companionName ?? "ton coach"
-        let activeQuests = FocusAppStore.shared.quests.filter { $0.status == .active }
         let calendar = Calendar.current
-
-        // Build quest-specific nudge slots based on user's actual goals
-        var questNudges: [(hour: Int, phrase: String)] = []
-        for quest in activeQuests {
-            if let nudge = questNudgeForArea(quest: quest, firstName: firstName) {
-                questNudges.append(nudge)
-            }
-        }
 
         // Base nudge slots: late morning (~11h) and mid-afternoon (~16h)
         let baseSlots: [(baseHour: Int, label: String)] = [
@@ -633,118 +564,8 @@ class NotificationService: ObservableObject {
                 }
             }
 
-            // Schedule 1 quest-specific nudge per day (rotate through quests)
-            if !questNudges.isEmpty {
-                let nudge = questNudges[(dayOffset - 1) % questNudges.count]
-
-                let content = UNMutableNotificationContent()
-                content.title = companionName
-                content.body = nudge.phrase
-                content.sound = .default
-                content.userInfo = ["deepLink": "focus://dashboard"]
-
-                let minuteVariance = (dayOffset * 3) % 15
-                var dateComponents = calendar.dateComponents([.year, .month, .day], from: futureDate)
-                dateComponents.hour = nudge.hour
-                dateComponents.minute = minuteVariance
-
-                let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: false)
-
-                let identifier = "\(companionNudgePrefix).\(dayOffset).quest"
-                let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
-
-                do {
-                    try await notificationCenter.add(request)
-                } catch {
-                    print("❌ Failed to schedule quest nudge: \(error)")
-                }
-            }
         }
-        print("✅ Companion nudges scheduled for next 7 days (\(questNudges.count) quest nudges)")
-    }
-
-    /// Generate a quest-specific nudge based on the quest area
-    private func questNudgeForArea(quest: Quest, firstName: String?) -> (hour: Int, phrase: String)? {
-        let name = (firstName != nil && !firstName!.isEmpty) ? " \(firstName!)" : ""
-        let lang = currentLanguageCode()
-
-        switch quest.area {
-        case .health:
-            let phrases = lang == "fr" ? [
-                "Hey\(name), t'es allé à la salle aujourd'hui ? 💪",
-                "Yo\(name). T'as bougé un peu aujourd'hui ?",
-                "C'est le moment de bouger\(name). Même 20 min ça compte.",
-                "Hey\(name) ! T'as pensé à ton objectif \"\(quest.title)\" ?",
-                "Petit rappel\(name) : ton corps te remerciera. Go bouger !",
-            ] : [
-                "Hey\(name), did you hit the gym today? 💪",
-                "Yo\(name). Did you move a bit today?",
-                "Time to move\(name). Even 20 min counts.",
-                "Hey\(name)! Remember your goal \"\(quest.title)\"?",
-                "Quick reminder\(name): your body will thank you. Go move!",
-            ]
-            return (17, phrases.randomElement()!) // 17h — typical gym time
-
-        case .learning:
-            let phrases = lang == "fr" ? [
-                "Hey\(name), t'as appris un truc aujourd'hui ? 📚",
-                "Yo\(name). 15 min d'apprentissage, c'est tout ce qu'il faut.",
-                "T'as avancé sur \"\(quest.title)\"\(name) ?",
-                "Hey\(name) ! Un petit chapitre ou une leçon aujourd'hui ?",
-            ] : [
-                "Hey\(name), did you learn something today? 📚",
-                "Yo\(name). 15 min of learning is all it takes.",
-                "Made progress on \"\(quest.title)\"\(name)?",
-                "Hey\(name)! A quick chapter or lesson today?",
-            ]
-            return (19, phrases.randomElement()!) // 19h — evening study
-
-        case .career:
-            let phrases = lang == "fr" ? [
-                "Hey\(name), t'as avancé sur \"\(quest.title)\" aujourd'hui ?",
-                "Yo\(name). Un petit pas pour ta carrière aujourd'hui ?",
-                "Comment avance \"\(quest.title)\"\(name) ?",
-            ] : [
-                "Hey\(name), did you work on \"\(quest.title)\" today?",
-                "Yo\(name). One small step for your career today?",
-                "How's \"\(quest.title)\" going\(name)?",
-            ]
-            return (13, phrases.randomElement()!) // 13h — during work hours
-
-        case .creativity:
-            let phrases = lang == "fr" ? [
-                "Hey\(name), t'as créé quelque chose aujourd'hui ? 🎨",
-                "Yo\(name). Même 10 min de créativité ça compte.",
-                "T'as avancé sur \"\(quest.title)\"\(name) ?",
-            ] : [
-                "Hey\(name), did you create something today? 🎨",
-                "Yo\(name). Even 10 min of creativity counts.",
-                "Made progress on \"\(quest.title)\"\(name)?",
-            ]
-            return (18, phrases.randomElement()!) // 18h — after work creative time
-
-        case .relationships:
-            let phrases = lang == "fr" ? [
-                "Hey\(name), t'as pris des nouvelles de quelqu'un aujourd'hui ? ❤️",
-                "Yo\(name). Un message à un proche, ça prend 30 secondes.",
-                "T'as pensé à \"\(quest.title)\"\(name) ?",
-            ] : [
-                "Hey\(name), did you check in with someone today? ❤️",
-                "Yo\(name). A message to a loved one takes 30 seconds.",
-                "Thought about \"\(quest.title)\"\(name)?",
-            ]
-            return (12, phrases.randomElement()!) // 12h — lunch break
-
-        case .other:
-            let phrases = lang == "fr" ? [
-                "Hey\(name), t'as pensé à \"\(quest.title)\" aujourd'hui ?",
-                "Petit rappel\(name) : \"\(quest.title)\". Tu gères ?",
-            ] : [
-                "Hey\(name), thought about \"\(quest.title)\" today?",
-                "Quick reminder\(name): \"\(quest.title)\". You got this?",
-            ]
-            return (15, phrases.randomElement()!) // 15h — mid-afternoon
-        }
+        print("✅ Companion nudges scheduled for next 7 days")
     }
 
     func cancelCompanionNudges() {
@@ -752,7 +573,6 @@ class NotificationService: ObservableObject {
         for dayOffset in 1...7 {
             identifiers.append("\(companionNudgePrefix).\(dayOffset).morning")
             identifiers.append("\(companionNudgePrefix).\(dayOffset).afternoon")
-            identifiers.append("\(companionNudgePrefix).\(dayOffset).quest")
         }
         notificationCenter.removePendingNotificationRequests(withIdentifiers: identifiers)
     }
@@ -862,11 +682,11 @@ class NotificationService: ObservableObject {
         let lang = currentLanguageCode()
 
         let frenchPhrases = [
-            "Prends 2 minutes pour faire le point sur ta journee.",
+            "Prends 2 minutes pour faire le point sur ta journée.",
             "Qu'est-ce que tu as accompli aujourd'hui ? Fais ton bilan.",
-            "Ta journee se termine. Note ta plus grande victoire.",
-            "Avant de dormir, prends un moment pour reflechir a ta journee.",
-            "Un bilan rapide t'aidera a mieux demarrer demain."
+            "Ta journée se termine. Note ta plus grande victoire.",
+            "Avant de dormir, prends un moment pour réfléchir à ta journée.",
+            "Un bilan rapide t'aidera à mieux démarrer demain."
         ]
 
         let englishPhrases = [
@@ -890,54 +710,66 @@ class NotificationService: ObservableObject {
         return "Time for '\(routineName)'. Stay consistent!"
     }
 
-    private func getStreakDangerPhrase() -> String {
+    private func getAfternoonLowScorePhrase() -> String {
         let lang = currentLanguageCode()
 
         let frenchPhrases = [
-            "Tu n'as pas encore ete actif aujourd'hui. Ne perds pas ta streak !",
-            "Ta streak est en danger ! Ouvre Focus et fais au moins une chose.",
-            "Il te reste peu de temps. Parle a ton coach ou complete une tache.",
-            "Ne laisse pas une journee vide casser ta dynamique."
+            "Ta journée n'a pas encore démarré côté productivité. Un seul rituel ou tâche peut tout changer.",
+            "Score bas aujourd'hui — c'est le moment de se rattraper. Choisis UNE chose et fais-la.",
+            "Il te reste l'après-midi pour remonter. Ouvre Focus et parle à ton coach.",
+            "La journée n'est pas finie. Même une petite action compte."
         ]
 
         let englishPhrases = [
-            "You haven't been active today. Don't lose your streak!",
-            "Your streak is at risk! Open Focus and do at least one thing.",
-            "Time is running out. Talk to your coach or complete a task.",
-            "Don't let an empty day break your momentum."
+            "Your productivity hasn't kicked in yet. One ritual or task can change everything.",
+            "Low score today — time to catch up. Pick ONE thing and do it.",
+            "You still have the afternoon to turn it around. Open Focus and talk to your coach.",
+            "The day isn't over. Even a small action counts."
         ]
 
         let phrases = lang == "fr" ? frenchPhrases : englishPhrases
         return phrases.randomElement() ?? phrases[0]
     }
 
-    private func getAfternoonLowScorePhrase() -> String {
-        let phrases = [
-            "Ta journée n'a pas encore démarré côté productivité. Un seul rituel ou tâche peut tout changer.",
-            "Score bas aujourd'hui — c'est le moment de se rattraper. Choisis UNE chose et fais-la.",
-            "Il te reste l'après-midi pour remonter. Ouvre Focus et parle à ton coach.",
-            "La journée n'est pas finie. Même une petite action compte."
-        ]
-        return phrases.randomElement() ?? phrases[0]
-    }
-
     private func getAfternoonMediumScorePhrase() -> String {
-        let phrases = [
+        let lang = currentLanguageCode()
+
+        let frenchPhrases = [
             "Pas mal, mais tu peux encore monter. Qu'est-ce que tu peux cocher cet après-midi ?",
             "Mi-journée. Regarde tes tâches restantes et finis en beauté.",
             "Tu avances bien. Continue sur cette lancée cet après-midi !",
             "Bon rythme. Encore un ou deux rituels et ta journée sera top."
         ]
+
+        let englishPhrases = [
+            "Not bad, but you can still level up. What can you check off this afternoon?",
+            "Midday check. Look at your remaining tasks and finish strong.",
+            "You're making progress. Keep the momentum going this afternoon!",
+            "Good pace. One or two more rituals and your day will be great."
+        ]
+
+        let phrases = lang == "fr" ? frenchPhrases : englishPhrases
         return phrases.randomElement() ?? phrases[0]
     }
 
     private func getAfternoonHighScorePhrase() -> String {
-        let phrases = [
+        let lang = currentLanguageCode()
+
+        let frenchPhrases = [
             "Tu gères ! Journée excellente. Continue comme ça.",
             "Score au top — profite de cette énergie pour finir ce qu'il reste.",
             "Impressionnant aujourd'hui. Tu mérites cette satisfaction.",
             "Belle journée en cours. Maintiens le cap !"
         ]
+
+        let englishPhrases = [
+            "You're crushing it! Excellent day. Keep it up.",
+            "Top score — ride this energy to finish what's left.",
+            "Impressive today. You deserve that satisfaction.",
+            "Great day in progress. Stay on course!"
+        ]
+
+        let phrases = lang == "fr" ? frenchPhrases : englishPhrases
         return phrases.randomElement() ?? phrases[0]
     }
 
@@ -1052,15 +884,6 @@ class NotificationService: ObservableObject {
         settings.routineRemindersEnabled = enabled
         if !enabled {
             cancelAllRoutineReminders()
-        }
-    }
-
-    func updateStreakAlertEnabled(_ enabled: Bool) async {
-        settings.streakAlertEnabled = enabled
-        if enabled {
-            await scheduleStreakDangerAlert()
-        } else {
-            cancelStreakDangerAlert()
         }
     }
 

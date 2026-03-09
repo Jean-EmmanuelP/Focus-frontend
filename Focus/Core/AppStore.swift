@@ -33,7 +33,6 @@ final class FocusAppStore: ObservableObject {
     @Published var todaysSessions: [FocusSession] = []
     @Published var weekSessions: [FocusSession] = []
     @Published var rituals: [DailyRitual] = []
-    @Published var quests: [Quest] = []
     @Published var todaysTasks: [CalendarTask] = []
     @Published var upcomingWeekTasks: [CalendarTask] = []  // Tasks for the next 7 days
     @Published var morningCheckIn: MorningCheckIn?
@@ -87,7 +86,6 @@ final class FocusAppStore: ObservableObject {
     // MARK: - Services
     private let dashboardService = DashboardService()
     private let sessionService = FocusSessionService()
-    private let questService = QuestService()
     private let routineService = RoutineService()
     private let reflectionService = ReflectionService()
     private let intentionsService = IntentionsService()
@@ -244,7 +242,6 @@ final class FocusAppStore: ObservableObject {
         self.todaysSessions = []
         self.weekSessions = []
         self.rituals = []
-        self.quests = []
         self.morningCheckIn = nil
         self.eveningReview = nil
         self.areas = Self.placeholderAreas
@@ -390,19 +387,6 @@ final class FocusAppStore: ObservableObject {
                 print("📦 Areas loaded: \(self.areas.count)")
             }
 
-            // Convert quests (optional field from dashboard)
-            if let activeQuests = dashboardData.activeQuests, !activeQuests.isEmpty {
-                self.quests = activeQuests.map { questResponse in
-                    let area = self.areas.first { $0.id == questResponse.areaId }
-                    return Quest(from: questResponse, area: area)
-                }
-                print("🎯 Quests loaded from dashboard: \(self.quests.count)")
-            } else {
-                // Fallback: load quests from dedicated endpoint if not in dashboard
-                print("🎯 Quests not in dashboard, loading from API...")
-                await loadQuests()
-            }
-
             // Convert routines to rituals from dashboard first
             print("📋 Dashboard todaysRoutines count: \(dashboardData.todaysRoutines.count)")
             for routine in dashboardData.todaysRoutines {
@@ -463,7 +447,7 @@ final class FocusAppStore: ObservableObject {
                             userId: authUserId ?? "",
                             date: Date(),
                             intention: item.content,
-                            area: areaIdToQuestArea(item.areaId),
+                            area: areaIdToLifeArea(item.areaId),
                             isCompleted: false
                         )
                     }
@@ -598,13 +582,6 @@ final class FocusAppStore: ObservableObject {
             lastFiremodeLoad = Date()
             self.firemodeStats = firemodeData
 
-            // Also update quests from firemode response (if available)
-            if let activeQuests = firemodeData.activeQuests {
-                self.quests = activeQuests.map { questResponse in
-                    let area = self.areas.first { $0.id == questResponse.areaId }
-                    return Quest(from: questResponse, area: area)
-                }
-            }
         } catch {
             print("Error loading firemode data: \(error)")
         }
@@ -886,11 +863,11 @@ final class FocusAppStore: ObservableObject {
         }
     }
 
-    func createSession(durationMinutes: Int, questId: String?, description: String?) async {
+    func createSession(durationMinutes: Int, taskId: String? = nil, description: String?) async {
         do {
             _ = try await sessionService.createSession(
                 durationMinutes: durationMinutes,
-                questId: questId,
+                questId: taskId,
                 description: description
             )
             // Refresh dashboard to sync all data after mutation
@@ -900,12 +877,12 @@ final class FocusAppStore: ObservableObject {
         }
     }
 
-    func logManualSession(durationMinutes: Int, startTime: Date, questId: String?, description: String?) async {
+    func logManualSession(durationMinutes: Int, startTime: Date, description: String?) async {
         do {
             _ = try await sessionService.logManualSession(
                 durationMinutes: durationMinutes,
                 startTime: startTime,
-                questId: questId,
+                questId: nil,
                 description: description
             )
             // Refresh dashboard to sync all data after mutation
@@ -916,10 +893,10 @@ final class FocusAppStore: ObservableObject {
     }
 
     /// Start a new focus session (status = active). Returns the created session.
-    func startSession(durationMinutes: Int, questId: String?, description: String?) async throws -> FocusSession {
+    func startSession(durationMinutes: Int, taskId: String? = nil, description: String?) async throws -> FocusSession {
         let response = try await sessionService.createSession(
             durationMinutes: durationMinutes,
-            questId: questId,
+            questId: taskId,
             description: description
         )
         return FocusSession(from: response)
@@ -1033,7 +1010,7 @@ final class FocusAppStore: ObservableObject {
                         userId: authUserId ?? "",
                         date: Date(),
                         intention: intentionResponse.content,
-                        area: areaIdToQuestArea(intentionResponse.areaId),
+                        area: areaIdToLifeArea(intentionResponse.areaId),
                         isCompleted: false
                     )
                 }
@@ -1084,7 +1061,7 @@ final class FocusAppStore: ObservableObject {
         }
     }
 
-    private func areaIdToQuestArea(_ areaId: String?) -> QuestArea {
+    private func areaIdToLifeArea(_ areaId: String?) -> LifeArea {
         guard let areaId = areaId,
               let area = areas.first(where: { $0.id == areaId }) else {
             return .other
@@ -1098,94 +1075,6 @@ final class FocusAppStore: ObservableObject {
         case "creativity": return .creativity
         default: return .other
         }
-    }
-
-    // MARK: - Quests
-    /// Load quests if not already loaded
-    func loadQuestsIfNeeded() async {
-        guard quests.isEmpty else {
-            print("🎯 Quests already loaded (\(quests.count) quests)")
-            return
-        }
-        await loadQuests()
-    }
-
-    /// Load quests from API
-    func loadQuests() async {
-        do {
-            print("🎯 Loading quests from API...")
-            let questResponses = try await questService.fetchQuests()
-            self.quests = questResponses.map { response in
-                let area = self.areas.first { $0.id == response.areaId }
-                return Quest(from: response, area: area)
-            }
-            print("🎯 Loaded \(self.quests.count) quests")
-        } catch {
-            print("❌ Error loading quests: \(error)")
-        }
-    }
-
-    func createQuest(areaId: String, title: String, targetValue: Int = 1, targetDate: Date? = nil) async throws -> Quest {
-        let response = try await questService.createQuest(areaId: areaId, title: title, targetValue: targetValue, targetDate: targetDate)
-        let area = areas.first { $0.id == response.areaId }
-        let quest = Quest(from: response, area: area)
-        quests.append(quest)
-        return quest
-    }
-
-    func updateQuest(questId: String, title: String? = nil, status: String? = nil, currentValue: Int? = nil, targetValue: Int? = nil, targetDate: Date? = nil) async throws {
-        guard let index = quests.firstIndex(where: { $0.id == questId }) else { return }
-
-        let updatedResponse = try await questService.updateQuest(
-            id: questId,
-            title: title,
-            status: status,
-            currentValue: currentValue,
-            targetValue: targetValue,
-            targetDate: targetDate
-        )
-        let area = areas.first { $0.id == updatedResponse.areaId }
-        quests[index] = Quest(from: updatedResponse, area: area)
-    }
-
-    func updateQuestProgress(questId: String, progress: Double) async {
-        guard let index = quests.firstIndex(where: { $0.id == questId }) else { return }
-
-        // Optimistic update
-        let oldProgress = quests[index].progress
-        quests[index].progress = progress
-
-        do {
-            let updatedResponse = try await questService.updateQuestProgress(
-                questId: questId,
-                progress: progress
-            )
-            let area = areas.first { $0.id == updatedResponse.areaId }
-            quests[index] = Quest(from: updatedResponse, area: area)
-        } catch {
-            // Revert on error
-            quests[index].progress = oldProgress
-            print("Error updating quest: \(error)")
-        }
-    }
-
-    func incrementQuestProgress(questId: String) async throws {
-        guard let index = quests.firstIndex(where: { $0.id == questId }) else { return }
-        // Get the quest's current value and increment
-        // Since Quest model uses progress (0-1), we need to track current/target values
-        // For now, increment by calculating from progress
-        let quest = quests[index]
-        let newProgress = min(1.0, quest.progress + 0.1) // Increment by 10%
-        try await updateQuest(questId: questId, currentValue: Int(newProgress * 100), targetValue: 100)
-    }
-
-    func completeQuest(questId: String) async throws {
-        try await updateQuest(questId: questId, status: "completed")
-    }
-
-    func deleteQuest(questId: String) async throws {
-        try await questService.deleteQuest(id: questId)
-        quests.removeAll { $0.id == questId }
     }
 
     /// MARK: - Refresh
@@ -1281,7 +1170,7 @@ final class FocusAppStore: ObservableObject {
     }
 
     /// Start a widget session with end date for real-time countdown
-    func startWidgetSession(durationMinutes: Int, questEmoji: String?, description: String?) {
+    func startWidgetSession(durationMinutes: Int, emoji: String?, description: String?) {
         guard let sharedDefaults = UserDefaults(suiteName: "group.com.jep.volta") else { return }
 
         let endDate = Date().addingTimeInterval(Double(durationMinutes * 60))
@@ -1290,7 +1179,7 @@ final class FocusAppStore: ObservableObject {
         sharedDefaults.set(endDate.timeIntervalSince1970, forKey: "widget_session_end_date")
         sharedDefaults.set(durationMinutes, forKey: "widget_session_total_duration")
 
-        if let emoji = questEmoji {
+        if let emoji = emoji {
             sharedDefaults.set(emoji, forKey: "widget_session_quest_emoji")
         } else {
             sharedDefaults.removeObject(forKey: "widget_session_quest_emoji")

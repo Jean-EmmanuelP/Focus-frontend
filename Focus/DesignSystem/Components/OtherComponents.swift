@@ -558,10 +558,10 @@ struct FlowLayout: Layout {
             SectionHeader(title: "Daily Rituals", action: {}, actionTitle: "Manage")
             
             EmptyStateView(
-                icon: "🎯",
-                title: "No quests yet",
-                subtitle: "Create your first quest to start tracking progress",
-                actionTitle: "Create Quest",
+                icon: "📋",
+                title: "No tasks yet",
+                subtitle: "Create your first task to start tracking progress",
+                actionTitle: "Create Task",
                 action: {}
             )
         }

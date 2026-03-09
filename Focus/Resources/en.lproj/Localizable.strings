@@ -35,7 +35,7 @@
 "tab.dashboard" = "Dashboard";
 "tab.calendar" = "Calendar";
 "tab.fire" = "Fire";
-"tab.quests" = "Quests";
+
 "tab.crew" = "Crew";
 
 // MARK: - Dashboard
@@ -94,10 +94,6 @@
 "fire.sessions_today" = "Today's Sessions";
 "fire.sessions_this_week" = "Sessions this week";
 "fire.focus_time" = "Focus time";
-"fire.link_quest" = "Link to Quest (optional)";
-"fire.select_quest" = "Select a quest...";
-"fire.no_active_quests" = "No active quests";
-"fire.no_quest" = "No quest selected";
 "fire.description" = "What will you work on?";
 "fire.description_placeholder" = "Describe your focus area...";
 "fire.log_past_session" = "Log Past Session";
@@ -116,36 +112,6 @@
 "fire.yes_validate" = "Yes, validate ✓";
 "fire.not_yet" = "Not yet";
 
-// MARK: - Quests
-"quests.title" = "QUESTS";
-"quests.subtitle" = "Track your progress and build habits.";
-"quests.active" = "Active";
-"quests.completed" = "Completed";
-"quests.add_quest" = "Add Quest";
-"quests.new_quest" = "New Quest";
-"quests.progress" = "Progress";
-"quests.no_quests" = "No quests yet";
-"quests.quest_title" = "Quest title";
-"quests.target" = "Target (optional)";
-"quests.target_hint" = "How many times do you want to achieve this?";
-"quests.current_progress" = "Current Progress";
-"quests.progress_hint" = "Use the slider on the quest card to update progress";
-"quests.mark_complete" = "Mark as Complete";
-"quests.swipe_hint" = "Swipe right to complete";
-"quests.areas" = "Areas";
-"quests.quests" = "Quests";
-"quests.no_areas" = "No areas tracked yet";
-"quests.no_areas_hint" = "Create quests to see your progress by area";
-"quests.no_quests_hint" = "Create your first quest to start tracking progress";
-"quests.create_quest" = "Create Quest";
-"quests.quest_placeholder" = "e.g., Read 12 books, Run a marathon...";
-"quests.edit_quest" = "Edit Quest";
-"quests.delete_quest" = "Delete Quest";
-"quests.delete_confirm" = "This action cannot be undone.";
-"quests.quest_details" = "Quest Details";
-"quests.target_date" = "Target Date";
-"quests.update_progress" = "Update Progress";
-"quests.swipe_to_update" = "Swipe to update progress";
 "routines.delete_ritual" = "Delete Ritual";
 
 // MARK: - Routines / Rituals
@@ -515,7 +481,7 @@
 // MARK: - Authentication
 "auth.tagline" = "Focus. Build. Progress.";
 "auth.feature.focus" = "Deep focus sessions without distractions";
-"auth.feature.quests" = "Track goals and build momentum";
+
 "auth.feature.habits" = "Build habits that compound over time";
 "auth.feature.rituals" = "Morning & evening rituals for success";
 "auth.terms.agree" = "By continuing, you agree to our";
@@ -532,7 +498,7 @@
 
 // MARK: - Legal
 "legal.privacy.title" = "Privacy Policy";
-"legal.privacy.content" = "Your privacy is important to us. Volta collects and stores only the data necessary to provide our service. This includes your account information, focus sessions, quests, and rituals. We do not sell your data to third parties. Your data is securely stored and you can request deletion at any time by contacting support@volta.app.";
+"legal.privacy.content" = "Your privacy is important to us. Volta collects and stores only the data necessary to provide our service. This includes your account information, focus sessions, and rituals. We do not sell your data to third parties. Your data is securely stored and you can request deletion at any time by contacting support@volta.app.";
 "legal.tos.title" = "Terms of Service";
 
 // MARK: - Calendar
@@ -562,7 +528,7 @@
 "calendar.block_description_placeholder" = "What will you focus on?";
 "calendar.start_time" = "Start Time";
 "calendar.end_time" = "End Time";
-"calendar.link_quest" = "Link to Quest (optional)";
+
 "calendar.link_area" = "Life Area (optional)";
 "calendar.create_task" = "Create Task";
 "calendar.task_title" = "Task";
@@ -575,7 +541,7 @@
 "calendar.priority.medium" = "Medium";
 "calendar.priority.high" = "High";
 "calendar.priority.urgent" = "Urgent";
-"calendar.ai_prompt_placeholder" = "I want to focus on my project in the morning, have a workout at noon, then review my quests in the afternoon...";
+"calendar.ai_prompt_placeholder" = "I want to focus on my project in the morning, have a workout at noon, then review my goals in the afternoon...";
 "calendar.ai_hint" = "Be specific about your goals, energy levels, and constraints";
 "calendar.this_week" = "This Week";
 "calendar.tasks" = "Tasks";
@@ -593,7 +559,7 @@
 "calendar.afternoon" = "Afternoon";
 "calendar.evening" = "Evening";
 "calendar.schedule_time" = "Schedule specific time";
-"calendar.quest" = "Quest";
+
 "calendar.start_focus" = "Start Focus";
 "calendar.mark_complete" = "Mark as Complete";
 "calendar.priority_low" = "Low";
@@ -606,9 +572,9 @@
 "calendar.add_new" = "Add New";
 "calendar.add_new_description" = "What do you want to add?";
 "calendar.add_routine" = "Add Routine";
-"calendar.add_quest" = "Add Quest";
+
 "calendar.routine_time_hint" = "Routines with a scheduled time will appear in your calendar";
-"calendar.select_quest" = "Select a quest...";
+
 "calendar.task_detail" = "Task Detail";
 "calendar.priority.urgent" = "Urgent";
 "calendar.priority.high" = "High";
@@ -617,7 +583,7 @@
 "calendar.private_task" = "Private task";
 "calendar.private_task_desc" = "Hide content from your friends";
 "task.description" = "Description";
-"task.linked_quest" = "Linked Quest";
+
 "task.mark_incomplete" = "Mark as Incomplete";
 "common.completed" = "Completed";
 "common.creating" = "Creating...";
@@ -646,17 +612,13 @@
 "dashboard.upcoming_tasks" = "Upcoming tasks";
 "dashboard.upcoming_task" = "Upcoming task";
 "dashboard.see_all_tasks" = "See all %d tasks";
-"dashboard.active_quests" = "Active Quests";
-"dashboard.see_all_quests" = "See all";
 
 // MARK: - Settings
 "settings.title" = "Settings";
-"settings.quests_areas" = "Quests & Areas";
-"settings.quests_areas_subtitle" = "Your long-term goals. Quests represent your vision and life objectives. Compare your calendar to your quests to see if you're aligned with your ambitions.";
 "settings.daily_rituals" = "Daily Rituals";
 "settings.daily_rituals_subtitle" = "Your daily habits. Rituals automatically appear in your calendar at the scheduled time to help you build solid routines.";
 "settings.areas" = "Life Areas";
-"settings.areas_subtitle" = "Areas organize your quests and rituals by category (Health, Work, etc.). They help you see the balance between different spheres of your life.";
+"settings.areas_subtitle" = "Areas organize your rituals by category (Health, Work, etc.). They help you see the balance between different spheres of your life.";
 "settings.statistics" = "Statistics";
 "settings.statistics_subtitle" = "See your progress this week";
 "settings.watch_tutorial" = "Watch Tutorial";
@@ -687,8 +649,6 @@
 "tutorial.feature_focus_desc" = "Launch focus sessions to make progress on your important projects.";
 "tutorial.feature_rituals" = "Daily Rituals";
 "tutorial.feature_rituals_desc" = "Create habits that naturally integrate into your schedule.";
-"tutorial.feature_quests" = "Quests and Goals";
-"tutorial.feature_quests_desc" = "Define your life goals and track your progress.";
 "tutorial.video_error" = "Unable to load video";
 "tutorial.open_youtube" = "Open on YouTube";
 
@@ -776,41 +736,6 @@
 "community.double_tap_zoom" = "Double-tap to zoom";
 "cancel" = "Cancel";
 
-// MARK: - Journal
-"journal.section_title" = "Daily Reflection";
-"journal.record" = "Record Reflection";
-"journal.record_today" = "Record Today's Reflection";
-"journal.record_subtitle" = "Capture your thoughts in 3 minutes";
-"journal.todays_reflection" = "Today's Reflection";
-"journal.history" = "Journal History";
-"journal.mood_trend" = "Mood Trend (7 days)";
-"journal.max_duration" = "Max 3 minutes";
-"journal.recording" = "Recording...";
-"journal.tap_to_record" = "Tap to start recording";
-"journal.tap_to_rerecord" = "Tap to re-record";
-"journal.save" = "Save Entry";
-"journal.analyzing" = "Analyzing your reflection...";
-"journal.analyzing_subtitle" = "AI is transcribing and extracting insights";
-"journal.entry_saved" = "Reflection Saved!";
-"journal.delete_confirm" = "Delete this journal entry?";
-"journal.title_label" = "Title";
-"journal.summary_label" = "Summary";
-"journal.tags_label" = "Themes";
-"journal.transcript_label" = "Full Transcript";
-"journal.error.no_recording" = "No recording found";
-"journal.empty_history" = "No journal entries yet";
-"journal.empty_history_subtitle" = "Start recording your daily reflections to track your progress and mood over time.";
-"journal.avg_mood" = "Avg Mood";
-"journal.no_mood_data" = "Not enough data for mood graph";
-"journal.recorded" = "Reflection recorded";
-"journal.analysis_pending" = "Analysis available on the 1st of next month";
-"journal.mode_audio" = "Audio";
-"journal.mode_video" = "Video";
-"journal.video_prompt" = "Tap to record a video reflection";
-"journal.uploading" = "Uploading...";
-"journal.uploading_subtitle" = "Sending your reflection to the cloud";
-"journal.saved_subtitle" = "Your reflection has been saved. Analysis will be available on the 1st of next month.";
-"journal.tap_to_save" = "Tap to save";
 "dashboard.see_history" = "View history";
 "close" = "Close";
 "delete" = "Delete";

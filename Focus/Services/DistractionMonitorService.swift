@@ -18,12 +18,14 @@ final class DistractionMonitorService: ObservableObject {
 
     // Multiple threshold levels — each fires separately, incrementing the distraction counter
     // This gives a scale: 0 = clean, 1 = brief usage, 5 = heavy usage
-    private let thresholdLevels: [(name: String, seconds: Int)] = [
-        ("distraction.level.1",   10),   // 10s — just opened (test quickly)
-        ("distraction.level.2",  900),   // 15 min — starting to scroll
-        ("distraction.level.3", 1800),   // 30 min — real distraction
-        ("distraction.level.4", 3600),   // 1h — heavy usage
-        ("distraction.level.5", 7200),   // 2h — very heavy usage
+    // NOTE: Use proper DateComponents units (minute/hour) instead of large second values,
+    // because DateComponents(second:) is meant for 0-59 and may not work for larger values.
+    private let thresholdLevels: [(name: String, threshold: DateComponents)] = [
+        ("distraction.level.1", DateComponents(second: 10)),   // 10s — just opened (test quickly)
+        ("distraction.level.2", DateComponents(minute: 15)),   // 15 min — starting to scroll
+        ("distraction.level.3", DateComponents(minute: 30)),   // 30 min — real distraction
+        ("distraction.level.4", DateComponents(hour: 1)),      // 1h — heavy usage
+        ("distraction.level.5", DateComponents(hour: 2)),      // 2h — very heavy usage
     ]
 
     @Published var distractionMonitorEnabled: Bool {
@@ -41,6 +43,10 @@ final class DistractionMonitorService: ObservableObject {
     @Published var debugInfo: String = ""
 
     private init() {
+        // Default to ON for new users — they still need ScreenTime auth + apps selected for it to actually work
+        if UserDefaults.standard.object(forKey: "distraction.monitorEnabled") == nil {
+            UserDefaults.standard.set(true, forKey: "distraction.monitorEnabled")
+        }
         self.distractionMonitorEnabled = UserDefaults.standard.bool(forKey: "distraction.monitorEnabled")
     }
 
@@ -77,7 +83,7 @@ final class DistractionMonitorService: ObservableObject {
                 applications: selection.applicationTokens,
                 categories: selection.categoryTokens,
                 webDomains: selection.webDomainTokens,
-                threshold: DateComponents(second: level.seconds)
+                threshold: level.threshold
             )
             events[eventName] = event
         }

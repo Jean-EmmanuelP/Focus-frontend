@@ -68,9 +68,9 @@ struct TermsOfServiceView: View {
                             .bodyText()
                             .foregroundColor(ColorTokens.textSecondary)
                         bulletPoint("Track focus sessions and deep work time")
-                        bulletPoint("Set and achieve personal quests and goals")
+                        bulletPoint("Set and achieve personal goals")
                         bulletPoint("Build daily rituals and habits")
-                        bulletPoint("Monitor progress through levels and streaks")
+                        bulletPoint("Monitor progress and stay accountable")
                         bulletPoint("Connect with a community of builders")
                     }
 
@@ -106,7 +106,7 @@ struct TermsOfServiceView: View {
                             .bodyText()
                             .foregroundColor(ColorTokens.textSecondary)
 
-                        Text("Your content (focus sessions, quests, rituals, reflections) remains yours. By using Volta, you grant us a license to store and display this content to provide the service to you.")
+                        Text("Your content (focus sessions, rituals, reflections) remains yours. By using Volta, you grant us a license to store and display this content to provide the service to you.")
                             .bodyText()
                             .foregroundColor(ColorTokens.textSecondary)
                             .padding(.top, SpacingTokens.sm)

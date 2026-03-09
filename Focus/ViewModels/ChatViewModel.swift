@@ -19,15 +19,29 @@ enum ChatMessageType: String, Codable {
 enum ChatCardData: Codable {
     case taskList([CardTask])
     case routineList([CardRoutine])
-    case planning([CardTask], [CardRoutine])
+    case planning([CardTask], [CardRoutine], PlanningFocusState?)
     case actionButton(ActionButton)
     case videoCard(VideoCard)
     case videoSuggestions(VideoSuggestionsData)
+
+    struct PlanningFocusState: Codable {
+        var activeTaskId: String?
+        var activeTaskTitle: String?
+        var duration: Int // minutes
+        var timeRemaining: Int? // seconds
+        var sessionId: String?
+        var timerState: FocusTimerState
+    }
+
+    enum FocusTimerState: String, Codable {
+        case idle, running, paused, completed
+    }
 
     struct CardTask: Codable, Identifiable {
         let id: String
         let title: String
         var isCompleted: Bool
+        var estimatedMinutes: Int?
     }
 
     struct CardRoutine: Codable, Identifiable {
@@ -60,6 +74,67 @@ enum ChatCardData: Codable {
         let videoId: String
         let title: String
         let duration: String
+    }
+
+    // MARK: - Backward-compatible Codable
+
+    private enum CodingKeys: String, CodingKey {
+        case taskList, routineList, planning, actionButton, videoCard, videoSuggestions
+    }
+
+    private struct PlanningPayload: Codable {
+        let _0: [CardTask]
+        let _1: [CardRoutine]
+        let _2: PlanningFocusState?
+
+        init(_0: [CardTask], _1: [CardRoutine], _2: PlanningFocusState?) {
+            self._0 = _0; self._1 = _1; self._2 = _2
+        }
+    }
+
+    private struct OldPlanningPayload: Codable {
+        let _0: [CardTask]
+        let _1: [CardRoutine]
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        if let tasks = try? container.decode([CardTask].self, forKey: .taskList) {
+            self = .taskList(tasks)
+        } else if let routines = try? container.decode([CardRoutine].self, forKey: .routineList) {
+            self = .routineList(routines)
+        } else if let payload = try? container.decode(PlanningPayload.self, forKey: .planning) {
+            self = .planning(payload._0, payload._1, payload._2)
+        } else if let old = try? container.decode(OldPlanningPayload.self, forKey: .planning) {
+            self = .planning(old._0, old._1, nil)
+        } else if let action = try? container.decode(ActionButton.self, forKey: .actionButton) {
+            self = .actionButton(action)
+        } else if let video = try? container.decode(VideoCard.self, forKey: .videoCard) {
+            self = .videoCard(video)
+        } else if let data = try? container.decode(VideoSuggestionsData.self, forKey: .videoSuggestions) {
+            self = .videoSuggestions(data)
+        } else {
+            // Old focusTimer or unknown — fallback to empty task list
+            self = .taskList([])
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .taskList(let tasks):
+            try container.encode(tasks, forKey: .taskList)
+        case .routineList(let routines):
+            try container.encode(routines, forKey: .routineList)
+        case .planning(let tasks, let routines, let focusState):
+            try container.encode(PlanningPayload(_0: tasks, _1: routines, _2: focusState), forKey: .planning)
+        case .actionButton(let action):
+            try container.encode(action, forKey: .actionButton)
+        case .videoCard(let video):
+            try container.encode(video, forKey: .videoCard)
+        case .videoSuggestions(let data):
+            try container.encode(data, forKey: .videoSuggestions)
+        }
     }
 }
 
@@ -390,7 +465,6 @@ class ChatViewModel: ObservableObject {
     private func generateLocalDailyGreeting() -> String {
         let userName = store?.user?.pseudo ?? store?.user?.firstName ?? ""
         let name = userName.isEmpty ? "" : " \(userName)"
-        let streak = store?.currentStreak ?? 0
         let hour = Calendar.current.component(.hour, from: Date())
         let tasksCount = store?.todaysTasks.filter { $0.status != "completed" }.count ?? 0
         let ritualsCount = store?.rituals.filter { !$0.isCompleted }.count ?? 0
@@ -406,9 +480,6 @@ class ChatViewModel: ObservableObject {
                 "Nouvelle journée\(name). Sur quoi tu veux avancer ?",
                 "Bonjour\(name). Comment tu te sens ce matin ?",
             ]
-            if streak > 3 {
-                pool.append("\(streak) jours d'affilée\(name). On lâche rien.")
-            }
             if tasksCount > 0 {
                 pool.append("T'as \(tasksCount) truc\(tasksCount > 1 ? "s" : "") prévu\(tasksCount > 1 ? "s" : "") aujourd'hui\(name). Par quoi tu commences ?")
             }
@@ -567,7 +638,9 @@ class ChatViewModel: ObservableObject {
             await applySideEffects(sideEffects)
 
             var aiMessage = SimpleChatMessage(content: reply, isFromUser: false)
-            if let video = sideEffects.firstShowVideo {
+            if sideEffects.firstStartFocusSession != nil || sideEffects.hasBlockApps {
+                aiMessage.cardData = await buildFocusPlanningCard(sideEffects: sideEffects)
+            } else if let video = sideEffects.firstShowVideo {
                 aiMessage.cardData = makeVideoCard(url: video.url, title: video.title)
             } else if let category = sideEffects.firstShowVideoSuggestions {
                 aiMessage.cardData = makeVideoSuggestionsCard(for: category)
@@ -662,8 +735,14 @@ class ChatViewModel: ObservableObject {
             // Add AI response
             var aiMessage = SimpleChatMessage(content: reply, isFromUser: false)
 
-            // Attach card data if a video or show_card tool was called
-            if let video = sideEffects.firstShowVideo {
+            // Attach card data if a video, show_card, or focus tool was called
+            for (i, effect) in sideEffects.enumerated() {
+                print("📋 sideEffect[\(i)]: \(effect)")
+            }
+
+            if sideEffects.firstStartFocusSession != nil || sideEffects.hasBlockApps {
+                aiMessage.cardData = await buildFocusPlanningCard(sideEffects: sideEffects)
+            } else if let video = sideEffects.firstShowVideo {
                 aiMessage.cardData = makeVideoCard(url: video.url, title: video.title)
             } else if let category = sideEffects.firstShowVideoSuggestions {
                 aiMessage.cardData = makeVideoSuggestionsCard(for: category)
@@ -742,6 +821,9 @@ class ChatViewModel: ObservableObject {
 
             case .showVideoSuggestions:
                 break // Handled in the message attachment step
+
+            case .startFocusSession:
+                break // Handled inline via planning card focus state
             }
         }
     }
@@ -895,7 +977,8 @@ class ChatViewModel: ObservableObject {
                 ChatCardData.CardTask(
                     id: task.id,
                     title: task.title,
-                    isCompleted: task.status == "completed"
+                    isCompleted: task.status == "completed",
+                    estimatedMinutes: task.estimatedMinutes
                 )
             }
             let routineCards = store.rituals.map { ritual in
@@ -906,7 +989,7 @@ class ChatViewModel: ObservableObject {
                     isCompleted: ritual.isCompleted
                 )
             }
-            return .planning(taskCards, routineCards)
+            return .planning(taskCards, routineCards, nil)
 
         case "routines":
             await store.loadRituals()
@@ -925,6 +1008,46 @@ class ChatViewModel: ObservableObject {
         }
     }
 
+    /// Build a planning card with focus state attached (for start_focus_session / block_apps)
+    private func buildFocusPlanningCard(sideEffects: [BackboardSideEffect]) async -> ChatCardData? {
+        guard let store = store else { return nil }
+
+        let focusSession = sideEffects.firstStartFocusSession
+        let duration = focusSession?.duration ?? sideEffects.blockAppsDuration ?? 25
+
+        await store.refreshTodaysTasks()
+        await store.loadRituals()
+
+        let taskCards = store.todaysTasks.map { task in
+            ChatCardData.CardTask(
+                id: task.id,
+                title: task.title,
+                isCompleted: task.status == "completed",
+                estimatedMinutes: task.estimatedMinutes
+            )
+        }
+        let routineCards = store.rituals.map { ritual in
+            ChatCardData.CardRoutine(
+                id: ritual.id,
+                title: ritual.title,
+                icon: ritual.icon,
+                isCompleted: ritual.isCompleted
+            )
+        }
+
+        let focusState = ChatCardData.PlanningFocusState(
+            activeTaskId: focusSession?.taskId,
+            activeTaskTitle: focusSession?.taskTitle,
+            duration: duration,
+            timeRemaining: duration * 60,
+            sessionId: nil,
+            timerState: .idle
+        )
+
+        print("🎯 Attaching planning card with focus state: duration=\(duration), taskId=\(focusSession?.taskId ?? "nil")")
+        return .planning(taskCards, routineCards, focusState)
+    }
+
     func toggleTaskCompletion(messageId: UUID, taskId: String) {
         guard let msgIndex = messages.firstIndex(where: { $0.id == messageId }) else { return }
 
@@ -937,12 +1060,12 @@ class ChatViewModel: ObservableObject {
             taskTitle = tasks[taskIndex].title
             tasks[taskIndex].isCompleted = !wasCompleted
             messages[msgIndex].cardData = .taskList(tasks)
-        case .planning(var tasks, let routines):
+        case .planning(var tasks, let routines, let focusState):
             guard let taskIndex = tasks.firstIndex(where: { $0.id == taskId }) else { return }
             wasCompleted = tasks[taskIndex].isCompleted
             taskTitle = tasks[taskIndex].title
             tasks[taskIndex].isCompleted = !wasCompleted
-            messages[msgIndex].cardData = .planning(tasks, routines)
+            messages[msgIndex].cardData = .planning(tasks, routines, focusState)
         default:
             return
         }
@@ -983,12 +1106,12 @@ class ChatViewModel: ObservableObject {
             routineTitle = routines[routineIndex].title
             routines[routineIndex].isCompleted = !wasCompleted
             messages[msgIndex].cardData = .routineList(routines)
-        case .planning(let tasks, var routines):
+        case .planning(let tasks, var routines, let focusState):
             guard let routineIndex = routines.firstIndex(where: { $0.id == routineId }) else { return }
             wasCompleted = routines[routineIndex].isCompleted
             routineTitle = routines[routineIndex].title
             routines[routineIndex].isCompleted = !wasCompleted
-            messages[msgIndex].cardData = .planning(tasks, routines)
+            messages[msgIndex].cardData = .planning(tasks, routines, focusState)
         default:
             return
         }
@@ -1015,6 +1138,297 @@ class ChatViewModel: ObservableObject {
                 print("Failed to toggle routine: \(error)")
             }
         }
+    }
+
+    // MARK: - Inline Focus Timer (integrated in Planning Card)
+
+    private var focusTimer: Timer?
+    private(set) var focusTimerMessageId: UUID?
+    private var focusTimerStartTime: Date?
+    private var focusTimerPausedRemaining: Int?
+
+    /// Select a task for focus within the planning card
+    func selectTaskForFocus(messageId: UUID, taskId: String, taskTitle: String) {
+        updatePlanningFocusState(messageId: messageId) { state in
+            state.activeTaskId = taskId
+            state.activeTaskTitle = taskTitle
+        }
+    }
+
+    /// Update selected duration for focus
+    func updateFocusDuration(messageId: UUID, duration: Int) {
+        updatePlanningFocusState(messageId: messageId) { state in
+            state.duration = duration
+            state.timeRemaining = duration * 60
+        }
+    }
+
+    /// Start the inline focus timer on a specific planning card
+    func startInlineFocusTimer(messageId: UUID, taskId: String?, taskTitle: String?, duration: Int) {
+        focusTimerMessageId = messageId
+        focusTimerStartTime = Date()
+
+        HapticFeedback.medium()
+
+        // Start app blocking if enabled
+        let blocker = ScreenTimeAppBlockerService.shared
+        if blocker.isBlockingEnabled {
+            blocker.startBlocking(durationMinutes: duration)
+        }
+
+        // Create session in backend
+        Task {
+            do {
+                let session = try await FocusAppStore.shared.startSession(
+                    durationMinutes: duration,
+                    taskId: taskId,
+                    description: taskTitle
+                )
+                updatePlanningFocusState(messageId: messageId) { state in
+                    state.sessionId = session.id
+                }
+            } catch {
+                print("❌ Inline timer: failed to create session: \(error)")
+            }
+        }
+
+        // Start Live Activity
+        LiveActivityManager.shared.startLiveActivity(
+            sessionId: UUID().uuidString,
+            totalDuration: duration,
+            description: taskTitle,
+            sessionTitle: nil,
+            sessionEmoji: nil
+        )
+
+        // Update widget
+        FocusAppStore.shared.startWidgetSession(
+            durationMinutes: duration,
+            emoji: nil,
+            description: taskTitle
+        )
+
+        // Update card state to running
+        updatePlanningFocusState(messageId: messageId) { state in
+            state.timerState = .running
+            state.timeRemaining = duration * 60
+            state.activeTaskId = taskId
+            state.activeTaskTitle = taskTitle
+            state.duration = duration
+        }
+
+        // Start timer loop
+        focusTimer?.invalidate()
+        focusTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.focusTimerTick()
+            }
+        }
+    }
+
+    func pauseInlineFocusTimer(messageId: UUID) {
+        focusTimer?.invalidate()
+        focusTimer = nil
+        HapticFeedback.light()
+
+        updatePlanningFocusState(messageId: messageId) { state in
+            state.timerState = .paused
+        }
+
+        if let remaining = currentPlanningFocusState(messageId: messageId)?.timeRemaining {
+            focusTimerPausedRemaining = remaining
+            LiveActivityManager.shared.updateLiveActivity(
+                timeRemaining: remaining,
+                progress: timerProgress(for: messageId),
+                isPaused: true
+            )
+        }
+    }
+
+    func resumeInlineFocusTimer(messageId: UUID) {
+        HapticFeedback.light()
+
+        updatePlanningFocusState(messageId: messageId) { state in
+            state.timerState = .running
+        }
+
+        if let remaining = currentPlanningFocusState(messageId: messageId)?.timeRemaining {
+            LiveActivityManager.shared.updateLiveActivity(
+                timeRemaining: remaining,
+                progress: timerProgress(for: messageId),
+                isPaused: false
+            )
+        }
+
+        // Restart timer loop
+        focusTimer?.invalidate()
+        focusTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.focusTimerTick()
+            }
+        }
+    }
+
+    func stopInlineFocusTimer(messageId: UUID) {
+        focusTimer?.invalidate()
+        focusTimer = nil
+
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.warning)
+
+        // Stop blocking
+        let blocker = ScreenTimeAppBlockerService.shared
+        if blocker.isBlocking {
+            blocker.stopBlocking()
+        }
+
+        // End Live Activity + widget
+        LiveActivityManager.shared.endLiveActivity(completed: false)
+        FocusAppStore.shared.endWidgetSession()
+
+        // Cancel session in backend
+        if let sessionId = currentPlanningFocusState(messageId: messageId)?.sessionId {
+            Task {
+                try? await FocusAppStore.shared.cancelSession(sessionId: sessionId)
+                FocusAppStore.shared.syncWidgetData()
+            }
+        }
+
+        // Reset focus state to idle
+        updatePlanningFocusState(messageId: messageId) { state in
+            state.timerState = .idle
+            state.timeRemaining = state.duration * 60
+            state.sessionId = nil
+        }
+        focusTimerMessageId = nil
+        focusTimerStartTime = nil
+        saveMessages()
+    }
+
+    private func completeFocusTimer(messageId: UUID) {
+        focusTimer?.invalidate()
+        focusTimer = nil
+
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.success)
+
+        // Stop blocking
+        let blocker = ScreenTimeAppBlockerService.shared
+        if blocker.isBlocking {
+            blocker.stopBlocking()
+        }
+
+        // End Live Activity + widget
+        LiveActivityManager.shared.endLiveActivity(completed: true)
+        FocusAppStore.shared.endWidgetSession()
+
+        // Complete session in backend
+        if let sessionId = currentPlanningFocusState(messageId: messageId)?.sessionId {
+            Task {
+                try? await FocusAppStore.shared.completeSession(sessionId: sessionId)
+                FocusAppStore.shared.syncWidgetData()
+            }
+        }
+
+        // Update card to completed
+        updatePlanningFocusState(messageId: messageId) { state in
+            state.timerState = .completed
+            state.timeRemaining = 0
+        }
+        focusTimerStartTime = nil
+        saveMessages()
+    }
+
+    /// Validate the linked task after focus completion
+    func validateFocusTimerTask(messageId: UUID, completed: Bool) {
+        guard let state = currentPlanningFocusState(messageId: messageId),
+              let taskId = state.activeTaskId, completed else {
+            // Reset focus state and clear it
+            resetPlanningFocusState(messageId: messageId)
+            return
+        }
+
+        Task {
+            do {
+                try await FocusAppStore.shared.toggleTask(taskId: taskId, completed: true)
+                NotificationCenter.default.post(name: .calendarNeedsRefresh, object: nil)
+
+                // Also mark the task as completed in the planning card
+                if let msgIndex = messages.firstIndex(where: { $0.id == messageId }),
+                   case .planning(var tasks, let routines, _) = messages[msgIndex].cardData {
+                    if let taskIdx = tasks.firstIndex(where: { $0.id == taskId }) {
+                        tasks[taskIdx].isCompleted = true
+                    }
+                    messages[msgIndex].cardData = .planning(tasks, routines, nil)
+                }
+            } catch {
+                print("❌ Failed to validate task: \(error)")
+                resetPlanningFocusState(messageId: messageId)
+            }
+            saveMessages()
+        }
+    }
+
+    private func resetPlanningFocusState(messageId: UUID) {
+        // Clear focus state entirely (back to normal planning card)
+        if let msgIndex = messages.firstIndex(where: { $0.id == messageId }),
+           case .planning(let tasks, let routines, _) = messages[msgIndex].cardData {
+            messages[msgIndex].cardData = .planning(tasks, routines, nil)
+        }
+        focusTimerMessageId = nil
+        saveMessages()
+    }
+
+    private func focusTimerTick() {
+        guard let messageId = focusTimerMessageId,
+              let state = currentPlanningFocusState(messageId: messageId),
+              state.timerState == .running,
+              let remaining = state.timeRemaining, remaining > 0 else { return }
+
+        let newRemaining = remaining - 1
+        updatePlanningFocusState(messageId: messageId) { state in
+            state.timeRemaining = newRemaining
+        }
+
+        // Update Live Activity every 5 seconds
+        if newRemaining % 5 == 0 {
+            LiveActivityManager.shared.updateLiveActivity(
+                timeRemaining: newRemaining,
+                progress: timerProgress(for: messageId),
+                isPaused: false
+            )
+        }
+
+        if newRemaining == 0 {
+            completeFocusTimer(messageId: messageId)
+        }
+    }
+
+    private func updatePlanningFocusState(messageId: UUID, mutate: (inout ChatCardData.PlanningFocusState) -> Void) {
+        guard let msgIndex = messages.firstIndex(where: { $0.id == messageId }),
+              case .planning(let tasks, let routines, var focusState) = messages[msgIndex].cardData,
+              var state = focusState else { return }
+        mutate(&state)
+        messages[msgIndex].cardData = .planning(tasks, routines, state)
+    }
+
+    private func currentPlanningFocusState(messageId: UUID) -> ChatCardData.PlanningFocusState? {
+        guard let msgIndex = messages.firstIndex(where: { $0.id == messageId }),
+              case .planning(_, _, let focusState) = messages[msgIndex].cardData else { return nil }
+        return focusState
+    }
+
+    private func timerProgress(for messageId: UUID) -> Double {
+        guard let state = currentPlanningFocusState(messageId: messageId) else { return 0 }
+        let totalSeconds = state.duration * 60
+        guard totalSeconds > 0, let remaining = state.timeRemaining else { return 0 }
+        return 1.0 - (Double(remaining) / Double(totalSeconds))
+    }
+
+    private func todayDateString() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: Date())
     }
 
     // MARK: - Persistence
@@ -1070,15 +1484,41 @@ extension Array where Element == BackboardSideEffect {
         }
         return nil
     }
+
+    /// Extract the first start_focus_session from side effects
+    var firstStartFocusSession: (duration: Int?, taskId: String?, taskTitle: String?)? {
+        for effect in self {
+            if case .startFocusSession(let duration, let taskId, let taskTitle) = effect {
+                return (duration, taskId, taskTitle)
+            }
+        }
+        return nil
+    }
+
+    /// Check if block_apps was called
+    var hasBlockApps: Bool {
+        contains { if case .blockApps = $0 { return true }; return false }
+    }
+
+    /// Get the block_apps duration
+    var blockAppsDuration: Int? {
+        for effect in self {
+            if case .blockApps(let duration) = effect { return duration }
+        }
+        return nil
+    }
 }
 
 // MARK: - Simple Chat Persistence (v3 - with voice support)
 
 enum SimpleChatPersistence {
     private static let key = "chat_messages_v3"
+    private static let maxMessages = 200
 
     static func saveMessages(_ messages: [SimpleChatMessage]) {
-        if let data = try? JSONEncoder().encode(messages) {
+        // Keep only the most recent messages to prevent UserDefaults bloat
+        let trimmed = messages.count > maxMessages ? Array(messages.suffix(maxMessages)) : messages
+        if let data = try? JSONEncoder().encode(trimmed) {
             UserDefaults.standard.set(data, forKey: key)
         }
     }

@@ -3,13 +3,11 @@ import SwiftUI
 // MARK: - Week Calendar View (Modern Design)
 struct WeekCalendarView: View {
     @StateObject private var viewModel = CalendarViewModel()
-    @StateObject private var questsViewModel = QuestsViewModel()
     @EnvironmentObject var router: AppRouter
     @State private var showVoiceInput = false
     @State private var showCreateTaskSheet = false
     @State private var showQuickCreateSheet = false
     @State private var showAddRitualSheet = false
-    @State private var showAddQuestSheet = false
     @State private var showAddMenu = false
     @State private var selectedTask: CalendarTask?
     @State private var draggedTask: CalendarTask?
@@ -98,13 +96,9 @@ struct WeekCalendarView: View {
         }
         .sheet(isPresented: $showAddRitualSheet) {
             AddRitualFromCalendarSheet(
-                questsViewModel: questsViewModel,
-                areas: questsViewModel.areas,
+                areas: FocusAppStore.shared.areas,
                 selectedDate: viewModel.selectedDate
             )
-        }
-        .sheet(isPresented: $showAddQuestSheet) {
-            AddQuestSheet(viewModel: questsViewModel, areas: questsViewModel.areas)
         }
         .onAppear {
             Task {
@@ -166,12 +160,6 @@ struct WeekCalendarView: View {
                 showAddRitualSheet = true
             }) {
                 Label("calendar.add_routine".localized, systemImage: "arrow.triangle.2.circlepath")
-            }
-
-            Button(action: {
-                showAddQuestSheet = true
-            }) {
-                Label("calendar.add_quest".localized, systemImage: "target")
             }
 
             Button("common.cancel".localized, role: .cancel) { }
@@ -1144,7 +1132,6 @@ struct WeekCalendarView: View {
         // Navigate to fire mode with task data including taskId for post-session validation
         router.navigateToFireMode(
             duration: duration,
-            questId: task.questId,
             description: task.title,
             taskId: task.id
         )
@@ -1157,9 +1144,7 @@ struct WeekCalendarView: View {
         // Navigate to fire mode with ritual data including ritualId for post-session validation
         router.navigateToFireMode(
             duration: duration,
-            questId: nil,
             description: ritual.title,
-            taskId: nil,
             ritualId: ritual.id  // Pass ritual ID for validation after focus session
         )
     }
@@ -1180,14 +1165,6 @@ struct SidebarTaskCard: View {
                 .strikethrough(task.isCompleted)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
-
-            // Quest tag if available
-            if let questTitle = task.questTitle {
-                Text(questTitle)
-                    .font(.satoshi(10, weight: .medium))
-                    .foregroundColor(taskColor.opacity(0.8))
-                    .lineLimit(1)
-            }
 
             // Time block indicator
             HStack(spacing: 4) {
@@ -1298,14 +1275,6 @@ struct DayTaskBlockView: View {
                             Text(task.formattedTimeRange)
                                 .font(.satoshi(12, weight: .medium))
                                 .foregroundColor(.white.opacity(0.8))
-
-                            // Quest name if available
-                            if let questTitle = task.questTitle {
-                                Text("• \(questTitle)")
-                                    .font(.satoshi(12, weight: .medium))
-                                    .foregroundColor(.white.opacity(0.7))
-                                    .lineLimit(1)
-                            }
 
                             // Photo indicator if task has photos
                             if let photosCount = task.photosCount, photosCount > 0 {
@@ -1503,10 +1472,6 @@ struct TaskDetailSheet: View {
     @ObservedObject var viewModel: CalendarViewModel
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var router: AppRouter
-    @State private var showPhotosSheet = false
-    @State private var taskPhotos: [CommunityPostResponse] = []
-    @State private var isLoadingPhotos = false
-
     // Edit mode state
     @State private var isEditing = false
     @State private var editedTitle: String = ""
@@ -1667,82 +1632,6 @@ struct TaskDetailSheet: View {
                         .cornerRadius(RadiusTokens.lg)
                     }
 
-                    // Associated Quest (if any)
-                    if let questTitle = task.questTitle {
-                        VStack(alignment: .leading, spacing: SpacingTokens.sm) {
-                            Text("task.linked_quest".localized)
-                                .font(.satoshi(12, weight: .semibold))
-                                .foregroundColor(ColorTokens.textMuted)
-                                .textCase(.uppercase)
-
-                            HStack(spacing: SpacingTokens.md) {
-                                Image(systemName: "target")
-                                    .font(.satoshi(18))
-                                    .foregroundColor(ColorTokens.primaryStart)
-                                    .frame(width: 36, height: 36)
-                                    .background(ColorTokens.primarySoft)
-                                    .cornerRadius(RadiusTokens.sm)
-
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(questTitle)
-                                        .font(.satoshi(15, weight: .semibold))
-                                        .foregroundColor(ColorTokens.textPrimary)
-
-                                    if let areaName = task.areaName {
-                                        Text(areaName)
-                                            .font(.satoshi(12))
-                                            .foregroundColor(ColorTokens.textMuted)
-                                    }
-                                }
-
-                                Spacer()
-
-                                Image(systemName: "chevron.right")
-                                    .font(.satoshi(12))
-                                    .foregroundColor(ColorTokens.textMuted)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding()
-                        .background(ColorTokens.surface)
-                        .cornerRadius(RadiusTokens.lg)
-                    }
-
-                    // Community Photos section
-                    if let photosCount = task.photosCount, photosCount > 0 {
-                        Button(action: { showPhotosSheet = true }) {
-                            HStack(spacing: SpacingTokens.md) {
-                                Image(systemName: "photo.stack.fill")
-                                    .font(.satoshi(18))
-                                    .foregroundColor(ColorTokens.primaryStart)
-                                    .frame(width: 36, height: 36)
-                                    .background(ColorTokens.primarySoft)
-                                    .cornerRadius(RadiusTokens.sm)
-
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("community.view_photos".localized)
-                                        .font(.satoshi(15, weight: .semibold))
-                                        .foregroundColor(ColorTokens.textPrimary)
-
-                                    Text(String(format: "community.photos_count".localized, photosCount))
-                                        .font(.satoshi(12))
-                                        .foregroundColor(ColorTokens.textMuted)
-                                }
-
-                                Spacer()
-
-                                Image(systemName: "chevron.right")
-                                    .font(.satoshi(12))
-                                    .foregroundColor(ColorTokens.textMuted)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding()
-                            .background(ColorTokens.surface)
-                            .cornerRadius(RadiusTokens.lg)
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                    }
-
                     Spacer(minLength: SpacingTokens.xl)
 
                     // Actions
@@ -1785,7 +1674,7 @@ struct TaskDetailSheet: View {
                             if !task.isCompleted {
                                 PrimaryButton("calendar.start_focus".localized, icon: "flame.fill") {
                                     dismiss()
-                                    router.navigateToFireMode(questId: task.questId, description: task.title, taskId: task.id)
+                                    router.navigateToFireMode(description: task.title, taskId: task.id)
                                 }
                             }
 
@@ -1843,9 +1732,6 @@ struct TaskDetailSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
-        .sheet(isPresented: $showPhotosSheet) {
-            TaskPhotosSheet(taskId: task.id)
-        }
     }
 
     // MARK: - Edit Functions
@@ -1915,167 +1801,6 @@ struct TaskDetailSheet: View {
         case .medium: return "calendar.priority.medium".localized
         case .low: return "calendar.priority.low".localized
         }
-    }
-}
-
-// MARK: - Task Photos Sheet
-struct TaskPhotosSheet: View {
-    let taskId: String
-    @Environment(\.dismiss) private var dismiss
-    @State private var photos: [CommunityPostResponse] = []
-    @State private var isLoading = true
-    @State private var errorMessage: String?
-
-    private let communityService = CommunityService()
-
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                ColorTokens.background
-                    .ignoresSafeArea()
-
-                if isLoading {
-                    ProgressView()
-                } else if let error = errorMessage {
-                    VStack(spacing: SpacingTokens.md) {
-                        Image(systemName: "exclamationmark.triangle")
-                            .font(.largeTitle)
-                            .foregroundColor(ColorTokens.textSecondary)
-                        Text(error)
-                            .font(.subheadline)
-                            .foregroundColor(ColorTokens.textSecondary)
-                    }
-                } else if photos.isEmpty {
-                    VStack(spacing: SpacingTokens.md) {
-                        Image(systemName: "photo.stack")
-                            .font(.largeTitle)
-                            .foregroundColor(ColorTokens.textSecondary)
-                        Text("community.empty_feed".localized)
-                            .font(.subheadline)
-                            .foregroundColor(ColorTokens.textSecondary)
-                    }
-                } else {
-                    ScrollView {
-                        LazyVStack(spacing: SpacingTokens.md) {
-                            ForEach(photos) { post in
-                                TaskPhotoCard(post: post)
-                            }
-                        }
-                        .padding()
-                    }
-                }
-            }
-            .navigationTitle("community.view_photos".localized)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("common.done".localized) {
-                        dismiss()
-                    }
-                }
-            }
-            .task {
-                await loadPhotos()
-            }
-        }
-    }
-
-    private func loadPhotos() async {
-        isLoading = true
-        do {
-            photos = try await communityService.getTaskPosts(taskId: taskId)
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-        isLoading = false
-    }
-}
-
-// MARK: - Task Photo Card
-struct TaskPhotoCard: View {
-    let post: CommunityPostResponse
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: SpacingTokens.sm) {
-            // Header
-            HStack(spacing: SpacingTokens.sm) {
-                AsyncImage(url: URL(string: post.authorAvatarUrl ?? "")) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image.resizable().scaledToFill()
-                    default:
-                        Image(systemName: "person.circle.fill")
-                            .resizable()
-                            .foregroundColor(ColorTokens.textSecondary)
-                    }
-                }
-                .frame(width: 32, height: 32)
-                .clipShape(Circle())
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(post.authorPseudo ?? "User")
-                        .font(.satoshi(14, weight: .semibold))
-                        .foregroundColor(ColorTokens.textPrimary)
-                    Text(post.createdAt.timeAgoDisplay())
-                        .font(.satoshi(12))
-                        .foregroundColor(ColorTokens.textSecondary)
-                }
-
-                Spacer()
-            }
-
-            // Image
-            AsyncImage(url: URL(string: post.imageUrl)) { phase in
-                switch phase {
-                case .success(let image):
-                    image
-                        .resizable()
-                        .scaledToFill()
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 250)
-                        .clipped()
-                        .cornerRadius(RadiusTokens.md)
-                case .failure:
-                    Rectangle()
-                        .fill(ColorTokens.surface)
-                        .frame(height: 250)
-                        .cornerRadius(RadiusTokens.md)
-                        .overlay(
-                            Image(systemName: "photo")
-                                .foregroundColor(ColorTokens.textSecondary)
-                        )
-                default:
-                    Rectangle()
-                        .fill(ColorTokens.surface)
-                        .frame(height: 250)
-                        .cornerRadius(RadiusTokens.md)
-                        .overlay(ProgressView())
-                }
-            }
-
-            // Caption
-            if let caption = post.caption, !caption.isEmpty {
-                Text(caption)
-                    .font(.satoshi(14))
-                    .foregroundColor(ColorTokens.textPrimary)
-                    .lineLimit(3)
-            }
-
-            // Likes
-            if post.likesCount > 0 {
-                HStack(spacing: 4) {
-                    Image(systemName: "heart.fill")
-                        .font(.satoshi(12))
-                        .foregroundColor(.red)
-                    Text(String(format: "community.liked_by".localized, post.likesCount))
-                        .font(.satoshi(12))
-                        .foregroundColor(ColorTokens.textSecondary)
-                }
-            }
-        }
-        .padding()
-        .background(ColorTokens.surface)
-        .cornerRadius(RadiusTokens.lg)
     }
 }
 
@@ -2240,18 +1965,12 @@ struct QuickCreateTaskSheet: View {
     @State private var startSlot = TimeSlot(hour: 9, minute: 0)
     @State private var endSlot = TimeSlot(hour: 10, minute: 0)
     @State private var selectedPriority = "medium"
-    @State private var selectedQuestId: String? = nil
     @State private var isCreating = false
     @State private var isPrivate = false
     @FocusState private var isTitleFocused: Bool
 
     private let startSlots = TimeSlot.generateSlots(from: 6, to: 23)
     private let endSlots = TimeSlot.generateSlots(from: 6, to: 23, includeEndMidnight: true)
-
-    private var selectedQuest: Quest? {
-        guard let questId = selectedQuestId else { return nil }
-        return viewModel.quests.first { $0.id == questId }
-    }
 
     var body: some View {
         NavigationStack {
@@ -2264,48 +1983,6 @@ struct QuickCreateTaskSheet: View {
                         .background(ColorTokens.surface)
                         .cornerRadius(RadiusTokens.md)
                         .focused($isTitleFocused)
-
-                    // Quest picker
-                    VStack(alignment: .leading, spacing: SpacingTokens.sm) {
-                        Text("Quête (optionnel)")
-                            .font(.satoshi(14, weight: .semibold))
-                            .foregroundColor(ColorTokens.textSecondary)
-
-                        Menu {
-                            Button(action: { selectedQuestId = nil }) {
-                                Label("Aucune quête", systemImage: "xmark.circle")
-                            }
-                            ForEach(viewModel.quests) { quest in
-                                Button(action: { selectedQuestId = quest.id }) {
-                                    Label(quest.title, systemImage: "flag.fill")
-                                }
-                            }
-                        } label: {
-                            HStack {
-                                if let quest = selectedQuest {
-                                    Text(quest.area.emoji)
-                                        .font(.satoshi(18))
-                                    Text(quest.title)
-                                        .font(.satoshi(14, weight: .medium))
-                                        .foregroundColor(ColorTokens.textPrimary)
-                                } else {
-                                    Image(systemName: "flag")
-                                        .font(.satoshi(16))
-                                        .foregroundColor(ColorTokens.textMuted)
-                                    Text("Sélectionner une quête")
-                                        .font(.satoshi(14))
-                                        .foregroundColor(ColorTokens.textMuted)
-                                }
-                                Spacer()
-                                Image(systemName: "chevron.down")
-                                    .font(.satoshi(12))
-                                    .foregroundColor(ColorTokens.textMuted)
-                            }
-                            .padding()
-                            .background(ColorTokens.surface)
-                            .cornerRadius(RadiusTokens.md)
-                        }
-                    }
 
                     // Time picker
                     VStack(alignment: .leading, spacing: SpacingTokens.sm) {
@@ -2416,7 +2093,6 @@ struct QuickCreateTaskSheet: View {
                 title: title,
                 scheduledStart: startTime,
                 scheduledEnd: endTime,
-                questId: selectedQuestId,
                 priority: selectedPriority,
                 isPrivate: isPrivate
             )
@@ -2438,11 +2114,9 @@ struct QuickCreateTaskSheetWithTime: View {
     let endHour: Int
 
     @State private var title = ""
-    @State private var selectedQuestId: String?
     @State private var selectedStartSlot: TimeSlot
     @State private var selectedEndSlot: TimeSlot
     @State private var isCreating = false
-    @State private var showQuestPicker = false
     @State private var isPrivate = false
     @FocusState private var isTitleFocused: Bool
 
@@ -2456,12 +2130,6 @@ struct QuickCreateTaskSheetWithTime: View {
         self.endHour = endHour
         _selectedStartSlot = State(initialValue: TimeSlot(hour: startHour, minute: 0))
         _selectedEndSlot = State(initialValue: TimeSlot(hour: min(endHour, 23), minute: 0))
-    }
-
-    // Get area from selected quest
-    private var selectedQuest: Quest? {
-        guard let questId = selectedQuestId else { return nil }
-        return viewModel.quests.first { $0.id == questId }
     }
 
     var body: some View {
@@ -2551,73 +2219,6 @@ struct QuickCreateTaskSheetWithTime: View {
                     }
                     .padding(.horizontal, SpacingTokens.lg)
 
-                    // Quest selector
-                    HStack(spacing: SpacingTokens.md) {
-                        Image(systemName: "target")
-                            .font(.satoshi(16))
-                            .foregroundColor(ColorTokens.textMuted)
-                            .frame(width: 24)
-
-                        Button(action: {
-                            // Load quests before showing picker
-                            Task {
-                                await viewModel.loadQuestsIfNeeded()
-                            }
-                            showQuestPicker = true
-                        }) {
-                            HStack {
-                                if let quest = selectedQuest {
-                                    Text(quest.area.emoji)
-                                        .font(.satoshi(16))
-                                    Text(quest.title)
-                                        .font(.satoshi(15))
-                                        .foregroundColor(ColorTokens.textPrimary)
-                                        .lineLimit(1)
-                                } else {
-                                    Text("Lier à une quête")
-                                        .font(.satoshi(15))
-                                        .foregroundColor(ColorTokens.textMuted)
-                                }
-
-                                Spacer()
-
-                                Image(systemName: "chevron.right")
-                                    .font(.satoshi(12))
-                                    .foregroundColor(ColorTokens.textMuted)
-                            }
-                            .padding(.horizontal, SpacingTokens.md)
-                            .padding(.vertical, SpacingTokens.sm)
-                            .background(ColorTokens.surface)
-                            .cornerRadius(RadiusTokens.sm)
-                        }
-                    }
-                    .padding(.horizontal, SpacingTokens.lg)
-
-                    // Show area if quest selected
-                    if let quest = selectedQuest {
-                        HStack(spacing: SpacingTokens.md) {
-                            Image(systemName: "folder")
-                                .font(.satoshi(16))
-                                .foregroundColor(ColorTokens.textMuted)
-                                .frame(width: 24)
-
-                            HStack(spacing: SpacingTokens.sm) {
-                                Text(quest.area.emoji)
-                                    .font(.satoshi(14))
-                                Text(quest.area.localizedName)
-                                    .font(.satoshi(14))
-                                    .foregroundColor(ColorTokens.textSecondary)
-                            }
-                            .padding(.horizontal, SpacingTokens.md)
-                            .padding(.vertical, SpacingTokens.sm)
-                            .background(ColorTokens.surfaceElevated)
-                            .cornerRadius(RadiusTokens.sm)
-
-                            Spacer()
-                        }
-                        .padding(.horizontal, SpacingTokens.lg)
-                    }
-
                     // Private toggle
                     PrivateTaskToggleRow(isPrivate: $isPrivate)
                         .padding(.horizontal, SpacingTokens.lg)
@@ -2653,15 +2254,8 @@ struct QuickCreateTaskSheetWithTime: View {
                     isTitleFocused = true
                 }
             }
-            .sheet(isPresented: $showQuestPicker) {
-                QuestPickerSheet(
-                    quests: viewModel.quests,
-                    selectedQuestId: $selectedQuestId
-                )
-                .presentationDetents([.medium])
-            }
         }
-        .presentationDetents([.height(450)])
+        .presentationDetents([.height(350)])
     }
 
     private func createTask() {
@@ -2692,7 +2286,6 @@ struct QuickCreateTaskSheetWithTime: View {
                 scheduledStart: scheduledStart,
                 scheduledEnd: scheduledEnd,
                 timeBlock: timeBlock,
-                questId: selectedQuestId,
                 isPrivate: isPrivate
             )
             await MainActor.run {
@@ -2703,78 +2296,8 @@ struct QuickCreateTaskSheetWithTime: View {
     }
 }
 
-// MARK: - Quest Picker Sheet
-struct QuestPickerSheet: View {
-    let quests: [Quest]
-    @Binding var selectedQuestId: String?
-    @Environment(\.dismiss) private var dismiss
-
-    // Filter out "Other" area quests
-    private var filteredQuests: [Quest] {
-        quests.filter { $0.area != .other }
-    }
-
-    var body: some View {
-        NavigationStack {
-            List {
-                // No quest option
-                Button(action: {
-                    selectedQuestId = nil
-                    dismiss()
-                }) {
-                    HStack {
-                        Text("Aucune quête")
-                            .foregroundColor(ColorTokens.textSecondary)
-                        Spacer()
-                        if selectedQuestId == nil {
-                            Image(systemName: "checkmark")
-                                .foregroundColor(ColorTokens.primaryStart)
-                        }
-                    }
-                }
-
-                // Group quests by area (excluding "Other")
-                let questsByArea = Dictionary(grouping: filteredQuests) { $0.area.localizedName }
-                ForEach(questsByArea.keys.sorted(), id: \.self) { areaName in
-                    Section(header: Text(areaName)) {
-                        ForEach(questsByArea[areaName] ?? []) { quest in
-                            Button(action: {
-                                selectedQuestId = quest.id
-                                dismiss()
-                            }) {
-                                HStack {
-                                    Text(quest.area.emoji)
-                                        .font(.satoshi(20))
-                                    Text(quest.title)
-                                        .foregroundColor(ColorTokens.textPrimary)
-                                    Spacer()
-                                    if selectedQuestId == quest.id {
-                                        Image(systemName: "checkmark")
-                                            .foregroundColor(ColorTokens.primaryStart)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            .listStyle(.insetGrouped)
-            .navigationTitle("Choisir une quête")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("OK") {
-                        dismiss()
-                    }
-                }
-            }
-        }
-    }
-}
-
 // MARK: - Add Ritual From Calendar Sheet
 struct AddRitualFromCalendarSheet: View {
-    let questsViewModel: QuestsViewModel
     let areas: [Area]
     let selectedDate: Date
     @Environment(\.dismiss) var dismiss
@@ -2804,8 +2327,7 @@ struct AddRitualFromCalendarSheet: View {
         return formatter.string(from: scheduledTime)
     }
 
-    init(questsViewModel: QuestsViewModel, areas: [Area], selectedDate: Date) {
-        self.questsViewModel = questsViewModel
+    init(areas: [Area], selectedDate: Date) {
         self.areas = areas
         self.selectedDate = selectedDate
         // Default time based on current hour or 9 AM
@@ -2864,19 +2386,20 @@ struct AddRitualFromCalendarSheet: View {
                                 guard let areaId = selectedAreaId else { return }
                                 isLoading = true
                                 errorMessage = nil
-                                let success = await questsViewModel.createRitual(
-                                    areaId: areaId,
-                                    title: title,
-                                    frequency: selectedFrequency,
-                                    icon: selectedIcon,
-                                    scheduledTime: scheduledTimeString
-                                )
-                                isLoading = false
-                                if success {
+                                do {
+                                    try await FocusAppStore.shared.createRitual(
+                                        areaId: areaId,
+                                        title: title,
+                                        frequency: selectedFrequency,
+                                        icon: selectedIcon,
+                                        scheduledTime: scheduledTimeString
+                                    )
+                                    isLoading = false
                                     HapticFeedback.success()
                                     dismiss()
-                                } else {
-                                    errorMessage = questsViewModel.errorMessage
+                                } catch {
+                                    isLoading = false
+                                    errorMessage = error.localizedDescription
                                 }
                             }
                         }
@@ -3117,16 +2640,6 @@ struct TaskListRow: View {
                         .foregroundColor(ColorTokens.textMuted)
                     }
 
-                    // Quest badge
-                    if let questTitle = task.questTitle {
-                        Text(questTitle)
-                            .font(.satoshi(11, weight: .medium))
-                            .foregroundColor(taskColor)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(taskColor.opacity(0.15))
-                            .cornerRadius(4)
-                    }
                 }
             }
 

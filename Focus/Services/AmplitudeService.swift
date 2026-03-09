@@ -84,26 +84,16 @@ final class AmplitudeService {
 
     // MARK: - Task Events
 
-    func trackTaskCreated(hasQuest: Bool, priority: String?) {
-        var props: [String: Any] = ["has_quest": hasQuest]
+    func trackTaskCreated(priority: String?) {
+        var props: [String: Any] = [:]
         if let priority = priority {
             props["priority"] = priority
         }
-        track("Task Created", properties: props)
+        track("Task Created", properties: props.isEmpty ? nil : props)
     }
 
     func trackTaskCompleted(fromFocus: Bool = false) {
         track("Task Completed", properties: ["from_focus": fromFocus])
-    }
-
-    // MARK: - Quest Events
-
-    func trackQuestCreated(domain: String) {
-        track("Quest Created", properties: ["domain": domain])
-    }
-
-    func trackQuestCompleted(domain: String) {
-        track("Quest Completed", properties: ["domain": domain])
     }
 
     // MARK: - Routine/Ritual Events
@@ -124,20 +114,6 @@ final class AmplitudeService {
 
     func trackEveningReviewCompleted() {
         track("Evening Review Completed")
-    }
-
-    // MARK: - Social Events
-
-    func trackFriendRequestSent() {
-        track("Friend Request Sent")
-    }
-
-    func trackFriendRequestAccepted() {
-        track("Friend Request Accepted")
-    }
-
-    func trackCommunityPostCreated() {
-        track("Community Post Created")
     }
 
     // MARK: - Subscription Events

@@ -266,7 +266,6 @@ struct SubscriptionManagementView: View {
 
             VStack(spacing: SpacingTokens.sm) {
                 featureRow("Sessions FireMode", free: "3/jour", pro: "Illimite")
-                featureRow("Quests", free: "3 max", pro: "Illimite")
                 featureRow("Statistiques", free: "Basiques", pro: "Avancees")
                 featureRow("Crew", free: "1 groupe", pro: "Illimite")
                 featureRow("Themes", free: "Standard", pro: "Premium")

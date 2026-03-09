@@ -315,7 +315,6 @@ extension Notification.Name {
     static let sessionCompleted = Notification.Name("sessionCompleted")
     static let ritualCompleted = Notification.Name("ritualCompleted")
     static let levelUp = Notification.Name("levelUp")
-    static let streakIncreased = Notification.Name("streakIncreased")
 }
 
 // MARK: - Haptic Feedback Helper
