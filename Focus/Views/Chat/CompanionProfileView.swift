@@ -24,7 +24,6 @@ struct CompanionProfileView: View {
     }
 
     @State private var selectedRelation: String = "Ami"
-    @State private var selectedVoice: String = "Optimiste"
 
     @State private var showEditNameGender = false
     @State private var showVoiceSelection = false
@@ -35,23 +34,16 @@ struct CompanionProfileView: View {
     @State private var tempGender: String = ""
     @State private var isSaving = false
 
-    // Voice filter
-    @State private var voiceFilter: String = "Tout"
+    // Memories
+    @State private var memories: [BackboardMemory] = []
+    @State private var isLoadingMemories = true
+    @State private var showAddMemory = false
+
+    // Voice
+    @State private var selectedVoiceId: String = UserDefaults.standard.string(forKey: SettingsPrefsKeys.voltaVoiceId) ?? "b35yykvVppLXyw_l"
 
     // Animated gradient
     @State private var animateGradient = false
-
-    let voices: [(name: String, accent: String?, isPro: Bool)] = [
-        ("Attentionnée", nil, false),
-        ("Confiant", nil, false),
-        ("Calme", nil, false),
-        ("Optimiste", nil, false),
-        ("Dynamique et Confiante", "Accent nord-américain", true),
-        ("Vibrant et Profond", "Accent londonien", true),
-        ("Élégant et Serein", "Accent nord-américain", true),
-        ("Gracieuse et Stable", "Accent nord-américain", true),
-        ("Sophistiqué et Confiant", "Accent Britannique", true)
-    ]
 
     var body: some View {
         ZStack {
@@ -59,13 +51,7 @@ struct CompanionProfileView: View {
             animatedBackground
                 .ignoresSafeArea()
 
-            // Main content based on current view
-            if showVoiceSelection {
-                // Voice selection page
-                voiceSelectionPage
-                    .transition(.opacity)
-            } else {
-                // Profile page
+            // Profile page
                 VStack(spacing: 0) {
                     // Header with back button (changes when editing)
                     if showEditNameGender {
@@ -109,7 +95,6 @@ struct CompanionProfileView: View {
                         .padding(.horizontal, 20)
                     }
                 }
-            }
 
             // Paywall overlay
             if showPaywall {
@@ -131,98 +116,65 @@ struct CompanionProfileView: View {
             }
         }
         .navigationBarHidden(true)
-        .animation(.easeInOut(duration: 0.3), value: showVoiceSelection)
         .animation(.easeInOut(duration: 0.3), value: showEditNameGender)
         .animation(.easeInOut(duration: 0.3), value: showPaywall)
         .onAppear {
             withAnimation(.easeInOut(duration: 3).repeatForever(autoreverses: true)) {
                 animateGradient = true
             }
+            loadMemories()
+        }
+        .sheet(isPresented: $showVoiceSelection) {
+            VoltaVoicePickerView(
+                currentVoiceId: selectedVoiceId,
+                coachName: companionName,
+                onDismiss: { showVoiceSelection = false },
+                onSave: { voiceId in
+                    selectedVoiceId = voiceId
+                    UserDefaults.standard.set(voiceId, forKey: SettingsPrefsKeys.voltaVoiceId)
+                    showVoiceSelection = false
+                    Task {
+                        try? await userService.updateSettings(voiceId: voiceId)
+                    }
+                }
+            )
+        }
+        .sheet(isPresented: $showAddMemory) {
+            AddMemorySheet(
+                onSave: { content in
+                    showAddMemory = false
+                    Task {
+                        try? await BackboardService.shared.addMemory(content: content)
+                        loadMemories()
+                    }
+                },
+                onCancel: { showAddMemory = false }
+            )
+            .presentationDetents([.medium])
         }
     }
 
-    // MARK: - Voice Selection Page (inline, not modal)
+    // MARK: - Load Memories
 
-    private var voiceSelectionPage: some View {
-        VStack(spacing: 0) {
-            // Header
-            HStack {
-                Button(action: {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        showVoiceSelection = false
-                    }
-                }) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white)
-                        .frame(width: 38, height: 38)
-                        .background(
-                            Circle()
-                                .fill(Color.white.opacity(0.15))
-                        )
-                }
-
-                Spacer()
-
-                Text("Voix")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(.white)
-
-                Spacer()
-
-                Color.clear.frame(width: 38, height: 38)
+    private func loadMemories() {
+        Task {
+            isLoadingMemories = true
+            do {
+                memories = try await BackboardService.shared.listMemories()
+            } catch {
+                print("Failed to load memories: \(error)")
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
+            isLoadingMemories = false
+        }
+    }
 
-            // Filter chips
-            HStack(spacing: 10) {
-                VoiceFilterChip(title: "Tout", isSelected: voiceFilter == "Tout") {
-                    voiceFilter = "Tout"
-                }
-                VoiceFilterChip(title: "Féminin", isSelected: voiceFilter == "Féminin") {
-                    voiceFilter = "Féminin"
-                }
-                VoiceFilterChip(title: "Masculin", isSelected: voiceFilter == "Masculin") {
-                    voiceFilter = "Masculin"
-                }
-                Spacer()
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 20)
-
-            // Voice list
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 12) {
-                    // Section header
-                    HStack {
-                        Text("Féminin")
-                            .font(.system(size: 14))
-                            .foregroundColor(.white.opacity(0.6))
-                        Spacer()
-                    }
-                    .padding(.top, 16)
-
-                    ForEach(voices, id: \.name) { voice in
-                        VoiceRowView(
-                            name: voice.name,
-                            accent: voice.accent,
-                            isPro: voice.isPro,
-                            isSelected: selectedVoice == voice.name,
-                            onSelect: {
-                                if voice.isPro {
-                                    withAnimation(.easeInOut(duration: 0.3)) {
-                                        showPaywall = true
-                                    }
-                                } else {
-                                    selectedVoice = voice.name
-                                }
-                            }
-                        )
-                    }
-                }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 40)
+    private func deleteMemory(_ memory: BackboardMemory) {
+        Task {
+            do {
+                try await BackboardService.shared.deleteMemory(id: memory.id)
+                memories.removeAll { $0.id == memory.id }
+            } catch {
+                print("Failed to delete memory: \(error)")
             }
         }
     }
@@ -464,8 +416,8 @@ struct CompanionProfileView: View {
 
                 Spacer()
 
-                Button(action: {}) {
-                    Image(systemName: "chevron.right")
+                Button(action: { showAddMemory = true }) {
+                    Image(systemName: "plus")
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(.white.opacity(0.6))
                         .frame(width: 36, height: 36)
@@ -476,39 +428,84 @@ struct CompanionProfileView: View {
                 }
             }
 
-            // Empty state card
-            VStack(spacing: 12) {
-                Text("Rien ici pour l'instant")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.white)
+            if isLoadingMemories {
+                HStack {
+                    Spacer()
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    Spacer()
+                }
+                .padding(20)
+            } else if memories.isEmpty {
+                // Empty state card
+                VStack(spacing: 12) {
+                    Text("Rien ici pour l'instant")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
 
-                Text("Apprendre à se connaître est passionnant. \(companionName) se souviendra toujours de ce qui est important pour vous.")
-                    .font(.system(size: 14))
-                    .foregroundColor(.white.opacity(0.7))
-                    .multilineTextAlignment(.center)
+                    Text("Apprendre à se connaître est passionnant. \(companionName) se souviendra toujours de ce qui est important pour vous.")
+                        .font(.system(size: 14))
+                        .foregroundColor(.white.opacity(0.7))
+                        .multilineTextAlignment(.center)
 
-                Button(action: {}) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 14, weight: .semibold))
-                        Text("Ajouter")
-                            .font(.system(size: 14, weight: .semibold))
+                    Button(action: { showAddMemory = true }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 14, weight: .semibold))
+                            Text("Ajouter")
+                                .font(.system(size: 14, weight: .semibold))
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 10)
+                        .background(
+                            Capsule()
+                                .fill(Color.white.opacity(0.2))
+                        )
                     }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 10)
-                    .background(
-                        Capsule()
-                            .fill(Color.white.opacity(0.2))
-                    )
+                }
+                .padding(20)
+                .frame(maxWidth: .infinity)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color(red: 0.15, green: 0.25, blue: 0.45).opacity(0.6))
+                )
+            } else {
+                // Memories list
+                VStack(spacing: 8) {
+                    ForEach(memories) { memory in
+                        HStack(alignment: .top, spacing: 12) {
+                            Image(systemName: "brain.head.profile")
+                                .font(.system(size: 14))
+                                .foregroundColor(.white.opacity(0.5))
+                                .padding(.top, 2)
+
+                            Text(memory.content)
+                                .font(.system(size: 14))
+                                .foregroundColor(.white.opacity(0.9))
+                                .lineLimit(3)
+
+                            Spacer()
+
+                            Button(action: { deleteMemory(memory) }) {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(.white.opacity(0.4))
+                                    .frame(width: 28, height: 28)
+                                    .background(
+                                        Circle()
+                                            .fill(Color.white.opacity(0.1))
+                                    )
+                            }
+                        }
+                        .padding(12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.white.opacity(0.08))
+                        )
+                    }
                 }
             }
-            .padding(20)
-            .frame(maxWidth: .infinity)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color(red: 0.15, green: 0.25, blue: 0.45).opacity(0.6))
-            )
         }
     }
 
@@ -523,11 +520,7 @@ struct CompanionProfileView: View {
 
                 Spacer()
 
-                Button(action: {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        showVoiceSelection = true
-                    }
-                }) {
+                Button(action: { showVoiceSelection = true }) {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(.white.opacity(0.6))
@@ -540,27 +533,27 @@ struct CompanionProfileView: View {
             }
 
             // Current voice card
-            Button(action: {
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    showVoiceSelection = true
-                }
-            }) {
+            Button(action: { showVoiceSelection = true }) {
                 HStack(spacing: 12) {
                     ZStack {
                         Circle()
                             .fill(Color.white.opacity(0.1))
                             .frame(width: 44, height: 44)
 
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 14))
+                        Image(systemName: "waveform")
+                            .font(.system(size: 16))
                             .foregroundColor(.white)
                     }
 
-                    Text(selectedVoice)
+                    Text(VoltaVoicePickerView.voiceName(for: selectedVoiceId))
                         .font(.system(size: 16, weight: .medium))
                         .foregroundColor(.white)
 
                     Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13))
+                        .foregroundColor(.white.opacity(0.4))
                 }
                 .padding(12)
                 .background(
@@ -736,102 +729,62 @@ struct GenderChipBlur: View {
     }
 }
 
-// MARK: - Voice Filter Chip
+// MARK: - Add Memory Sheet
 
-struct VoiceFilterChip: View {
-    let title: String
-    let isSelected: Bool
-    let action: () -> Void
+struct AddMemorySheet: View {
+    var onSave: (String) -> Void
+    var onCancel: () -> Void
+
+    @State private var text = ""
+    @FocusState private var isFocused: Bool
 
     var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.white)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .background(
-                    Capsule()
-                        .fill(Color.white.opacity(isSelected ? 0.25 : 0.1))
-                        .overlay(
-                            Capsule()
-                                .strokeBorder(isSelected ? Color.white.opacity(0.4) : Color.clear, lineWidth: 1)
+        NavigationView {
+            VStack(spacing: 20) {
+                Text("Ajouter une mémoire")
+                    .font(.system(size: 20, weight: .bold))
+
+                Text("Dites quelque chose que votre coach devrait retenir à propos de vous.")
+                    .font(.system(size: 14))
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+
+                TextEditor(text: $text)
+                    .frame(minHeight: 100)
+                    .padding(12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color(.systemGray6))
+                    )
+                    .focused($isFocused)
+
+                Button(action: {
+                    guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+                    onSave(text.trimmingCharacters(in: .whitespacesAndNewlines))
+                }) {
+                    Text("Enregistrer")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.gray : Color.blue)
                         )
-                )
-        }
-    }
-}
-
-// MARK: - Voice Row View
-
-struct VoiceRowView: View {
-    let name: String
-    let accent: String?
-    let isPro: Bool
-    let isSelected: Bool
-    let onSelect: () -> Void
-
-    var body: some View {
-        Button(action: onSelect) {
-            HStack(spacing: 12) {
-                // Play button
-                ZStack {
-                    Circle()
-                        .fill(Color.white.opacity(0.1))
-                        .frame(width: 44, height: 44)
-
-                    Image(systemName: "play.fill")
-                        .font(.system(size: 14))
-                        .foregroundColor(.white)
                 }
-
-                // Voice info
-                VStack(alignment: .leading, spacing: 2) {
-                    if let accent = accent {
-                        Text(accent)
-                            .font(.system(size: 12))
-                            .foregroundColor(.white.opacity(0.5))
-                    }
-                    Text(name)
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.white)
-                }
+                .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
                 Spacer()
-
-                // Action button
-                if isPro {
-                    HStack(spacing: 4) {
-                        Image(systemName: "lock.fill")
-                            .font(.system(size: 11))
-                        Text("Pro")
-                            .font(.system(size: 13, weight: .medium))
-                    }
-                    .foregroundColor(.white.opacity(0.6))
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(
-                        Capsule()
-                            .fill(Color.white.opacity(0.1))
-                    )
-                } else {
-                    Text("Sélectionner")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(
-                            Capsule()
-                                .fill(Color.white.opacity(0.15))
-                        )
+            }
+            .padding(20)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Annuler") { onCancel() }
                 }
             }
-            .padding(12)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.white.opacity(0.08))
-            )
         }
+        .onAppear { isFocused = true }
     }
 }
 
