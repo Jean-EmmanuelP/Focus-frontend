@@ -194,7 +194,7 @@ async def send_transcript_to_backboard(
         # Format transcript as a summary message
         lines = []
         for msg in transcript:
-            role = "Utilisateur" if msg["role"] == "user" else "Volta"
+            role = "Utilisateur" if msg["role"] == "user" else "Coach"
             lines.append(f"{role}: {msg['text']}")
 
         summary = (
@@ -284,12 +284,14 @@ def build_system_prompt(
     lang: str,
     user_context: dict | None = None,
     memories: list[str] | None = None,
+    companion_name: str = "",
 ) -> str:
     hour = datetime.now().hour
     time_of_day = "matin" if hour < 12 else "après-midi" if hour < 18 else "soirée"
 
+    coach_name = companion_name or "Volta"
     base = (
-        "Tu es Volta, un coach de productivité bienveillant et motivant. "
+        f"Tu es {coach_name}, un coach de productivité bienveillant et motivant. "
         "Tu parles en français de manière naturelle et chaleureuse. "
         "Tu aides les utilisateurs à planifier leur journée, rester concentrés et atteindre leurs objectifs.\n\n"
         "RÈGLES IMPORTANTES:\n"
@@ -365,6 +367,7 @@ async def fetch_all_context_parallel(auth_token: str | None) -> tuple[dict | Non
                 ctx["name"] = data.get("first_name") or data.get("name", "")
                 ctx["streak"] = data.get("streak", 0)
                 ctx["backboard_assistant_id"] = data.get("backboard_assistant_id", "")
+                ctx["companion_name"] = data.get("companion_name", "")
                 logger.info("User: %s, streak=%s, bb_id=%s", ctx["name"], ctx["streak"], ctx.get("backboard_assistant_id", "none"))
             else:
                 logger.warning("/me error: %s", resp.text[:200])
@@ -423,22 +426,24 @@ async def fetch_all_context_parallel(auth_token: str | None) -> tuple[dict | Non
     return (ctx if ctx else None), memories
 
 
-def build_greeting(lang: str, name: str = "") -> str:
+def build_greeting(lang: str, name: str = "", coach_name: str = "") -> str:
     hour = datetime.now().hour
+    intro = f"Salut, c'est {coach_name}" if coach_name else "Salut"
+    intro_en = f"Hey, it's {coach_name}" if coach_name else "Hey"
     if lang.startswith("fr"):
         if hour < 12:
-            return f"Salut {name} ! Comment tu vas ce matin ?" if name else "Salut ! Comment tu vas ce matin ?"
+            return f"{intro} ! Comment tu vas ce matin {name} ?" if name else f"{intro} ! Comment tu vas ce matin ?"
         elif hour < 18:
-            return f"Salut {name} ! Comment se passe ta journée ?" if name else "Salut ! Comment se passe ta journée ?"
+            return f"{intro} ! Comment se passe ta journée {name} ?" if name else f"{intro} ! Comment se passe ta journée ?"
         else:
-            return f"Salut {name} ! Comment s'est passée ta journée ?" if name else "Salut ! Comment s'est passée ta journée ?"
+            return f"{intro} ! Comment s'est passée ta journée {name} ?" if name else f"{intro} ! Comment s'est passée ta journée ?"
     else:
         if hour < 12:
-            return f"Hey {name}! How are you doing this morning?" if name else "Hey! How are you doing this morning?"
+            return f"{intro_en}! How are you doing this morning {name}?" if name else f"{intro_en}! How are you doing this morning?"
         elif hour < 18:
-            return f"Hey {name}! How's your day going?" if name else "Hey! How's your day going?"
+            return f"{intro_en}! How's your day going {name}?" if name else f"{intro_en}! How's your day going?"
         else:
-            return f"Hey {name}! How was your day?" if name else "Hey! How was your day?"
+            return f"{intro_en}! How was your day {name}?" if name else f"{intro_en}! How was your day?"
 
 
 # =============================================================================
@@ -504,7 +509,10 @@ async def entrypoint(ctx: agents.JobContext):
 
     backboard_assistant_id = (user_context or {}).get("backboard_assistant_id", "")
 
-    system_prompt = build_system_prompt(lang, user_context, memories)
+    # Companion name: prefer metadata (instant), fallback to /me response
+    companion_name = meta.get("companion_name") or (user_context or {}).get("companion_name", "")
+
+    system_prompt = build_system_prompt(lang, user_context, memories, companion_name=companion_name)
     logger.info("System prompt length: %d chars", len(system_prompt))
 
     # Choose voice: prefer metadata override, fallback to lang-based default
@@ -546,9 +554,9 @@ async def entrypoint(ctx: agents.JobContext):
     )
     logger.info("Session started in %s", _elapsed(t0))
 
-    # Send greeting with user's first name
+    # Send greeting with user's first name and coach name
     user_name = (user_context or {}).get("name", "")
-    greeting = build_greeting(lang, user_name)
+    greeting = build_greeting(lang, user_name, coach_name=companion_name)
     logger.info("Greeting: %s", greeting)
     session.say(greeting, add_to_chat_ctx=True)
     logger.info("Greeting queued (direct TTS, no LLM)")
