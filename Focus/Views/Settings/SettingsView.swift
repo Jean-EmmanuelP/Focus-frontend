@@ -275,6 +275,7 @@ struct SettingsView: View {
         } else if showVoicePicker {
             VoltaVoicePickerView(
                 currentVoiceId: selectedVoiceId,
+                coachName: companionName,
                 onDismiss: { withAnimation(.easeInOut(duration: 0.3)) { showVoicePicker = false } },
                 onSave: { voiceId in
                     selectedVoiceId = voiceId
@@ -404,7 +405,7 @@ struct SettingsView: View {
             replicaDivider
             Button(action: { withAnimation(.easeInOut(duration: 0.3)) { showVoicePicker = true } }) {
                 HStack {
-                    Text("Voix de Volta")
+                    Text("Voix de \(companionName)")
                         .font(.system(size: 16))
                         .foregroundColor(.white)
                     Spacer()
@@ -1398,6 +1399,7 @@ struct GradiumVoice: Identifiable {
 
 struct VoltaVoicePickerView: View {
     let currentVoiceId: String
+    let coachName: String
     var onDismiss: () -> Void
     var onSave: (String) -> Void
 
@@ -1429,11 +1431,11 @@ struct VoltaVoicePickerView: View {
     /// Sample phrase per language for voice preview
     private var sampleText: String {
         switch String(userLang.prefix(2)) {
-        case "fr": return "Salut ! Je suis Volta, ton coach de productivité."
-        case "es": return "Hola, soy Volta, tu coach de productividad."
-        case "de": return "Hallo! Ich bin Volta, dein Produktivitätscoach."
-        case "pt": return "Olá! Eu sou o Volta, seu coach de produtividade."
-        default: return "Hey! I'm Volta, your productivity coach."
+        case "fr": return "Salut ! Je suis \(coachName), ton coach de productivité."
+        case "es": return "Hola, soy \(coachName), tu coach de productividad."
+        case "de": return "Hallo! Ich bin \(coachName), dein Produktivitätscoach."
+        case "pt": return "Olá! Eu sou o \(coachName), seu coach de produtividade."
+        default: return "Hey! I'm \(coachName), your productivity coach."
         }
     }
 
@@ -1443,12 +1445,12 @@ struct VoltaVoicePickerView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                replicaHeader(title: "Voix de Volta", showBack: true, onClose: {
+                replicaHeader(title: "Voix de \(coachName)", showBack: true, onClose: {
                     previewPlayer.stop()
                     onDismiss()
                 })
 
-                Text("Choisissez la voix de Volta pour les appels vocaux.")
+                Text("Choisissez la voix de \(coachName) pour les appels vocaux.")
                     .font(.system(size: 14))
                     .foregroundColor(.white.opacity(0.7))
                     .multilineTextAlignment(.center)
