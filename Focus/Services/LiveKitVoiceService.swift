@@ -78,12 +78,13 @@ class LiveKitVoiceService: ObservableObject {
 
         let lang = Locale.current.language.languageCode?.identifier ?? "fr"
         let voiceId = UserDefaults.standard.string(forKey: SettingsPrefsKeys.voltaVoiceId)
+        let companionName = FocusAppStore.shared.user?.companionName
 
         // Get token from backend
         let response: LiveKitTokenResponse = try await apiClient.request(
             endpoint: .livekitToken,
             method: .post,
-            body: LiveKitTokenRequest(mode: mode, lang: lang, voiceId: voiceId)
+            body: LiveKitTokenRequest(mode: mode, lang: lang, voiceId: voiceId, companionName: companionName)
         )
 
         let url = response.url ?? Self.livekitURL
@@ -199,11 +200,7 @@ struct LiveKitTokenRequest: Encodable {
     let mode: String
     let lang: String
     let voiceId: String?
-
-    enum CodingKeys: String, CodingKey {
-        case mode, lang
-        case voiceId = "voice_id"
-    }
+    let companionName: String?
 }
 
 struct LiveKitTokenResponse: Decodable {

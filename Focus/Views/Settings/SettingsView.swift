@@ -1591,19 +1591,10 @@ class VoicePreviewPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate {
     struct TTSRequest: Encodable {
         let text: String
         let voiceId: String
-
-        enum CodingKeys: String, CodingKey {
-            case text
-            case voiceId = "voice_id"
-        }
     }
 
     struct TTSResponse: Decodable {
         let audioBase64: String
-
-        enum CodingKeys: String, CodingKey {
-            case audioBase64 = "audio_base64"
-        }
     }
 
     func play(voiceId: String, text: String) {
