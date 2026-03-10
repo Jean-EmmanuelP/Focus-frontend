@@ -7,6 +7,7 @@ struct AppBlockerSettingsView: View {
     var onDismiss: (() -> Void)? = nil
     @StateObject private var viewModel = AppBlockerViewModel()
     @ObservedObject private var distractionService = DistractionMonitorService.shared
+    @ObservedObject private var morningBlock = MorningBlockService.shared
     @Environment(\.dismiss) private var dismiss
     @State private var showClearConfirmation = false
     @State private var showUnblockConfirmation = false
@@ -211,6 +212,56 @@ struct AppBlockerSettingsView: View {
                             }
                             #endif
 
+                            // MARK: - Morning Auto-Block
+                            sectionLabel("Blocage matinal automatique")
+                                .padding(.top, 24)
+
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Blocage automatique")
+                                        .font(.system(size: 16))
+                                        .foregroundColor(.white)
+                                    Text("Bloque tes apps chaque matin, meme sans ouvrir Focus")
+                                        .font(.system(size: 13))
+                                        .foregroundColor(.white.opacity(0.35))
+                                }
+                                Spacer()
+                                Toggle("", isOn: $morningBlock.isEnabled)
+                                    .labelsHidden()
+                                    .tint(toggleBlue)
+                            }
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 16)
+                            .opacity(viewModel.hasSelectedApps ? 1.0 : 0.4)
+                            .disabled(!viewModel.hasSelectedApps)
+
+                            if morningBlock.isEnabled && viewModel.hasSelectedApps {
+                                VStack(spacing: 12) {
+                                    HStack {
+                                        Text("Debut")
+                                            .font(.system(size: 15))
+                                            .foregroundColor(.white.opacity(0.7))
+                                        Spacer()
+                                        DatePicker("", selection: morningStartBinding, displayedComponents: .hourAndMinute)
+                                            .labelsHidden()
+                                            .colorScheme(.dark)
+                                    }
+                                    .padding(.horizontal, 16)
+
+                                    HStack {
+                                        Text("Fin")
+                                            .font(.system(size: 15))
+                                            .foregroundColor(.white.opacity(0.7))
+                                        Spacer()
+                                        DatePicker("", selection: morningEndBinding, displayedComponents: .hourAndMinute)
+                                            .labelsHidden()
+                                            .colorScheme(.dark)
+                                    }
+                                    .padding(.horizontal, 16)
+                                }
+                                .padding(.vertical, 8)
+                            }
+
                             // MARK: - Unblock Button (visible when blocking)
                             if viewModel.isBlocking {
                                 VStack(spacing: 12) {
@@ -301,6 +352,34 @@ struct AppBlockerSettingsView: View {
     }
 
     // MARK: - Components
+
+    // MARK: - Morning Block Time Bindings
+
+    private var morningStartBinding: Binding<Date> {
+        Binding(
+            get: {
+                Calendar.current.date(from: DateComponents(hour: morningBlock.startHour, minute: morningBlock.startMinute)) ?? Date()
+            },
+            set: { newDate in
+                let comps = Calendar.current.dateComponents([.hour, .minute], from: newDate)
+                morningBlock.startHour = comps.hour ?? 6
+                morningBlock.startMinute = comps.minute ?? 0
+            }
+        )
+    }
+
+    private var morningEndBinding: Binding<Date> {
+        Binding(
+            get: {
+                Calendar.current.date(from: DateComponents(hour: morningBlock.endHour, minute: morningBlock.endMinute)) ?? Date()
+            },
+            set: { newDate in
+                let comps = Calendar.current.dateComponents([.hour, .minute], from: newDate)
+                morningBlock.endHour = comps.hour ?? 9
+                morningBlock.endMinute = comps.minute ?? 0
+            }
+        )
+    }
 
     private func sectionLabel(_ title: String) -> some View {
         HStack {

@@ -347,6 +347,12 @@ enum APIConfiguration {
         case googleCalendarSync
         case googleCalendarCheckWeekly
 
+        // Calendar Events (cached external events)
+        case calendarEvents(date: String?)
+        case calendarProviders
+        case calendarBlockingSchedule(date: String?)
+        case calendarEventBlocking(id: String)
+
         // Push Notifications (FCM)
         case registerFCMToken
         case unregisterFCMToken
@@ -631,6 +637,22 @@ enum APIConfiguration {
                 return "/google-calendar/sync"
             case .googleCalendarCheckWeekly:
                 return "/google-calendar/check-weekly"
+
+            // Calendar Events (cached external events)
+            case .calendarEvents(let date):
+                if let date = date {
+                    return "/calendar/events?date=\(date)"
+                }
+                return "/calendar/events"
+            case .calendarProviders:
+                return "/calendar/providers"
+            case .calendarBlockingSchedule(let date):
+                if let date = date {
+                    return "/calendar/blocking-schedule?date=\(date)"
+                }
+                return "/calendar/blocking-schedule"
+            case .calendarEventBlocking(let id):
+                return "/calendar/events/\(id)/blocking"
 
             // Push Notifications
             case .registerFCMToken:

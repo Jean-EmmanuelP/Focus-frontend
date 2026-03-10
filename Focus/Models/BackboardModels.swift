@@ -98,6 +98,8 @@ enum BackboardSideEffect {
     case blockApps(Int?) // duration in minutes
     case unblockApps
     case startFocusSession(duration: Int?, taskId: String?, taskTitle: String?)
+    case refreshSettings
+    case refreshCalendarEvents
 }
 
 // MARK: - AnyCodableValue (for memory metadata)

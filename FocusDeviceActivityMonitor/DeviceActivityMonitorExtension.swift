@@ -6,6 +6,8 @@
 //
 
 import DeviceActivity
+import ManagedSettings
+import FamilyControls
 import UserNotifications
 import Foundation
 import os.log
@@ -26,12 +28,20 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
         super.intervalDidStart(for: activity)
         logger.log("🟢 intervalDidStart: \(activity.rawValue)")
         sharedDefaults?.set("intervalDidStart: \(activity.rawValue) at \(Date())", forKey: debugKey)
+
+        if activity.rawValue == "morning.autoblock" {
+            applyMorningShields()
+        }
     }
 
     override func intervalDidEnd(for activity: DeviceActivityName) {
         super.intervalDidEnd(for: activity)
         logger.log("🔴 intervalDidEnd: \(activity.rawValue)")
         sharedDefaults?.set("intervalDidEnd: \(activity.rawValue) at \(Date())", forKey: debugKey)
+
+        if activity.rawValue == "morning.autoblock" {
+            removeMorningShields()
+        }
     }
 
     override func eventDidReachThreshold(_ event: DeviceActivityEvent.Name, activity: DeviceActivityName) {
@@ -96,6 +106,36 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
                 self.sharedDefaults?.set("notif SENT level=\(level) at \(Date())", forKey: self.debugKey)
             }
         }
+    }
+
+    // MARK: - Morning Auto-Block Shields
+
+    /// Apply shields via a named store so it doesn't conflict with the default store
+    /// used by ScreenTimeAppBlockerService for manual/focus blocking.
+    private func applyMorningShields() {
+        let store = ManagedSettingsStore(named: .init("morningAutoBlock"))
+
+        guard let data = sharedDefaults?.data(forKey: "appBlocker.selectedApps"),
+              let selection = try? PropertyListDecoder().decode(FamilyActivitySelection.self, from: data) else {
+            logger.warning("⚠️ Morning shields: no saved app selection found")
+            return
+        }
+
+        store.shield.applications = selection.applicationTokens
+        store.shield.applicationCategories = .specific(selection.categoryTokens)
+        store.shield.webDomains = selection.webDomainTokens
+        logger.log("🔒 Morning auto-block shields applied")
+        sharedDefaults?.set("morningShields APPLIED at \(Date())", forKey: debugKey)
+    }
+
+    /// Remove morning shields by clearing the named store.
+    private func removeMorningShields() {
+        let store = ManagedSettingsStore(named: .init("morningAutoBlock"))
+        store.shield.applications = nil
+        store.shield.applicationCategories = nil
+        store.shield.webDomains = nil
+        logger.log("🔓 Morning auto-block shields removed")
+        sharedDefaults?.set("morningShields REMOVED at \(Date())", forKey: debugKey)
     }
 
     private func messageForLevel(_ level: String) -> (title: String, body: String) {

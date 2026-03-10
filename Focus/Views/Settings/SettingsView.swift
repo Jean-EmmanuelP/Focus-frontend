@@ -73,6 +73,7 @@ struct SettingsView: View {
     @State private var showOnboarding = false
     @State private var showAvatarTest = false
     @State private var showAppBlocker = false
+    @State private var showCalendarProviders = false
     @State private var showEditCoachName = false
 
     private let userService = UserService()
@@ -106,6 +107,7 @@ struct SettingsView: View {
             }
             .animation(.easeInOut(duration: 0.3), value: showEditCoachName)
             .animation(.easeInOut(duration: 0.3), value: showVoicePicker)
+            .animation(.easeInOut(duration: 0.3), value: showCalendarProviders)
             .animation(.easeInOut(duration: 0.3), value: showAppBlocker)
             .animation(.easeInOut(duration: 0.3), value: showAvatarTest)
             .animation(.easeInOut(duration: 0.3), value: showSubscription)
@@ -262,7 +264,13 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var miscOverlays: some View {
-        if showAvatarTest {
+        if showCalendarProviders {
+            CalendarProvidersSettingsView(onDismiss: {
+                withAnimation(.easeInOut(duration: 0.3)) { showCalendarProviders = false }
+            })
+            .environmentObject(store)
+            .transition(.opacity)
+        } else if showAvatarTest {
             AvatarTestView(onDismiss: {
                 withAnimation(.easeInOut(duration: 0.3)) { showAvatarTest = false }
             })
@@ -443,6 +451,24 @@ struct SettingsView: View {
             replicaDivider
             Button(action: { withAnimation(.easeInOut(duration: 0.3)) { showAppBlocker = true } }) {
                 settingsRow(title: "Bloquer les apps", showChevron: true)
+            }
+            replicaDivider
+            Button(action: { withAnimation(.easeInOut(duration: 0.3)) { showCalendarProviders = true } }) {
+                HStack {
+                    Text("Calendriers connectés")
+                        .font(.system(size: 16))
+                        .foregroundColor(.white)
+                    Spacer()
+                    if CalendarProviderManager.shared.hasCalendarConnected {
+                        Text("Connecté")
+                            .font(.system(size: 14))
+                            .foregroundColor(.green.opacity(0.7))
+                    }
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(ReplicaColors.chevron)
+                }
+                .padding(.vertical, 14)
             }
         }
     }
@@ -719,6 +745,8 @@ struct SettingsView: View {
                 await MainActor.run {
                     store.user = User(from: updated)
                 }
+                // Recreate assistant so the harsh mode prompt takes effect
+                await BackboardService.shared.recreateAssistant()
             } catch {
                 print("Failed to save coach harsh mode: \(error)")
             }

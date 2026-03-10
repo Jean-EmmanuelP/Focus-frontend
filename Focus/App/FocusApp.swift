@@ -154,6 +154,21 @@ struct FocusApp: App {
                         DistractionMonitorService.shared.startMonitoring()
                     }
 
+                    // Refresh morning auto-block schedule if enabled
+                    if MorningBlockService.shared.isEnabled {
+                        MorningBlockService.shared.updateSchedule()
+                    }
+
+                    // Refresh calendar events and schedule blocking
+                    Task {
+                        let calManager = CalendarProviderManager.shared
+                        await calManager.refreshIfNeeded()
+                        if calManager.hasCalendarConnected {
+                            let blockingEvents = calManager.todayEvents.filter { $0.blockApps }
+                            await CalendarEventBlockingService.shared.scheduleBlockingForEvents(blockingEvents)
+                        }
+                    }
+
                     // Refresh notifications when app becomes active
                     Task {
                         await NotificationService.shared.scheduleMorningNotification()

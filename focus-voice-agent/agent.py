@@ -302,8 +302,13 @@ def build_system_prompt(
         "- Pose une question de suivi pour garder la conversation\n\n"
         "ACTIONS POSSIBLES:\n"
         "Quand l'utilisateur te demande d'effectuer une action, confirme naturellement que c'est fait. "
-        "Par exemple: créer une tâche, compléter un rituel, bloquer les apps, créer un objectif, etc. "
-        "Dis simplement que c'est noté ou fait. Les actions seront exécutées automatiquement après l'appel.\n"
+        "Par exemple: créer une tâche, compléter un rituel, créer un objectif, etc. "
+        "Ces actions seront exécutées automatiquement après l'appel.\n\n"
+        "ACTIONS EN TEMPS RÉEL (via tes outils):\n"
+        "- block_apps(duration_minutes): Bloque les apps de distraction immédiatement. "
+        "Utilise cet outil quand l'utilisateur dit 'bloque mes apps', 'je veux me concentrer', 'focus', etc.\n"
+        "- unblock_apps(): Débloque les apps immédiatement. "
+        "Utilise cet outil quand l'utilisateur dit 'débloque mes apps', 'c'est bon j'ai fini', etc.\n"
     )
 
     ctx = f"\nCONTEXTE ACTUEL:\n- Moment: {time_of_day}\n- Langue: {lang}\n"
@@ -532,6 +537,31 @@ async def entrypoint(ctx: agents.JobContext):
         tts=gradium.TTS(voice_id=voice_id),
         vad=silero.VAD.load(),
     )
+
+    # ---- Real-time tools (called by LLM, send data messages to iOS) ----
+
+    @session.tool("block_apps")
+    async def tool_block_apps(duration_minutes: int = 30) -> str:
+        """Bloque les apps de distraction de l'utilisateur pendant la duree indiquee (en minutes)."""
+        payload = json.dumps({
+            "type": "coach_action",
+            "action": "block_apps",
+            "duration_minutes": duration_minutes,
+        }).encode()
+        await ctx.room.local_participant.publish_data(payload, reliable=True)
+        logger.info("📱 Sent block_apps data message (duration=%d)", duration_minutes)
+        return f"Apps bloquees pour {duration_minutes} minutes."
+
+    @session.tool("unblock_apps")
+    async def tool_unblock_apps() -> str:
+        """Debloque les apps de distraction de l'utilisateur immediatement."""
+        payload = json.dumps({
+            "type": "coach_action",
+            "action": "unblock_apps",
+        }).encode()
+        await ctx.room.local_participant.publish_data(payload, reliable=True)
+        logger.info("📱 Sent unblock_apps data message")
+        return "Apps debloquees."
 
     # Track conversation for post-call Backboard sync
     transcript: list[dict] = []

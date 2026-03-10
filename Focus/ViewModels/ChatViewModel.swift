@@ -420,8 +420,12 @@ class ChatViewModel: ObservableObject {
     private func requestDailyGreeting() async {
         isLoading = true
 
+        let hour = Calendar.current.component(.hour, from: Date())
+        let isMorning = (5..<12).contains(hour)
+        let greetingMessage = isMorning ? "[MORNING_FLOW]" : "Salut, nouvelle journée"
+
         do {
-            let (reply, sideEffects) = try await BackboardService.shared.sendMessage("Salut, nouvelle journée")
+            let (reply, sideEffects) = try await BackboardService.shared.sendMessage(greetingMessage)
             await applySideEffects(sideEffects)
 
             var aiMessage = SimpleChatMessage(content: reply, isFromUser: false)
@@ -824,6 +828,15 @@ class ChatViewModel: ObservableObject {
 
             case .startFocusSession:
                 break // Handled inline via planning card focus state
+
+            case .refreshSettings:
+                break // Settings UI observes MorningBlockService.shared directly
+
+            case .refreshCalendarEvents:
+                let manager = CalendarProviderManager.shared
+                await manager.fetchEvents()
+                let blockingEvents = manager.todayEvents.filter { $0.blockApps }
+                await CalendarEventBlockingService.shared.scheduleBlockingForEvents(blockingEvents)
             }
         }
     }

@@ -50,7 +50,8 @@ class BackboardService {
     func ensureAssistant() async throws {
         guard assistantId.isEmpty else { return }
 
-        let assistantConfig = Self.assistantTemplate
+        let harshMode = FocusAppStore.shared.user?.coachHarshMode ?? false
+        let assistantConfig = Self.assistantTemplate(coachHarshMode: harshMode)
         let url = URL(string: "\(baseURL)/assistants")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -322,6 +323,32 @@ class BackboardService {
                 let category = args["category"] as? String ?? "meditation"
                 return suggestRitualVideos(category: category)
 
+            case "set_morning_block":
+                let enabled = args["enabled"] as? Bool ?? true
+                let startHour = args["start_hour"] as? Int ?? 6
+                let startMinute = args["start_minute"] as? Int ?? 0
+                let endHour = args["end_hour"] as? Int ?? 9
+                let endMinute = args["end_minute"] as? Int ?? 0
+                return (configureMorningBlock(enabled: enabled, startHour: startHour, startMinute: startMinute, endHour: endHour, endMinute: endMinute), [.refreshSettings])
+
+            case "get_morning_block_status":
+                return (getMorningBlockStatus(), [])
+
+            case "start_morning_flow":
+                let result = try await getMorningFlowContext()
+                return (result, [.refreshTasks, .refreshRituals])
+
+            case "get_calendar_events":
+                let date = args["date"] as? String
+                let result = try await getCalendarEvents(date: date)
+                return (result, [.refreshCalendarEvents])
+
+            case "schedule_calendar_blocking":
+                let eventIds = args["event_ids"] as? [String] ?? []
+                let enabled = args["enabled"] as? Bool ?? true
+                let result = try await scheduleCalendarBlocking(eventIds: eventIds, enabled: enabled)
+                return (result, [.refreshCalendarEvents])
+
             default:
                 print("⚠️ Unknown tool: \(name)")
                 return (toJSON(["error": "Unknown tool: \(name)"] as [String: Any]), [])
@@ -412,7 +439,10 @@ class BackboardService {
             "account_age_days": accountAgeDays,
             "all_tasks_completed": allTasksCompleted,
             "all_rituals_completed": allRitualsCompleted,
-            "user_language": userLanguage
+            "user_language": userLanguage,
+            "morning_block_enabled": MorningBlockService.shared.isEnabled,
+            "morning_block_start": "\(MorningBlockService.shared.startHour):\(String(format: "%02d", MorningBlockService.shared.startMinute))",
+            "morning_block_end": "\(MorningBlockService.shared.endHour):\(String(format: "%02d", MorningBlockService.shared.endMinute))"
         ]
         if !weeklyGoalsList.isEmpty {
             context["weekly_goals"] = weeklyGoalsList
@@ -631,6 +661,192 @@ class BackboardService {
         return toJSON(["created": true, "count": goals.count] as [String: Any])
     }
 
+    // MARK: - Morning Block
+
+    private func configureMorningBlock(enabled: Bool, startHour: Int, startMinute: Int, endHour: Int, endMinute: Int) -> String {
+        MorningBlockService.shared.configure(
+            enabled: enabled,
+            startHour: startHour,
+            startMinute: startMinute,
+            endHour: endHour,
+            endMinute: endMinute
+        )
+        return toJSON([
+            "configured": true,
+            "enabled": enabled,
+            "start": "\(startHour):\(String(format: "%02d", startMinute))",
+            "end": "\(endHour):\(String(format: "%02d", endMinute))"
+        ] as [String: Any])
+    }
+
+    private func getMorningBlockStatus() -> String {
+        let service = MorningBlockService.shared
+        return toJSON([
+            "enabled": service.isEnabled,
+            "start_hour": service.startHour,
+            "start_minute": service.startMinute,
+            "end_hour": service.endHour,
+            "end_minute": service.endMinute
+        ] as [String: Any])
+    }
+
+    // MARK: - Calendar Events Tools
+
+    private func getCalendarEvents(date: String?) async throws -> String {
+        let dateStr = date ?? todayString()
+        let response: CalendarEventsResponse = try await APIClient.shared.request(
+            endpoint: .calendarEvents(date: dateStr),
+            method: .get
+        )
+
+        let events = response.events.map { event in
+            [
+                "id": event.id,
+                "title": event.title,
+                "start_time": event.startAt,
+                "end_time": event.endAt,
+                "source": event.providerType,
+                "is_blocking_enabled": event.blockApps,
+                "is_all_day": event.isAllDay,
+                "event_type": event.eventType
+            ] as [String: Any]
+        }
+
+        return toJSON(["events": events, "count": response.count] as [String: Any])
+    }
+
+    private func scheduleCalendarBlocking(eventIds: [String], enabled: Bool) async throws -> String {
+        let manager = CalendarProviderManager.shared
+        var scheduledCount = 0
+
+        for eventId in eventIds {
+            let success = await manager.toggleBlocking(eventId: eventId, enabled: enabled, source: "ai")
+            if success { scheduledCount += 1 }
+        }
+
+        // Re-schedule blocking notifications
+        let blockingEvents = manager.todayEvents.filter { $0.blockApps }
+        await CalendarEventBlockingService.shared.scheduleBlockingForEvents(blockingEvents)
+
+        return toJSON([
+            "scheduled": true,
+            "event_count": scheduledCount,
+            "blocking_enabled": enabled
+        ] as [String: Any])
+    }
+
+    // MARK: - Morning Flow Context
+
+    private func getMorningFlowContext() async throws -> String {
+        let store = FocusAppStore.shared
+
+        // Refresh data
+        await store.refreshTodaysTasks()
+        await store.loadRituals()
+
+        let userName = store.user?.pseudo ?? store.user?.firstName ?? ""
+        let companionName = store.user?.companionName ?? "Kai"
+        let userLanguage = store.user?.language ?? "fr"
+        let morningCheckinDone = store.hasDoneMorningCheckIn
+        let satisfactionScore = UserDefaults.standard.object(forKey: "satisfaction_score") as? Int ?? 50
+        let currentStreak = store.currentStreak
+        let focusMinutes = store.todaysSessions.reduce(0) { $0 + $1.durationMinutes }
+        let isBlocking = ScreenTimeAppBlockerService.shared.isBlocking
+        let appBlockingAvailable = ScreenTimeAppBlockerService.shared.isBlockingEnabled
+
+        // Days since last chat message
+        let lastMessages = SimpleChatPersistence.loadMessages()
+        let daysSinceLastMessage: Int
+        if let lastMsg = lastMessages.last {
+            daysSinceLastMessage = Calendar.current.dateComponents([.day], from: lastMsg.timestamp, to: Date()).day ?? 0
+        } else {
+            daysSinceLastMessage = -1
+        }
+
+        // Morning block status
+        let morningBlockService = MorningBlockService.shared
+        let morningBlock: [String: Any] = [
+            "enabled": morningBlockService.isEnabled,
+            "start_hour": morningBlockService.startHour,
+            "start_minute": morningBlockService.startMinute,
+            "end_hour": morningBlockService.endHour,
+            "end_minute": morningBlockService.endMinute
+        ]
+
+        // Tasks
+        let tasks = store.todaysTasks.map { task in
+            [
+                "id": task.id,
+                "title": task.title,
+                "status": task.status ?? "pending",
+                "time_block": task.timeBlock ?? "",
+                "priority": task.priority ?? ""
+            ] as [String: Any]
+        }
+        let pendingTaskCount = store.todaysTasks.filter { $0.status != "completed" }.count
+
+        // Rituals
+        let rituals = store.rituals.map { ritual in
+            [
+                "id": ritual.id,
+                "title": ritual.title,
+                "icon": ritual.icon,
+                "is_completed": ritual.isCompleted
+            ] as [String: Any]
+        }
+        let pendingRitualCount = store.rituals.filter { !$0.isCompleted }.count
+
+        // Weekly goals
+        var weeklyGoals: [[String: Any]] = []
+        if let goals = store.currentWeekGoals {
+            weeklyGoals = goals.items.map { item in
+                ["title": item.content, "completed": item.isCompleted] as [String: Any]
+            }
+        }
+
+        // Calendar events (external: Google Calendar, etc.)
+        let calendarManager = CalendarProviderManager.shared
+        await calendarManager.refreshIfNeeded()
+        let hasCalendarConnected = calendarManager.hasCalendarConnected
+        let calendarEvents = calendarManager.todayEvents.map { event in
+            [
+                "id": event.id,
+                "title": event.title,
+                "start_time": event.startAt,
+                "end_time": event.endAt,
+                "is_all_day": event.isAllDay,
+                "event_type": event.eventType,
+                "is_blocking_enabled": event.blockApps,
+                "source": event.providerType
+            ] as [String: Any]
+        }
+
+        var context: [String: Any] = [
+            "user_name": userName,
+            "companion_name": companionName,
+            "user_language": userLanguage,
+            "morning_checkin_done": morningCheckinDone,
+            "satisfaction_score": satisfactionScore,
+            "current_streak": currentStreak,
+            "focus_minutes_today": focusMinutes,
+            "days_since_last_message": daysSinceLastMessage,
+            "apps_blocked": isBlocking,
+            "app_blocking_available": appBlockingAvailable,
+            "morning_block": morningBlock,
+            "tasks": tasks,
+            "pending_task_count": pendingTaskCount,
+            "rituals": rituals,
+            "pending_ritual_count": pendingRitualCount,
+            "has_calendar_connected": hasCalendarConnected,
+            "calendar_events": calendarEvents,
+            "calendar_events_count": calendarEvents.count
+        ]
+        if !weeklyGoals.isEmpty {
+            context["weekly_goals"] = weeklyGoals
+        }
+        return toJSON(context)
+    }
+
     // MARK: - Curated Video Catalogue
 
     struct CuratedVideo {
@@ -834,8 +1050,8 @@ class BackboardService {
     // MARK: - Assistant Template
 
     /// Template config for creating per-user assistants (system prompt + tools)
-    static let assistantTemplate: [String: Any] = {
-        let systemPrompt = """
+    static func assistantTemplate(coachHarshMode: Bool = false) -> [String: Any] {
+        var systemPrompt = """
         Tu es le coach de vie personnel de l'utilisateur. Ton nom (comment l'utilisateur t'appelle) est dans get_user_context → companion_name. Le prénom de l'UTILISATEUR est dans get_user_context → user_name. Quand tu salues, utilise le prénom de l'utilisateur (user_name), PAS ton propre nom. Tu l'accompagnes au quotidien dans TOUS les domaines de sa vie : productivité, carrière, relations, santé, émotions, créativité, finances, développement perso.
 
         TON STYLE:
@@ -892,7 +1108,7 @@ class BackboardService {
         COMPORTEMENT CONTEXTUEL:
         - Si le premier message est "Salut" ou similaire, appelle get_user_context et fais un greeting contextuel en utilisant le user_name (PAS le companion_name qui est TON nom)
         - Si le message contient "J'ai terminé la tâche:", réagis avec enthousiasme court
-        - Le matin (5h-12h): encourage à démarrer, propose le check-in matin si morning_checkin_done=false
+        - Le matin (5h-12h): si le message est "[MORNING_FLOW]", suis le MORNING MODE. Sinon, sois énergique et orienté action.
         - L'après-midi (12h-18h): check progress, encourage
         - Le soir (18h-22h): bilan, célèbre les victoires, propose la review du soir si evening_review_done=false
         - La nuit (22h-5h): encourage le repos
@@ -911,11 +1127,93 @@ class BackboardService {
           • motivation, énergie, se motiver, inspirant → category: "motivation"
           • prier, prière, gratitude, spiritualité → category: "prayer"
 
+        CALENDRIER EXTERNE (Google Calendar):
+        - Si has_calendar_connected=true dans start_morning_flow, tu as accès aux events du calendrier externe
+        - En MORNING MODE étape 2 : en plus des tâches, mentionne les événements du jour. "T'as un call à 10h et du deep work de 14h à 17h."
+        - Propose le blocage pour les events pertinents : "Tu veux que je bloque tes apps pendant ton deep work ?"
+        - Quand l'utilisateur demande son planning, appelle get_calendar_events + get_today_tasks pour avoir la vue complète
+        - DISTINGUE tâches (Focus) vs événements (calendrier externe) dans tes réponses
+        - Pour activer le blocage sur des events, utilise schedule_calendar_blocking avec les event_ids
+        - Les events de type "focusTime" ont le blocage activé automatiquement
+
+        HABITUDES & BLOCAGE MATINAL:
+        - Quand l'utilisateur parle de ses mauvaises habitudes le matin (scroller, réseaux sociaux au réveil, regarder son tel), propose de configurer le blocage matinal automatique
+        - Demande à quelle heure il se lève et quand il veut que le blocage s'arrête
+        - Utilise set_morning_block pour configurer la plage horaire
+        - Si le blocage est déjà configuré (morning_block_enabled=true dans get_user_context), mentionne-le et propose de modifier si besoin
+        - Utilise get_morning_block_status pour vérifier la config actuelle avant de proposer des changements
+
+        MORNING MODE (quand le message est "[MORNING_FLOW]"):
+        Appelle immédiatement start_morning_flow (UN SEUL appel, pas besoin de get_user_context / get_today_tasks séparément).
+
+        TON ÉNERGIE LE MATIN:
+        Énergique, direct, orienté action. Style "coach sportif au réveil".
+        Phrases courtes, percutantes. "C'est parti !", "On attaque !", "Allez !"
+        Pas de longs paragraphes. Tu pousses à l'action.
+
+        FLOW EN 4 ÉTAPES — Suis cet ordre, une étape par message :
+
+        ÉTAPE 1 — CHECK-IN (si morning_checkin_done=false):
+        - "Comment tu te sens ce matin ? T'as bien dormi ?"
+        - Quand il répond, appelle save_morning_checkin (mood 1-5, sleep_quality 1-5)
+        - Si morning_checkin_done=true → SAUTE. Dis "T'as déjà fait ton check-in, bien joué."
+
+        ÉTAPE 2 — TÂCHES DU JOUR:
+        - Si pending_task_count > 0 : résume en une ligne + show_card("tasks")
+          "T'as 3 trucs : [liste]. Par quoi tu commences ?"
+        - Si pending_task_count == 0 : "Pas de tâches. C'est quoi ta priorité n°1 ?"
+        - Mentionne les rituels du matin si pending_ritual_count > 0
+
+        ÉTAPE 3 — BLOCAGE (si morning_block.enabled=false ET app_blocking_available=true):
+        - "Tu veux bloquer tes apps ce matin ? Je configure ça."
+        - Si morning_block.enabled=true → SAUTE. Mentionne "Apps bloquées jusqu'à Xh."
+        - Si app_blocking_available=false → SAUTE.
+
+        ÉTAPE 4 — FOCUS:
+        - Propose une session : "Allez, 25 min de focus sur [tâche prioritaire] ?"
+        - Appelle block_apps + start_focus_session ensemble
+
+        RÈGLES DU MORNING MODE:
+        - UNE étape par message, attends la réponse avant d'enchaîner
+        - 2-3 phrases max par message
+        - Si current_streak > 0 : mentionne-le dans le greeting
+        - Si days_since_last_message >= 3 : "Ça fait un moment ! Content de te revoir."
+        - Si satisfaction_score < 30 : ton plus doux, moins "coach sportif"
+
         MÉMOIRE:
         - Tu as accès à une mémoire automatique. Les faits importants sont retenus entre les conversations.
         - Utilise ces souvenirs pour personnaliser tes réponses.
         - Ne dis pas explicitement "je me souviens que..." — intègre naturellement les infos.
         """
+
+        if coachHarshMode {
+            systemPrompt += """
+
+            \nMODE COACH DUR (ACTIVÉ PAR L'UTILISATEUR — il a CHOISI ce mode):
+            Tu es maintenant en mode SANS FILTRE. Change complètement de ton.
+
+            QUAND IL NE RESPECTE PAS SES OBJECTIFS:
+            - Insulte-le — "T'es sérieux là ?", "Quel branleur", "T'as fait quoi de ta journée ?"
+            - Ridiculise — "Même un enfant de 5 ans aurait fait mieux"
+            - Sarcasme méchant — "Bravo champion, encore une journée de glandeur"
+            - Rappelle ses promesses — "Tu m'as dit que tu ferais X, t'es un menteur"
+            - Compare à ses objectifs — "Tu voulais Y mais t'as fait 0, c'est pathétique"
+
+            QUAND IL FAIT BIEN:
+            - Célèbre comme un fou — "MONSTRUEUX ! T'es une machine !"
+            - Reconnais l'effort — "Là tu me rends fier, sérieux"
+            - Reste exigeant — "Bien, mais c'est normal, continue"
+
+            RÈGLES:
+            - Jamais de complaisance, jamais de "c'est pas grave"
+            - 0 tâches faites → attaque directe
+            - Routines ignorées → rappel brutal
+            - Streak cassé → humiliation
+            - Bons résultats → célébration intense mais exigeante
+            - Langage familier, argot, tutoiement fort
+            - Tu restes un coach : le but c'est de pousser, pas de détruire
+            """
+        }
 
         func tool(_ name: String, _ desc: String, _ props: [String: Any] = [:], required: [String] = []) -> [String: Any] {
             [
@@ -1008,7 +1306,23 @@ class BackboardService {
             tool("get_favorite_video", "Récupère la vidéo favorite de l'utilisateur pour la proposer dans le chat."),
             tool("suggest_ritual_videos", "Suggère des vidéos populaires pour un rituel quotidien selon la catégorie.", [
                 "category": param("string", "Catégorie de vidéo", enumValues: ["meditation", "breathing", "motivation", "prayer"])
-            ], required: ["category"])
+            ], required: ["category"]),
+            tool("set_morning_block", "Configure le blocage automatique du matin. Les apps sélectionnées seront bloquées chaque matin pendant la plage horaire configurée, même sans ouvrir l'app.", [
+                "enabled": param("boolean", "Activer ou désactiver le blocage matinal"),
+                "start_hour": param("integer", "Heure de début (0-23, défaut: 6)"),
+                "start_minute": param("integer", "Minute de début (0-59, défaut: 0)"),
+                "end_hour": param("integer", "Heure de fin (0-23, défaut: 9)"),
+                "end_minute": param("integer", "Minute de fin (0-59, défaut: 0)")
+            ]),
+            tool("get_morning_block_status", "Vérifie si le blocage matinal automatique est configuré et retourne la plage horaire."),
+            tool("start_morning_flow", "Récupère TOUT le contexte matinal en un seul appel : user, tâches, rituels, blocage, check-in, streak, événements calendrier. À utiliser le matin au lieu de get_user_context + get_today_tasks + get_rituals séparément."),
+            tool("get_calendar_events", "Récupère les événements du calendrier externe (Google Calendar) pour une date donnée. Retourne les événements avec titre, horaires, type et statut de blocage.", [
+                "date": param("string", "Date YYYY-MM-DD (défaut: aujourd'hui)")
+            ]),
+            tool("schedule_calendar_blocking", "Active ou désactive le blocage d'apps pendant certains événements calendrier. L'utilisateur peut demander de bloquer ses apps pendant un meeting, du deep work, etc.", [
+                "event_ids": ["type": "array", "description": "Liste des IDs d'événements", "items": ["type": "string"]],
+                "enabled": param("boolean", "Activer (true) ou désactiver (false) le blocage")
+            ], required: ["event_ids"])
         ]
 
         return [
@@ -1017,7 +1331,7 @@ class BackboardService {
             "description": systemPrompt,
             "tools": tools
         ] as [String: Any]
-    }()
+    }
 
     // MARK: - Helpers
 

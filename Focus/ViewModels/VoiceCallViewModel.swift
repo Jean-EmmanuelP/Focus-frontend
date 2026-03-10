@@ -216,8 +216,18 @@ class VoiceCallViewModel: ObservableObject {
     // MARK: - Coach Actions
 
     private func handleCoachActionData(_ data: Data) {
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let effectType = json["type"] as? String else { return }
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+
+        // Support both direct format {"type": "block_apps"} and
+        // envelope format {"type": "coach_action", "action": "block_apps"}
+        let effectType: String
+        if json["type"] as? String == "coach_action",
+           let action = json["action"] as? String {
+            effectType = action
+        } else {
+            guard let rawType = json["type"] as? String else { return }
+            effectType = rawType
+        }
 
         Task {
             switch effectType {

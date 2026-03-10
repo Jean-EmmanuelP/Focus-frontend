@@ -28,7 +28,7 @@ enum AppConfiguration {
         /// Active/désactive le mode premium
         static let premiumEnabled = true
 
-        /// Active/désactive le mode vocal Daily (WebRTC temps réel)
+        /// Active/désactive le mode vocal LiveKit (WebRTC temps réel)
         static let voiceEnabled = true
     }
     
