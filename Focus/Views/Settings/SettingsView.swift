@@ -369,27 +369,6 @@ struct SettingsView: View {
             Button(action: { withAnimation(.easeInOut(duration: 0.3)) { showAccount = true } }) {
                 settingsRow(title: "Compte", showChevron: true)
             }
-
-            replicaDivider
-
-            // Historique des versions
-            Button(action: {}) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Historique des versions")
-                            .font(.system(size: 16))
-                            .foregroundColor(.white)
-                        Text("Advanced")
-                            .font(.system(size: 13))
-                            .foregroundColor(.white.opacity(0.5))
-                    }
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(ReplicaColors.chevron)
-                }
-                .padding(.vertical, 14)
-            }
         }
     }
 
@@ -481,7 +460,7 @@ struct SettingsView: View {
 
             externalLinkRow(title: "Centre d'aide", url: "https://firelevel.app/help")
             replicaDivider
-            externalLinkRow(title: "Évaluez-nous", url: "https://apps.apple.com/app/id123456789")
+            externalLinkRow(title: "Évaluez-nous", url: "https://apps.apple.com/app/id6743387301?action=write-review")
             replicaDivider
             externalLinkRow(title: "Conditions d'utilisation", url: "https://firelevel.app/terms")
             replicaDivider
