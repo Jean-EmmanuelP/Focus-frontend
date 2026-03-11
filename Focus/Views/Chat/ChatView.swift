@@ -489,7 +489,7 @@ struct ChatView: View {
 
     private var recordingInputBar: some View {
         VStack(spacing: 16) {
-            // Timer row: dot + time + waveform + speed badge
+            // Timer row: dot + time + waveform
             HStack(spacing: 0) {
                 // Red blinking dot + timer
                 HStack(spacing: 8) {
@@ -505,7 +505,7 @@ struct ChatView: View {
 
                 Spacer()
 
-                // Waveform dots (like WhatsApp)
+                // Waveform dots
                 HStack(spacing: 3) {
                     ForEach(0..<25, id: \.self) { i in
                         Circle()
@@ -514,19 +514,6 @@ struct ChatView: View {
                             .scaleEffect(y: waveformScale(for: i), anchor: .center)
                     }
                 }
-
-                Spacer()
-
-                // Speed badge
-                Text("×1")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.white.opacity(0.4))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(
-                        Capsule()
-                            .stroke(Color.white.opacity(0.15), lineWidth: 1)
-                    )
             }
             .padding(.horizontal, 20)
 
