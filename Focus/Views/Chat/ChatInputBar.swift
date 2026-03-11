@@ -49,7 +49,7 @@ struct ChatInputBar: View {
             }
         }
         .simultaneousGesture(
-            LongPressGesture(minimumDuration: 0.1)
+            LongPressGesture(minimumDuration: 0.3)
                 .onEnded { _ in
                     onMicTap()
                 }

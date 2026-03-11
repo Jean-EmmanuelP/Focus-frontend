@@ -199,19 +199,9 @@ struct ChatView: View {
 
     private var homeHeader: some View {
         HStack {
-            // Left: Tulip/customize look button
-            Button(action: {
-                // Customize look action - can open a sheet later
-            }) {
-                Image(systemName: "leaf.fill")
-                    .font(.system(size: 16))
-                    .foregroundColor(.white.opacity(0.8))
-                    .frame(width: 44, height: 44)
-                    .background(
-                        Circle()
-                            .fill(.ultraThinMaterial)
-                    )
-            }
+            // Left: spacer for symmetry
+            Color.clear
+                .frame(width: 44, height: 44)
 
             Spacer()
 
@@ -821,7 +811,7 @@ struct InlineTaskListCard: View {
             .padding(.bottom, 10)
 
             if tasks.isEmpty {
-                Text("Aucune tache pour aujourd'hui")
+                Text("Aucune tâche pour aujourd'hui")
                     .font(.system(size: 14))
                     .foregroundColor(.black.opacity(0.4))
                     .padding(.horizontal, 16)
@@ -906,7 +896,7 @@ struct InlineRoutineListCard: View {
             .padding(.bottom, 10)
 
             if routines.isEmpty {
-                Text("Aucun rituel configure")
+                Text("Aucun rituel configuré")
                     .font(.system(size: 14))
                     .foregroundColor(.black.opacity(0.4))
                     .padding(.horizontal, 16)
@@ -1031,7 +1021,7 @@ struct InlinePlanningCard: View {
         .padding(.bottom, 10)
 
         if tasks.isEmpty && routines.isEmpty {
-            Text("Aucune tache ni rituel pour aujourd'hui")
+            Text("Aucune tâche ni rituel pour aujourd'hui")
                 .font(.system(size: 14))
                 .foregroundColor(.black.opacity(0.4))
                 .padding(.horizontal, 16)
@@ -1845,6 +1835,11 @@ class AudioPlayerManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
     @Published var progress: Double = 0
     @Published var currentTime: TimeInterval = 0
 
+    deinit {
+        timer?.invalidate()
+        audioPlayer?.stop()
+    }
+
     func play(url: URL) {
         guard FileManager.default.fileExists(atPath: url.path) else {
             print("Audio file not found at: \(url.path)")
@@ -1891,6 +1886,11 @@ class VoiceRecorderManager: NSObject, ObservableObject, AVAudioRecorderDelegate 
     private var audioURL: URL?
 
     @Published var isRecording = false
+
+    deinit {
+        audioRecorder?.stop()
+        try? AVAudioSession.sharedInstance().setActive(false)
+    }
 
     func startRecording() {
         let audioSession = AVAudioSession.sharedInstance()

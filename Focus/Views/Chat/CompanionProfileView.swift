@@ -83,9 +83,6 @@ struct CompanionProfileView: View {
                                 // Voice section
                                 voiceSection
 
-                                // Background story section
-                                backgroundStorySection
-
                                 // Footer
                                 footerSection
                             }
@@ -346,11 +343,8 @@ struct CompanionProfileView: View {
         AvatarCardView(
             gender: store.user?.companionGender,
             height: 350,
-            showEditButton: true,
-            onEditTap: {
-                // TODO: Open avatar customization
-                print("Edit avatar tapped")
-            }
+            showEditButton: false,
+            onEditTap: {}
         )
         .padding(.top, 20)
     }
@@ -564,49 +558,6 @@ struct CompanionProfileView: View {
         }
     }
 
-    // MARK: - Background Story Section
-
-    private var backgroundStorySection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Histoire de fond")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(.white)
-
-            // Empty state card
-            VStack(spacing: 12) {
-                Text("Rien ici pour l'instant")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.white)
-
-                Text("Façonnez la personnalité de \(companionName) en ajoutant une histoire de fond à votre conversation.")
-                    .font(.system(size: 14))
-                    .foregroundColor(.white.opacity(0.7))
-                    .multilineTextAlignment(.center)
-
-                Button(action: {}) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 14, weight: .semibold))
-                        Text("Créez une histoire de fond")
-                            .font(.system(size: 14, weight: .semibold))
-                    }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 10)
-                    .background(
-                        Capsule()
-                            .fill(Color.white.opacity(0.2))
-                    )
-                }
-            }
-            .padding(20)
-            .frame(maxWidth: .infinity)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color(red: 0.15, green: 0.25, blue: 0.45).opacity(0.6))
-            )
-        }
-    }
 
     // MARK: - Footer Section
 

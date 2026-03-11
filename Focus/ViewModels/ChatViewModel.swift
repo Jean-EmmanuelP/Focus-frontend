@@ -558,9 +558,11 @@ class ChatViewModel: ObservableObject {
     // MARK: - Send Voice Message
 
     func sendVoiceMessage(audioURL: URL) async {
-        // Increment local counter immediately
+        // Increment local counter immediately and persist
         if !SubscriptionManager.shared.isProUser {
             freeVoiceMessagesUsed += 1
+            store?.user?.freeVoiceMessagesUsed = freeVoiceMessagesUsed
+            UserDefaults.standard.set(freeVoiceMessagesUsed, forKey: "freeVoiceMessagesUsed")
         }
 
         // Get audio duration
@@ -608,6 +610,10 @@ class ChatViewModel: ObservableObject {
                 }
             } catch {
                 print("⚠️ Supabase upload failed (local backup exists): \(error)")
+                // Mark message status so user knows upload didn't persist
+                if let index = messages.lastIndex(where: { $0.id == voiceMessage.id }) {
+                    messages[index].status = .failed
+                }
             }
         }
 
@@ -1366,13 +1372,13 @@ class ChatViewModel: ObservableObject {
                 try await FocusAppStore.shared.toggleTask(taskId: taskId, completed: true)
                 NotificationCenter.default.post(name: .calendarNeedsRefresh, object: nil)
 
-                // Also mark the task as completed in the planning card
+                // Also mark the task as completed in the planning card (preserve focusState)
                 if let msgIndex = messages.firstIndex(where: { $0.id == messageId }),
-                   case .planning(var tasks, let routines, _) = messages[msgIndex].cardData {
+                   case .planning(var tasks, let routines, let focusState) = messages[msgIndex].cardData {
                     if let taskIdx = tasks.firstIndex(where: { $0.id == taskId }) {
                         tasks[taskIdx].isCompleted = true
                     }
-                    messages[msgIndex].cardData = .planning(tasks, routines, nil)
+                    messages[msgIndex].cardData = .planning(tasks, routines, focusState)
                 }
             } catch {
                 print("❌ Failed to validate task: \(error)")
