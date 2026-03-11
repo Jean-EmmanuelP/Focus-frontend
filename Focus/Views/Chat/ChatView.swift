@@ -398,6 +398,24 @@ struct ChatView: View {
     // MARK: - Input Bar (Replika style)
 
     private var replikaInputBar: some View {
+        Group {
+            if isRecording {
+                // WhatsApp-style recording bar
+                recordingInputBar
+            } else {
+                // Normal input bar
+                normalInputBar
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .padding(.bottom, 4)
+        .animation(.easeInOut(duration: 0.25), value: isRecording)
+    }
+
+    // MARK: - Normal Input Bar
+
+    private var normalInputBar: some View {
         HStack(spacing: 8) {
             // Left: Phone call button
             Button(action: {
@@ -422,7 +440,7 @@ struct ChatView: View {
                 }
             }
 
-            // Text field capsule with blur effect and "+" inside
+            // Text field capsule
             HStack(spacing: 0) {
                 TextField("", text: $viewModel.inputText, prompt: Text("Votre message").foregroundColor(.white.opacity(0.45)))
                     .font(.system(size: 16))
@@ -432,9 +450,7 @@ struct ChatView: View {
                 Spacer()
 
                 if !viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    // Send button when text is entered
                     Button {
-                        // Exit home mode when sending message
                         withAnimation(.easeInOut(duration: 0.3)) {
                             isHomeMode = false
                         }
@@ -446,21 +462,16 @@ struct ChatView: View {
                             .foregroundColor(.white)
                     }
                 } else {
-                    // Mic button inside the capsule — start voice recording
                     Button {
                         if viewModel.canSendFreeVoice {
-                            if isRecording {
-                                stopRecordingAndSend()
-                            } else {
-                                startRecording()
-                            }
+                            startRecording()
                         } else {
                             showPaywall = true
                         }
                     } label: {
-                        Image(systemName: isRecording ? "stop.circle.fill" : "mic.fill")
+                        Image(systemName: "mic.fill")
                             .font(.system(size: 22, weight: .semibold))
-                            .foregroundColor(isRecording ? .red : .white.opacity(0.5))
+                            .foregroundColor(.white.opacity(0.5))
                     }
                 }
             }
@@ -472,9 +483,118 @@ struct ChatView: View {
                     .fill(Color(red: 0.25, green: 0.28, blue: 0.35).opacity(0.85))
             )
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .padding(.bottom, 4)
+    }
+
+    // MARK: - WhatsApp-style Recording Bar
+
+    private var recordingInputBar: some View {
+        VStack(spacing: 12) {
+            // Top: Timer + Waveform
+            HStack(spacing: 16) {
+                // Recording dot + Timer
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(Color.red)
+                        .frame(width: 8, height: 8)
+                        .opacity(recordingDotOpacity)
+
+                    Text(formatRecordingTime(recordingTime))
+                        .font(.system(size: 20, weight: .medium).monospacedDigit())
+                        .foregroundColor(.white)
+                }
+
+                Spacer()
+
+                // Waveform visualization
+                HStack(spacing: 2) {
+                    ForEach(0..<30, id: \.self) { i in
+                        RoundedRectangle(cornerRadius: 1)
+                            .fill(Color.white.opacity(0.5))
+                            .frame(width: 2, height: waveformHeight(for: i))
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+
+            // Bottom: Delete / Pause-Stop / Send
+            HStack {
+                // Delete button (trash)
+                Button {
+                    cancelRecording()
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.system(size: 22))
+                        .foregroundColor(.white.opacity(0.8))
+                        .frame(width: 52, height: 52)
+                }
+
+                Spacer()
+
+                // Stop button (red circle with stop icon)
+                Button {
+                    stopRecordingAndSend()
+                } label: {
+                    ZStack {
+                        Circle()
+                            .stroke(Color.red, lineWidth: 3)
+                            .frame(width: 56, height: 56)
+
+                        Image(systemName: "stop.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(.red)
+                    }
+                }
+
+                Spacer()
+
+                // Send button (green circle with arrow)
+                Button {
+                    stopRecordingAndSend()
+                } label: {
+                    ZStack {
+                        Circle()
+                            .fill(Color(red: 0.15, green: 0.78, blue: 0.35))
+                            .frame(width: 52, height: 52)
+
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+        .padding(.vertical, 16)
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(ColorTokens.background)
+                .shadow(color: .black.opacity(0.3), radius: 15, y: -5)
+        )
+    }
+
+    // MARK: - Recording Helpers
+
+    @State private var recordingDotOpacity: Double = 1.0
+
+    private func waveformHeight(for index: Int) -> CGFloat {
+        // Generate pseudo-random heights based on recording time and index
+        let seed = sin(Double(index) * 0.7 + recordingTime * 3.0) * 0.5 + 0.5
+        return CGFloat(4 + seed * 16)
+    }
+
+    private func formatRecordingTime(_ time: TimeInterval) -> String {
+        let minutes = Int(time) / 60
+        let seconds = Int(time) % 60
+        return String(format: "%d:%02d", minutes, seconds)
+    }
+
+    private func cancelRecording() {
+        recordingTimer?.invalidate()
+        recordingTimer = nil
+        recordingDotOpacity = 1.0
+        isRecording = false
+        _ = audioRecorder.stopRecording()
+        HapticFeedback.light()
     }
 
     // MARK: - Recording Functions
@@ -485,6 +605,11 @@ struct ChatView: View {
         isRecording = true
         recordingTime = 0
 
+        // Blink the recording dot
+        withAnimation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true)) {
+            recordingDotOpacity = 0.2
+        }
+
         recordingTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
             recordingTime += 0.1
         }
@@ -493,6 +618,7 @@ struct ChatView: View {
     private func stopRecordingAndSend() {
         recordingTimer?.invalidate()
         recordingTimer = nil
+        recordingDotOpacity = 1.0
 
         guard isRecording else { return }
         isRecording = false
