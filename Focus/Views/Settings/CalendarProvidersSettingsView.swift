@@ -27,21 +27,24 @@ struct CalendarProvidersSettingsView: View {
 
             VStack(spacing: 0) {
                 // Header
-                HStack {
-                    Button(action: onDismiss) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(.white)
-                    }
-                    Spacer()
+                ZStack {
                     Text("Calendriers")
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(.white)
-                    Spacer()
-                    Color.clear.frame(width: 18)
+
+                    HStack {
+                        Button(action: onDismiss) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.white)
+                                .frame(width: 30, height: 30)
+                        }
+                        Spacer()
+                    }
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 16)
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .padding(.bottom, 24)
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 24) {

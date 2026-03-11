@@ -443,16 +443,6 @@ struct SettingsView: View {
                 .padding(.vertical, 14)
             }
             replicaDivider
-            toggleRow(title: "Notifications", isOn: $notificationsEnabled)
-            replicaDivider
-            toggleRow(title: "Mode coach dur", isOn: $coachHarshMode)
-            replicaDivider
-            toggleRow(title: "Face ID", isOn: $faceID)
-            replicaDivider
-            Button(action: { withAnimation(.easeInOut(duration: 0.3)) { showAppBlocker = true } }) {
-                settingsRow(title: "Bloquer les apps", showChevron: true)
-            }
-            replicaDivider
             Button(action: { withAnimation(.easeInOut(duration: 0.3)) { showCalendarProviders = true } }) {
                 HStack {
                     Text("Calendriers connectés")
@@ -470,6 +460,16 @@ struct SettingsView: View {
                 }
                 .padding(.vertical, 14)
             }
+            replicaDivider
+            Button(action: { withAnimation(.easeInOut(duration: 0.3)) { showAppBlocker = true } }) {
+                settingsRow(title: "Bloquer les apps", showChevron: true)
+            }
+            replicaDivider
+            toggleRow(title: "Notifications", isOn: $notificationsEnabled)
+            replicaDivider
+            toggleRow(title: "Mode coach dur", isOn: $coachHarshMode)
+            replicaDivider
+            toggleRow(title: "Face ID", isOn: $faceID)
         }
     }
 
