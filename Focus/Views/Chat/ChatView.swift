@@ -22,6 +22,7 @@ struct ChatView: View {
     @State private var isHomeMode = false  // Toggle between home view and chat view
     @State private var showAppBlocker = false
     @State private var isAvatarPaused = false
+    @State private var showDiscoverMap = false
 
     @EnvironmentObject var subscriptionManager: SubscriptionManager
 
@@ -142,6 +143,17 @@ struct ChatView: View {
             }
         }
         .animation(.easeInOut(duration: 0.3), value: showAppBlocker)
+        .overlay {
+            if showDiscoverMap {
+                DiscoverMapView(onDismiss: {
+                    withAnimation(.easeInOut(duration: 0.3)) { showDiscoverMap = false }
+                })
+                .environmentObject(subscriptionManager)
+                .environmentObject(store)
+                .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.3), value: showDiscoverMap)
         .onChange(of: showAppBlocker) { _, isShowing in
             // Auto-start blocking when user closes the app blocker settings after selecting apps
             if !isShowing {
@@ -199,9 +211,27 @@ struct ChatView: View {
 
     private var homeHeader: some View {
         HStack {
-            // Left: spacer for symmetry
-            Color.clear
-                .frame(width: 44, height: 44)
+            // Left: Discover map button
+            if AppConfiguration.FeatureFlags.discoverMapEnabled {
+                Button(action: {
+                    isInputFocused = false
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showDiscoverMap = true
+                    }
+                }) {
+                    Image(systemName: "map.fill")
+                        .font(.system(size: 16))
+                        .foregroundColor(.white.opacity(0.8))
+                        .frame(width: 44, height: 44)
+                        .background(
+                            Circle()
+                                .fill(.ultraThinMaterial)
+                        )
+                }
+            } else {
+                Color.clear
+                    .frame(width: 44, height: 44)
+            }
 
             Spacer()
 
@@ -291,21 +321,41 @@ struct ChatView: View {
 
             Spacer()
 
-            // Right: Settings gear
-            Button(action: {
-                isInputFocused = false
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    showSettings = true
+            // Right: Map + Settings
+            HStack(spacing: 8) {
+                if AppConfiguration.FeatureFlags.discoverMapEnabled {
+                    Button(action: {
+                        isInputFocused = false
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            showDiscoverMap = true
+                        }
+                    }) {
+                        Image(systemName: "map.fill")
+                            .font(.system(size: 14))
+                            .foregroundColor(.white.opacity(0.8))
+                            .frame(width: 40, height: 40)
+                            .background(
+                                Circle()
+                                    .fill(Color.white.opacity(0.15))
+                            )
+                    }
                 }
-            }) {
-                Image(systemName: "gearshape.fill")
-                    .font(.system(size: 16))
-                    .foregroundColor(.white.opacity(0.8))
-                    .frame(width: 40, height: 40)
-                    .background(
-                        Circle()
-                            .fill(Color.white.opacity(0.15))
-                    )
+
+                Button(action: {
+                    isInputFocused = false
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showSettings = true
+                    }
+                }) {
+                    Image(systemName: "gearshape.fill")
+                        .font(.system(size: 16))
+                        .foregroundColor(.white.opacity(0.8))
+                        .frame(width: 40, height: 40)
+                        .background(
+                            Circle()
+                                .fill(Color.white.opacity(0.15))
+                        )
+                    }
             }
         }
         .padding(.horizontal, 16)

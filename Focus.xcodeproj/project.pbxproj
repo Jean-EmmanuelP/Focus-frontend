@@ -13,7 +13,6 @@
 		623E957A2EE4AC3100356DD7 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 623E95792EE4AC3100356DD7 /* SwiftUI.framework */; };
 		623E958B2EE4AC3200356DD7 /* FocusWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 623E95752EE4AC3100356DD7 /* FocusWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		6269A8912F4A51110028F63D /* DeviceActivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6269A8902F4A51110028F63D /* DeviceActivity.framework */; };
-		6269A8A02F4A52000028F63D /* FocusDeviceActivityMonitor.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 6269A88F2F4A51110028F63D /* FocusDeviceActivityMonitor.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		628291752F0055D600D26C30 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 628291742F0055D600D26C30 /* FirebaseAnalytics */; };
 		628291772F0055D600D26C30 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 628291762F0055D600D26C30 /* FirebaseCore */; };
 		628291792F0055D600D26C30 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 628291782F0055D600D26C30 /* FirebaseMessaging */; };
@@ -33,13 +32,6 @@
 			remoteGlobalIDString = 623E95742EE4AC3100356DD7;
 			remoteInfo = FocusWidgetExtension;
 		};
-		6269A8A12F4A52000028F63D /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 623E89422EE1F65300356DD7 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 6269A88E2F4A51110028F63D;
-			remoteInfo = FocusDeviceActivityMonitor;
-		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -50,7 +42,6 @@
 			dstSubfolderSpec = 13;
 			files = (
 				623E958B2EE4AC3200356DD7 /* FocusWidgetExtension.appex in Embed Foundation Extensions */,
-				6269A8A02F4A52000028F63D /* FocusDeviceActivityMonitor.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -409,7 +400,6 @@
 			);
 			dependencies = (
 				623E958A2EE4AC3200356DD7 /* PBXTargetDependency */,
-				6269A8A22F4A52000028F63D /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				623E894C2EE1F65300356DD7 /* Focus */,
@@ -705,11 +695,6 @@
 			target = 623E95742EE4AC3100356DD7 /* FocusWidgetExtension */;
 			targetProxy = 623E95892EE4AC3200356DD7 /* PBXContainerItemProxy */;
 		};
-		6269A8A22F4A52000028F63D /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 6269A88E2F4A51110028F63D /* FocusDeviceActivityMonitor */;
-			targetProxy = 6269A8A12F4A52000028F63D /* PBXContainerItemProxy */;
-		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
@@ -835,7 +820,7 @@
 				CODE_SIGN_ENTITLEMENTS = Focus/Focus.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 16;
+				CURRENT_PROJECT_VERSION = 20;
 				DEVELOPMENT_TEAM = 62NW6K29QN;
 				EMIT_FRONTEND_COMMAND_LINES = YES;
 				ENABLE_APP_SANDBOX = YES;
@@ -894,7 +879,7 @@
 				CODE_SIGN_ENTITLEMENTS = Focus/Focus.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 16;
+				CURRENT_PROJECT_VERSION = 20;
 				DEVELOPMENT_TEAM = 62NW6K29QN;
 				EMIT_FRONTEND_COMMAND_LINES = YES;
 				ENABLE_APP_SANDBOX = YES;
@@ -949,7 +934,7 @@
 				CODE_SIGN_ENTITLEMENTS = FocusWidgetExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 16;
+				CURRENT_PROJECT_VERSION = 20;
 				DEVELOPMENT_TEAM = 62NW6K29QN;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = FocusWidget/Info.plist;
@@ -984,7 +969,7 @@
 				CODE_SIGN_ENTITLEMENTS = FocusWidgetExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 16;
+				CURRENT_PROJECT_VERSION = 20;
 				DEVELOPMENT_TEAM = 62NW6K29QN;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = FocusWidget/Info.plist;
@@ -1018,7 +1003,7 @@
 				CODE_SIGN_ENTITLEMENTS = FocusDeviceActivityMonitor/FocusDeviceActivityMonitor.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 16;
+				CURRENT_PROJECT_VERSION = 20;
 				DEVELOPMENT_TEAM = 62NW6K29QN;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = FocusDeviceActivityMonitor/Info.plist;
@@ -1050,7 +1035,7 @@
 				CODE_SIGN_ENTITLEMENTS = FocusDeviceActivityMonitor/FocusDeviceActivityMonitor.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 16;
+				CURRENT_PROJECT_VERSION = 20;
 				DEVELOPMENT_TEAM = 62NW6K29QN;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = FocusDeviceActivityMonitor/Info.plist;

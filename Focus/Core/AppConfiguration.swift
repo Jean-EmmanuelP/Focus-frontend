@@ -30,6 +30,12 @@ enum AppConfiguration {
 
         /// Active/désactive le mode vocal LiveKit (WebRTC temps réel)
         static let voiceEnabled = true
+
+        /// Active/désactive la carte Discover Map
+        static let discoverMapEnabled = true
+
+        /// Active/désactive la Focus Map mondiale
+        static let focusMapEnabled = true
     }
     
     // MARK: - API Configuration

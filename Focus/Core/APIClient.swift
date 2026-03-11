@@ -385,6 +385,12 @@ enum APIConfiguration {
         // Location
         case updateLocation
 
+        // Discover
+        case discoverUsers(lat: Double, lon: Double, radius: Int)
+
+        // Focus Map
+        case focusMapLiveStats
+
         var path: String {
             switch self {
             // Health
@@ -699,6 +705,14 @@ enum APIConfiguration {
             // Location
             case .updateLocation:
                 return "/me/location"
+
+            // Discover
+            case .discoverUsers(let lat, let lon, let radius):
+                return "/discover/users?lat=\(lat)&lon=\(lon)&radius=\(radius)"
+
+            // Focus Map
+            case .focusMapLiveStats:
+                return "/focus-sessions/live-stats"
             }
         }
 
