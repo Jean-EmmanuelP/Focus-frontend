@@ -488,87 +488,102 @@ struct ChatView: View {
     // MARK: - WhatsApp-style Recording Bar
 
     private var recordingInputBar: some View {
-        VStack(spacing: 12) {
-            // Top: Timer + Waveform
-            HStack(spacing: 16) {
-                // Recording dot + Timer
+        VStack(spacing: 16) {
+            // Timer row: dot + time + waveform + speed badge
+            HStack(spacing: 0) {
+                // Red blinking dot + timer
                 HStack(spacing: 8) {
                     Circle()
                         .fill(Color.red)
-                        .frame(width: 8, height: 8)
+                        .frame(width: 10, height: 10)
                         .opacity(recordingDotOpacity)
 
                     Text(formatRecordingTime(recordingTime))
-                        .font(.system(size: 20, weight: .medium).monospacedDigit())
+                        .font(.system(size: 28, weight: .light).monospacedDigit())
                         .foregroundColor(.white)
                 }
 
                 Spacer()
 
-                // Waveform visualization
-                HStack(spacing: 2) {
-                    ForEach(0..<30, id: \.self) { i in
-                        RoundedRectangle(cornerRadius: 1)
-                            .fill(Color.white.opacity(0.5))
-                            .frame(width: 2, height: waveformHeight(for: i))
+                // Waveform dots (like WhatsApp)
+                HStack(spacing: 3) {
+                    ForEach(0..<25, id: \.self) { i in
+                        Circle()
+                            .fill(Color.white.opacity(0.45))
+                            .frame(width: 3, height: 3)
+                            .scaleEffect(y: waveformScale(for: i), anchor: .center)
                     }
-                }
-            }
-            .padding(.horizontal, 20)
-
-            // Bottom: Delete / Pause-Stop / Send
-            HStack {
-                // Delete button (trash)
-                Button {
-                    cancelRecording()
-                } label: {
-                    Image(systemName: "trash")
-                        .font(.system(size: 22))
-                        .foregroundColor(.white.opacity(0.8))
-                        .frame(width: 52, height: 52)
                 }
 
                 Spacer()
 
-                // Stop button (red circle with stop icon)
+                // Speed badge
+                Text("×1")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.white.opacity(0.4))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule()
+                            .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                    )
+            }
+            .padding(.horizontal, 20)
+
+            // Action buttons: Delete — Stop — Send
+            HStack {
+                // Delete (trash)
+                Button {
+                    cancelRecording()
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.system(size: 24))
+                        .foregroundColor(.white.opacity(0.7))
+                        .frame(width: 56, height: 56)
+                }
+
+                Spacer()
+
+                // Stop recording (red outlined circle + pause icon)
                 Button {
                     stopRecordingAndSend()
                 } label: {
                     ZStack {
                         Circle()
-                            .stroke(Color.red, lineWidth: 3)
-                            .frame(width: 56, height: 56)
+                            .stroke(Color(red: 0.95, green: 0.30, blue: 0.35), lineWidth: 3)
+                            .frame(width: 64, height: 64)
 
-                        Image(systemName: "stop.fill")
-                            .font(.system(size: 20))
-                            .foregroundColor(.red)
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color(red: 0.95, green: 0.30, blue: 0.35))
+                            .frame(width: 22, height: 22)
                     }
                 }
 
                 Spacer()
 
-                // Send button (green circle with arrow)
+                // Send (green circle + play triangle)
                 Button {
                     stopRecordingAndSend()
                 } label: {
                     ZStack {
                         Circle()
                             .fill(Color(red: 0.15, green: 0.78, blue: 0.35))
-                            .frame(width: 52, height: 52)
+                            .frame(width: 56, height: 56)
 
-                        Image(systemName: "arrow.right")
-                            .font(.system(size: 20, weight: .bold))
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 22))
                             .foregroundColor(.white)
+                            .offset(x: 2) // Optical centering for play triangle
                     }
                 }
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 24)
         }
-        .padding(.vertical, 16)
+        .padding(.top, 20)
+        .padding(.bottom, 16)
         .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(ColorTokens.background)
-                .shadow(color: .black.opacity(0.3), radius: 15, y: -5)
+            ColorTokens.background
+                .shadow(.drop(color: .black.opacity(0.4), radius: 20, y: -8))
         )
     }
 
@@ -576,10 +591,11 @@ struct ChatView: View {
 
     @State private var recordingDotOpacity: Double = 1.0
 
-    private func waveformHeight(for index: Int) -> CGFloat {
-        // Generate pseudo-random heights based on recording time and index
-        let seed = sin(Double(index) * 0.7 + recordingTime * 3.0) * 0.5 + 0.5
-        return CGFloat(4 + seed * 16)
+    private func waveformScale(for index: Int) -> CGFloat {
+        // Animated dots that pulse based on time — creates a traveling wave effect
+        let phase = recordingTime * 4.0 + Double(index) * 0.3
+        let wave = sin(phase) * 0.5 + 0.5
+        return CGFloat(1.0 + wave * 3.5)
     }
 
     private func formatRecordingTime(_ time: TimeInterval) -> String {
@@ -594,7 +610,7 @@ struct ChatView: View {
         recordingDotOpacity = 1.0
         isRecording = false
         _ = audioRecorder.stopRecording()
-        HapticFeedback.light()
+        HapticFeedback.heavy()
     }
 
     // MARK: - Recording Functions
