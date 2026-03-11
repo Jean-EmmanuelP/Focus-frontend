@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 import UserNotifications
 
 /// Service that manages automatic app blocking based on calendar events

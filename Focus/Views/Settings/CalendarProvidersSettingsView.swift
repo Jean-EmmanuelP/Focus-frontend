@@ -329,7 +329,7 @@ struct CalendarProvidersSettingsView: View {
                 }
 
                 let refreshToken = user.refreshToken.tokenString
-                let expiresIn = Int(user.accessToken.expirationDate.timeIntervalSinceNow)
+                let expiresIn = Int(user.accessToken.expirationDate?.timeIntervalSinceNow ?? 3600)
 
                 do {
                     // Save tokens to backend (into calendar_providers table)

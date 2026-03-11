@@ -157,6 +157,9 @@ struct FocusApp: App {
                     // Refresh morning auto-block schedule if enabled
                     if MorningBlockService.shared.isEnabled {
                         MorningBlockService.shared.updateSchedule()
+                        // Safety net: apply shields immediately if we're in the window
+                        // (DeviceActivitySchedule callbacks can be missed)
+                        MorningBlockService.shared.applyShieldsIfInWindow()
                     }
 
                     // Refresh calendar events and schedule blocking
