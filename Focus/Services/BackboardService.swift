@@ -82,16 +82,41 @@ class BackboardService {
     }
 
     /// Force-recreate the assistant (e.g. after companion name change) so a fresh system prompt is used.
+    /// Migrates all memories from the old assistant to the new one.
     func recreateAssistant() async {
-        // Clear local assistant ID so ensureAssistant() creates a new one
+        // 1. Save memories from old assistant before destroying it
+        let oldMemories: [BackboardMemory]
+        if !assistantId.isEmpty {
+            oldMemories = (try? await listMemories()) ?? []
+            print("🧠 Saved \(oldMemories.count) memories from old assistant")
+        } else {
+            oldMemories = []
+        }
+
+        // 2. Clear local assistant ID so ensureAssistant() creates a new one
         FocusAppStore.shared.user?.backboardAssistantId = nil
 
-        // Delete old thread – the new assistant will get a fresh conversation
+        // 3. Delete old thread – the new assistant will get a fresh conversation
         await deleteThread()
 
         do {
+            // 4. Create new assistant
             try await ensureAssistant()
             print("🔄 Backboard assistant recreated with updated prompt")
+
+            // 5. Migrate memories to the new assistant
+            if !oldMemories.isEmpty {
+                var migrated = 0
+                for memory in oldMemories {
+                    do {
+                        try await addMemory(content: memory.content)
+                        migrated += 1
+                    } catch {
+                        print("⚠️ Failed to migrate memory: \(error)")
+                    }
+                }
+                print("🧠 Migrated \(migrated)/\(oldMemories.count) memories to new assistant")
+            }
         } catch {
             print("⚠️ Failed to recreate assistant: \(error)")
         }
