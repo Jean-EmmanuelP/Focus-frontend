@@ -193,17 +193,13 @@ struct FocusApp: App {
 
     /// Handle deep links from widgets and notifications
     /// Supported URLs:
-    /// - focus://firemode
-    /// - focus://dashboard
-    /// - focus://starttheday
     /// - focus://chat
     /// - focus://settings
     /// - focus://settings/notifications
     /// - focus://settings/appblocker
     /// - focus://onboarding
     /// - focus://login
-    /// - focus://calendar
-    /// - focus://weekly-goals
+    /// - focus://paywall
     /// - focus://referral?code=XXXX
     /// - https://focus.app/r/XXXX (Universal Link)
     private func handleDeepLink(_ url: URL) {
@@ -221,32 +217,15 @@ struct FocusApp: App {
         guard url.scheme == "focus" else { return }
 
         switch url.host {
-        case "firemode":
-            router.navigateToFireMode()
-
-        case "dashboard":
-            // Dashboard is now chat
+        case "firemode", "dashboard", "starttheday", "calendar", "weekly-goals", "chat":
+            // All legacy deep links redirect to chat
             router.selectedTab = .chat
-
-        case "chat":
-            router.selectedTab = .chat
-
-        case "starttheday":
-            // Redirect to chat - planning is now done via Kai
-            router.selectedTab = .chat
-
-        case "calendar":
-            router.navigateToCalendar()
-
-        case "weekly-goals":
-            router.navigateToWeeklyGoals()
 
         case "settings":
             // Check for sub-page via path
             let path = url.path
             if path == "/notifications" {
                 router.navigateToSettings()
-                // Small delay to let settings sheet present before navigating
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     router.navigate(to: .notificationSettings)
                 }
@@ -262,19 +241,13 @@ struct FocusApp: App {
         case "onboarding":
             router.navigateToOnboarding()
 
-        case "login":
-            // Ralph: force show landing page for design verification
-            router.showLandingPage = true
-
-        case "login-direct":
-            // Same but no prompt
+        case "login", "login-direct":
             router.showLandingPage = true
 
         case "paywall":
             router.navigateToPaywall()
 
         case "referral":
-            // Extract code from query parameters
             if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
                let code = components.queryItems?.first(where: { $0.name == "code" })?.value {
                 handleReferralCode(code)

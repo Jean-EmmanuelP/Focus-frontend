@@ -9,40 +9,17 @@ struct FakeUserGenerator {
 
     private static let firstNames = [
         "Amine", "Sofia", "Youssef", "Lina", "Karim", "Nadia", "Rayan", "Amira",
-        "Mehdi", "Yasmine", "Samir", "Leila", "Omar", "Inès", "Adam", "Salma",
-        "Bilal", "Hana", "Malik", "Nora"
+        "Mehdi", "Yasmine", "Samir", "Leila", "Omar", "Ines", "Adam", "Salma",
+        "Bilal", "Hana", "Malik", "Nora", "Zara", "Amir", "Dina", "Sami",
+        "Lila", "Rami", "Sara", "Walid", "Mona", "Tarek"
     ]
 
-    private static let lifeGoals = [
-        "Devenir développeur senior",
-        "Lancer mon business en ligne",
-        "Courir un marathon",
-        "Apprendre 3 langues",
-        "Écrire un livre",
-        "Atteindre la liberté financière",
-        "Méditer chaque jour pendant 1 an",
-        "Perdre 10kg et tenir",
-        "Décrocher un CDI dans la tech",
-        "Créer une app à succès",
-        "Voyager dans 20 pays",
-        "Obtenir mon diplôme",
-        "Devenir coach sportif",
-        "Lire 50 livres cette année",
-        "Maîtriser le piano"
+    private static let focusDescriptions = [
+        "Deep Work", "Lecture", "Code", "Etude", "Revision",
+        "Meditation", "Projet perso", "Ecriture", "Design", "Recherche"
     ]
 
-    private static let hobbiesList = [
-        "Running, Lecture, Méditation",
-        "Musculation, Code, Podcasts",
-        "Yoga, Cuisine, Photographie",
-        "Football, Gaming, Musique",
-        "Natation, Écriture, Dessin",
-        "Boxe, Entrepreneuriat, Voyage",
-        "Danse, Jardinage, Randonnée",
-        "CrossFit, Lecture, Cinéma",
-        "Tennis, Piano, Langues",
-        "Escalade, Design, Bénévolat"
-    ]
+    private static let focusDurations = [25, 50, 90]
 
     private static let cities = [
         "Paris", "Lyon", "Marseille", "Bordeaux", "Toulouse",
@@ -53,9 +30,9 @@ struct FakeUserGenerator {
 
     // MARK: - Generation
 
-    /// Generate ~20 fake users within a 5km radius of the given location.
-    /// The output is deterministic for a given grid cell (same lat/lon area = same fakes).
-    func generate(around center: CLLocationCoordinate2D, count: Int = 20) -> [NearbyUser] {
+    /// Generate ~28 fake users within a 5km radius of the given location.
+    /// 60-80% are in a focus session. Output is deterministic per grid cell.
+    func generate(around center: CLLocationCoordinate2D, count: Int = 28) -> [NearbyUser] {
         // Grid cell: round to 0.05 degree (~5km) to make it deterministic per zone
         let gridLat = (center.latitude * 20).rounded() / 20
         let gridLon = (center.longitude * 20).rounded() / 20
@@ -64,33 +41,49 @@ struct FakeUserGenerator {
         var rng = SeededRNG(seed: seed)
         var users: [NearbyUser] = []
 
+        // 60-80% focusing
+        let focusPercent = Double.random(in: 0.60...0.80, using: &rng)
+
         for i in 0..<count {
-            // Random offset within ~5km (0.045 degrees ≈ 5km)
+            // Random offset within ~5km (0.045 degrees ~ 5km)
             let latOffset = Double.random(in: -0.045...0.045, using: &rng)
             let lonOffset = Double.random(in: -0.045...0.045, using: &rng)
 
             let nameIndex = Int.random(in: 0..<Self.firstNames.count, using: &rng)
-            let goalIndex = Int.random(in: 0..<Self.lifeGoals.count, using: &rng)
-            let hobbyIndex = Int.random(in: 0..<Self.hobbiesList.count, using: &rng)
             let cityIndex = Int.random(in: 0..<Self.cities.count, using: &rng)
             let peakIndex = Int.random(in: 0..<Self.peaks.count, using: &rng)
-            let streak = Int.random(in: 3...90, using: &rng)
-            let steps = Int.random(in: 2000...14000, using: &rng)
+            let streak = Int.random(in: 0...90, using: &rng)
+
+            let isFocusing = Double(i) / Double(count) < focusPercent
+
+            // Focus session data
+            let minutesAgo = Int.random(in: 5...85, using: &rng)
+            let durationIndex = Int.random(in: 0..<Self.focusDurations.count, using: &rng)
+            let descIndex = Int.random(in: 0..<Self.focusDescriptions.count, using: &rng)
+
+            // Total minutes today: accumulated effort (current session + past sessions)
+            // Creates visual diversity — some grinders at 200+, some just started at 25
+            let pastSessionsMinutes = isFocusing ? Int.random(in: 0...180, using: &rng) : Int.random(in: 0...50, using: &rng)
+            let totalToday = pastSessionsMinutes + (isFocusing ? minutesAgo : 0)
 
             let user = NearbyUser(
                 id: "fake-\(seed)-\(i)",
                 pseudo: nil,
                 firstName: Self.firstNames[nameIndex],
                 avatarUrl: nil,
-                lifeGoal: Self.lifeGoals[goalIndex],
-                hobbies: Self.hobbiesList[hobbyIndex],
+                lifeGoal: nil,
+                hobbies: nil,
                 productivityPeak: Self.peaks[peakIndex],
                 currentStreak: streak,
                 city: Self.cities[cityIndex],
                 country: "France",
                 latitude: center.latitude + latOffset,
                 longitude: center.longitude + lonOffset,
-                todaySteps: steps,
+                isInFocusSession: isFocusing,
+                focusSessionStartedAt: isFocusing ? Date().addingTimeInterval(-Double(minutesAgo * 60)) : nil,
+                focusSessionDurationMin: isFocusing ? Self.focusDurations[durationIndex] : nil,
+                focusSessionDescription: isFocusing ? Self.focusDescriptions[descIndex] : nil,
+                totalMinutesToday: totalToday,
                 isFake: true
             )
             users.append(user)

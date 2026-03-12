@@ -68,7 +68,9 @@ class MessageQueueService: ObservableObject {
     // MARK: - Queue a Message
 
     func enqueueMessage(text: String, date: String? = nil) {
-        let dateStr = date ?? DateFormatter.yyyyMMdd.string(from: Date())
+        let fmt = DateFormatter()
+        fmt.dateFormat = "yyyy-MM-dd"
+        let dateStr = date ?? fmt.string(from: Date())
         let message = QueuedMessage(text: text, date: dateStr)
         queuedMessages.append(message)
         saveQueuedMessages()

@@ -633,7 +633,7 @@ final class FocusAppStore: ObservableObject {
 
     /// Toggle ritual completion for a specific date (from Calendar view)
     /// The `isCompleting` parameter tells us whether we're marking as complete (true) or uncomplete (false)
-    /// This is determined by the CalendarViewModel which tracks per-date completions
+    /// This is determined by the caller which tracks per-date completions
     /// - Parameters:
     ///   - ritual: The ritual to toggle
     ///   - date: The date in YYYY-MM-DD format (optional, defaults to today)
@@ -687,7 +687,7 @@ final class FocusAppStore: ObservableObject {
         }
     }
 
-    /// Toggle ritual completion by ID (for FireMode validation)
+    /// Toggle ritual completion by ID (for session validation)
     func toggleRitualById(ritualId: String) async throws {
         print("🔄 toggleRitualById called for: \(ritualId)")
 
@@ -698,7 +698,7 @@ final class FocusAppStore: ObservableObject {
 
         // Optimistic update
         let wasCompleted = rituals[index].isCompleted
-        rituals[index].isCompleted = true // Always mark as completed from FireMode
+        rituals[index].isCompleted = true // Always mark as completed from session validation
 
         do {
             try await routineService.completeRoutine(id: ritualId)
@@ -1242,7 +1242,7 @@ final class FocusAppStore: ObservableObject {
         }
     }
 
-    /// Update weekly goals in store (called after saving in WeeklyGoalsView)
+    /// Update weekly goals in store
     func updateWeeklyGoals(_ goals: WeeklyGoal?) {
         self.currentWeekGoals = goals
         syncWeeklyGoalsWidgetData()
@@ -1338,5 +1338,19 @@ struct WidgetIntentionData: Codable {
     let text: String
     let area: String
     let areaEmoji: String
+    let isCompleted: Bool
+}
+
+struct WeeklyGoalsWidgetData: Codable {
+    let items: [WeeklyGoalsWidgetItem]
+    let weekRange: String
+    let completedCount: Int
+    let totalCount: Int
+}
+
+struct WeeklyGoalsWidgetItem: Codable, Identifiable {
+    let id: String
+    let areaEmoji: String
+    let content: String
     let isCompleted: Bool
 }

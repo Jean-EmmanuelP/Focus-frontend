@@ -7,25 +7,49 @@ import SwiftUI
 class DiscoverMapViewModel: ObservableObject {
     @Published var nearbyUsers: [NearbyUser] = []
     @Published var selectedUser: NearbyUser? = nil
-    @Published var matchResult: MatchResult? = nil
     @Published var userLocation: CLLocationCoordinate2D?
-    @Published var todaySteps: Int?
     @Published var isLoading = false
     @Published var errorMessage: String?
+
+    // Focus Pulse stats
+    @Published var localActiveCount: Int = 0
+    @Published var localTotalMinutes: Int = 0
+
+    // Encouragement
+    @Published var sentEncouragements: Set<String> = []
+    @Published var showSentConfirmation = false
+    @Published var incomingToast: EncouragementToast?
+
+    // Coach
+    @Published var coachMessage: String = ""
 
     // Fake users ON by default — 10 taps on title disables them
     @Published var fakeUsersEnabled = true
 
     private let discoverService = DiscoverService()
     private let locationService = LocationService.shared
-    private let healthKitService = HealthKitService.shared
     private let fakeUserGenerator = FakeUserGenerator()
+    private var pollingTimer: Timer?
+    private var encouragementTimer: Timer?
+    private let pollingInterval: TimeInterval = 30
 
     // Easter egg tap counter
     private var debugTapCount = 0
     private var lastTapTime = Date.distantPast
 
-    var userCount: Int { nearbyUsers.count }
+    // MARK: - Computed
+
+    var focusingUsers: [NearbyUser] {
+        nearbyUsers.filter { $0.isInFocusSession }
+    }
+
+    var idleUsers: [NearbyUser] {
+        nearbyUsers.filter { !$0.isInFocusSession }
+    }
+
+    var isUserCurrentlyFocusing: Bool {
+        FocusAppStore.shared.todayMinutes > 0
+    }
 
     // MARK: - Load Data
 
@@ -38,7 +62,6 @@ class DiscoverMapViewModel: ObservableObject {
             userLocation = location.coordinate
         } else {
             locationService.startUpdating()
-            // Wait briefly for location
             try? await Task.sleep(nanoseconds: 2_000_000_000)
             if let location = locationService.currentLocation {
                 userLocation = location.coordinate
@@ -61,7 +84,6 @@ class DiscoverMapViewModel: ObservableObject {
             )
         } catch {
             print("[DiscoverMap] API error: \(error)")
-            // Continue — we may still show fake users
         }
 
         // 3. Merge with fake users if enabled
@@ -72,87 +94,157 @@ class DiscoverMapViewModel: ObservableObject {
             nearbyUsers = realUsers
         }
 
-        // 4. Fetch HealthKit steps
-        todaySteps = await healthKitService.fetchTodaySteps()
+        // 4. Compute stats
+        updateStats()
+
+        // 5. Generate coach message
+        coachMessage = generateCoachMessage()
 
         isLoading = false
+    }
+
+    // MARK: - Stats
+
+    private func updateStats() {
+        let focusing = focusingUsers
+        withAnimation(.easeOut(duration: 0.6)) {
+            localActiveCount = focusing.count
+            localTotalMinutes = focusing.reduce(0) { $0 + $1.focusMinutesElapsed }
+        }
+    }
+
+    // MARK: - Polling
+
+    func startPolling() {
+        Task { await loadData() }
+
+        pollingTimer = Timer.scheduledTimer(withTimeInterval: pollingInterval, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                await self?.loadData()
+            }
+        }
+    }
+
+    func stopPolling() {
+        pollingTimer?.invalidate()
+        pollingTimer = nil
+        stopEncouragementSimulation()
     }
 
     // MARK: - Select User
 
     func selectUser(_ user: NearbyUser) {
         selectedUser = user
-        if let currentUser = FocusAppStore.shared.user {
-            matchResult = computeMatch(for: user, currentUser: currentUser)
-        } else {
-            matchResult = nil
-        }
     }
 
     func deselectUser() {
         selectedUser = nil
-        matchResult = nil
     }
 
-    // MARK: - AI Matching (Client-side)
+    // MARK: - Encouragement
 
-    func computeMatch(for user: NearbyUser, currentUser: User) -> MatchResult {
-        var points: [String] = []
+    func sendEncouragement(to userId: String, emoji: String, message: String) {
+        sentEncouragements.insert(userId)
+        showSentConfirmation = true
+        HapticFeedback.success()
 
-        // 1. Productivity peak match
-        if let userPeak = user.productivityPeak,
-           let myPeak = currentUser.productivityPeak?.rawValue,
-           userPeak == myPeak {
-            let peakLabel: String
-            switch userPeak {
-            case "morning": peakLabel = "du matin"
-            case "afternoon": peakLabel = "de l'après-midi"
-            default: peakLabel = "du soir"
-            }
-            points.append("Early birds \(peakLabel) tous les deux")
+        // Auto-dismiss card after 1.5s
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            self?.showSentConfirmation = false
+            self?.deselectUser()
         }
+    }
 
-        // 2. Hobbies match (keyword split)
-        if let userHobbies = user.hobbies?.lowercased(),
-           let myHobbies = currentUser.hobbies?.lowercased() {
-            let userSet = Set(userHobbies.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) })
-            let mySet = Set(myHobbies.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) })
-            let common = userSet.intersection(mySet).filter { !$0.isEmpty }
-            if !common.isEmpty {
-                let joined = common.prefix(2).joined(separator: " et ")
-                points.append("Passion commune : \(joined)")
-            }
-        }
+    func hasAlreadyEncouraged(_ userId: String) -> Bool {
+        sentEncouragements.contains(userId)
+    }
 
-        // 3. Life goal similarity (keyword match)
-        if let userGoal = user.lifeGoal?.lowercased(),
-           let myGoal = currentUser.lifeGoal?.lowercased() {
-            let userWords = Set(userGoal.components(separatedBy: .whitespaces).filter { $0.count > 3 })
-            let myWords = Set(myGoal.components(separatedBy: .whitespaces).filter { $0.count > 3 })
-            let common = userWords.intersection(myWords)
-            if !common.isEmpty {
-                points.append("Objectif de vie similaire")
+    // MARK: - Simulated Incoming Encouragement
+
+    func startEncouragementSimulation() {
+        guard encouragementTimer == nil else { return }
+        scheduleNextEncouragement()
+    }
+
+    func stopEncouragementSimulation() {
+        encouragementTimer?.invalidate()
+        encouragementTimer = nil
+    }
+
+    private func scheduleNextEncouragement() {
+        let delay = Double.random(in: 30...90)
+        encouragementTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.simulateIncomingEncouragement()
+                self?.scheduleNextEncouragement()
             }
         }
+    }
 
-        // 4. Streak proximity (within 20%)
-        if let userStreak = user.currentStreak, userStreak > 0,
-           let myStreak = currentUser.currentStreak, myStreak > 0 {
-            let diff = abs(userStreak - myStreak)
-            let avg = (userStreak + myStreak) / 2
-            if avg > 0 && diff <= avg / 5 {
-                points.append("Streak similaire (\(userStreak) jours)")
-            }
+    private func simulateIncomingEncouragement() {
+        guard isUserCurrentlyFocusing else { return }
+
+        let preset = encouragementPresets.randomElement()!
+        let names = ["S", "A", "M", "L", "K", "N", "R", "Y", "O", "H"]
+        let initial = names.randomElement()!
+
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+            incomingToast = EncouragementToast(
+                emoji: preset.emoji,
+                message: preset.message,
+                fromInitial: initial
+            )
         }
 
-        return MatchResult(score: min(4, points.count), commonPoints: points)
+        // Auto-dismiss after 3s
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+            withAnimation(.easeOut(duration: 0.3)) {
+                self?.incomingToast = nil
+            }
+        }
+    }
+
+    // MARK: - Coach Message
+
+    private func generateCoachMessage() -> String {
+        let store = FocusAppStore.shared
+        let hour = Calendar.current.component(.hour, from: Date())
+        let focusedToday = store.todayMinutes
+        let streak = store.currentStreak
+        let count = localActiveCount
+
+        if streak > 0 && focusedToday == 0 && hour >= 18 {
+            return "Ta streak de \(streak) jours est en danger. Lance une session maintenant."
+        }
+
+        if streak >= 7 {
+            return "\(streak) jours de streak. \(count) personnes focus pres de toi. Continue."
+        }
+
+        if focusedToday > 0 {
+            return "Deja \(focusedToday) min aujourd'hui. \(count) personnes focus pres de toi."
+        }
+
+        switch hour {
+        case 5..<9:
+            return "\(count) personnes focus pres de toi. Le matin, c'est le meilleur moment."
+        case 9..<12:
+            return "\(count) personnes en focus. La matinee est le pic de productivite."
+        case 12..<14:
+            return "Pause midi ? \(count) personnes continuent de focus pres de toi."
+        case 14..<18:
+            return "L'apres-midi avance. \(count) personnes en session. Et toi ?"
+        case 18..<22:
+            return "Soiree focus. \(count) personnes terminent leur journee en force."
+        default:
+            return "\(count) personnes focus pres de toi en ce moment."
+        }
     }
 
     // MARK: - Easter Egg (10 taps to toggle fake users)
 
     func handleDebugTap() {
         let now = Date()
-        // Reset counter if more than 3s since last tap
         if now.timeIntervalSince(lastTapTime) > 3 {
             debugTapCount = 0
         }
@@ -164,9 +256,21 @@ class DiscoverMapViewModel: ObservableObject {
             fakeUsersEnabled.toggle()
             HapticFeedback.heavy()
 
-            // Reload data
             Task {
                 await loadData()
+            }
+        }
+    }
+
+    // MARK: - Launch Focus Session
+
+    func launchFocusSession() {
+        Task {
+            do {
+                _ = try await FocusAppStore.shared.startSession(durationMinutes: 25, description: "Focus Pulse")
+                print("🔥 Focus session started from Focus Pulse")
+            } catch {
+                print("❌ Failed to start session: \(error)")
             }
         }
     }

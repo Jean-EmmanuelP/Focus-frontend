@@ -142,22 +142,33 @@ struct VoiceCallView: View {
                     )
                     .animation(.easeInOut(duration: 0.8), value: isListening)
 
-                // Particle orb or text particles
+                // Orb visualization
                 if viewModel.isAgentSpeaking && !displayText.isEmpty {
-                    VoiceParticleTextView(
-                        text: displayText,
-                        isFormingText: true,
-                        particleColor: ColorTokens.primaryStart
-                    )
-                    .frame(width: 220, height: 220)
-                    .transition(.scale(scale: 0.9).combined(with: .opacity))
+                    Text(displayText)
+                        .font(.satoshi(28, weight: .bold))
+                        .foregroundColor(ColorTokens.primaryStart.opacity(0.9))
+                        .multilineTextAlignment(.center)
+                        .frame(width: 220, height: 220)
+                        .transition(.scale(scale: 0.9).combined(with: .opacity))
                 } else {
-                    ParticleSphereView(
-                        isAnimating: isActive,
-                        intensity: orbIntensity
-                    )
-                    .frame(width: 180, height: 180)
-                    .transition(.scale(scale: 0.9).combined(with: .opacity))
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [orbGlowColor.opacity(0.6), orbGlowColor.opacity(0.1)],
+                                center: .center,
+                                startRadius: 20,
+                                endRadius: 90
+                            )
+                        )
+                        .frame(width: 180, height: 180)
+                        .scaleEffect(isActive ? 1.0 + orbIntensity * 0.1 : 0.9)
+                        .animation(
+                            isActive
+                                ? .easeInOut(duration: 1.2).repeatForever(autoreverses: true)
+                                : .easeInOut(duration: 0.5),
+                            value: isActive
+                        )
+                        .transition(.scale(scale: 0.9).combined(with: .opacity))
                 }
             }
             .frame(height: 260)

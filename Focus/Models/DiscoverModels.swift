@@ -17,8 +17,14 @@ struct NearbyUser: Codable, Identifiable {
     let latitude: Double
     let longitude: Double
 
+    // Focus session data
+    var isInFocusSession: Bool = false
+    var focusSessionStartedAt: Date?
+    var focusSessionDurationMin: Int?
+    var focusSessionDescription: String?
+    var totalMinutesToday: Int = 0
+
     // Client-side enrichment (not from API)
-    var todaySteps: Int?
     var isFake: Bool = false
 
     var coordinate: CLLocationCoordinate2D {
@@ -35,9 +41,16 @@ struct NearbyUser: Codable, Identifiable {
         String(displayName.prefix(1)).uppercased()
     }
 
+    /// Minutes elapsed since focus session started
+    var focusMinutesElapsed: Int {
+        guard let startedAt = focusSessionStartedAt else { return 0 }
+        return max(1, Int(Date().timeIntervalSince(startedAt) / 60))
+    }
+
     enum CodingKeys: String, CodingKey {
         case id, pseudo, firstName, avatarUrl, lifeGoal, hobbies
         case productivityPeak, currentStreak, city, country, latitude, longitude
+        case isInFocusSession, focusSessionStartedAt, focusSessionDurationMin, focusSessionDescription, totalMinutesToday
     }
 
     init(from decoder: Decoder) throws {
@@ -54,7 +67,11 @@ struct NearbyUser: Codable, Identifiable {
         country = try container.decodeIfPresent(String.self, forKey: .country)
         latitude = try container.decode(Double.self, forKey: .latitude)
         longitude = try container.decode(Double.self, forKey: .longitude)
-        todaySteps = nil
+        isInFocusSession = try container.decodeIfPresent(Bool.self, forKey: .isInFocusSession) ?? false
+        focusSessionStartedAt = try container.decodeIfPresent(Date.self, forKey: .focusSessionStartedAt)
+        focusSessionDurationMin = try container.decodeIfPresent(Int.self, forKey: .focusSessionDurationMin)
+        focusSessionDescription = try container.decodeIfPresent(String.self, forKey: .focusSessionDescription)
+        totalMinutesToday = try container.decodeIfPresent(Int.self, forKey: .totalMinutesToday) ?? 0
         isFake = false
     }
 
@@ -63,7 +80,10 @@ struct NearbyUser: Codable, Identifiable {
         lifeGoal: String?, hobbies: String?, productivityPeak: String?,
         currentStreak: Int?, city: String?, country: String?,
         latitude: Double, longitude: Double,
-        todaySteps: Int? = nil, isFake: Bool = false
+        isInFocusSession: Bool = false, focusSessionStartedAt: Date? = nil,
+        focusSessionDurationMin: Int? = nil, focusSessionDescription: String? = nil,
+        totalMinutesToday: Int = 0,
+        isFake: Bool = false
     ) {
         self.id = id
         self.pseudo = pseudo
@@ -77,14 +97,35 @@ struct NearbyUser: Codable, Identifiable {
         self.country = country
         self.latitude = latitude
         self.longitude = longitude
-        self.todaySteps = todaySteps
+        self.isInFocusSession = isInFocusSession
+        self.focusSessionStartedAt = focusSessionStartedAt
+        self.focusSessionDurationMin = focusSessionDurationMin
+        self.focusSessionDescription = focusSessionDescription
+        self.totalMinutesToday = totalMinutesToday
         self.isFake = isFake
     }
 }
 
-// MARK: - Match Result
+// MARK: - Encouragement
 
-struct MatchResult {
-    let score: Int             // 0-4
-    let commonPoints: [String] // e.g. ["Morning person tous les deux", "Objectif similaire"]
+struct EncouragementPreset: Identifiable {
+    let id = UUID()
+    let emoji: String
+    let message: String
+}
+
+let encouragementPresets: [EncouragementPreset] = [
+    EncouragementPreset(emoji: "🔥", message: "Continue !"),
+    EncouragementPreset(emoji: "💪", message: "Tu geres !"),
+    EncouragementPreset(emoji: "🚀", message: "Focus !"),
+    EncouragementPreset(emoji: "⭐", message: "Bravo !"),
+    EncouragementPreset(emoji: "🧠", message: "Deep work !"),
+    EncouragementPreset(emoji: "👏", message: "Chapeau !"),
+]
+
+struct EncouragementToast: Identifiable, Equatable {
+    let id = UUID()
+    let emoji: String
+    let message: String
+    let fromInitial: String
 }

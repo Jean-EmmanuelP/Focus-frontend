@@ -152,49 +152,6 @@ enum L10n {
     static var yes: String { "common.yes".localized }
     static var no: String { "common.no".localized }
 
-    // MARK: - Tabs
-    static var tabDashboard: String { "tab.dashboard".localized }
-    static var tabFire: String { "tab.fire".localized }
-    static var tabCrew: String { "tab.crew".localized }
-
-
-    // MARK: - Fire Mode
-    static var fireTitle: String { "fire.title".localized }
-    static var fireStartSession: String { "fire.start_session".localized }
-    static var fireStopSession: String { "fire.stop_session".localized }
-    static var fireMinutes: String { "fire.minutes".localized }
-    static var fireSessionsToday: String { "fire.sessions_today".localized }
-    static var fireSessionsThisWeek: String { "fire.sessions_this_week".localized }
-    static var fireFocusTime: String { "fire.focus_time".localized }
-    static var fireDescription: String { "fire.description".localized }
-    static var fireDescriptionPlaceholder: String { "fire.description_placeholder".localized }
-
-    // MARK: - Routines
-    static var routinesTitle: String { "routines.title".localized }
-    static var routinesDaily: String { "routines.daily".localized }
-    static var routinesCompleted: String { "routines.completed".localized }
-    static var routinesAddRoutine: String { "routines.add_routine".localized }
-    static var routinesNoRoutines: String { "routines.no_routines".localized }
-
-    // MARK: - Crew
-    static var crewTitle: String { "crew.title".localized }
-    static var crewLeaderboard: String { "crew.leaderboard".localized }
-    static var crewMyCrew: String { "crew.my_crew".localized }
-    static var crewRequests: String { "crew.requests".localized }
-    static var crewAccount: String { "crew.account".localized }
-    static var crewTopBuilders: String { "crew.top_builders".localized }
-    static var crewThisWeek: String { "crew.this_week".localized }
-    static var crewSearch: String { "crew.search".localized }
-    static var crewSearchPlaceholder: String { "crew.search_placeholder".localized }
-    static var crewPending: String { "crew.pending".localized }
-    static var crewAccept: String { "crew.accept".localized }
-    static var crewReject: String { "crew.reject".localized }
-    static var crewRemove: String { "crew.remove".localized }
-    static var crewNoMembers: String { "crew.no_members".localized }
-    static var crewNoRequests: String { "crew.no_requests".localized }
-    static var crewIncoming: String { "crew.incoming".localized }
-    static var crewOutgoing: String { "crew.outgoing".localized }
-
     // MARK: - Profile / Account
     static var profileTitle: String { "profile.title".localized }
     static var profileMyStatistics: String { "profile.my_statistics".localized }
@@ -224,14 +181,6 @@ enum L10n {
     static var statsLast7Days: String { "stats.last_7_days".localized }
     static var statsLast30Days: String { "stats.last_30_days".localized }
     static var statsFocusSessions: String { "stats.focus_sessions".localized }
-    // MARK: - Start The Day
-    static var startDayTitle: String { "start_day.title".localized }
-    static var startDayHowFeeling: String { "start_day.how_feeling".localized }
-    static var startDaySleepQuality: String { "start_day.sleep_quality".localized }
-    static var startDayIntentions: String { "start_day.intentions".localized }
-    static var startDayAddIntention: String { "start_day.add_intention".localized }
-    static var startDayLetsGo: String { "start_day.lets_go".localized }
-
 
     // MARK: - Time Formatting
     static var timeHours: String { "time.hours".localized }
@@ -321,7 +270,7 @@ extension LocalizationManager {
         "dashboard.motivational": "You're progressing. Even on tough days.",
 
         // Fire Mode
-        "fire.title": "FIREMODE",
+        "fire.title": "FOCUS",
         "fire.subtitle": "Deep focus. Zero distraction.",
         "fire.start_session": "Start Focus Session",
         "fire.stop_session": "Stop Session",
@@ -348,7 +297,7 @@ extension LocalizationManager {
         "fire.log_session": "Log Session",
         "fire.focus_session": "Focus session",
         "fire.manual": "Manual",
-        "fire.start_firemode": "Start FireMode",
+        "fire.start_firemode": "Start Focus",
         "fire.launch_session": "Launch a focus session now",
         "fire.delete_session": "Delete Session?",
         "fire.delete_session_confirm": "This will permanently delete this focus session.",
@@ -624,9 +573,9 @@ extension LocalizationManager {
         "cta.start_day.title": "Start your day right",
         "cta.start_day.subtitle": "Complete your morning check-in",
         "cta.start_day.button": "Start the Day",
-        "cta.fire_mode.title": "Start a FireMode session",
+        "cta.fire_mode.title": "Start a Focus session",
         "cta.fire_mode.subtitle": "Launch your first focus session",
-        "cta.fire_mode.button": "Enter FireMode",
+        "cta.fire_mode.button": "Start Focus",
         "cta.end_day.title": "Complete your End of Day review",
         "cta.end_day.subtitle": "Reflect and close your day",
         "cta.end_day.button": "End of Day Review",
@@ -734,7 +683,7 @@ extension LocalizationManager {
         "dashboard.motivational": "Tu progresses. Même les jours difficiles.",
 
         // Fire Mode
-        "fire.title": "FIREMODE",
+        "fire.title": "FOCUS",
         "fire.subtitle": "Focus intense. Zéro distraction.",
         "fire.start_session": "Démarrer une session",
         "fire.stop_session": "Arrêter",
@@ -760,7 +709,7 @@ extension LocalizationManager {
         "fire.log_session": "Enregistrer",
         "fire.focus_session": "Session focus",
         "fire.manual": "Manuel",
-        "fire.start_firemode": "Lancer FireMode",
+        "fire.start_firemode": "Lancer Focus",
         "fire.launch_session": "Lance une session de focus maintenant",
         "fire.delete_session": "Supprimer la session ?",
         "fire.delete_session_confirm": "Cette action supprimera définitivement cette session.",
@@ -1036,9 +985,9 @@ extension LocalizationManager {
         "cta.start_day.title": "Bien démarrer ta journée",
         "cta.start_day.subtitle": "Complète ton check-in du matin",
         "cta.start_day.button": "Démarrer la journée",
-        "cta.fire_mode.title": "Lance une session FireMode",
+        "cta.fire_mode.title": "Lance une session Focus",
         "cta.fire_mode.subtitle": "Démarre ta première session focus",
-        "cta.fire_mode.button": "Entrer en FireMode",
+        "cta.fire_mode.button": "Lancer Focus",
         "cta.end_day.title": "Fais ta revue de fin de journée",
         "cta.end_day.subtitle": "Réfléchis et clôture ta journée",
         "cta.end_day.button": "Revue de fin de journée",
@@ -1146,7 +1095,7 @@ extension LocalizationManager {
         "dashboard.motivational": "Estás progresando. Incluso en los días difíciles.",
 
         // Fire Mode
-        "fire.title": "FIREMODE",
+        "fire.title": "FOCUS",
         "fire.subtitle": "Enfoque profundo. Cero distracciones.",
         "fire.start_session": "Iniciar Sesión de Enfoque",
         "fire.stop_session": "Detener Sesión",
@@ -1172,7 +1121,7 @@ extension LocalizationManager {
         "fire.log_session": "Registrar Sesión",
         "fire.focus_session": "Sesión de enfoque",
         "fire.manual": "Manual",
-        "fire.start_firemode": "Iniciar FireMode",
+        "fire.start_firemode": "Iniciar Focus",
         "fire.launch_session": "Lanza una sesión de enfoque ahora",
         "fire.delete_session": "¿Eliminar Sesión?",
         "fire.delete_session_confirm": "Esto eliminará permanentemente esta sesión de enfoque.",
@@ -1412,9 +1361,9 @@ extension LocalizationManager {
         "cta.start_day.title": "Comienza bien tu día",
         "cta.start_day.subtitle": "Completa tu check-in matutino",
         "cta.start_day.button": "Comenzar el Día",
-        "cta.fire_mode.title": "Inicia una sesión FireMode",
+        "cta.fire_mode.title": "Inicia una sesión Focus",
         "cta.fire_mode.subtitle": "Lanza tu primera sesión de enfoque",
-        "cta.fire_mode.button": "Entrar en FireMode",
+        "cta.fire_mode.button": "Iniciar Focus",
         "cta.end_day.title": "Completa tu revisión de fin de día",
         "cta.end_day.subtitle": "Reflexiona y cierra tu día",
         "cta.end_day.button": "Revisión de Fin de Día",

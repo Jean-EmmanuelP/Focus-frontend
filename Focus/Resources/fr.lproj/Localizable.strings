@@ -113,7 +113,7 @@
 "fire.log_session" = "Enregistrer";
 "fire.focus_session" = "Session focus";
 "fire.manual" = "Manuel";
-"fire.start_firemode" = "Lancer FireMode";
+"fire.start_firemode" = "Lancer Focus";
 "fire.launch_session" = "Lance une session focus maintenant";
 "fire.delete_session" = "Supprimer la session ?";
 "fire.delete_session_confirm" = "Cette action supprimera définitivement cette session focus.";

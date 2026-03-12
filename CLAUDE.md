@@ -1,251 +1,129 @@
 # Focus App - Documentation Claude
 
-## Vue d'ensemble de l'application
+## Vue d'ensemble
 
-**Focus** est une application iOS de productivité et de suivi d'habitudes conçue pour aider les utilisateurs à gérer leur temps, développer leur concentration et atteindre leurs objectifs à travers des sessions de focus guidées, des rituels quotidiens et une responsabilisation communautaire.
-
----
-
-## Fonctionnalités principales
-
-### 1. FireMode - Sessions de Focus
-- Sessions avec timer (25, 50, 90 minutes ou personnalisé)
-- Liaison avec des Quests (objectifs)
-- Blocage d'apps via ScreenTime
-- Live Activities sur l'écran de verrouillage
-- Widget de compte à rebours
-- Journalisation manuelle de sessions
-
-### 2. Calendrier & Planification de tâches
-- Planification de journée avec prompts personnalisés et suggestions IA
-- Gestion de tâches avec blocs horaires (matin, après-midi, soir)
-- Priorités, durées estimées, association aux Quests
-- Intégration Google Calendar
-- Vue semaine visuelle
-
-### 3. Rituels quotidiens
-- Création de routines quotidiennes/hebdomadaires
-- Suivi de complétion dans le dashboard
-- Planification horaire
-- Catégorisation par domaine de vie
-
-### 4. Quests (Objectifs)
-- Suivi multi-domaines : Santé, Apprentissage, Carrière, Relations, Créativité, Autre
-- Barres de progression visuelles
-- Gestion de statut : actif, complété, en pause, archivé
-- Dates cibles optionnelles
-
-### 5. Check-ins quotidiens
-- **Morning Check-in** : humeur matinale, qualité de sommeil, intentions quotidiennes
-- **Evening Review** : rituels complétés, plus grande victoire, bloqueurs, objectif de demain
-
-### 6. Dashboard & Analytics
-- Suivi de streak avec niveaux de flamme
-- Stats hebdomadaires (graphique de minutes par jour)
-- Pourcentage de complétion tâches/rituels
-- CTA adaptatif (Start Day → End of Day → Completed)
-
-### 7. Crew & Communauté
-- Gestion d'équipe avec demandes d'amis
-- Leaderboard de comparaison
-- Groupes de crew avec routines partagées
-- Feed communautaire avec photos et likes
-- WebSocket pour mises à jour temps réel
-
-### 8. Journal
-- Suivi d'humeur (score 1-5)
-- Analyse de sentiment
-- Streak de journalisation
-
-### 9. Profil & Abonnement
-- Personnalisation du profil
-- Préférence de pic de productivité
-- Intégration RevenueCat pour abonnements Pro
+**Focus** est une application iOS de productivité centrée sur un **compagnon IA conversationnel** (style Replika). L'expérience est 100% chat — un seul écran principal où l'utilisateur parle à son compagnon (par défaut "Kai") pour organiser sa journée, gérer ses tâches, et rester motivé.
 
 ---
 
-## Architecture
+## Expérience utilisateur
+
+### Écran principal — Chat
+- Interface de chat avec avatar 3D animé (Ready Player Me via WebView)
+- Mode "Home" (avatar seul + barre de saisie) et mode "Conversation" (messages + avatar en fond)
+- Envoi de messages texte et vocaux (transcription via Whisper)
+- Appel vocal en temps réel (LiveKit) — FaceTime-style, full screen dark
+- Profil du compagnon accessible depuis le header (nom, personnalité, statistiques)
+
+### Onboarding (13 étapes, style Replika)
+1. Prénom/Nom → Âge → Pronoms → Social proof → Présentation
+2. Questions de personnalisation (wellness goals, life improvements, development areas)
+3. Choix d'avatar + nom du compagnon → Création animée → Paywall → Meet companion
+
+### Focus Pulse (Discover Map)
+- Carte MapKit montrant les utilisateurs à proximité en session de focus
+- Profils Snapchat-style avec stats (temps de focus, streak)
+- Bouton "Rejoindre le focus" → démarre une session via l'API
+- Encouragements entre utilisateurs
+
+### Abonnement (StoreKit 2 + RevenueCat)
+- **Focus Plus** : sessions Focus illimitées, app blocking avancé
+- **Focus Max** : tout Plus + appels vocaux illimités, accès prioritaire
+
+---
+
+## Architecture technique
 
 ```
 Focus/
 ├── App/FocusApp.swift              # Point d'entrée + deep linking
 ├── Core/
-│   ├── AppStore.swift              # État centralisé (singleton)
-│   ├── APIClient.swift             # Gestion HTTP
-│   ├── FocusSessionActivity.swift  # Live Activities
+│   ├── AppStore.swift              # État centralisé (FocusAppStore.shared)
+│   ├── APIClient.swift             # Client HTTP
+│   ├── FocusSessionActivity.swift  # Live Activities (écran verrouillage)
 │   └── SyncManager.swift           # Synchronisation données
 ├── Models/
-│   ├── Models.swift                # Modèles domaine
-│   └── CalendarModels.swift        # Modèles calendrier
-├── ViewModels/                     # MVVM - Logique métier
-├── Services/                       # Couche API/Services
-├── Views/                          # Interface utilisateur
-├── Navigation/                     # Router & navigation
-└── DesignSystem/                   # Tokens & composants
+│   └── Models.swift                # Modèles domaine
+├── ViewModels/
+│   ├── ChatViewModel.swift         # Logique chat + Backboard thread
+│   ├── VoiceCallViewModel.swift    # Logique appel vocal LiveKit
+│   └── DiscoverMapViewModel.swift  # Focus Pulse / carte
+├── Services/
+│   ├── AuthService.swift           # Authentification (Apple Sign-In)
+│   ├── VoiceService.swift          # API voice assistant (text→response)
+│   ├── LiveKitVoiceService.swift   # Appels vocaux temps réel
+│   ├── BackboardService.swift      # Thread de conversation persistant
+│   ├── SubscriptionManager.swift   # StoreKit 2 + RevenueCat
+│   ├── ScreenTimeAppBlockerService.swift  # Blocage d'apps (Family Controls)
+│   ├── CalendarService.swift       # Sync calendrier
+│   ├── DiscoverService.swift       # Focus Pulse API
+│   ├── LocationService.swift       # CoreLocation
+│   ├── NotificationService.swift   # Push notifications (Firebase)
+│   ├── PushNotificationService.swift # Tokens APNs
+│   └── MessageQueueService.swift   # File d'attente offline
+├── Views/
+│   ├── Chat/                       # ChatView, CompanionProfileView, ChatInputBar
+│   ├── VoiceCall/                  # VoiceCallView (LiveKit)
+│   ├── Discover/                   # DiscoverMapView, NearbyUserProfileCard
+│   ├── FocusMap/                   # FocusMapCoachCard, FocusMapStatsOverlay
+│   ├── Onboarding/                 # NewOnboardingView (13 steps), LandingPageView
+│   ├── Auth/                       # AuthenticationView, LegalDocumentsView
+│   ├── Subscription/               # FocusPaywallView, RevenueCatPaywallView
+│   ├── Settings/                   # SettingsView, AppBlockerSettings, etc.
+│   ├── Avatar/                     # Avatar3DView (Ready Player Me WebView)
+│   └── Splash/                     # SplashView, WelcomeLoadingView
+├── Navigation/Navigation.swift     # AppRouter + AppTab (single tab: chat)
+└── DesignSystem/                   # Tokens visuels & composants
 ```
 
 **Pattern** : MVVM + Services avec état centralisé via `FocusAppStore.shared`
 
+**Navigation** : Single-tab (ChatView). `AppRouter.shared` gère les sheets (settings, onboarding, paywall, landing page).
+
 ---
 
-## Deep Linking existant
+## Deep Linking
 
 ```swift
-focus://firemode       → Lancer FireMode
-focus://dashboard      → Aller au dashboard
-focus://starttheday    → Lancer morning check-in
+focus://chat         → Ouvrir le chat (default)
+focus://firemode     → Redirigé vers chat (legacy)
+focus://dashboard    → Redirigé vers chat (legacy)
+focus://starttheday  → Redirigé vers chat (legacy)
 ```
 
 ---
 
-## État actuel des notifications
+## Widgets
 
-```swift
-// Dans AppConfiguration.swift
-static let notificationsEnabled = false  // DÉSACTIVÉ - Prêt pour implémentation
-```
-
-**Systèmes existants :**
-- Haptic feedback (vibrations sur événements)
-- Live Activities (compte à rebours écran verrouillé)
-- Widget (timer temps réel)
-- Dialogues d'alerte (sessions stales, validation)
-
-**Manquant :**
-- Push notifications
-- Notifications locales programmées
-- Rappels basés sur l'heure
-- Alertes déclenchées par événements
+- **Timer Widget** : compte à rebours Live Activity sur l'écran de verrouillage
+- **Weekly Goals Widget** : objectifs hebdomadaires dans le widget
+- Données partagées via `UserDefaults(suiteName: "group.com.jep.volta")`
 
 ---
 
-## Propositions de notifications à implémenter
+## Localisation
 
-### Priorité 1 - Notifications essentielles (Core Experience)
+3 langues supportées : **Français** (défaut), **Anglais**, **Espagnol**
 
-| Catégorie | Notification | Déclencheur | Deep Link |
-|-----------|-------------|-------------|-----------|
-| **Focus** | "Session terminée ! 🎉 Tu as focus [X] minutes" | Fin de session | `focus://dashboard` |
-| **Focus** | "Plus que 5 minutes de focus !" | 5 min avant fin | - |
-| **Rituel** | "C'est l'heure de [Nom du rituel] 🌅" | Heure programmée | `focus://dashboard` |
-| **Check-in** | "Bonjour ! Planifie ta journée ☀️" | 7h-8h (configurable) | `focus://starttheday` |
-| **Check-in** | "Comment s'est passée ta journée ? 🌙" | 21h (configurable) | `focus://chat` |
-
-### Priorité 2 - Notifications de motivation (Engagement)
-
-| Catégorie | Notification | Déclencheur | Deep Link |
-|-----------|-------------|-------------|-----------|
-| **Streak** | "🔥 [X] jours de streak ! Continue !" | Milestone (7, 14, 30, 60, 90) | `focus://dashboard` |
-| **Streak** | "⚠️ Ta streak est en danger ! Focus aujourd'hui" | Fin de journée sans session | `focus://firemode` |
-| **Quest** | "📈 Quest '[Titre]' à 50% !" | Milestone progression | `focus://quests` |
-| **Quest** | "🎯 Quest '[Titre]' complétée !" | Complétion | `focus://quests` |
-| **Accountability** | "✅ Journée validée ! Tu as atteint tes objectifs" | Validation quotidienne | `focus://dashboard` |
-
-### Priorité 3 - Notifications sociales (Community)
-
-| Catégorie | Notification | Déclencheur | Deep Link |
-|-----------|-------------|-------------|-----------|
-| **Crew** | "[Nom] veut rejoindre ton crew ! 👥" | Demande d'ami reçue | `focus://crew` |
-| **Crew** | "Tu as été invité au groupe [Nom] !" | Invitation groupe | `focus://crew` |
-| **Leaderboard** | "📈 Tu as gagné [X] places au classement !" | Changement de rang | `focus://leaderboard` |
-| **Crew** | "[Nom] vient de terminer une session focus 🔥" | Session terminée par ami | `focus://crew` |
-
-### Priorité 4 - Notifications de rappel (Reminders)
-
-| Catégorie | Notification | Déclencheur | Deep Link |
-|-----------|-------------|-------------|-----------|
-| **Rituel** | "Tu as oublié [Rituel] aujourd'hui" | Rituel non complété avant fin de journée | `focus://dashboard` |
-| **Tâche** | "Rappel : [Tâche] prévue à [Heure]" | 15-30 min avant tâche | `focus://calendar` |
-| **Quest** | "⏰ Deadline dans 3 jours pour [Quest]" | 3 jours avant target_date | `focus://quests` |
-| **Journal** | "📔 Prends un moment pour journaliser" | Rappel quotidien (configurable) | `focus://journal` |
-
----
-
-## Plan d'implémentation technique
-
-### Phase 1 : Infrastructure
-1. Créer `NotificationService.swift`
-2. Demander les permissions (`UNUserNotificationCenter`)
-3. Configurer les catégories et actions
-4. Activer `AppConfiguration.notificationsEnabled`
-
-### Phase 2 : Notifications locales
-1. Implémenter les rappels morning/evening check-in
-2. Implémenter les rappels de rituels programmés
-3. Implémenter les alertes de streak en danger
-
-### Phase 3 : Notifications push (backend requis)
-1. Configurer APNs sur le backend
-2. Enregistrer le device token
-3. Implémenter les notifications sociales (crew, leaderboard)
-4. Implémenter les célébrations de milestone
-
-### Phase 4 : Paramètres utilisateur
-1. Créer `NotificationSettingsView`
-2. Permettre de configurer les heures de rappel
-3. Permettre d'activer/désactiver par catégorie
-4. Respecter le mode "Ne pas déranger"
-
----
-
-## Fichiers à créer/modifier
-
-```
-Focus/
-├── Services/
-│   └── NotificationService.swift     # NOUVEAU - Service principal
-├── ViewModels/
-│   └── NotificationSettingsViewModel.swift  # NOUVEAU
-├── Views/
-│   └── Settings/
-│       └── NotificationSettingsView.swift   # NOUVEAU
-├── Core/
-│   └── AppConfiguration.swift        # MODIFIER - Activer flag
-└── App/
-    └── FocusApp.swift                # MODIFIER - Initialisation
-```
-
----
-
-## Dépendances
-
-- `UserNotifications` (framework natif iOS)
-- Aucune librairie tierce nécessaire pour les notifications locales
-- Pour push : configuration APNs côté backend
-
----
-
-## Notes importantes
-
-1. **Respecter la vie privée** : Ne pas envoyer de notifications avec contenu sensible sur l'écran de verrouillage
-2. **Fréquence raisonnable** : Éviter le spam, maximum 3-5 notifications par jour
-3. **Personnalisation** : Laisser l'utilisateur contrôler chaque type de notification
-4. **Deep links** : Utiliser le système existant pour la navigation depuis les notifications
-5. **Badge app** : Mettre à jour le badge avec le nombre de tâches/rituels en attente
+Système hybride :
+- Dictionnaires hardcodés dans `LocalizationManager.swift` (L10n)
+- Fichiers `.strings` dans `Resources/{lang}.lproj/Localizable.strings`
 
 ---
 
 ## Déploiement (Fastlane)
 
-### Quand l'utilisateur demande de déployer
-
-**IMPORTANT**: Toujours utiliser le mot de passe app-specific stocké dans `.env.local`
-
-Si l'utilisateur dit "mets sur TF", "push TestFlight", "nouvelle beta", "déploie", exécuter:
+**IMPORTANT** : Toujours utiliser le mot de passe app-specific stocké dans `.env.local`
 
 ```bash
+# TestFlight (beta)
 cd /Users/jperrama/Developer/iOS_Swift_Applications/Focus
 source .env.local && FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD="$FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD" bundle exec fastlane beta
-```
 
-Si l'utilisateur dit "mets sur le store", "release", "App Store", exécuter:
-
-```bash
+# App Store (release)
 cd /Users/jperrama/Developer/iOS_Swift_Applications/Focus
 source .env.local && FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD="$FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD" bundle exec fastlane release
 ```
-
-### Commandes disponibles
 
 | Commande | Action |
 |----------|--------|
@@ -257,6 +135,16 @@ source .env.local && FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD="$FASTLANE_APP
 
 ### Infos projet
 
-- **Bundle ID**: `com.jep.volta`
-- **Team ID**: `62NW6K29QN`
-- **Docs détaillées**: Voir `DEPLOYMENT.md`
+- **Bundle ID** : `com.jep.volta`
+- **Team ID** : `62NW6K29QN`
+- **Docs détaillées** : Voir `DEPLOYMENT.md`
+
+---
+
+## Web App (focus-web)
+
+L'app web est un miroir simplifié de l'app iOS :
+- Chat avec le compagnon IA (même thread Backboard partagé)
+- Landing page avec design identique à l'iOS
+- Stack : Next.js + React + TypeScript
+- Repo : `/Users/jperrama/Developer/iOS_Swift_Applications/focus-web`

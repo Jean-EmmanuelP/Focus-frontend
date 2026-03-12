@@ -76,7 +76,7 @@
 "rituals" = "rutinas";
 
 // MARK: - Fire Mode
-"fire.title" = "FIREMODE";
+"fire.title" = "FOCUS";
 "fire.subtitle" = "Enfoque profundo. Cero distracciones.";
 "fire.start_session" = "Iniciar Sesión de Enfoque";
 "fire.stop_session" = "Detener Sesión";
@@ -102,7 +102,7 @@
 "fire.log_session" = "Registrar Sesión";
 "fire.focus_session" = "Sesión de enfoque";
 "fire.manual" = "Manual";
-"fire.start_firemode" = "Iniciar FireMode";
+"fire.start_firemode" = "Iniciar Focus";
 "fire.launch_session" = "Lanza una sesión de enfoque ahora";
 "fire.delete_session" = "¿Eliminar Sesión?";
 "fire.delete_session_confirm" = "Esto eliminará permanentemente esta sesión de enfoque.";
