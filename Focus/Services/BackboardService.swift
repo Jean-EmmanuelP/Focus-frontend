@@ -221,7 +221,7 @@ class BackboardService {
         let body: [String: Any] = [
             "content": content,
             "stream": false,
-            "memory": "Auto"
+            "memory": "Readonly"
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
@@ -373,6 +373,13 @@ class BackboardService {
                 let enabled = args["enabled"] as? Bool ?? true
                 let result = try await scheduleCalendarBlocking(eventIds: eventIds, enabled: enabled)
                 return (result, [.refreshCalendarEvents])
+
+            case "save_memory":
+                let content = args["content"] as? String ?? ""
+                let category = args["category"] as? String ?? "fact"
+                let memoryText = "[\(category)] \(content)"
+                try await addMemory(content: memoryText)
+                return (toJSON(["saved": true, "category": category] as [String: Any]), [])
 
             default:
                 print("⚠️ Unknown tool: \(name)")
@@ -1205,8 +1212,20 @@ class BackboardService {
         - Si days_since_last_message >= 3 : "Ça fait un moment ! Content de te revoir."
         - Si satisfaction_score < 30 : ton plus doux, moins "coach sportif"
 
-        MÉMOIRE:
-        - Tu as accès à une mémoire automatique. Les faits importants sont retenus entre les conversations.
+        MÉMOIRE — QUAND SAUVEGARDER:
+        - Tu as un outil save_memory pour retenir les informations importantes entre les conversations.
+        - Appelle save_memory quand l'utilisateur partage :
+          • Un objectif à court/moyen/long terme (category: "goal") — Ex: "Je veux perdre 5kg", "Lancer ma boîte dans 6 mois"
+          • Une préférence ou ce qui marche pour lui (category: "preference") — Ex: "Le sport le matin me fait du bien", "Je préfère bosser la nuit"
+          • Un événement de vie important (category: "life_event") — Ex: "Je commence un nouveau job lundi", "Ma copine et moi on s'est séparés"
+          • Un ressenti récurrent ou profond (category: "feeling") — Ex: "Je me sens dépassé au travail depuis des semaines"
+          • Un défi ou blocage (category: "challenge") — Ex: "J'arrive pas à me coucher avant 1h du mat"
+          • Un accomplissement marquant (category: "achievement") — Ex: "J'ai eu ma promo", "Premier client signé"
+          • Un fait personnel (category: "fact") — Ex: "Je suis développeur", "J'ai 2 enfants"
+        - NE SAUVEGARDE PAS : les états temporaires ("j'ai faim"), les infos déjà dans get_user_context (tâches, rituels), les données éphémères.
+        - Formule le contenu clairement, à la 3ème personne. Ex: "Objectif : lancer sa startup d'ici septembre 2025"
+        - Pas besoin de demander permission — sauvegarde silencieusement quand c'est pertinent.
+        - Maximum 1-2 save_memory par conversation, uniquement pour les infos vraiment durables.
         - Utilise ces souvenirs pour personnaliser tes réponses.
         - Ne dis pas explicitement "je me souviens que..." — intègre naturellement les infos.
         """
@@ -1347,7 +1366,11 @@ class BackboardService {
             tool("schedule_calendar_blocking", "Active ou désactive le blocage d'apps pendant certains événements calendrier. L'utilisateur peut demander de bloquer ses apps pendant un meeting, du deep work, etc.", [
                 "event_ids": ["type": "array", "description": "Liste des IDs d'événements", "items": ["type": "string"]],
                 "enabled": param("boolean", "Activer (true) ou désactiver (false) le blocage")
-            ], required: ["event_ids"])
+            ], required: ["event_ids"]),
+            tool("save_memory", "Sauvegarde un fait important sur l'utilisateur pour s'en souvenir entre les conversations. Utilise-le quand l'utilisateur partage un objectif, un ressenti profond, un événement de vie, une préférence ou un accomplissement.", [
+                "content": param("string", "Le fait à retenir, formulé clairement (ex: 'Veut lancer sa startup dans 6 mois')"),
+                "category": param("string", "Catégorie du souvenir", enumValues: ["goal", "preference", "life_event", "feeling", "challenge", "achievement", "fact"])
+            ], required: ["content", "category"])
         ]
 
         return [
