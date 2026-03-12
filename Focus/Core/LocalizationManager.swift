@@ -163,7 +163,6 @@ enum L10n {
     static var dashboardGoodAfternoon: String { "dashboard.good_afternoon".localized }
     static var dashboardGoodEvening: String { "dashboard.good_evening".localized }
     static var dashboardStartDay: String { "dashboard.start_day".localized }
-    static var dashboardEndDay: String { "dashboard.end_day".localized }
     static var dashboardTodaysRoutines: String { "dashboard.todays_routines".localized }
     static var dashboardFocusTime: String { "dashboard.focus_time".localized }
     static var dashboardWeeklyProgress: String { "dashboard.weekly_progress".localized }
@@ -234,11 +233,6 @@ enum L10n {
     static var statsLast7Days: String { "stats.last_7_days".localized }
     static var statsLast30Days: String { "stats.last_30_days".localized }
     static var statsFocusSessions: String { "stats.focus_sessions".localized }
-    static var statsDailyRoutines: String { "stats.daily_routines".localized }
-    static var statsNoSessions: String { "stats.no_sessions".localized }
-    static var statsNoRoutines: String { "stats.no_routines".localized }
-    static var statsViewStats: String { "stats.view_stats".localized }
-
     // MARK: - Start The Day
     static var startDayTitle: String { "start_day.title".localized }
     static var startDayHowFeeling: String { "start_day.how_feeling".localized }
@@ -247,13 +241,6 @@ enum L10n {
     static var startDayAddIntention: String { "start_day.add_intention".localized }
     static var startDayLetsGo: String { "start_day.lets_go".localized }
 
-    // MARK: - End of Day
-    static var endDayTitle: String { "end_day.title".localized }
-    static var endDayBiggestWin: String { "end_day.biggest_win".localized }
-    static var endDayChallenges: String { "end_day.challenges".localized }
-    static var endDayBestMoment: String { "end_day.best_moment".localized }
-    static var endDayTomorrowGoal: String { "end_day.tomorrow_goal".localized }
-    static var endDayComplete: String { "end_day.complete".localized }
 
     // MARK: - Time Formatting
     static var timeHours: String { "time.hours".localized }

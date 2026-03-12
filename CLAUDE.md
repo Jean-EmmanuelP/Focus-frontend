@@ -94,7 +94,6 @@ Focus/
 focus://firemode       → Lancer FireMode
 focus://dashboard      → Aller au dashboard
 focus://starttheday    → Lancer morning check-in
-focus://endofday       → Lancer evening review
 ```
 
 ---
@@ -130,7 +129,7 @@ static let notificationsEnabled = false  // DÉSACTIVÉ - Prêt pour implémenta
 | **Focus** | "Plus que 5 minutes de focus !" | 5 min avant fin | - |
 | **Rituel** | "C'est l'heure de [Nom du rituel] 🌅" | Heure programmée | `focus://dashboard` |
 | **Check-in** | "Bonjour ! Planifie ta journée ☀️" | 7h-8h (configurable) | `focus://starttheday` |
-| **Check-in** | "Comment s'est passée ta journée ? 🌙" | 21h (configurable) | `focus://endofday` |
+| **Check-in** | "Comment s'est passée ta journée ? 🌙" | 21h (configurable) | `focus://chat` |
 
 ### Priorité 2 - Notifications de motivation (Engagement)
 

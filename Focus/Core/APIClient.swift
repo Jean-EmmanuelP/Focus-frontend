@@ -277,7 +277,6 @@ enum APIConfiguration {
 
         // Profile
         case updateDayVisibility
-        case myStats
 
         // Social Actions
         case likeRoutineCompletion(completionId: String)
@@ -387,9 +386,6 @@ enum APIConfiguration {
 
         // Discover
         case discoverUsers(lat: Double, lon: Double, radius: Int)
-
-        // Focus Map
-        case focusMapLiveStats
 
         var path: String {
             switch self {
@@ -531,8 +527,6 @@ enum APIConfiguration {
             // Profile
             case .updateDayVisibility:
                 return "/me/visibility"
-            case .myStats:
-                return "/me/stats"
 
             // Social Actions
             case .likeRoutineCompletion(let completionId):
@@ -710,9 +704,6 @@ enum APIConfiguration {
             case .discoverUsers(let lat, let lon, let radius):
                 return "/discover/users?lat=\(lat)&lon=\(lon)&radius=\(radius)"
 
-            // Focus Map
-            case .focusMapLiveStats:
-                return "/focus-sessions/live-stats"
             }
         }
 

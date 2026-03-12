@@ -608,10 +608,7 @@ struct DashboardView: View {
         case .startTheDay:
             // Navigate to chat with Kai instead of manual planning
             router.selectedTab = .chat
-        case .endOfDay:
-            router.navigateToEndOfDay()
         case .allCompleted:
-            // Already completed - could show stats
             break
         }
     }

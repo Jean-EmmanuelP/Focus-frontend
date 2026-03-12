@@ -217,8 +217,6 @@ class DashboardViewModel: ObservableObject {
     var adaptiveCTA: AdaptiveCTA {
         if !store.hasDoneMorningCheckIn {
             return .startTheDay
-        } else if !store.hasDoneEveningReview {
-            return .endOfDay
         } else {
             return .allCompleted
         }
@@ -393,15 +391,12 @@ class DashboardViewModel: ObservableObject {
 // MARK: - Adaptive CTA Model
 enum AdaptiveCTA {
     case startTheDay
-    case endOfDay
     case allCompleted
 
     var title: String {
         switch self {
         case .startTheDay:
             return "cta.start_day.title".localized
-        case .endOfDay:
-            return "cta.end_day.title".localized
         case .allCompleted:
             return "cta.completed.title".localized
         }
@@ -411,8 +406,6 @@ enum AdaptiveCTA {
         switch self {
         case .startTheDay:
             return "cta.start_day.subtitle".localized
-        case .endOfDay:
-            return "cta.end_day.subtitle".localized
         case .allCompleted:
             return "cta.completed.subtitle".localized
         }
@@ -422,8 +415,6 @@ enum AdaptiveCTA {
         switch self {
         case .startTheDay:
             return "cta.start_day.button".localized
-        case .endOfDay:
-            return "cta.end_day.button".localized
         case .allCompleted:
             return "cta.completed.button".localized
         }
@@ -433,8 +424,6 @@ enum AdaptiveCTA {
         switch self {
         case .startTheDay:
             return "☀️"
-        case .endOfDay:
-            return "🌙"
         case .allCompleted:
             return nil
         }

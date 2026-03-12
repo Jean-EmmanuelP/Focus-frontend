@@ -291,21 +291,6 @@ struct DailyStat: Codable, Identifiable {
     var id: String { date }
 }
 
-/// Personal stats response (includes total routines count)
-struct MyStatsResponse: Codable {
-    let weeklyFocusMinutes: [DailyStat]?
-    let weeklyRoutinesDone: [DailyStat]?
-    let weeklyTotalFocus: Int?
-    let weeklyTotalRoutines: Int?
-    let weeklyAvgFocus: Int?
-    let weeklyRoutineRate: Int?
-    let monthlyFocusMinutes: [DailyStat]?
-    let monthlyRoutinesDone: [DailyStat]?
-    let monthlyTotalFocus: Int?
-    let monthlyTotalRoutines: Int?
-    let totalRoutines: Int?
-}
-
 struct CrewIntention: Codable, Identifiable {
     let id: String
     let content: String
@@ -691,16 +676,6 @@ class CrewService {
             endpoint: .updateDayVisibility,
             method: .patch,
             body: body
-        )
-    }
-
-    // MARK: - My Stats
-
-    /// Fetch my own stats (weekly and monthly)
-    func fetchMyStats() async throws -> MyStatsResponse {
-        return try await apiClient.request(
-            endpoint: .myStats,
-            method: .get
         )
     }
 

@@ -196,7 +196,6 @@ struct FocusApp: App {
     /// - focus://firemode
     /// - focus://dashboard
     /// - focus://starttheday
-    /// - focus://endofday
     /// - focus://chat
     /// - focus://settings
     /// - focus://settings/notifications
@@ -235,9 +234,6 @@ struct FocusApp: App {
         case "starttheday":
             // Redirect to chat - planning is now done via Kai
             router.selectedTab = .chat
-
-        case "endofday":
-            router.navigateToEndOfDay()
 
         case "calendar":
             router.navigateToCalendar()

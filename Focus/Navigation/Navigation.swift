@@ -27,7 +27,6 @@ enum AppTab: Int, CaseIterable {
 // MARK: - Navigation Destination
 enum NavigationDestination: Hashable {
     case startTheDay
-    case endOfDay
     case focusSession
     case manageRituals
     case weeklyGoals
@@ -52,7 +51,6 @@ class AppRouter: ObservableObject {
     @Published var selectedTab: AppTab = .chat
     @Published var dashboardPath = NavigationPath()
     @Published var showStartTheDay = false
-    @Published var showEndOfDay = false
     @Published var showFireModeSession = false  // Shows FireModeView as fullscreen modal
     @Published var showSettings = false
     @Published var showOnboarding = false  // For Ralph design verification
@@ -72,10 +70,6 @@ class AppRouter: ObservableObject {
     @Published var calendarTargetDate: Date?
 
     private init() {}
-
-    func navigateToEndOfDay() {
-        showEndOfDay = true
-    }
 
     func navigateToFireMode(duration: Int? = nil, description: String? = nil, taskId: String? = nil, ritualId: String? = nil) {
         // Set preset values if provided
@@ -124,7 +118,6 @@ class AppRouter: ObservableObject {
 
     func dismissSheets() {
         showStartTheDay = false
-        showEndOfDay = false
         showSettings = false
         showOnboarding = false
         showPaywall = false
@@ -153,11 +146,6 @@ struct MainTabView: View {
                 .environmentObject(FocusAppStore.shared)
                 .environmentObject(router)
         }
-        .sheet(isPresented: $router.showEndOfDay) {
-            NavigationStack {
-                EndOfDayView()
-            }
-        }
         .sheet(isPresented: $router.showPaywall) {
             VoltaPaywallView()
                 .environmentObject(SubscriptionManager.shared)
@@ -178,8 +166,6 @@ struct MainTabView: View {
         switch destination {
         case .startTheDay:
             PlanYourDayView()
-        case .endOfDay:
-            EndOfDayView()
         case .focusSession:
             FireModeView()
         case .manageRituals:
