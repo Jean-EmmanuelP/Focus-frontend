@@ -157,15 +157,6 @@ enum L10n {
     static var tabFire: String { "tab.fire".localized }
     static var tabCrew: String { "tab.crew".localized }
 
-    // MARK: - Dashboard
-    static var dashboardTitle: String { "dashboard.title".localized }
-    static var dashboardGoodMorning: String { "dashboard.good_morning".localized }
-    static var dashboardGoodAfternoon: String { "dashboard.good_afternoon".localized }
-    static var dashboardGoodEvening: String { "dashboard.good_evening".localized }
-    static var dashboardStartDay: String { "dashboard.start_day".localized }
-    static var dashboardTodaysRoutines: String { "dashboard.todays_routines".localized }
-    static var dashboardFocusTime: String { "dashboard.focus_time".localized }
-    static var dashboardWeeklyProgress: String { "dashboard.weekly_progress".localized }
 
     // MARK: - Fire Mode
     static var fireTitle: String { "fire.title".localized }

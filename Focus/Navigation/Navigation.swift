@@ -36,20 +36,11 @@ enum NavigationDestination: Hashable {
 }
 
 // MARK: - App Router (Navigation State)
-// MARK: - Dashboard Scroll Sections
-enum DashboardSection: String, CaseIterable {
-    case intentions = "intentions"
-    case rituals = "rituals"
-    case reflection = "reflection"
-    case sessions = "sessions"
-}
-
 @MainActor
 class AppRouter: ObservableObject {
     static let shared = AppRouter()
 
     @Published var selectedTab: AppTab = .chat
-    @Published var dashboardPath = NavigationPath()
     @Published var showStartTheDay = false
     @Published var showFireModeSession = false  // Shows FireModeView as fullscreen modal
     @Published var showSettings = false
@@ -62,9 +53,6 @@ class AppRouter: ObservableObject {
     @Published var fireModePresetDescription: String?
     @Published var fireModePresetTaskId: String?  // Task ID from calendar for post-session validation
     @Published var fireModePresetRitualId: String?  // Ritual ID from calendar for post-session validation
-
-    // Dashboard scroll target
-    @Published var dashboardScrollTarget: DashboardSection?
 
     // Calendar navigation target date
     @Published var calendarTargetDate: Date?
@@ -91,11 +79,6 @@ class AppRouter: ObservableObject {
         fireModePresetDescription = nil
         fireModePresetTaskId = nil
         fireModePresetRitualId = nil
-    }
-
-    func navigateToDashboard(scrollTo section: DashboardSection? = nil) {
-        selectedTab = .chat
-        dashboardScrollTarget = section
     }
 
     // Calendar tab removed - calendar accessible via chat
@@ -126,7 +109,6 @@ class AppRouter: ObservableObject {
 
     func navigate(to destination: NavigationDestination) {
         selectedTab = .chat
-        dashboardPath.append(destination)
     }
 
     func navigateToWeeklyGoals() {
