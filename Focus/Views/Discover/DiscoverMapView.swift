@@ -117,19 +117,22 @@ struct DiscoverMapView: View {
             .presentationDragIndicator(.visible)
             .presentationBackground(.ultraThinMaterial)
         }
-        .sheet(isPresented: $showCategoryPicker) {
+        .sheet(isPresented: $showCategoryPicker, onDismiss: {
+            if selectedCategory != nil {
+                showFocusRoom = true
+            }
+        }) {
             CategoryPickerSheet { category in
                 selectedCategory = category
                 showCategoryPicker = false
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    showFocusRoom = true
-                }
             }
             .presentationDetents([.medium])
             .presentationDragIndicator(.visible)
             .presentationBackground(.ultraThinMaterial)
         }
-        .fullScreenCover(isPresented: $showFocusRoom) {
+        .fullScreenCover(isPresented: $showFocusRoom, onDismiss: {
+            selectedCategory = nil
+        }) {
             if let category = selectedCategory {
                 FocusRoomView(category: category)
             }
