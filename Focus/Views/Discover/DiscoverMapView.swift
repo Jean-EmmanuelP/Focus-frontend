@@ -5,11 +5,12 @@ struct DiscoverMapView: View {
     var onDismiss: () -> Void
 
     @StateObject private var viewModel = DiscoverMapViewModel()
-    @EnvironmentObject var subscriptionManager: SubscriptionManager
     @EnvironmentObject var store: FocusAppStore
 
     @State private var cameraPosition: MapCameraPosition = .automatic
-    @State private var showPaywall = false
+    @State private var showCategoryPicker = false
+    @State private var selectedCategory: FocusRoomCategory?
+    @State private var showFocusRoom = false
 
     var body: some View {
         ZStack {
@@ -32,33 +33,108 @@ struct DiscoverMapView: View {
                     }
 
                     // Empty state
-                    if !viewModel.isLoading && viewModel.nearbyUsers.isEmpty {
+                    if !viewModel.isLoading && viewModel.focusingUsers.isEmpty {
                         emptyState
+                    }
+
+                    // Overlays
+                    if !viewModel.isLoading && !viewModel.nearbyUsers.isEmpty {
+                        VStack {
+                            // Stats pills at top
+                            HStack(spacing: 8) {
+                                FocusMapStatPill(
+                                    sfSymbol: "flame.fill",
+                                    value: viewModel.localActiveCount,
+                                    label: "en focus",
+                                    color: .orange
+                                )
+
+                                FocusMapStatPill(
+                                    sfSymbol: "timer",
+                                    value: viewModel.localTotalMinutes,
+                                    label: "min",
+                                    color: ColorTokens.accent
+                                )
+                            }
+                            .animation(.easeOut(duration: 0.6), value: viewModel.localActiveCount)
+                            .animation(.easeOut(duration: 0.6), value: viewModel.localTotalMinutes)
+                            .padding(.top, 8)
+
+                            Spacer()
+
+                            // Subtle hint if user is not focusing
+                            if !viewModel.isUserCurrentlyFocusing {
+                                Text("Lance une session pour grossir sur la carte")
+                                    .font(.satoshi(12, weight: .medium))
+                                    .foregroundColor(ColorTokens.textSecondary)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 6)
+                                    .background(
+                                        Capsule()
+                                            .fill(.ultraThinMaterial)
+                                    )
+                                    .padding(.bottom, 8)
+                            }
+
+                            // Coach card at bottom
+                            FocusMapCoachCard(
+                                message: viewModel.coachMessage,
+                                onJoinFocus: {
+                                    showCategoryPicker = true
+                                }
+                            )
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 16)
+                        }
                     }
                 }
             }
 
-            // Bottom sheet
-            if viewModel.selectedUser != nil {
-                profileSheet
+            // Encouragement toast (top)
+            if let toast = viewModel.incomingToast {
+                VStack {
+                    EncouragementToastView(toast: toast)
+                        .padding(.top, 60)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    Spacer()
+                }
+                .zIndex(10)
+            }
+
+        }
+        .sheet(item: $viewModel.selectedUser) { user in
+            FocusPulseUserCard(
+                user: user,
+                alreadySent: viewModel.hasAlreadyEncouraged(user.id),
+                onSendEncouragement: { emoji, message in
+                    viewModel.sendEncouragement(to: user.id, emoji: emoji, message: message)
+                },
+                onDismiss: {
+                    viewModel.deselectUser()
+                }
+            )
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
+            .presentationBackground(.ultraThinMaterial)
+        }
+        .sheet(isPresented: $showCategoryPicker) {
+            CategoryPickerSheet { category in
+                selectedCategory = category
+                showCategoryPicker = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    showFocusRoom = true
+                }
+            }
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
+            .presentationBackground(.ultraThinMaterial)
+        }
+        .fullScreenCover(isPresented: $showFocusRoom) {
+            if let category = selectedCategory {
+                FocusRoomView(category: category)
             }
         }
-        .overlay {
-            if showPaywall {
-                FocusPaywallView(
-                    companionName: store.user?.companionName ?? "ton coach",
-                    onComplete: {
-                        withAnimation(.easeInOut(duration: 0.3)) { showPaywall = false }
-                    },
-                    onSkip: {
-                        withAnimation(.easeInOut(duration: 0.3)) { showPaywall = false }
-                    }
-                )
-                .environmentObject(subscriptionManager)
-                .transition(.opacity)
-            }
-        }
-        .animation(.easeInOut(duration: 0.3), value: showPaywall)
+        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: viewModel.incomingToast != nil)
         .task {
             await viewModel.loadData()
             if let loc = viewModel.userLocation {
@@ -68,6 +144,12 @@ struct DiscoverMapView: View {
                 ))
             }
         }
+        .onAppear {
+            viewModel.startEncouragementSimulation()
+        }
+        .onDisappear {
+            viewModel.stopPolling()
+        }
     }
 
     // MARK: - Header
@@ -75,14 +157,12 @@ struct DiscoverMapView: View {
     private var header: some View {
         HStack {
             // Close
-            Button(action: {
-                onDismiss()
-            }) {
+            Button(action: { onDismiss() }) {
                 Image(systemName: "xmark")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.8))
-                    .frame(width: 40, height: 40)
-                    .background(Circle().fill(Color.white.opacity(0.1)))
+                    .foregroundColor(ColorTokens.textSecondary)
+                    .frame(width: 36, height: 36)
+                    .background(Circle().fill(.ultraThinMaterial))
             }
 
             Spacer()
@@ -92,33 +172,40 @@ struct DiscoverMapView: View {
                 viewModel.handleDebugTap()
             }) {
                 VStack(spacing: 2) {
-                    Text("Explorer")
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundColor(.white)
+                    Text("Focus Pulse")
+                        .font(.satoshi(18, weight: .bold))
+                        .foregroundColor(ColorTokens.textPrimary)
                     if !viewModel.fakeUsersEnabled {
-                        Text("Mode réel")
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundColor(.green)
+                        Text("Mode reel")
+                            .font(.satoshi(10, weight: .medium))
+                            .foregroundColor(ColorTokens.success)
                     }
                 }
             }
 
             Spacer()
 
-            // User count badge
-            if viewModel.userCount > 0 {
-                Text("\(viewModel.userCount)")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.white)
-                    .frame(width: 40, height: 40)
-                    .background(Circle().fill(Color.white.opacity(0.1)))
-            } else {
-                Color.clear.frame(width: 40, height: 40)
+            // LIVE indicator
+            HStack(spacing: 5) {
+                Circle()
+                    .fill(ColorTokens.success)
+                    .frame(width: 6, height: 6)
+
+                Text("LIVE")
+                    .font(.satoshi(11, weight: .bold))
+                    .foregroundColor(ColorTokens.success)
             }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 5)
+            .background(
+                Capsule()
+                    .fill(ColorTokens.success.opacity(0.12))
+            )
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
         .padding(.bottom, 8)
+        .background(.ultraThinMaterial)
     }
 
     // MARK: - Map
@@ -128,18 +215,19 @@ struct DiscoverMapView: View {
             // Current user annotation
             if let loc = viewModel.userLocation, let user = store.user {
                 Annotation("", coordinate: loc) {
-                    NearbyUserAnnotation(
+                    FocusPulseDot(
                         user: NearbyUser(
                             id: user.id,
                             pseudo: user.pseudo,
                             firstName: user.firstName,
                             avatarUrl: user.avatarURL,
-                            lifeGoal: user.lifeGoal,
-                            hobbies: user.hobbies,
+                            lifeGoal: nil, hobbies: nil,
                             productivityPeak: user.productivityPeak?.rawValue,
                             currentStreak: user.currentStreak,
                             city: nil, country: nil,
-                            latitude: loc.latitude, longitude: loc.longitude
+                            latitude: loc.latitude, longitude: loc.longitude,
+                            isInFocusSession: viewModel.isUserCurrentlyFocusing,
+                            totalMinutesToday: store.todayMinutes
                         ),
                         isCurrentUser: true
                     )
@@ -150,57 +238,57 @@ struct DiscoverMapView: View {
             ForEach(viewModel.nearbyUsers) { user in
                 Annotation("", coordinate: user.coordinate) {
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                            viewModel.selectUser(user)
-                        }
+                        guard user.isInFocusSession || user.totalMinutesToday > 0 else { return }
+                        viewModel.selectUser(user)
                     } label: {
-                        NearbyUserAnnotation(user: user, isCurrentUser: false)
+                        FocusPulseDot(user: user, isCurrentUser: false)
                     }
+                    .buttonStyle(.plain)
                 }
             }
         }
-        .mapStyle(.standard(emphasis: .muted, pointsOfInterest: .excludingAll, showsTraffic: false))
+        .mapStyle(.standard(elevation: .flat, emphasis: .muted, pointsOfInterest: .excludingAll, showsTraffic: false))
+        .colorScheme(.dark)
         .mapControlVisibility(.hidden)
     }
 
     // MARK: - Empty State
 
     private var emptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "person.2.slash")
-                .font(.system(size: 32))
-                .foregroundColor(.white.opacity(0.3))
-            Text("Personne dans ta zone pour le moment")
-                .font(.system(size: 15))
-                .foregroundColor(.white.opacity(0.5))
-                .multilineTextAlignment(.center)
+        VStack(spacing: 16) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 36))
+                .foregroundColor(.orange.opacity(0.5))
+
+            VStack(spacing: 6) {
+                Text("Personne en focus pres de toi")
+                    .font(.satoshi(16, weight: .bold))
+                    .foregroundColor(ColorTokens.textPrimary)
+
+                Text("Sois le premier !")
+                    .font(.satoshi(14, weight: .medium))
+                    .foregroundColor(ColorTokens.textSecondary)
+            }
+
+            Button {
+                showCategoryPicker = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "bolt.fill")
+                        .font(.system(size: 15))
+                    Text("Lancer une session")
+                        .font(.satoshi(15, weight: .bold))
+                }
+                .foregroundColor(.white)
+                .padding(.horizontal, 28)
+                .frame(height: 50)
+                .background(
+                    Capsule()
+                        .fill(ColorTokens.primaryGradient)
+                )
+            }
         }
         .padding(40)
     }
 
-    // MARK: - Profile Sheet
-
-    private var profileSheet: some View {
-        VStack {
-            Spacer()
-
-            if let user = viewModel.selectedUser {
-                NearbyUserProfileCard(
-                    user: user,
-                    matchResult: viewModel.matchResult,
-                    isProUser: subscriptionManager.isProUser,
-                    onPaywall: {
-                        withAnimation(.easeInOut(duration: 0.3)) { showPaywall = true }
-                    },
-                    onDismiss: {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                            viewModel.deselectUser()
-                        }
-                    }
-                )
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
-        }
-        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: viewModel.selectedUser?.id)
-    }
 }

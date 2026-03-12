@@ -387,6 +387,12 @@ enum APIConfiguration {
         // Discover
         case discoverUsers(lat: Double, lon: Double, radius: Int)
 
+        // Focus Rooms
+        case focusRooms(category: String?)
+        case joinFocusRoom
+        case leaveFocusRoom(String)
+        case focusRoom(String)
+
         var path: String {
             switch self {
             // Health
@@ -703,6 +709,19 @@ enum APIConfiguration {
             // Discover
             case .discoverUsers(let lat, let lon, let radius):
                 return "/discover/users?lat=\(lat)&lon=\(lon)&radius=\(radius)"
+
+            // Focus Rooms
+            case .focusRooms(let category):
+                if let category = category {
+                    return "/focus-rooms?category=\(category)"
+                }
+                return "/focus-rooms"
+            case .joinFocusRoom:
+                return "/focus-rooms/join"
+            case .leaveFocusRoom(let id):
+                return "/focus-rooms/\(id)/leave"
+            case .focusRoom(let id):
+                return "/focus-rooms/\(id)"
 
             }
         }
