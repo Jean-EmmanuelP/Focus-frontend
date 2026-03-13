@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import Combine
+import LiveKit
 
 // MARK: - Focus Room State
 
@@ -39,6 +40,7 @@ class FocusRoomViewModel: ObservableObject {
     @Published var sessionDuration: TimeInterval = 0
     @Published var isMicMuted: Bool = false
     @Published var isCameraOn: Bool = false
+    @Published var localVideoTrack: VideoTrack?
 
     // MARK: - Services
 
@@ -92,6 +94,10 @@ class FocusRoomViewModel: ObservableObject {
         liveKitService.$isCameraEnabled
             .receive(on: DispatchQueue.main)
             .assign(to: &$isCameraOn)
+
+        liveKitService.$localVideoTrack
+            .receive(on: DispatchQueue.main)
+            .assign(to: &$localVideoTrack)
     }
 
     // MARK: - Join Room

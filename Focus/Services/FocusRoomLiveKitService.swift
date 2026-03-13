@@ -32,6 +32,7 @@ class FocusRoomLiveKitService: ObservableObject, RoomDelegate {
     @Published var participants: [ParticipantState] = []
     @Published var isMicEnabled: Bool = true
     @Published var isCameraEnabled: Bool = false
+    @Published var localVideoTrack: VideoTrack?
 
     // MARK: - Private
 
@@ -92,6 +93,7 @@ class FocusRoomLiveKitService: ObservableObject, RoomDelegate {
     func setCameraEnabled(_ enabled: Bool) async throws {
         try await room.localParticipant.setCamera(enabled: enabled)
         isCameraEnabled = enabled
+        localVideoTrack = enabled ? room.localParticipant.videoTracks.first?.track as? VideoTrack : nil
         syncParticipants()
     }
 
@@ -101,13 +103,17 @@ class FocusRoomLiveKitService: ObservableObject, RoomDelegate {
         var states: [ParticipantState] = []
 
         for (_, participant) in room.remoteParticipants {
+            // Skip AI agent participants
+            let identity = participant.identity?.stringValue ?? ""
+            if identity.hasPrefix("agent-") { continue }
+
             let videoTrack = participant.videoTracks.first?.track as? VideoTrack
             let audioPublication = participant.audioTracks.first
             let isMuted = audioPublication?.isMuted ?? true
 
             states.append(ParticipantState(
-                id: participant.identity?.stringValue ?? participant.sid?.stringValue ?? UUID().uuidString,
-                displayName: participant.name ?? participant.identity?.stringValue ?? "Inconnu",
+                id: identity.isEmpty ? (participant.sid?.stringValue ?? UUID().uuidString) : identity,
+                displayName: participant.name ?? identity.isEmpty ? "Inconnu" : identity,
                 isSpeaking: participant.isSpeaking,
                 isMuted: isMuted,
                 isCameraOn: videoTrack != nil,

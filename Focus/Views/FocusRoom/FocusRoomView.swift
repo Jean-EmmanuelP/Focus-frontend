@@ -110,7 +110,7 @@ struct FocusRoomView: View {
                 isSpeaking: false,
                 isMuted: viewModel.isMicMuted,
                 isCameraOn: viewModel.isCameraOn,
-                videoTrack: nil
+                videoTrack: viewModel.localVideoTrack
             ),
             isLocalUser: true
         )
