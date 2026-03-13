@@ -471,6 +471,11 @@ async def entrypoint(ctx: agents.JobContext):
     await ctx.connect(auto_subscribe=agents.AutoSubscribe.AUDIO_ONLY)
     logger.info("Connected to room in %s", _elapsed(t_entry))
 
+    # Skip Focus Rooms — group sessions don't need the AI agent
+    if ctx.room.name and ctx.room.name.startswith("focus-room-"):
+        logger.info("Skipping Focus Room: %s (not an AI session)", ctx.room.name)
+        return
+
     # Read metadata from room (set by backend) or job dispatch
     metadata_str = ctx.room.metadata or "{}"
     try:
