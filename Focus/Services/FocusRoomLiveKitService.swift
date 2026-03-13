@@ -113,7 +113,7 @@ class FocusRoomLiveKitService: ObservableObject, RoomDelegate {
 
             states.append(ParticipantState(
                 id: identity.isEmpty ? (participant.sid?.stringValue ?? UUID().uuidString) : identity,
-                displayName: participant.name ?? identity.isEmpty ? "Inconnu" : identity,
+                displayName: participant.name ?? (identity.isEmpty ? "Inconnu" : identity),
                 isSpeaking: participant.isSpeaking,
                 isMuted: isMuted,
                 isCameraOn: videoTrack != nil,
