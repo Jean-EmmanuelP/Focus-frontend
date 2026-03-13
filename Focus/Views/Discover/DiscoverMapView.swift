@@ -9,8 +9,8 @@ struct DiscoverMapView: View {
 
     @State private var cameraPosition: MapCameraPosition = .automatic
     @State private var showCategoryPicker = false
-    @State private var selectedCategory: FocusRoomCategory?
-    @State private var showFocusRoom = false
+    @State private var pendingCategory: FocusRoomCategory?
+    @State private var activeRoomCategory: FocusRoomCategory?
 
     var body: some View {
         ZStack {
@@ -118,24 +118,21 @@ struct DiscoverMapView: View {
             .presentationBackground(.ultraThinMaterial)
         }
         .sheet(isPresented: $showCategoryPicker, onDismiss: {
-            if selectedCategory != nil {
-                showFocusRoom = true
+            if let cat = pendingCategory {
+                pendingCategory = nil
+                activeRoomCategory = cat
             }
         }) {
             CategoryPickerSheet { category in
-                selectedCategory = category
+                pendingCategory = category
                 showCategoryPicker = false
             }
             .presentationDetents([.medium])
             .presentationDragIndicator(.visible)
             .presentationBackground(.ultraThinMaterial)
         }
-        .fullScreenCover(isPresented: $showFocusRoom, onDismiss: {
-            selectedCategory = nil
-        }) {
-            if let category = selectedCategory {
-                FocusRoomView(category: category)
-            }
+        .fullScreenCover(item: $activeRoomCategory) { category in
+            FocusRoomView(category: category)
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: viewModel.incomingToast != nil)
         .task {
