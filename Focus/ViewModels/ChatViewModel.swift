@@ -7,6 +7,7 @@ import Speech
 extension Notification.Name {
     static let calendarNeedsRefresh = Notification.Name("calendarNeedsRefresh")
     static let openAppBlockerSettings = Notification.Name("openAppBlockerSettings")
+    static let forceUnblockApps = Notification.Name("forceUnblockApps")
 }
 
 // MARK: - Message Type
@@ -823,6 +824,9 @@ class ChatViewModel: ObservableObject {
                     blocker.stopBlocking()
                 }
 
+            case .showForceUnblockCard:
+                appendForceUnblockCard()
+
             case .showCard:
                 break // Handled in the message attachment step
 
@@ -963,6 +967,18 @@ class ChatViewModel: ObservableObject {
             title: "Sélectionner les apps à bloquer",
             icon: "shield.lefthalf.filled",
             deepLink: "openAppBlockerSettings"
+        ))
+        messages.append(msg)
+        saveMessages()
+    }
+
+    /// Append a card with a force-unblock button when user insists apps are still blocked
+    private func appendForceUnblockCard() {
+        var msg = SimpleChatMessage(content: "Clique ici pour forcer le déblocage de tes apps :", isFromUser: false)
+        msg.cardData = .actionButton(ChatCardData.ActionButton(
+            title: "Débloquer mes apps",
+            icon: "lock.open.fill",
+            deepLink: "forceUnblockApps"
         ))
         messages.append(msg)
         saveMessages()

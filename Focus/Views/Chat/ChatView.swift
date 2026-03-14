@@ -171,6 +171,13 @@ struct ChatView: View {
                 showAppBlocker = true
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .forceUnblockApps)) { _ in
+            let blocker = ScreenTimeAppBlockerService.shared
+            blocker.stopBlocking()
+            let confirmMsg = SimpleChatMessage(content: "Apps débloquées !", isFromUser: false)
+            viewModel.messages.append(confirmMsg)
+            viewModel.saveMessages()
+        }
         .fullScreenCover(isPresented: $showVoiceCall) {
             VoiceCallView()
         }

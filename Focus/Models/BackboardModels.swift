@@ -97,6 +97,7 @@ enum BackboardSideEffect {
     case showVideoSuggestions(category: String)
     case blockApps(Int?) // duration in minutes
     case unblockApps
+    case showForceUnblockCard // Interactive card to let user force-unblock apps
     case startFocusSession(duration: Int?, taskId: String?, taskTitle: String?)
     case refreshSettings
     case refreshCalendarEvents
