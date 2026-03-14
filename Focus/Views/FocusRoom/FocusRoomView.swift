@@ -69,13 +69,28 @@ struct FocusRoomView: View {
     // MARK: - Top Bar
 
     private var topBar: some View {
-        HStack {
-            // Timer
-            Text(viewModel.formattedDuration)
-                .font(.system(size: 14, design: .monospaced))
-                .foregroundColor(.white.opacity(0.25))
+        VStack(spacing: 10) {
+            // Timer with progress ring
+            ZStack {
+                // Background ring
+                Circle()
+                    .stroke(Color.white.opacity(0.08), lineWidth: 4)
 
-            Spacer()
+                // Progress ring (fills over 1 hour = 3600s)
+                Circle()
+                    .trim(from: 0, to: min(viewModel.sessionDuration / 3600, 1.0))
+                    .stroke(
+                        ColorTokens.primaryGradient,
+                        style: StrokeStyle(lineWidth: 4, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90))
+                    .animation(.linear(duration: 1), value: viewModel.sessionDuration)
+
+                Text(viewModel.formattedDuration)
+                    .font(.system(size: 28, weight: .bold, design: .monospaced))
+                    .foregroundColor(ColorTokens.primaryStart)
+            }
+            .frame(width: 100, height: 100)
 
             // Category badge + participant count
             HStack(spacing: 6) {
@@ -95,6 +110,19 @@ struct FocusRoomView: View {
                     .background(
                         Capsule().fill(ColorTokens.primarySoft)
                     )
+            }
+
+            // Milestone badge
+            if let milestone = viewModel.currentMilestone {
+                Text(milestone)
+                    .font(.satoshi(16, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 6)
+                    .background(
+                        Capsule().fill(ColorTokens.primaryGradient)
+                    )
+                    .transition(.scale.combined(with: .opacity))
             }
         }
         .padding(.horizontal, 20)
@@ -131,6 +159,21 @@ struct FocusRoomView: View {
 
             Spacer()
 
+            // App blocking toggle
+            Button(action: { viewModel.toggleAppBlocking() }) {
+                Image(systemName: viewModel.isAppBlockingActive ? "lock.shield.fill" : "lock.shield")
+                    .font(.system(size: 20))
+                    .foregroundColor(viewModel.isAppBlockingActive ? ColorTokens.primaryStart : .white.opacity(0.5))
+                    .frame(width: 64, height: 64)
+                    .background(
+                        Circle().fill(
+                            viewModel.isAppBlockingActive ? ColorTokens.primaryStart.opacity(0.15) : Color.white.opacity(0.08)
+                        )
+                    )
+            }
+
+            Spacer()
+
             // Camera toggle
             Button(action: { viewModel.toggleCamera() }) {
                 Image(systemName: viewModel.isCameraOn ? "video.fill" : "video.slash.fill")
@@ -159,7 +202,7 @@ struct FocusRoomView: View {
                     )
             }
         }
-        .padding(.horizontal, 40)
+        .padding(.horizontal, 32)
     }
 
     // MARK: - Connecting Overlay

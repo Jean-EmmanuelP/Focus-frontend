@@ -820,7 +820,7 @@
 				CODE_SIGN_ENTITLEMENTS = Focus/Focus.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 20;
+				CURRENT_PROJECT_VERSION = 22;
 				DEVELOPMENT_TEAM = 62NW6K29QN;
 				EMIT_FRONTEND_COMMAND_LINES = YES;
 				ENABLE_APP_SANDBOX = YES;
@@ -879,7 +879,7 @@
 				CODE_SIGN_ENTITLEMENTS = Focus/Focus.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 20;
+				CURRENT_PROJECT_VERSION = 22;
 				DEVELOPMENT_TEAM = 62NW6K29QN;
 				EMIT_FRONTEND_COMMAND_LINES = YES;
 				ENABLE_APP_SANDBOX = YES;
@@ -934,7 +934,7 @@
 				CODE_SIGN_ENTITLEMENTS = FocusWidgetExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 20;
+				CURRENT_PROJECT_VERSION = 22;
 				DEVELOPMENT_TEAM = 62NW6K29QN;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = FocusWidget/Info.plist;
@@ -969,7 +969,7 @@
 				CODE_SIGN_ENTITLEMENTS = FocusWidgetExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 20;
+				CURRENT_PROJECT_VERSION = 22;
 				DEVELOPMENT_TEAM = 62NW6K29QN;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = FocusWidget/Info.plist;
@@ -1003,7 +1003,7 @@
 				CODE_SIGN_ENTITLEMENTS = FocusDeviceActivityMonitor/FocusDeviceActivityMonitor.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 20;
+				CURRENT_PROJECT_VERSION = 22;
 				DEVELOPMENT_TEAM = 62NW6K29QN;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = FocusDeviceActivityMonitor/Info.plist;
@@ -1035,7 +1035,7 @@
 				CODE_SIGN_ENTITLEMENTS = FocusDeviceActivityMonitor/FocusDeviceActivityMonitor.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 20;
+				CURRENT_PROJECT_VERSION = 22;
 				DEVELOPMENT_TEAM = 62NW6K29QN;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = FocusDeviceActivityMonitor/Info.plist;

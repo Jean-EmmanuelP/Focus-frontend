@@ -258,54 +258,6 @@ enum APIConfiguration {
         case streakDay(date: String)
         case streakRecalculate(date: String)
 
-        // Friends
-        case friends
-        case removeFriend(String)
-        case friendDay(userId: String, date: String)
-        case friendsLeaderboard(limit: Int?)
-
-        // Friend Requests
-        case friendRequestsReceived
-        case friendRequestsSent
-        case sendFriendRequest
-        case acceptFriendRequest(String)
-        case rejectFriendRequest(String)
-
-        // Users Search & Suggestions
-        case searchUsers(query: String, limit: Int?)
-        case suggestedUsers(limit: Int?)
-
-        // Profile
-        case updateDayVisibility
-
-        // Social Actions
-        case likeRoutineCompletion(completionId: String)
-        case unlikeRoutineCompletion(completionId: String)
-
-        // Friend Groups
-        case friendGroups
-        case createFriendGroup
-        case friendGroup(String)
-        case updateFriendGroup(String)
-        case deleteFriendGroup(String)
-        case addFriendGroupMembers(String)
-        case removeFriendGroupMember(groupId: String, memberId: String)
-        case inviteToGroup(String)
-        case leaveGroup(String)
-
-        // Group Routines (shared routines for accountability)
-        case groupRoutines(groupId: String, date: String?)
-        case shareRoutineWithGroup(groupId: String)
-        case removeGroupRoutine(groupId: String, groupRoutineId: String)
-        case groupStats(groupId: String, period: String)  // period: "weekly" or "monthly"
-
-        // Group Invitations
-        case groupInvitationsReceived
-        case groupInvitationsSent
-        case acceptGroupInvitation(String)
-        case rejectGroupInvitation(String)
-        case cancelGroupInvitation(String)
-
         // Onboarding
         case onboardingStatus
         case onboardingProgress
@@ -358,13 +310,6 @@ enum APIConfiguration {
         case trackNotification
         case notificationPreferences
         case updateNotificationPreferences
-
-        // Referral / Parrainage
-        case referralStats
-        case referralList
-        case referralEarnings
-        case referralApply
-        case referralActivate
 
         // Weekly Goals
         case weeklyGoals
@@ -492,93 +437,6 @@ enum APIConfiguration {
             case .streakRecalculate(let date):
                 return "/streak/recalculate?date=\(date)"
 
-            // Friends
-            case .friends:
-                return "/friends"
-            case .removeFriend(let id):
-                return "/friends/\(id)"
-            case .friendDay(let userId, let date):
-                return "/friends/\(userId)/day?date=\(date)"
-            case .friendsLeaderboard(let limit):
-                if let limit = limit {
-                    return "/friends/leaderboard?limit=\(limit)"
-                }
-                return "/friends/leaderboard"
-
-            // Friend Requests
-            case .friendRequestsReceived:
-                return "/friend-requests/received"
-            case .friendRequestsSent:
-                return "/friend-requests/sent"
-            case .sendFriendRequest:
-                return "/friend-requests"
-            case .acceptFriendRequest(let id):
-                return "/friend-requests/\(id)/accept"
-            case .rejectFriendRequest(let id):
-                return "/friend-requests/\(id)/reject"
-
-            // Users Search & Suggestions
-            case .searchUsers(let query, let limit):
-                var queryString = "q=\(query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query)"
-                if let limit = limit {
-                    queryString += "&limit=\(limit)"
-                }
-                return "/users/search?\(queryString)"
-            case .suggestedUsers(let limit):
-                if let limit = limit {
-                    return "/users/suggestions?limit=\(limit)"
-                }
-                return "/users/suggestions"
-
-            // Profile
-            case .updateDayVisibility:
-                return "/me/visibility"
-
-            // Social Actions
-            case .likeRoutineCompletion(let completionId):
-                return "/completions/\(completionId)/like"
-            case .unlikeRoutineCompletion(let completionId):
-                return "/completions/\(completionId)/like"
-
-            // Friend Groups
-            case .friendGroups, .createFriendGroup:
-                return "/friend-groups"
-            case .friendGroup(let id), .updateFriendGroup(let id), .deleteFriendGroup(let id):
-                return "/friend-groups/\(id)"
-            case .addFriendGroupMembers(let id):
-                return "/friend-groups/\(id)/members"
-            case .removeFriendGroupMember(let groupId, let memberId):
-                return "/friend-groups/\(groupId)/members/\(memberId)"
-            case .inviteToGroup(let id):
-                return "/friend-groups/\(id)/invite"
-            case .leaveGroup(let id):
-                return "/friend-groups/\(id)/leave"
-
-            // Group Routines
-            case .groupRoutines(let groupId, let date):
-                if let date = date {
-                    return "/friend-groups/\(groupId)/routines?date=\(date)"
-                }
-                return "/friend-groups/\(groupId)/routines"
-            case .shareRoutineWithGroup(let groupId):
-                return "/friend-groups/\(groupId)/routines"
-            case .removeGroupRoutine(let groupId, let groupRoutineId):
-                return "/friend-groups/\(groupId)/routines/\(groupRoutineId)"
-            case .groupStats(let groupId, let period):
-                return "/friend-groups/\(groupId)/stats?period=\(period)"
-
-            // Group Invitations
-            case .groupInvitationsReceived:
-                return "/group-invitations/received"
-            case .groupInvitationsSent:
-                return "/group-invitations/sent"
-            case .acceptGroupInvitation(let id):
-                return "/group-invitations/\(id)/accept"
-            case .rejectGroupInvitation(let id):
-                return "/group-invitations/\(id)/reject"
-            case .cancelGroupInvitation(let id):
-                return "/group-invitations/\(id)"
-
             // Onboarding
             case .onboardingStatus:
                 return "/onboarding/status"
@@ -669,18 +527,6 @@ enum APIConfiguration {
                 return "/notifications/track"
             case .notificationPreferences, .updateNotificationPreferences:
                 return "/notifications/preferences"
-
-            // Referral / Parrainage
-            case .referralStats:
-                return "/referral/stats"
-            case .referralList:
-                return "/referral/list"
-            case .referralEarnings:
-                return "/referral/earnings"
-            case .referralApply:
-                return "/referral/apply"
-            case .referralActivate:
-                return "/referral/activate"
 
             // Weekly Goals
             case .weeklyGoals:

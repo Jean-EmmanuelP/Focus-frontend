@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import Combine
 import LiveKit
+import UIKit
 
 // MARK: - Focus Room State
 
@@ -41,6 +42,8 @@ class FocusRoomViewModel: ObservableObject {
     @Published var isMicMuted: Bool = false
     @Published var isCameraOn: Bool = false
     @Published var localVideoTrack: VideoTrack?
+    @Published var isAppBlockingActive: Bool = false
+    @Published var currentMilestone: String?
 
     // MARK: - Services
 
@@ -52,6 +55,8 @@ class FocusRoomViewModel: ObservableObject {
     let category: FocusRoomCategory
     private var sessionTimer: Timer?
     private var cancellables = Set<AnyCancellable>()
+    private var triggeredMilestones: Set<Int> = []
+    private static let milestoneSeconds = [5 * 60, 10 * 60, 25 * 60, 30 * 60, 60 * 60]
 
     // MARK: - Init
 
@@ -117,6 +122,19 @@ class FocusRoomViewModel: ObservableObject {
                 try await liveKitService.connect(token: response.token, url: response.url)
                 print("[FocusRoom] LiveKit connected!")
                 startSessionTimer()
+
+                // Start Live Activity for lock screen timer
+                LiveActivityManager.shared.startLiveActivity(
+                    sessionId: response.room.id,
+                    totalDuration: 120, // Focus rooms are open-ended, use 2h as max
+                    description: category.displayName,
+                    sessionTitle: "Focus Room",
+                    sessionEmoji: "🎯"
+                )
+
+                // Start app blocking if enabled
+                ScreenTimeAppBlockerService.shared.startBlockingIfEnabled()
+                isAppBlockingActive = ScreenTimeAppBlockerService.shared.isBlocking
             } catch {
                 print("[FocusRoom] ERROR: \(error)")
                 roomState = .error("Impossible de rejoindre la room. Reessaie plus tard.")
@@ -131,6 +149,15 @@ class FocusRoomViewModel: ObservableObject {
         sessionTimer = nil
         roomState = .ended
 
+        // End Live Activity
+        LiveActivityManager.shared.endLiveActivity(completed: true)
+
+        // Stop app blocking
+        if isAppBlockingActive {
+            ScreenTimeAppBlockerService.shared.stopBlocking()
+            isAppBlockingActive = false
+        }
+
         Task {
             await liveKitService.disconnect()
             if let roomId = room?.id {
@@ -143,15 +170,35 @@ class FocusRoomViewModel: ObservableObject {
 
     func toggleMic() {
         Task {
-            let newState = !liveKitService.isMicEnabled
-            try? await liveKitService.setMicEnabled(newState)
+            do {
+                let newState = !liveKitService.isMicEnabled
+                try await liveKitService.setMicEnabled(newState)
+            } catch {
+                print("[FocusRoom] Mic toggle failed: \(error)")
+            }
         }
     }
 
     func toggleCamera() {
         Task {
-            let newState = !liveKitService.isCameraEnabled
-            try? await liveKitService.setCameraEnabled(newState)
+            do {
+                let newState = !liveKitService.isCameraEnabled
+                try await liveKitService.setCameraEnabled(newState)
+            } catch {
+                print("[FocusRoom] Camera toggle failed: \(error)")
+            }
+        }
+    }
+
+    // MARK: - App Blocking Toggle
+
+    func toggleAppBlocking() {
+        if isAppBlockingActive {
+            ScreenTimeAppBlockerService.shared.stopBlocking()
+            isAppBlockingActive = false
+        } else {
+            ScreenTimeAppBlockerService.shared.startBlockingIfEnabled()
+            isAppBlockingActive = ScreenTimeAppBlockerService.shared.isBlocking
         }
     }
 
@@ -159,9 +206,45 @@ class FocusRoomViewModel: ObservableObject {
 
     private func startSessionTimer() {
         sessionDuration = 0
+        triggeredMilestones = []
         sessionTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                self?.sessionDuration += 1
+                guard let self else { return }
+                self.sessionDuration += 1
+                self.checkMilestones()
+            }
+        }
+    }
+
+    // MARK: - Milestones
+
+    private func checkMilestones() {
+        let seconds = Int(sessionDuration)
+        for milestone in Self.milestoneSeconds {
+            if seconds == milestone && !triggeredMilestones.contains(milestone) {
+                triggeredMilestones.insert(milestone)
+                let minutes = milestone / 60
+                let label = minutes >= 60 ? "\(minutes / 60)h" : "\(minutes) min"
+                triggerMilestone(label)
+            }
+        }
+    }
+
+    private func triggerMilestone(_ label: String) {
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) {
+            currentMilestone = label
+        }
+
+        // Dismiss after 2 seconds
+        Task {
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            withAnimation(.easeOut(duration: 0.3)) {
+                if self.currentMilestone == label {
+                    self.currentMilestone = nil
+                }
             }
         }
     }

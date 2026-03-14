@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import LiveKit
+import AVFoundation
 
 // MARK: - Participant State
 
@@ -17,7 +18,8 @@ struct ParticipantState: Identifiable, Equatable {
         lhs.displayName == rhs.displayName &&
         lhs.isSpeaking == rhs.isSpeaking &&
         lhs.isMuted == rhs.isMuted &&
-        lhs.isCameraOn == rhs.isCameraOn
+        lhs.isCameraOn == rhs.isCameraOn &&
+        lhs.videoTrack === rhs.videoTrack
     }
 }
 
@@ -65,6 +67,15 @@ class FocusRoomLiveKitService: ObservableObject, RoomDelegate {
             throw LiveKitVoiceError.missingURL
         }
 
+        // Configure AVAudioSession for background audio
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetooth, .defaultToSpeaker])
+            try session.setActive(true)
+        } catch {
+            print("[FocusRoom] AVAudioSession config failed: \(error)")
+        }
+
         do {
             try await room.connect(url: resolvedURL, token: token)
             try await room.localParticipant.setMicrophone(enabled: true)
@@ -83,6 +94,9 @@ class FocusRoomLiveKitService: ObservableObject, RoomDelegate {
         await room.disconnect()
         connectionState = .disconnected
         participants = []
+        localVideoTrack = nil
+        isCameraEnabled = false
+        isMicEnabled = true
     }
 
     func setMicEnabled(_ enabled: Bool) async throws {
@@ -91,9 +105,9 @@ class FocusRoomLiveKitService: ObservableObject, RoomDelegate {
     }
 
     func setCameraEnabled(_ enabled: Bool) async throws {
-        try await room.localParticipant.setCamera(enabled: enabled)
+        let publication = try await room.localParticipant.setCamera(enabled: enabled)
         isCameraEnabled = enabled
-        localVideoTrack = enabled ? room.localParticipant.videoTracks.first?.track as? VideoTrack : nil
+        localVideoTrack = enabled ? publication?.track as? VideoTrack : nil
         syncParticipants()
     }
 
@@ -151,6 +165,24 @@ class FocusRoomLiveKitService: ObservableObject, RoomDelegate {
     }
 
     nonisolated func room(_ room: Room, participant: RemoteParticipant, didUnpublishTrack publication: RemoteTrackPublication) {
+        Task { @MainActor in
+            self.syncParticipants()
+        }
+    }
+
+    nonisolated func room(_ room: Room, participant: RemoteParticipant, didSubscribeTrack publication: RemoteTrackPublication) {
+        Task { @MainActor in
+            self.syncParticipants()
+        }
+    }
+
+    nonisolated func room(_ room: Room, participant: RemoteParticipant, didUnsubscribeTrack publication: RemoteTrackPublication) {
+        Task { @MainActor in
+            self.syncParticipants()
+        }
+    }
+
+    nonisolated func room(_ room: Room, participant: Participant, trackPublication: TrackPublication, didUpdateIsMuted isMuted: Bool) {
         Task { @MainActor in
             self.syncParticipants()
         }

@@ -200,8 +200,7 @@ struct FocusApp: App {
     /// - focus://onboarding
     /// - focus://login
     /// - focus://paywall
-    /// - focus://referral?code=XXXX
-    /// - https://focus.app/r/XXXX (Universal Link)
+    /// - https://focus.app (Universal Link)
     private func handleDeepLink(_ url: URL) {
         // Handle Google Sign-In callback
         if GIDSignIn.sharedInstance.handle(url) {
@@ -247,45 +246,14 @@ struct FocusApp: App {
         case "paywall":
             router.navigateToPaywall()
 
-        case "referral":
-            if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-               let code = components.queryItems?.first(where: { $0.name == "code" })?.value {
-                handleReferralCode(code)
-            }
-
         default:
             break
         }
     }
 
-    /// Handle Universal Links (https://focus.app/r/CODE)
+    /// Handle Universal Links
     private func handleUniversalLink(_ url: URL) {
-        let pathComponents = url.pathComponents
-        // Expected: /r/CODE -> ["", "r", "CODE"]
-        if pathComponents.count >= 3 && pathComponents[1] == "r" {
-            let code = pathComponents[2]
-            handleReferralCode(code)
-        }
-    }
-
-    /// Handle referral code from deep link
-    private func handleReferralCode(_ code: String) {
-        print("📝 Received referral code from deep link: \(code)")
-
-        // Store the code for later (will be applied after signup/login)
-        ReferralService.shared.storePendingCode(code)
-
-        // If user is already logged in, try to apply it now
-        if store.isAuthenticated {
-            Task {
-                let result = await ReferralService.shared.applyCode(code)
-                if result.success {
-                    print("✅ Referral code applied: \(result.message)")
-                } else {
-                    print("⚠️ Referral code not applied: \(result.message)")
-                }
-            }
-        }
+        // Reserved for future universal link handling
     }
 }
 

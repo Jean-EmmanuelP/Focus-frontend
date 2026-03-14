@@ -400,14 +400,13 @@ struct SubscriptionManagementView: View {
     }
 }
 
-// MARK: - Customer Center View (RevenueCat Native)
+// MARK: - Customer Center View
 struct CustomerCenterView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
-            // Use RevenueCat's built-in Customer Center if available
-            // For now, show a simple management view
+            // StoreKit 2 subscription management
             ManageSubscriptionsView(
                 onDismiss: { dismiss() }
             )

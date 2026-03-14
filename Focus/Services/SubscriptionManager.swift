@@ -154,12 +154,6 @@ final class SubscriptionManager: ObservableObject {
                 await transaction.finish()
                 print("✅ Purchase successful: \(product.id)")
 
-                // Activate referral if user was referred
-                Task {
-                    await ReferralService.shared.applyPendingCodeIfNeeded()
-                    await ReferralService.shared.activateReferral()
-                }
-
                 return true
 
             case .userCancelled:

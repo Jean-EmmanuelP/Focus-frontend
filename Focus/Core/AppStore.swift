@@ -171,16 +171,13 @@ final class FocusAppStore: ObservableObject {
             longestStreak: 0
         )
 
-        // Sync RevenueCat with user ID
+        // Configure subscription manager with user ID
         if let userId = authService.userId {
             await SubscriptionManager.shared.configureWithUser(userId: userId)
         }
 
         // Register FCM token for push notifications
         await PushNotificationService.shared.registerTokenAfterLogin()
-
-        // Apply pending referral code if user came from a referral link
-        await ReferralService.shared.applyPendingCodeIfNeeded()
 
         // Check onboarding status from cache/API (await - blocks until done)
         await checkOnboardingStatus()
