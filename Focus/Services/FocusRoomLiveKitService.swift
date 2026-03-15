@@ -39,6 +39,7 @@ class FocusRoomLiveKitService: ObservableObject, RoomDelegate {
     // MARK: - Private
 
     private let room = Room()
+    private var syncTimer: Timer?
 
     private static var livekitURL: String {
         guard let path = Bundle.main.path(forResource: "Config", ofType: "plist"),
@@ -84,6 +85,7 @@ class FocusRoomLiveKitService: ObservableObject, RoomDelegate {
             isMicEnabled = true
             isCameraEnabled = false
             syncParticipants()
+            startSyncTimer()
         } catch {
             connectionState = .disconnected
             throw error
@@ -91,6 +93,7 @@ class FocusRoomLiveKitService: ObservableObject, RoomDelegate {
     }
 
     func disconnect() async {
+        stopSyncTimer()
         await room.disconnect()
         connectionState = .disconnected
         participants = []
@@ -121,13 +124,16 @@ class FocusRoomLiveKitService: ObservableObject, RoomDelegate {
             let identity = participant.identity?.stringValue ?? ""
             if identity.hasPrefix("agent-") { continue }
 
-            let videoTrack = participant.videoTracks.first?.track as? VideoTrack
+            // Find a subscribed video track (more reliable than .first?.track)
+            let videoPublication = participant.videoTracks.first(where: { $0.isSubscribed })
+            let videoTrack = videoPublication?.track as? VideoTrack
+
             let audioPublication = participant.audioTracks.first
             let isMuted = audioPublication?.isMuted ?? true
 
             states.append(ParticipantState(
-                    id: identity.isEmpty ? (participant.sid?.stringValue ?? UUID().uuidString) : identity,
-                    displayName: participant.name ?? (identity.isEmpty ? "Inconnu" : identity),
+                id: identity.isEmpty ? (participant.sid?.stringValue ?? UUID().uuidString) : identity,
+                displayName: participant.name ?? (identity.isEmpty ? "Inconnu" : identity),
                 isSpeaking: participant.isSpeaking,
                 isMuted: isMuted,
                 isCameraOn: videoTrack != nil,
@@ -138,11 +144,36 @@ class FocusRoomLiveKitService: ObservableObject, RoomDelegate {
         participants = states
     }
 
+    /// Delayed re-sync — gives LiveKit time to finalize track state
+    private func syncAfterDelay(_ ms: UInt64 = 300) {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: ms * 1_000_000)
+            self.syncParticipants()
+        }
+    }
+
+    /// Periodic sync every 2s to catch any missed delegate events
+    private func startSyncTimer() {
+        syncTimer?.invalidate()
+        syncTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.syncParticipants()
+            }
+        }
+    }
+
+    private func stopSyncTimer() {
+        syncTimer?.invalidate()
+        syncTimer = nil
+    }
+
     // MARK: - RoomDelegate
 
     nonisolated func room(_ room: Room, participantDidConnect participant: RemoteParticipant) {
         Task { @MainActor in
             self.syncParticipants()
+            // New participant may have existing tracks that need time to subscribe
+            self.syncAfterDelay(800)
         }
     }
 
@@ -161,6 +192,8 @@ class FocusRoomLiveKitService: ObservableObject, RoomDelegate {
     nonisolated func room(_ room: Room, participant: RemoteParticipant, didPublishTrack publication: RemoteTrackPublication) {
         Task { @MainActor in
             self.syncParticipants()
+            // Track might not be subscribed yet — re-sync after delay
+            self.syncAfterDelay(500)
         }
     }
 
@@ -173,6 +206,8 @@ class FocusRoomLiveKitService: ObservableObject, RoomDelegate {
     nonisolated func room(_ room: Room, participant: RemoteParticipant, didSubscribeTrack publication: RemoteTrackPublication) {
         Task { @MainActor in
             self.syncParticipants()
+            // Track may need a moment to produce frames — re-sync
+            self.syncAfterDelay(300)
         }
     }
 
@@ -194,6 +229,7 @@ class FocusRoomLiveKitService: ObservableObject, RoomDelegate {
             case .connected:
                 self.connectionState = .connected
                 self.syncParticipants()
+                self.syncAfterDelay(500)
             case .disconnected:
                 if self.connectionState == .connected || self.connectionState == .reconnecting {
                     self.connectionState = .disconnected
