@@ -318,7 +318,7 @@ class ChatViewModel: ObservableObject {
     // MARK: - Load History
 
     func loadHistory() {
-        // Load from local storage
+        // Show local messages immediately (fast path)
         messages = SimpleChatPersistence.loadMessages()
 
         // Migrate: remove old welcome messages that contain unresolved placeholders
@@ -331,14 +331,46 @@ class ChatViewModel: ObservableObject {
         // Check for pending message from onboarding flow
         checkForPendingMessage()
 
-        // If chat is empty (new user), request a greeting from the coach
-        if messages.isEmpty {
-            Task {
+        // Fetch full history from Backboard (source of truth, shared with web)
+        Task {
+            await fetchBackboardHistory()
+        }
+    }
+
+    /// Fetch all messages from Backboard thread and sync with local cache
+    private func fetchBackboardHistory() async {
+        do {
+            let threadId = try await BackboardService.shared.getOrCreateThread()
+            let bbMessages = try await BackboardService.shared.listMessages(threadId: threadId)
+
+            if !bbMessages.isEmpty {
+                let dateFormatter = DateFormatter()
+                dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+                dateFormatter.timeZone = TimeZone(identifier: "UTC")
+
+                messages = bbMessages.map { msg in
+                    SimpleChatMessage(
+                        id: UUID(),
+                        content: msg.content ?? "",
+                        isFromUser: msg.role == "user",
+                        timestamp: dateFormatter.date(from: msg.createdAt ?? "") ?? Date(),
+                        type: .text
+                    )
+                }
+                saveMessages()
+                checkForDailyGreeting()
+            } else if messages.isEmpty {
                 await requestGreeting()
+            } else {
+                checkForDailyGreeting()
             }
-        } else {
-            // Check for daily greeting
-            checkForDailyGreeting()
+        } catch {
+            print("⚠️ Failed to fetch Backboard history, using local cache: \(error)")
+            if messages.isEmpty {
+                await requestGreeting()
+            } else {
+                checkForDailyGreeting()
+            }
         }
     }
 

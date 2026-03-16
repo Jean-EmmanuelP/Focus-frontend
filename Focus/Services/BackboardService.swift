@@ -124,12 +124,41 @@ class BackboardService {
 
     // MARK: - Thread Management
 
-    /// Get existing thread ID or create a new one
+    /// Get existing thread ID — checks UserDefaults first, then fetches from API.
+    /// Only creates a new thread if absolutely none exist on the server.
     func getOrCreateThread() async throws -> String {
+        // 1. Fast path: cached in UserDefaults
         if let threadId = UserDefaults.standard.string(forKey: threadIdKey), !threadId.isEmpty {
             return threadId
         }
+
+        // 2. Check server for existing threads (GET /threads)
+        if let existing = try? await fetchOldestThread() {
+            UserDefaults.standard.set(existing, forKey: threadIdKey)
+            print("🧵 Restored existing Backboard thread from API: \(existing)")
+            return existing
+        }
+
+        // 3. Absolute last resort — no thread exists anywhere
         return try await createNewThread()
+    }
+
+    /// Fetch all threads from the API and return the oldest thread ID, or nil if none exist.
+    private func fetchOldestThread() async throws -> String? {
+        let url = URL(string: "\(baseURL)/threads")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
+
+        let (data, response) = try await session.data(for: request)
+        try validateResponse(response, data: data)
+
+        let threads = try decoder.decode([BackboardThread].self, from: data)
+        guard !threads.isEmpty else { return nil }
+
+        // Return the oldest thread (sorted by created_at ascending)
+        let oldest = threads.min { $0.createdAt < $1.createdAt }
+        return oldest?.threadId
     }
 
     /// Create a new thread and persist the ID
@@ -149,6 +178,24 @@ class BackboardService {
         UserDefaults.standard.set(thread.threadId, forKey: threadIdKey)
         print("🧵 Created new Backboard thread: \(thread.threadId)")
         return thread.threadId
+    }
+
+    /// Fetch all visible messages (user + assistant with content) for a thread
+    func listMessages(threadId: String) async throws -> [BackboardThreadMessage] {
+        let url = URL(string: "\(baseURL)/threads/\(threadId)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
+
+        let (data, response) = try await session.data(for: request)
+        try validateResponse(response, data: data)
+
+        let thread = try decoder.decode(BackboardThread.self, from: data)
+        return (thread.messages ?? []).filter { msg in
+            (msg.role == "user" || msg.role == "assistant")
+            && msg.content != nil
+            && !(msg.content?.trimmingCharacters(in: .whitespaces).isEmpty ?? true)
+        }
     }
 
     /// Delete current thread and clear the stored ID

@@ -52,6 +52,15 @@ struct BackboardSubmitToolOutputsRequest: Encodable {
 struct BackboardThread: Decodable {
     let threadId: String
     let createdAt: String
+    let messages: [BackboardThreadMessage]?
+}
+
+/// A message within a Backboard thread (from GET /threads or GET /threads/{id})
+struct BackboardThreadMessage: Decodable {
+    let messageId: String?
+    let role: String
+    let content: String?
+    let createdAt: String?
 }
 
 /// Memory item from Backboard
