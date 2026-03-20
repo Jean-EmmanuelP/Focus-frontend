@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>SUPABASE_URL</key>
+    <string>https://zawilkajkkndcmdvmffo.supabase.co</string>
+    <key>SUPABASE_ANON_KEY</key>
+    <string>sb_publishable_UHZvduKC5nAt_jayIbhxPQ_AF5b4oB-</string>
+    <key>API_BASE_URL</key>
+    <string>https://firelevel-api.onrender.com</string>
+    <key>LIVEKIT_URL</key>
+    <string>wss://focus-ub62sv5l.livekit.cloud</string>
+    <key>BACKBOARD_API_KEY</key>
+    <string>espr_-adIQbO_in4hkYpZtmzLbLkVASZOsF5jhavNhEAzcKA</string>
+</dict>
+</plist>
