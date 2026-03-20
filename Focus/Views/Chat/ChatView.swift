@@ -23,6 +23,8 @@ struct ChatView: View {
     @State private var showAppBlocker = false
     @State private var isAvatarPaused = false
     @State private var showDiscoverMap = false
+    @State private var showActionButtons = false
+    @State private var showPlanning = false
 
     @EnvironmentObject var subscriptionManager: SubscriptionManager
 
@@ -180,6 +182,10 @@ struct ChatView: View {
         }
         .fullScreenCover(isPresented: $showVoiceCall) {
             VoiceCallView()
+        }
+        .fullScreenCover(isPresented: $showPlanning) {
+            PlanningView()
+                .environmentObject(store)
         }
         .onChange(of: isInputFocused) { _, focused in
             if focused {
@@ -474,26 +480,71 @@ struct ChatView: View {
 
     private var normalInputBar: some View {
         HStack(spacing: 8) {
-            // Left: Phone call button
-            Button(action: {
-                #if DEBUG
-                showVoiceCall = true
-                #else
-                if subscriptionManager.isProUser {
-                    showVoiceCall = true
-                } else {
-                    showPaywall = true
+            // Left: Expandable action buttons
+            ZStack(alignment: .bottom) {
+                // Planning button (deploys highest)
+                Button(action: {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                        showActionButtons = false
+                    }
+                    showPlanning = true
+                }) {
+                    Image(systemName: "checklist")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(.white.opacity(0.8))
+                        .frame(width: 44, height: 44)
+                        .background(
+                            Circle()
+                                .fill(.ultraThinMaterial)
+                        )
                 }
-                #endif
-            }) {
-                ZStack {
-                    Circle()
-                        .fill(Color(red: 0.58, green: 0.53, blue: 0.55))
-                        .frame(width: 52, height: 52)
+                .offset(y: showActionButtons ? -116 : 0)
+                .opacity(showActionButtons ? 1 : 0)
+                .scaleEffect(showActionButtons ? 1 : 0.4)
 
+                // Phone call button (deploys upward)
+                Button(action: {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                        showActionButtons = false
+                    }
+                    #if DEBUG
+                    showVoiceCall = true
+                    #else
+                    if subscriptionManager.isProUser {
+                        showVoiceCall = true
+                    } else {
+                        showPaywall = true
+                    }
+                    #endif
+                }) {
                     Image(systemName: "phone.fill")
-                        .font(.system(size: 20, weight: .medium))
-                        .foregroundColor(.white)
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(.white.opacity(0.8))
+                        .frame(width: 44, height: 44)
+                        .background(
+                            Circle()
+                                .fill(.ultraThinMaterial)
+                        )
+                }
+                .offset(y: showActionButtons ? -60 : 0)
+                .opacity(showActionButtons ? 1 : 0)
+                .scaleEffect(showActionButtons ? 1 : 0.4)
+
+                // Main toggle button
+                Button(action: {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                        showActionButtons.toggle()
+                    }
+                }) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.8))
+                        .rotationEffect(.degrees(showActionButtons ? 45 : 0))
+                        .frame(width: 52, height: 52)
+                        .background(
+                            Circle()
+                                .fill(.ultraThinMaterial)
+                        )
                 }
             }
 

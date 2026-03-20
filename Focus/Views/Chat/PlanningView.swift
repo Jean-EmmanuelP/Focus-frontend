@@ -1,0 +1,989 @@
+import SwiftUI
+
+// MARK: - Full-Screen Planning View
+
+struct PlanningView: View {
+    @EnvironmentObject var store: FocusAppStore
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var tasks: [CalendarTask] = []
+    @State private var rituals: [DailyRitual] = []
+    @State private var isLoading = true
+    @State private var showAddTask = false
+    @State private var showAddRitual = false
+    @State private var taskToDelete: CalendarTask?
+    @State private var ritualToDelete: DailyRitual?
+    @State private var isSyncing = false
+    @State private var syncFeedback: String?
+
+    // Background color matching chat screen avatar background
+    private let bgColor = Color(red: 0.10, green: 0.12, blue: 0.20)
+
+    private var completedTasks: Int { tasks.filter { $0.isCompleted }.count }
+    private var completedRituals: Int { rituals.filter { $0.isCompleted }.count }
+    private var totalItems: Int { tasks.count + rituals.count }
+    private var completedItems: Int { completedTasks + completedRituals }
+    private var progress: Double {
+        totalItems > 0 ? Double(completedItems) / Double(totalItems) : 0
+    }
+
+    // Group tasks by time block
+    private var morningTasks: [CalendarTask] { tasks.filter { $0.timeBlock == "morning" } }
+    private var afternoonTasks: [CalendarTask] { tasks.filter { $0.timeBlock == "afternoon" } }
+    private var eveningTasks: [CalendarTask] { tasks.filter { $0.timeBlock == "evening" } }
+
+    var body: some View {
+        ZStack {
+            bgColor.ignoresSafeArea()
+
+            if isLoading {
+                ProgressView()
+                    .tint(.white)
+            } else {
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 20) {
+                        progressHeader
+
+                        // Tasks by time block
+                        if !morningTasks.isEmpty {
+                            timeBlockSection(title: "Matin", icon: "sunrise.fill", color: .orange, blockTasks: morningTasks)
+                        }
+                        if !afternoonTasks.isEmpty {
+                            timeBlockSection(title: "Après-midi", icon: "sun.max.fill", color: .yellow, blockTasks: afternoonTasks)
+                        }
+                        if !eveningTasks.isEmpty {
+                            timeBlockSection(title: "Soir", icon: "moon.fill", color: .indigo, blockTasks: eveningTasks)
+                        }
+
+                        let unscheduled = tasks.filter { !["morning", "afternoon", "evening"].contains($0.timeBlock) }
+                        if !unscheduled.isEmpty {
+                            timeBlockSection(title: "Autres", icon: "tray.fill", color: .gray, blockTasks: unscheduled)
+                        }
+
+                        addButton(title: "Ajouter une tâche") {
+                            showAddTask = true
+                        }
+
+                        ritualsSection
+
+                        addButton(title: "Ajouter un rituel") {
+                            showAddRitual = true
+                        }
+
+                        if tasks.isEmpty && rituals.isEmpty {
+                            emptyState
+                        }
+
+                        Spacer().frame(height: 40)
+                    }
+                    .padding(.top, 8)
+                }
+            }
+
+            // Top bar overlay
+            VStack {
+                topBar
+                Spacer()
+            }
+
+            // Sync feedback toast
+            if let feedback = syncFeedback {
+                VStack {
+                    Spacer()
+                    Text(feedback)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 10)
+                        .background(
+                            Capsule()
+                                .fill(Color.white.opacity(0.2))
+                                .background(
+                                    Capsule()
+                                        .fill(.ultraThinMaterial)
+                                )
+                        )
+                        .padding(.bottom, 30)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: syncFeedback)
+            }
+        }
+        .task {
+            await loadData()
+        }
+        .alert("Supprimer cette tâche ?", isPresented: Binding(
+            get: { taskToDelete != nil },
+            set: { if !$0 { taskToDelete = nil } }
+        )) {
+            Button("Annuler", role: .cancel) { taskToDelete = nil }
+            Button("Supprimer", role: .destructive) {
+                if let task = taskToDelete {
+                    performDeleteTask(task)
+                    taskToDelete = nil
+                }
+            }
+        } message: {
+            if let task = taskToDelete {
+                Text("« \(task.title) » sera supprimée définitivement.")
+            }
+        }
+        .alert("Supprimer ce rituel ?", isPresented: Binding(
+            get: { ritualToDelete != nil },
+            set: { if !$0 { ritualToDelete = nil } }
+        )) {
+            Button("Annuler", role: .cancel) { ritualToDelete = nil }
+            Button("Supprimer", role: .destructive) {
+                if let ritual = ritualToDelete {
+                    performDeleteRitual(ritual)
+                    ritualToDelete = nil
+                }
+            }
+        } message: {
+            if let ritual = ritualToDelete {
+                Text("« \(ritual.title) » sera supprimé définitivement.")
+            }
+        }
+        .sheet(isPresented: $showAddTask) {
+            AddTaskSheet(bgColor: bgColor) { title, timeBlock, scheduledStart, estimatedMinutes in
+                await createTask(title: title, timeBlock: timeBlock, scheduledStart: scheduledStart, estimatedMinutes: estimatedMinutes)
+            }
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showAddRitual) {
+            AddRitualSheet(
+                bgColor: bgColor,
+                areas: store.areas.filter { !$0.id.hasPrefix("placeholder-") }
+            ) { title, icon, areaId, scheduledTime in
+                await createRitual(title: title, icon: icon, areaId: areaId, scheduledTime: scheduledTime)
+            }
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+        }
+    }
+
+    // MARK: - Top Bar
+
+    private var topBar: some View {
+        HStack {
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.8))
+                    .frame(width: 36, height: 36)
+                    .background(
+                        Circle()
+                            .fill(.ultraThinMaterial)
+                    )
+            }
+
+            Spacer()
+
+            Text("Planning")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundColor(.white)
+
+            Spacer()
+
+            // Sync Google Calendar button
+            Button {
+                syncCalendar()
+            } label: {
+                if isSyncing {
+                    ProgressView()
+                        .tint(.white.opacity(0.8))
+                        .frame(width: 36, height: 36)
+                } else {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.8))
+                        .frame(width: 36, height: 36)
+                        .background(
+                            Circle()
+                                .fill(.ultraThinMaterial)
+                        )
+                }
+            }
+            .disabled(isSyncing)
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, 12)
+        .background(
+            bgColor.opacity(0.85)
+                .background(.ultraThinMaterial)
+                .ignoresSafeArea(edges: .top)
+        )
+    }
+
+    // MARK: - Progress Header
+
+    private var progressHeader: some View {
+        VStack(spacing: 14) {
+            Spacer().frame(height: 52)
+
+            ZStack {
+                Circle()
+                    .stroke(Color.white.opacity(0.1), lineWidth: 7)
+
+                Circle()
+                    .trim(from: 0, to: progress)
+                    .stroke(
+                        Color.white.opacity(0.9),
+                        style: StrokeStyle(lineWidth: 7, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90))
+                    .animation(.easeInOut(duration: 0.6), value: progress)
+
+                VStack(spacing: 2) {
+                    Text("\(completedItems)")
+                        .font(.system(size: 30, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                    Text("/ \(totalItems)")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.white.opacity(0.5))
+                }
+            }
+            .frame(width: 90, height: 90)
+
+            Text(todayFormatted)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(.white.opacity(0.5))
+        }
+        .padding(.horizontal, 16)
+    }
+
+    // MARK: - Time Block Section
+
+    private func timeBlockSection(title: String, icon: String, color: Color, blockTasks: [CalendarTask]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(color)
+                Text(title)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.5))
+                    .textCase(.uppercase)
+                    .tracking(0.5)
+                Spacer()
+                let done = blockTasks.filter { $0.isCompleted }.count
+                Text("\(done)/\(blockTasks.count)")
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundColor(.white.opacity(0.3))
+            }
+            .padding(.horizontal, 20)
+
+            VStack(spacing: 0) {
+                ForEach(blockTasks) { task in
+                    taskRow(task)
+
+                    if task.id != blockTasks.last?.id {
+                        Rectangle()
+                            .fill(Color.white.opacity(0.06))
+                            .frame(height: 0.5)
+                            .padding(.leading, 54)
+                    }
+                }
+            }
+            .background(Color.white.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .padding(.horizontal, 16)
+        }
+    }
+
+    // MARK: - Task Row
+
+    private func taskRow(_ task: CalendarTask) -> some View {
+        HStack(spacing: 12) {
+            Button {
+                toggleTask(task)
+            } label: {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(task.isCompleted ? Color.clear : Color.white.opacity(0.25), lineWidth: 1.5)
+                        .frame(width: 22, height: 22)
+                    if task.isCompleted {
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(Color.white)
+                            .frame(width: 22, height: 22)
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(bgColor)
+                    }
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(task.title)
+                    .font(.system(size: 15, weight: task.isCompleted ? .regular : .medium))
+                    .foregroundColor(task.isCompleted ? .white.opacity(0.3) : .white.opacity(0.9))
+                    .strikethrough(task.isCompleted, color: .white.opacity(0.2))
+                    .lineLimit(2)
+
+                HStack(spacing: 8) {
+                    if let start = task.scheduledStart {
+                        HStack(spacing: 3) {
+                            Image(systemName: "clock")
+                                .font(.system(size: 10))
+                            Text(start)
+                                .font(.system(size: 12, weight: .medium))
+                        }
+                        .foregroundColor(.white.opacity(0.35))
+                    }
+                    if let est = task.estimatedMinutes, est > 0 {
+                        Text("\(est) min")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.white.opacity(0.35))
+                    }
+                    if task.priority == "high" {
+                        Text("!")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(Color(red: 1.0, green: 0.27, blue: 0.23))
+                    }
+                }
+            }
+
+            Spacer()
+
+            Button {
+                taskToDelete = task
+            } label: {
+                Image(systemName: "trash")
+                    .font(.system(size: 13))
+                    .foregroundColor(.white.opacity(0.25))
+                    .frame(width: 30, height: 30)
+            }
+        }
+        .padding(.leading, 16)
+        .padding(.trailing, 8)
+        .padding(.vertical, 12)
+    }
+
+    // MARK: - Rituals Section
+
+    private var ritualsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "repeat")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(Color(red: 0.31, green: 0.80, blue: 0.77))
+                Text("Rituels")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.5))
+                    .textCase(.uppercase)
+                    .tracking(0.5)
+                Spacer()
+                if !rituals.isEmpty {
+                    let done = rituals.filter { $0.isCompleted }.count
+                    Text("\(done)/\(rituals.count)")
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundColor(.white.opacity(0.3))
+                }
+            }
+            .padding(.horizontal, 20)
+
+            if !rituals.isEmpty {
+                VStack(spacing: 0) {
+                    ForEach(rituals) { ritual in
+                        ritualRow(ritual)
+
+                        if ritual.id != rituals.last?.id {
+                            Rectangle()
+                                .fill(Color.white.opacity(0.06))
+                                .frame(height: 0.5)
+                                .padding(.leading, 54)
+                        }
+                    }
+                }
+                .background(Color.white.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .padding(.horizontal, 16)
+            }
+        }
+    }
+
+    // MARK: - Ritual Row
+
+    private func ritualRow(_ ritual: DailyRitual) -> some View {
+        HStack(spacing: 12) {
+            Button {
+                toggleRitual(ritual)
+            } label: {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(ritual.isCompleted ? Color.clear : Color.white.opacity(0.25), lineWidth: 1.5)
+                        .frame(width: 22, height: 22)
+                    if ritual.isCompleted {
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(Color(red: 0.31, green: 0.80, blue: 0.77))
+                            .frame(width: 22, height: 22)
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                }
+            }
+
+            Text(ritual.icon)
+                .font(.system(size: 16))
+
+            Text(ritual.title)
+                .font(.system(size: 15, weight: ritual.isCompleted ? .regular : .medium))
+                .foregroundColor(ritual.isCompleted ? .white.opacity(0.3) : .white.opacity(0.9))
+                .strikethrough(ritual.isCompleted, color: .white.opacity(0.2))
+                .lineLimit(2)
+
+            Spacer()
+
+            if let time = ritual.scheduledTime {
+                Text(time)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.white.opacity(0.35))
+            }
+
+            Button {
+                ritualToDelete = ritual
+            } label: {
+                Image(systemName: "trash")
+                    .font(.system(size: 13))
+                    .foregroundColor(.white.opacity(0.25))
+                    .frame(width: 30, height: 30)
+            }
+        }
+        .padding(.leading, 16)
+        .padding(.trailing, 8)
+        .padding(.vertical, 12)
+    }
+
+    // MARK: - Add Button
+
+    private func addButton(title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: "plus")
+                    .font(.system(size: 14, weight: .semibold))
+                Text(title)
+                    .font(.system(size: 14, weight: .medium))
+            }
+            .foregroundColor(.white.opacity(0.6))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 13)
+            .background(Color.white.opacity(0.06))
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+        }
+        .padding(.horizontal, 16)
+    }
+
+    // MARK: - Empty State
+
+    private var emptyState: some View {
+        VStack(spacing: 12) {
+            Spacer().frame(height: 20)
+
+            Image(systemName: "checklist")
+                .font(.system(size: 36))
+                .foregroundColor(.white.opacity(0.2))
+
+            Text("Aucune tâche pour aujourd'hui")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundColor(.white.opacity(0.5))
+
+            Text("Demande à \(store.user?.companionName ?? "Kai") de planifier ta journée !")
+                .font(.system(size: 13))
+                .foregroundColor(.white.opacity(0.3))
+                .multilineTextAlignment(.center)
+        }
+        .padding(.horizontal, 32)
+    }
+
+    // MARK: - Helpers
+
+    private var todayFormatted: String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "fr_FR")
+        f.dateFormat = "EEEE d MMMM"
+        return f.string(from: Date()).capitalized
+    }
+
+    private func loadData() async {
+        isLoading = true
+        await store.refreshTodaysTasks()
+        await store.loadRituals()
+        await store.ensureAreasExist()
+        tasks = store.todaysTasks
+        rituals = store.rituals
+        isLoading = false
+    }
+
+    private func syncCalendar() {
+        isSyncing = true
+        Task {
+            do {
+                let result = try await GoogleCalendarService.shared.syncNow()
+                await store.refreshTodaysTasks()
+                tasks = store.todaysTasks
+                syncFeedback = "\(result.tasksSynced) tâches synchronisées"
+            } catch {
+                syncFeedback = "Échec de la synchronisation"
+            }
+            isSyncing = false
+
+            // Dismiss toast after 2 seconds
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            withAnimation { syncFeedback = nil }
+        }
+    }
+
+    private func toggleTask(_ task: CalendarTask) {
+        guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
+        let wasCompleted = task.isCompleted
+        tasks[index].status = wasCompleted ? "pending" : "completed"
+
+        Task {
+            do {
+                try await store.toggleTask(taskId: task.id, completed: !wasCompleted)
+                tasks = store.todaysTasks
+            } catch {
+                tasks[index].status = task.status
+            }
+        }
+    }
+
+    private func toggleRitual(_ ritual: DailyRitual) {
+        guard let index = rituals.firstIndex(where: { $0.id == ritual.id }) else { return }
+        rituals[index].isCompleted = !ritual.isCompleted
+
+        Task {
+            await store.toggleRitual(ritual)
+            rituals = store.rituals
+        }
+    }
+
+    private func performDeleteTask(_ task: CalendarTask) {
+        withAnimation(.easeInOut(duration: 0.25)) {
+            tasks.removeAll { $0.id == task.id }
+        }
+        Task {
+            do {
+                let calendarService = CalendarService()
+                try await calendarService.deleteTask(id: task.id)
+                await store.refreshTodaysTasks()
+            } catch {
+                tasks = store.todaysTasks
+            }
+        }
+    }
+
+    private func performDeleteRitual(_ ritual: DailyRitual) {
+        withAnimation(.easeInOut(duration: 0.25)) {
+            rituals.removeAll { $0.id == ritual.id }
+        }
+        Task {
+            do {
+                try await store.deleteRitual(id: ritual.id)
+                rituals = store.rituals
+            } catch {
+                rituals = store.rituals
+            }
+        }
+    }
+
+    private func createTask(title: String, timeBlock: String, scheduledStart: String?, estimatedMinutes: Int?) async {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let todayStr = dateFormatter.string(from: Date())
+
+        do {
+            let calendarService = CalendarService()
+            let newTask = try await calendarService.createTask(
+                title: title,
+                date: todayStr,
+                scheduledStart: scheduledStart,
+                timeBlock: timeBlock,
+                estimatedMinutes: estimatedMinutes
+            )
+            withAnimation(.easeInOut(duration: 0.25)) {
+                tasks.append(newTask)
+            }
+            await store.refreshTodaysTasks()
+        } catch {
+            print("⚠️ Failed to create task: \(error)")
+        }
+    }
+
+    private func createRitual(title: String, icon: String, areaId: String, scheduledTime: String?) async {
+        do {
+            try await store.createRitual(areaId: areaId, title: title, frequency: "daily", icon: icon, scheduledTime: scheduledTime)
+            await store.loadRituals()
+            withAnimation(.easeInOut(duration: 0.25)) {
+                rituals = store.rituals
+            }
+        } catch {
+            print("⚠️ Failed to create ritual: \(error)")
+        }
+    }
+}
+
+// MARK: - Add Task Sheet
+
+struct AddTaskSheet: View {
+    let bgColor: Color
+    @Environment(\.dismiss) private var dismiss
+    @State private var title = ""
+    @State private var selectedTimeBlock = "morning"
+    @State private var estimatedMinutes = ""
+    @State private var scheduledTime = Date()
+    @State private var hasScheduledTime = false
+    @State private var isSaving = false
+
+    let onCreate: (String, String, String?, Int?) async -> Void
+
+    private let timeBlocks: [(id: String, label: String, icon: String, color: Color)] = [
+        ("morning", "Matin", "sunrise.fill", .orange),
+        ("afternoon", "Après-midi", "sun.max.fill", .yellow),
+        ("evening", "Soir", "moon.fill", .indigo)
+    ]
+
+    var body: some View {
+        ZStack {
+            bgColor.ignoresSafeArea()
+
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(spacing: 20) {
+                    // Title
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Titre")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.white.opacity(0.5))
+                            .textCase(.uppercase)
+                            .tracking(0.5)
+
+                        TextField("", text: $title, prompt: Text("Qu'est-ce que tu dois faire ?").foregroundColor(.white.opacity(0.25)))
+                            .font(.system(size: 16))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                            .background(Color.white.opacity(0.08))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+
+                    // Time block
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Moment")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.white.opacity(0.5))
+                            .textCase(.uppercase)
+                            .tracking(0.5)
+
+                        HStack(spacing: 8) {
+                            ForEach(timeBlocks, id: \.id) { block in
+                                Button {
+                                    selectedTimeBlock = block.id
+                                } label: {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: block.icon)
+                                            .font(.system(size: 11))
+                                        Text(block.label)
+                                            .font(.system(size: 13, weight: .medium))
+                                    }
+                                    .foregroundColor(selectedTimeBlock == block.id ? .white : .white.opacity(0.5))
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 10)
+                                    .background(selectedTimeBlock == block.id ? block.color.opacity(0.5) : Color.white.opacity(0.08))
+                                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                                }
+                            }
+                        }
+                    }
+
+                    // Hour
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text("Heure")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.white.opacity(0.5))
+                                .textCase(.uppercase)
+                                .tracking(0.5)
+                            Spacer()
+                            Toggle("", isOn: $hasScheduledTime)
+                                .labelsHidden()
+                                .tint(.white.opacity(0.4))
+                        }
+
+                        if hasScheduledTime {
+                            DatePicker("", selection: $scheduledTime, displayedComponents: .hourAndMinute)
+                                .datePickerStyle(.wheel)
+                                .labelsHidden()
+                                .colorScheme(.dark)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 120)
+                                .clipped()
+                        }
+                    }
+
+                    // Duration
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Durée estimée")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.white.opacity(0.5))
+                            .textCase(.uppercase)
+                            .tracking(0.5)
+
+                        HStack(spacing: 8) {
+                            ForEach([15, 30, 60], id: \.self) { mins in
+                                Button {
+                                    estimatedMinutes = "\(mins)"
+                                } label: {
+                                    Text("\(mins) min")
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundColor(estimatedMinutes == "\(mins)" ? .white : .white.opacity(0.5))
+                                        .padding(.horizontal, 14)
+                                        .padding(.vertical, 10)
+                                        .background(estimatedMinutes == "\(mins)" ? Color.white.opacity(0.2) : Color.white.opacity(0.08))
+                                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                                }
+                            }
+
+                            TextField("", text: $estimatedMinutes, prompt: Text("Min").foregroundColor(.white.opacity(0.25)))
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.white)
+                                .keyboardType(.numberPad)
+                                .frame(width: 50)
+                                .multilineTextAlignment(.center)
+                                .padding(.vertical, 10)
+                                .background(Color.white.opacity(0.08))
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                        }
+                    }
+
+                    Spacer().frame(height: 12)
+
+                    // Submit
+                    Button {
+                        guard !title.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+                        isSaving = true
+                        let timeStr: String? = hasScheduledTime ? formatTime(scheduledTime) : nil
+                        Task {
+                            await onCreate(title, selectedTimeBlock, timeStr, Int(estimatedMinutes))
+                            dismiss()
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            if isSaving {
+                                ProgressView().tint(.white)
+                            } else {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 15, weight: .semibold))
+                            }
+                            Text("Ajouter")
+                                .font(.system(size: 16, weight: .semibold))
+                        }
+                        .foregroundColor(title.trimmingCharacters(in: .whitespaces).isEmpty ? .white.opacity(0.3) : .white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(
+                            title.trimmingCharacters(in: .whitespaces).isEmpty
+                                ? Color.white.opacity(0.06)
+                                : Color.white.opacity(0.2)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                    }
+                    .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty || isSaving)
+                }
+                .padding(20)
+            }
+        }
+    }
+
+    private func formatTime(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        return f.string(from: date)
+    }
+}
+
+// MARK: - Add Ritual Sheet
+
+struct AddRitualSheet: View {
+    let bgColor: Color
+    let areas: [Area]
+    @Environment(\.dismiss) private var dismiss
+    @State private var title = ""
+    @State private var selectedIcon = "star"
+    @State private var selectedAreaId: String?
+    @State private var scheduledTime = Date()
+    @State private var hasScheduledTime = false
+    @State private var isSaving = false
+
+    let onCreate: (String, String, String, String?) async -> Void
+
+    private let iconOptions: [(key: String, sfSymbol: String)] = [
+        ("star", "star.fill"),
+        ("sun", "sun.max.fill"),
+        ("drop", "drop.fill"),
+        ("leaf", "leaf.fill"),
+        ("book", "book.fill"),
+        ("figure.run", "figure.run"),
+        ("brain", "brain.head.profile"),
+        ("heart", "heart.fill"),
+        ("moon", "moon.fill"),
+        ("cup", "cup.and.saucer.fill")
+    ]
+
+    var body: some View {
+        ZStack {
+            bgColor.ignoresSafeArea()
+
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(spacing: 20) {
+                    // Title
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Titre")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.white.opacity(0.5))
+                            .textCase(.uppercase)
+                            .tracking(0.5)
+
+                        TextField("", text: $title, prompt: Text("Nom du rituel").foregroundColor(.white.opacity(0.25)))
+                            .font(.system(size: 16))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                            .background(Color.white.opacity(0.08))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+
+                    // Area picker
+                    if !areas.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Catégorie")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.white.opacity(0.5))
+                                .textCase(.uppercase)
+                                .tracking(0.5)
+
+                            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
+                                ForEach(areas) { area in
+                                    Button {
+                                        selectedAreaId = area.id
+                                    } label: {
+                                        HStack(spacing: 5) {
+                                            Text(area.icon)
+                                                .font(.system(size: 13))
+                                            Text(area.name)
+                                                .font(.system(size: 12, weight: .medium))
+                                                .lineLimit(1)
+                                        }
+                                        .foregroundColor(selectedAreaId == area.id ? .white : .white.opacity(0.5))
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 10)
+                                        .background(selectedAreaId == area.id ? Color.white.opacity(0.2) : Color.white.opacity(0.08))
+                                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Icon
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Icône")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.white.opacity(0.5))
+                            .textCase(.uppercase)
+                            .tracking(0.5)
+
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 5), spacing: 10) {
+                            ForEach(iconOptions, id: \.key) { icon in
+                                Button {
+                                    selectedIcon = icon.key
+                                } label: {
+                                    Image(systemName: icon.sfSymbol)
+                                        .font(.system(size: 18))
+                                        .foregroundColor(selectedIcon == icon.key ? .white : .white.opacity(0.4))
+                                        .frame(width: 46, height: 46)
+                                        .background(selectedIcon == icon.key ? Color.white.opacity(0.2) : Color.white.opacity(0.08))
+                                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                                }
+                            }
+                        }
+                    }
+
+                    // Hour
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text("Heure")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.white.opacity(0.5))
+                                .textCase(.uppercase)
+                                .tracking(0.5)
+                            Spacer()
+                            Toggle("", isOn: $hasScheduledTime)
+                                .labelsHidden()
+                                .tint(.white.opacity(0.4))
+                        }
+
+                        if hasScheduledTime {
+                            DatePicker("", selection: $scheduledTime, displayedComponents: .hourAndMinute)
+                                .datePickerStyle(.wheel)
+                                .labelsHidden()
+                                .colorScheme(.dark)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 120)
+                                .clipped()
+                        }
+                    }
+
+                    Spacer().frame(height: 12)
+
+                    // Submit
+                    Button {
+                        guard !title.trimmingCharacters(in: .whitespaces).isEmpty,
+                              let areaId = selectedAreaId else { return }
+                        isSaving = true
+                        let timeStr: String? = hasScheduledTime ? formatTime(scheduledTime) : nil
+                        Task {
+                            await onCreate(title, selectedIcon, areaId, timeStr)
+                            dismiss()
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            if isSaving {
+                                ProgressView().tint(.white)
+                            } else {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 15, weight: .semibold))
+                            }
+                            Text("Ajouter")
+                                .font(.system(size: 16, weight: .semibold))
+                        }
+                        .foregroundColor(canCreate ? .white : .white.opacity(0.3))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(canCreate ? Color.white.opacity(0.2) : Color.white.opacity(0.06))
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                    }
+                    .disabled(!canCreate || isSaving)
+                }
+                .padding(20)
+            }
+        }
+        .onAppear {
+            selectedAreaId = areas.first?.id
+        }
+    }
+
+    private var canCreate: Bool {
+        !title.trimmingCharacters(in: .whitespaces).isEmpty && selectedAreaId != nil
+    }
+
+    private func formatTime(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        return f.string(from: date)
+    }
+}
