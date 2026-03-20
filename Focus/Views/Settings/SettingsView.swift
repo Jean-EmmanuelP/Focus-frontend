@@ -458,15 +458,13 @@ struct SettingsView: View {
         VStack(spacing: 0) {
             sectionLabel("Ressources")
 
-            externalLinkRow(title: "Centre d'aide", url: "https://firelevel.app/help")
+            externalLinkRow(title: "Centre d'aide", url: "\(AppConfiguration.Social.webBaseURL)/help")
             replicaDivider
             externalLinkRow(title: "Évaluez-nous", url: "https://apps.apple.com/app/id6743387301?action=write-review")
             replicaDivider
-            externalLinkRow(title: "Conditions d'utilisation", url: "https://firelevel.app/terms")
+            externalLinkRow(title: "Conditions d'utilisation", url: "\(AppConfiguration.Social.webBaseURL)/terms")
             replicaDivider
-            externalLinkRow(title: "Politique de confidentialité", url: "https://firelevel.app/privacy")
-            replicaDivider
-            externalLinkRow(title: "Crédits", url: "https://firelevel.app/credits")
+            externalLinkRow(title: "Politique de confidentialité", url: "\(AppConfiguration.Social.webBaseURL)/privacy")
         }
     }
 
@@ -479,8 +477,6 @@ struct SettingsView: View {
             communityRow(iconName: "reddit", title: "Reddit", url: "https://reddit.com/r/focus")
             replicaDivider
             communityRow(iconName: "discord", title: "Discord", url: "https://discord.gg/focus")
-            replicaDivider
-            communityRow(iconName: "facebook", title: "Facebook", url: "https://facebook.com/focusapp")
         }
     }
 

@@ -975,26 +975,49 @@ struct InlineTaskListCard: View {
     let messageId: UUID
     var viewModel: ChatViewModel?
 
+    private var completedCount: Int { tasks.filter { $0.isCompleted }.count }
+    private var progress: Double { tasks.isEmpty ? 0 : Double(completedCount) / Double(tasks.count) }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
-            HStack(spacing: 8) {
-                Image(systemName: "checklist")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.black.opacity(0.5))
-                Text("Tâches du jour")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.black.opacity(0.5))
-                    .textCase(.uppercase)
-                    .tracking(0.5)
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(Color.black.opacity(0.06))
+                        .frame(width: 32, height: 32)
+                    Image(systemName: "checklist")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.black.opacity(0.7))
+                }
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Tâches du jour")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.black.opacity(0.85))
+                    Text("\(completedCount) sur \(tasks.count) terminées")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.black.opacity(0.4))
+                }
                 Spacer()
-                Text("\(tasks.filter { $0.isCompleted }.count)/\(tasks.count)")
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(.black.opacity(0.35))
             }
             .padding(.horizontal, 16)
-            .padding(.top, 14)
-            .padding(.bottom, 10)
+            .padding(.top, 16)
+            .padding(.bottom, 8)
+
+            // Progress bar
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(Color.black.opacity(0.06))
+                        .frame(height: 4)
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(Color.black.opacity(0.8))
+                        .frame(width: geo.size.width * progress, height: 4)
+                }
+            }
+            .frame(height: 4)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 12)
 
             if tasks.isEmpty {
                 Text("Aucune tâche pour aujourd'hui")
@@ -1010,46 +1033,54 @@ struct InlineTaskListCard: View {
                     } label: {
                         HStack(spacing: 12) {
                             ZStack {
-                                RoundedRectangle(cornerRadius: 6)
-                                    .stroke(task.isCompleted ? Color.clear : Color.black.opacity(0.2), lineWidth: 1.5)
-                                    .frame(width: 22, height: 22)
+                                RoundedRectangle(cornerRadius: 7)
+                                    .stroke(task.isCompleted ? Color.clear : Color.black.opacity(0.15), lineWidth: 1.5)
+                                    .frame(width: 24, height: 24)
 
                                 if task.isCompleted {
-                                    RoundedRectangle(cornerRadius: 6)
+                                    RoundedRectangle(cornerRadius: 7)
                                         .fill(Color.black)
-                                        .frame(width: 22, height: 22)
+                                        .frame(width: 24, height: 24)
                                     Image(systemName: "checkmark")
-                                        .font(.system(size: 11, weight: .bold))
+                                        .font(.system(size: 12, weight: .bold))
                                         .foregroundColor(.white)
                                 }
                             }
 
-                            Text(task.title)
-                                .font(.system(size: 15, weight: task.isCompleted ? .regular : .medium))
-                                .foregroundColor(task.isCompleted ? .black.opacity(0.3) : .black.opacity(0.85))
-                                .strikethrough(task.isCompleted, color: .black.opacity(0.2))
-                                .lineLimit(2)
-                                .multilineTextAlignment(.leading)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(task.title)
+                                    .font(.system(size: 15, weight: task.isCompleted ? .regular : .semibold))
+                                    .foregroundColor(task.isCompleted ? .black.opacity(0.3) : .black.opacity(0.85))
+                                    .strikethrough(task.isCompleted, color: .black.opacity(0.2))
+                                    .lineLimit(2)
+                                    .multilineTextAlignment(.leading)
+
+                                if let minutes = task.estimatedMinutes, minutes > 0 && !task.isCompleted {
+                                    Text("\(minutes) min")
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundColor(.black.opacity(0.35))
+                                }
+                            }
 
                             Spacer()
                         }
-                        .padding(.vertical, 11)
+                        .padding(.vertical, 12)
                         .padding(.horizontal, 16)
                     }
 
                     if index < tasks.count - 1 {
                         Rectangle()
-                            .fill(Color.black.opacity(0.06))
+                            .fill(Color.black.opacity(0.05))
                             .frame(height: 0.5)
-                            .padding(.leading, 50)
+                            .padding(.leading, 52)
                     }
                 }
-                .padding(.bottom, 4)
+                .padding(.bottom, 6)
             }
         }
         .background(Color.white)
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
+        .cornerRadius(18)
+        .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 4)
     }
 }
 

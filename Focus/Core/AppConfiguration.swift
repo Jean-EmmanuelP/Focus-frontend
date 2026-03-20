@@ -68,6 +68,7 @@ enum AppConfiguration {
     
     // MARK: - Social Links
     struct Social {
+        static let webBaseURL = "https://focus-web-one.vercel.app"
         static let inviteBaseURL = "https://firelevel.app/invite"
         static let communityURL = "https://firelevel.app/community"
         static let supportEmail = "support@firelevel.app"
