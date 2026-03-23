@@ -44,11 +44,21 @@ class BackboardService {
         self.encoder.keyEncodingStrategy = .convertToSnakeCase
     }
 
+    /// Track whether we've already synced the assistant's date this session
+    private var hasUpdatedDateThisSession = false
+
     // MARK: - Assistant Management (per-user isolation)
 
     /// Ensure the current user has a Backboard assistant. Creates one if needed.
     func ensureAssistant() async throws {
-        guard assistantId.isEmpty else { return }
+        guard assistantId.isEmpty else {
+            // Assistant exists — update its system prompt with the current date (once per session)
+            if !hasUpdatedDateThisSession {
+                hasUpdatedDateThisSession = true
+                await updateAssistantDate()
+            }
+            return
+        }
 
         let harshMode = FocusAppStore.shared.user?.coachHarshMode ?? false
         let assistantConfig = Self.assistantTemplate(coachHarshMode: harshMode)
@@ -79,6 +89,43 @@ class BackboardService {
         // Update local user model
         FocusAppStore.shared.user?.backboardAssistantId = newId
         print("🤖 Created per-user Backboard assistant: \(newId)")
+    }
+
+    /// Update the assistant's system prompt with the current date/time (PATCH, once per session)
+    private func updateAssistantDate() async {
+        guard !assistantId.isEmpty else { return }
+
+        let now = Date()
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "fr_FR")
+        df.dateFormat = "EEEE d MMMM yyyy, HH:mm"
+        let dateStr = df.string(from: now)
+
+        // Rebuild the full config with the current date injected at the top of the prompt
+        let harshMode = FocusAppStore.shared.user?.coachHarshMode ?? false
+        var config = Self.assistantTemplate(coachHarshMode: harshMode)
+        if var instructions = config["instructions"] as? String {
+            instructions = "[DATE ET HEURE ACTUELLES : \(dateStr)]\n\n" + instructions
+            config["instructions"] = instructions
+        }
+
+        let url = URL(string: "\(baseURL)/assistants/\(assistantId)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "PATCH"
+        request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: config)
+
+        do {
+            let (_, response) = try await session.data(for: request)
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                print("🕐 Assistant date updated: \(dateStr)")
+            } else {
+                print("⚠️ Failed to update assistant date: HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0)")
+            }
+        } catch {
+            print("⚠️ Failed to update assistant date: \(error)")
+        }
     }
 
     /// Force-recreate the assistant (e.g. after companion name change) so a fresh system prompt is used.
@@ -306,18 +353,10 @@ class BackboardService {
         request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        // Inject current date/time via additional_instructions (not visible in message history)
-        let now = Date()
-        let df = DateFormatter()
-        df.locale = Locale(identifier: "fr_FR")
-        df.dateFormat = "EEEE d MMMM yyyy, HH:mm"
-        let dateInstruction = "Date et heure actuelles : \(df.string(from: now)). Utilise cette date pour tous les calculs de dates (demain, la semaine prochaine, etc)."
-
         let body: [String: Any] = [
             "content": content,
             "stream": false,
-            "memory": "Readonly",
-            "additional_instructions": dateInstruction
+            "memory": "Readonly"
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
