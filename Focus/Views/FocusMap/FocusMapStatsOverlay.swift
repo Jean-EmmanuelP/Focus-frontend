@@ -1,18 +1,5 @@
 import SwiftUI
 
-// MARK: - Animated Odometer Digit
-
-struct OdometerDigit: View {
-    let digit: Int
-
-    var body: some View {
-        Text("\(digit)")
-            .font(.satoshi(20, weight: .bold))
-            .foregroundColor(ColorTokens.textPrimary)
-            .contentTransition(.numericText(countsDown: false))
-    }
-}
-
 // MARK: - Stat Pill
 
 struct FocusMapStatPill: View {
