@@ -1272,7 +1272,7 @@ struct InlinePlanningCard: View {
             Image(systemName: focusState != nil ? "flame.fill" : "checklist")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(focusState != nil ? .orange : .black.opacity(0.5))
-            Text(focusState != nil ? "Session Focus" : "Planning du jour")
+            Text(focusState != nil ? "Session Focus" : "Planning")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(.black.opacity(0.5))
                 .textCase(.uppercase)
@@ -1289,7 +1289,7 @@ struct InlinePlanningCard: View {
         .padding(.bottom, 10)
 
         if tasks.isEmpty && routines.isEmpty {
-            Text("Aucune tâche ni rituel pour aujourd'hui")
+            Text("Aucune tâche ni rituel")
                 .font(.system(size: 14))
                 .foregroundColor(.black.opacity(0.4))
                 .padding(.horizontal, 16)

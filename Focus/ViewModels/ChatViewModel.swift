@@ -383,14 +383,12 @@ class ChatViewModel: ObservableObject {
             await applySideEffects(sideEffects)
 
             var aiMessage = SimpleChatMessage(content: reply, isFromUser: false)
-            if sideEffects.hasQueriedFutureDate {
-                // Skip today-only card when discussing future dates
-            } else if let video = sideEffects.firstShowVideo {
+            if let video = sideEffects.firstShowVideo {
                 aiMessage.cardData = makeVideoCard(url: video.url, title: video.title)
             } else if let category = sideEffects.firstShowVideoSuggestions {
                 aiMessage.cardData = makeVideoSuggestionsCard(for: category)
             } else if let cardType = sideEffects.firstShowCard {
-                aiMessage.cardData = await buildCardData(for: cardType)
+                aiMessage.cardData = await buildCardData(for: cardType, date: sideEffects.queriedFutureDateString)
             }
             messages.append(aiMessage)
             saveMessages()
@@ -464,14 +462,12 @@ class ChatViewModel: ObservableObject {
             await applySideEffects(sideEffects)
 
             var aiMessage = SimpleChatMessage(content: reply, isFromUser: false)
-            if sideEffects.hasQueriedFutureDate {
-                // Skip today-only card when discussing future dates
-            } else if let video = sideEffects.firstShowVideo {
+            if let video = sideEffects.firstShowVideo {
                 aiMessage.cardData = makeVideoCard(url: video.url, title: video.title)
             } else if let category = sideEffects.firstShowVideoSuggestions {
                 aiMessage.cardData = makeVideoSuggestionsCard(for: category)
             } else if let cardType = sideEffects.firstShowCard {
-                aiMessage.cardData = await buildCardData(for: cardType)
+                aiMessage.cardData = await buildCardData(for: cardType, date: sideEffects.queriedFutureDateString)
             }
             messages.append(aiMessage)
             saveMessages()
@@ -685,18 +681,17 @@ class ChatViewModel: ObservableObject {
             await applySideEffects(sideEffects)
 
             var aiMessage = SimpleChatMessage(content: reply, isFromUser: false)
-            if sideEffects.hasQueriedFutureDate {
-                // Skip today-only card when discussing future dates
-            } else if sideEffects.firstStartFocusSession != nil || sideEffects.hasBlockApps {
+            let futureDate = sideEffects.queriedFutureDateString
+            if sideEffects.firstStartFocusSession != nil || sideEffects.hasBlockApps {
                 aiMessage.cardData = await buildFocusPlanningCard(sideEffects: sideEffects)
             } else if let video = sideEffects.firstShowVideo {
                 aiMessage.cardData = makeVideoCard(url: video.url, title: video.title)
             } else if let category = sideEffects.firstShowVideoSuggestions {
                 aiMessage.cardData = makeVideoSuggestionsCard(for: category)
             } else if let cardType = sideEffects.firstShowCard {
-                aiMessage.cardData = await buildCardData(for: cardType)
+                aiMessage.cardData = await buildCardData(for: cardType, date: futureDate)
             } else if let cardType = detectCardFromReply(reply) {
-                aiMessage.cardData = await buildCardData(for: cardType)
+                aiMessage.cardData = await buildCardData(for: cardType, date: futureDate)
             }
 
             messages.append(aiMessage)
@@ -789,18 +784,17 @@ class ChatViewModel: ObservableObject {
                 print("📋 sideEffect[\(i)]: \(effect)")
             }
 
-            if sideEffects.hasQueriedFutureDate {
-                // AI discussed future dates — skip today-only planning card
-            } else if sideEffects.firstStartFocusSession != nil || sideEffects.hasBlockApps {
+            let futureDate = sideEffects.queriedFutureDateString
+            if sideEffects.firstStartFocusSession != nil || sideEffects.hasBlockApps {
                 aiMessage.cardData = await buildFocusPlanningCard(sideEffects: sideEffects)
             } else if let video = sideEffects.firstShowVideo {
                 aiMessage.cardData = makeVideoCard(url: video.url, title: video.title)
             } else if let category = sideEffects.firstShowVideoSuggestions {
                 aiMessage.cardData = makeVideoSuggestionsCard(for: category)
             } else if let cardType = sideEffects.firstShowCard {
-                aiMessage.cardData = await buildCardData(for: cardType)
+                aiMessage.cardData = await buildCardData(for: cardType, date: futureDate)
             } else if let cardType = detectCardFromReply(reply) {
-                aiMessage.cardData = await buildCardData(for: cardType)
+                aiMessage.cardData = await buildCardData(for: cardType, date: futureDate)
             }
 
             messages.append(aiMessage)
@@ -1046,20 +1040,32 @@ class ChatViewModel: ObservableObject {
 
     // MARK: - Card Data
 
-    private func buildCardData(for cardType: String) async -> ChatCardData? {
+    private func buildCardData(for cardType: String, date: String? = nil) async -> ChatCardData? {
         guard let store = store else {
             print("⚠️ buildCardData: store is nil")
             return nil
         }
 
-        print("🃏 buildCardData: building card for type '\(cardType)'")
+        print("🃏 buildCardData: building card for type '\(cardType)', date: \(date ?? "today")")
 
         switch cardType {
         case "tasks":
-            await store.refreshTodaysTasks()
-            await store.loadRituals()
-            print("🃏 buildCardData: loaded \(store.todaysTasks.count) tasks + \(store.rituals.count) routines")
-            let taskCards = store.todaysTasks.map { task in
+            let calendarService = CalendarService()
+            let fetchedTasks: [CalendarTask]
+            if let date = date {
+                // Load tasks for a specific date (e.g. tomorrow)
+                fetchedTasks = (try? await calendarService.getTasks(date: date)) ?? []
+            } else {
+                // Default: load today's tasks
+                await store.refreshTodaysTasks()
+                fetchedTasks = store.todaysTasks
+            }
+            // Only load rituals for today
+            if date == nil {
+                await store.loadRituals()
+            }
+            print("🃏 buildCardData: loaded \(fetchedTasks.count) tasks")
+            let taskCards = fetchedTasks.map { task in
                 ChatCardData.CardTask(
                     id: task.id,
                     title: task.title,
@@ -1067,14 +1073,14 @@ class ChatViewModel: ObservableObject {
                     estimatedMinutes: task.estimatedMinutes
                 )
             }
-            let routineCards = store.rituals.map { ritual in
+            let routineCards: [ChatCardData.CardRoutine] = date == nil ? store.rituals.map { ritual in
                 ChatCardData.CardRoutine(
                     id: ritual.id,
                     title: ritual.title,
                     icon: ritual.icon,
                     isCompleted: ritual.isCompleted
                 )
-            }
+            } : []
             return .planning(taskCards, routineCards, nil)
 
         case "routines":
@@ -1597,6 +1603,14 @@ extension Array where Element == BackboardSideEffect {
     /// Check if a future (non-today) date was queried via get_tasks_for_date
     var hasQueriedFutureDate: Bool {
         contains { if case .queriedFutureDate = $0 { return true }; return false }
+    }
+
+    /// Get the queried future date string (YYYY-MM-DD)
+    var queriedFutureDateString: String? {
+        for effect in self {
+            if case .queriedFutureDate(let date) = effect { return date }
+        }
+        return nil
     }
 }
 
