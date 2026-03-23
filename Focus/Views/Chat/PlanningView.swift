@@ -15,14 +15,23 @@ struct PlanningView: View {
     @State private var ritualToDelete: DailyRitual?
     @State private var isSyncing = false
     @State private var syncFeedback: String?
+    @State private var selectedDate: Date = Date()
 
     // Background color matching chat screen avatar background
     private let bgColor = Color(red: 0.10, green: 0.12, blue: 0.20)
 
+    private var isToday: Bool { Calendar.current.isDateInToday(selectedDate) }
+
+    private var selectedDateString: String {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        return f.string(from: selectedDate)
+    }
+
     private var completedTasks: Int { tasks.filter { $0.isCompleted }.count }
     private var completedRituals: Int { rituals.filter { $0.isCompleted }.count }
-    private var totalItems: Int { tasks.count + rituals.count }
-    private var completedItems: Int { completedTasks + completedRituals }
+    private var totalItems: Int { tasks.count + (isToday ? rituals.count : 0) }
+    private var completedItems: Int { completedTasks + (isToday ? completedRituals : 0) }
     private var progress: Double {
         totalItems > 0 ? Double(completedItems) / Double(totalItems) : 0
     }
@@ -44,6 +53,8 @@ struct PlanningView: View {
                     VStack(spacing: 20) {
                         progressHeader
 
+                        dateStrip
+
                         // Tasks by time block
                         if !morningTasks.isEmpty {
                             timeBlockSection(title: "Matin", icon: "sunrise.fill", color: .orange, blockTasks: morningTasks)
@@ -64,13 +75,15 @@ struct PlanningView: View {
                             showAddTask = true
                         }
 
-                        ritualsSection
+                        if isToday {
+                            ritualsSection
 
-                        addButton(title: "Ajouter un rituel") {
-                            showAddRitual = true
+                            addButton(title: "Ajouter un rituel") {
+                                showAddRitual = true
+                            }
                         }
 
-                        if tasks.isEmpty && rituals.isEmpty {
+                        if tasks.isEmpty && (isToday ? rituals.isEmpty : true) {
                             emptyState
                         }
 
@@ -249,11 +262,55 @@ struct PlanningView: View {
             }
             .frame(width: 90, height: 90)
 
-            Text(todayFormatted)
+            Text(selectedDateFormatted)
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(.white.opacity(0.5))
         }
         .padding(.horizontal, 16)
+    }
+
+    // MARK: - Date Strip
+
+    private var dateStrip: some View {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let days = (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: today) }
+        let dayNameFormatter: DateFormatter = {
+            let f = DateFormatter()
+            f.locale = Locale(identifier: "fr_FR")
+            f.dateFormat = "EEE"
+            return f
+        }()
+
+        return ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(days, id: \.self) { day in
+                    let isSelected = calendar.isDate(day, inSameDayAs: selectedDate)
+                    let isDayToday = calendar.isDateInToday(day)
+
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            selectedDate = day
+                        }
+                        Task { await loadData() }
+                    } label: {
+                        VStack(spacing: 4) {
+                            Text(isDayToday ? "Auj." : dayNameFormatter.string(from: day).capitalized)
+                                .font(.system(size: 11, weight: .medium))
+                            Text("\(calendar.component(.day, from: day))")
+                                .font(.system(size: 17, weight: isSelected ? .bold : .semibold, design: .rounded))
+                        }
+                        .foregroundColor(isSelected ? bgColor : .white.opacity(isDayToday ? 0.9 : 0.5))
+                        .frame(width: 48, height: 56)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14)
+                                .fill(isSelected ? Color.white : Color.white.opacity(0.06))
+                        )
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+        }
     }
 
     // MARK: - Time Block Section
@@ -488,11 +545,14 @@ struct PlanningView: View {
                 .font(.system(size: 36))
                 .foregroundColor(.white.opacity(0.2))
 
-            Text("Aucune tâche pour aujourd'hui")
+            Text(isToday ? "Aucune tâche pour aujourd'hui" : "Aucune tâche prévue")
                 .font(.system(size: 15, weight: .medium))
                 .foregroundColor(.white.opacity(0.5))
 
-            Text("Demande à \(store.user?.companionName ?? "Kai") de planifier ta journée !")
+            let companion = store.user?.companionName ?? "Kai"
+            Text(isToday
+                 ? "Demande à \(companion) de planifier ta journée !"
+                 : "Ajoute des tâches ou demande à \(companion) de planifier !")
                 .font(.system(size: 13))
                 .foregroundColor(.white.opacity(0.3))
                 .multilineTextAlignment(.center)
@@ -502,20 +562,29 @@ struct PlanningView: View {
 
     // MARK: - Helpers
 
-    private var todayFormatted: String {
+    private var selectedDateFormatted: String {
         let f = DateFormatter()
         f.locale = Locale(identifier: "fr_FR")
         f.dateFormat = "EEEE d MMMM"
-        return f.string(from: Date()).capitalized
+        return f.string(from: selectedDate).capitalized
     }
 
     private func loadData() async {
         isLoading = true
-        await store.refreshTodaysTasks()
-        await store.loadRituals()
         await store.ensureAreasExist()
-        tasks = store.todaysTasks
-        rituals = store.rituals
+        do {
+            let calendarService = CalendarService()
+            tasks = try await calendarService.getTasks(date: selectedDateString)
+        } catch {
+            print("⚠️ Failed to load tasks for \(selectedDateString): \(error)")
+            tasks = []
+        }
+        if isToday {
+            await store.loadRituals()
+            rituals = store.rituals
+        } else {
+            rituals = []
+        }
         isLoading = false
     }
 
@@ -524,8 +593,8 @@ struct PlanningView: View {
         Task {
             do {
                 let result = try await GoogleCalendarService.shared.syncNow()
-                await store.refreshTodaysTasks()
-                tasks = store.todaysTasks
+                let calendarService = CalendarService()
+                tasks = try await calendarService.getTasks(date: selectedDateString)
                 syncFeedback = "\(result.tasksSynced) tâches synchronisées"
             } catch {
                 syncFeedback = "Échec de la synchronisation"
@@ -541,14 +610,16 @@ struct PlanningView: View {
     private func toggleTask(_ task: CalendarTask) {
         guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
         let wasCompleted = task.isCompleted
+        let previousStatus = task.status
         tasks[index].status = wasCompleted ? "pending" : "completed"
 
         Task {
             do {
                 try await store.toggleTask(taskId: task.id, completed: !wasCompleted)
-                tasks = store.todaysTasks
+                let calendarService = CalendarService()
+                tasks = try await calendarService.getTasks(date: selectedDateString)
             } catch {
-                tasks[index].status = task.status
+                tasks[index].status = previousStatus
             }
         }
     }
@@ -571,9 +642,9 @@ struct PlanningView: View {
             do {
                 let calendarService = CalendarService()
                 try await calendarService.deleteTask(id: task.id)
-                await store.refreshTodaysTasks()
+                tasks = try await calendarService.getTasks(date: selectedDateString)
             } catch {
-                tasks = store.todaysTasks
+                print("⚠️ Failed to delete task: \(error)")
             }
         }
     }
@@ -593,15 +664,11 @@ struct PlanningView: View {
     }
 
     private func createTask(title: String, timeBlock: String, scheduledStart: String?, estimatedMinutes: Int?) async {
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd"
-        let todayStr = dateFormatter.string(from: Date())
-
         do {
             let calendarService = CalendarService()
             let newTask = try await calendarService.createTask(
                 title: title,
-                date: todayStr,
+                date: selectedDateString,
                 scheduledStart: scheduledStart,
                 timeBlock: timeBlock,
                 estimatedMinutes: estimatedMinutes
@@ -609,7 +676,6 @@ struct PlanningView: View {
             withAnimation(.easeInOut(duration: 0.25)) {
                 tasks.append(newTask)
             }
-            await store.refreshTodaysTasks()
         } catch {
             print("⚠️ Failed to create task: \(error)")
         }

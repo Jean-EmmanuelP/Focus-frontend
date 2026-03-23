@@ -769,6 +769,7 @@ struct UserResponse: Codable {
     let freeVoiceMessagesUsed: Int?
     let createdAt: Date?
     let backboardAssistantId: String?
+    let backboardThreadId: String?
     let voiceId: String?
     let coachHarshMode: Bool?
 }

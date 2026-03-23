@@ -30,6 +30,7 @@ struct User: Codable, Identifiable {
     var freeVoiceMessagesUsed: Int?    // Counter for free voice messages (server-side)
     var createdAt: Date?               // Account creation date
     var backboardAssistantId: String?  // Per-user Backboard assistant for isolated memory
+    var backboardThreadId: String?     // Per-user Backboard thread for conversation persistence
     var voiceId: String?               // Gradium TTS voice preference
     var favoriteVideoUrl: String?      // Favorite ritual video URL
     var favoriteVideoTitle: String?    // Favorite ritual video title
@@ -415,6 +416,7 @@ extension User {
         // Account metadata
         self.createdAt = response.createdAt
         self.backboardAssistantId = response.backboardAssistantId
+        self.backboardThreadId = response.backboardThreadId
         self.voiceId = response.voiceId
         self.favoriteVideoUrl = nil
         self.favoriteVideoTitle = nil

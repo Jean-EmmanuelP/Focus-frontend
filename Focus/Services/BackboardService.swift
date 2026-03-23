@@ -124,28 +124,38 @@ class BackboardService {
 
     // MARK: - Thread Management
 
-    /// Get existing thread ID — checks UserDefaults first, then fetches from API.
-    /// Only creates a new thread if absolutely none exist on the server.
+    /// Get existing thread ID — checks user profile (DB) first, then UserDefaults, then fetches from API.
+    /// Only creates a new thread if absolutely none exist anywhere.
     func getOrCreateThread() async throws -> String {
-        // 1. Fast path: cached in UserDefaults
-        if let threadId = UserDefaults.standard.string(forKey: threadIdKey), !threadId.isEmpty {
+        // 1. Fast path: from user profile (persisted in DB)
+        if let threadId = FocusAppStore.shared.user?.backboardThreadId, !threadId.isEmpty {
+            // Also cache locally for offline speed
+            UserDefaults.standard.set(threadId, forKey: threadIdKey)
             return threadId
         }
 
-        // 2. Check server for existing threads (GET /threads)
+        // 2. Fallback: cached in UserDefaults (offline / not yet synced)
+        if let threadId = UserDefaults.standard.string(forKey: threadIdKey), !threadId.isEmpty {
+            // Sync to DB for cross-device persistence
+            await persistThreadId(threadId)
+            return threadId
+        }
+
+        // 3. Check Backboard API for existing threads (scoped to this user's assistant)
         if let existing = try? await fetchOldestThread() {
-            UserDefaults.standard.set(existing, forKey: threadIdKey)
+            await persistThreadId(existing)
             print("🧵 Restored existing Backboard thread from API: \(existing)")
             return existing
         }
 
-        // 3. Absolute last resort — no thread exists anywhere
+        // 4. Absolute last resort — no thread exists anywhere
         return try await createNewThread()
     }
 
-    /// Fetch all threads from the API and return the oldest thread ID, or nil if none exist.
+    /// Fetch threads for the current user's assistant and return the oldest thread ID, or nil if none exist.
     private func fetchOldestThread() async throws -> String? {
-        let url = URL(string: "\(baseURL)/threads")!
+        guard !assistantId.isEmpty else { return nil }
+        let url = URL(string: "\(baseURL)/assistants/\(assistantId)/threads")!
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
@@ -161,7 +171,7 @@ class BackboardService {
         return oldest?.threadId
     }
 
-    /// Create a new thread and persist the ID
+    /// Create a new thread and persist the ID to both UserDefaults and user profile (DB)
     @discardableResult
     func createNewThread() async throws -> String {
         let url = URL(string: "\(baseURL)/assistants/\(assistantId)/threads")!
@@ -175,9 +185,27 @@ class BackboardService {
         try validateResponse(response, data: data)
 
         let thread = try decoder.decode(BackboardThread.self, from: data)
-        UserDefaults.standard.set(thread.threadId, forKey: threadIdKey)
+        await persistThreadId(thread.threadId)
         print("🧵 Created new Backboard thread: \(thread.threadId)")
         return thread.threadId
+    }
+
+    /// Persist thread ID to UserDefaults (local cache) and user profile (DB, cross-device)
+    private func persistThreadId(_ threadId: String) async {
+        UserDefaults.standard.set(threadId, forKey: threadIdKey)
+        FocusAppStore.shared.user?.backboardThreadId = threadId
+        // Save to Supabase user profile via PATCH /me
+        do {
+            try await APIClient.shared.request(
+                endpoint: .me,
+                method: .patch,
+                body: RawJSON(data: try JSONSerialization.data(withJSONObject: [
+                    "backboard_thread_id": threadId
+                ]))
+            )
+        } catch {
+            print("⚠️ Failed to persist thread ID to profile: \(error)")
+        }
     }
 
     /// Fetch all visible messages (user + assistant with content) for a thread
@@ -217,6 +245,19 @@ class BackboardService {
         }
 
         UserDefaults.standard.removeObject(forKey: threadIdKey)
+        FocusAppStore.shared.user?.backboardThreadId = nil
+        // Clear from DB profile too
+        do {
+            try await APIClient.shared.request(
+                endpoint: .me,
+                method: .patch,
+                body: RawJSON(data: try JSONSerialization.data(withJSONObject: [
+                    "backboard_thread_id": NSNull()
+                ]))
+            )
+        } catch {
+            print("⚠️ Failed to clear thread ID from profile: \(error)")
+        }
     }
 
     // MARK: - Send Message (Main Entry Point)
@@ -312,6 +353,11 @@ class BackboardService {
 
             case "get_today_tasks":
                 let result = try await getTodayTasks()
+                return (result, [])
+
+            case "get_tasks_for_date":
+                let dateStr = args["date"] as? String ?? todayString()
+                let result = try await getTasksForDate(dateStr)
                 return (result, [])
 
             case "get_rituals":
@@ -507,6 +553,7 @@ class BackboardService {
         var context: [String: Any] = [
             "user_name": userName,
             "companion_name": companionName,
+            "today_date": todayString(),
             "tasks_today": tasksTotal,
             "tasks_completed": tasksCompleted,
             "rituals_today": ritualsTotal,
@@ -544,6 +591,22 @@ class BackboardService {
             ] as [String: Any]
         }
         return toJSON(["tasks": tasks])
+    }
+
+    private func getTasksForDate(_ dateStr: String) async throws -> String {
+        let calendarService = CalendarService()
+        let fetchedTasks = try await calendarService.getTasks(date: dateStr)
+        let tasks = fetchedTasks.map { task in
+            [
+                "id": task.id,
+                "title": task.title,
+                "date": task.date ?? dateStr,
+                "status": task.status ?? "pending",
+                "time_block": task.timeBlock ?? "",
+                "priority": task.priority ?? ""
+            ] as [String: Any]
+        }
+        return toJSON(["date": dateStr, "tasks": tasks])
     }
 
     private func getRituals() async throws -> String {
@@ -1253,6 +1316,8 @@ class BackboardService {
 
         - Premier message d'une conversation → appelle TOUJOURS get_user_context
         - Tâches mentionnées → get_today_tasks
+        - Tâches futures / "demain" / "la semaine prochaine" / "qu'est-ce que j'ai jeudi ?" → get_tasks_for_date(date=YYYY-MM-DD). La date d'aujourd'hui est dans get_user_context → today_date.
+        - Reporter une tâche à un autre jour → update_task avec la nouvelle date
         - Rituels/routines mentionnés → get_rituals
         - Création → tool correspondant
         - "J'ai terminé [tâche]" → complete_task avec le bon ID
@@ -1285,6 +1350,11 @@ class BackboardService {
         Matin (5h-12h) : énergique, orienté action. "[MORNING_FLOW]" → MORNING MODE
         Après-midi (12h-18h) : check progress, encourage, "T'en es où depuis ce matin ?"
         Soir (18h-22h) : bilan, célèbre, propose evening review si evening_review_done=false. "C'est quoi ta plus grande victoire aujourd'hui ?"
+        PLANIFICATION DU LENDEMAIN (soir, après le bilan) :
+        - Après le bilan du soir, propose naturellement de planifier demain : "Et demain, c'est quoi le programme ?"
+        - Si l'utilisateur partage des tâches → crée-les avec create_task(date=demain au format YYYY-MM-DD). La date d'aujourd'hui est dans get_user_context → today_date.
+        - Avant de créer des tâches pour demain → appelle get_tasks_for_date pour vérifier qu'il n'y a pas de doublons.
+        - Si des tâches d'aujourd'hui sont non complétées → "Tu veux reporter [tâche] à demain ?" → si oui, update_task avec la nouvelle date.
         Nuit (22h-5h) : encourage le repos, "Pose le tel. Demain tu repars frais."
         days_since_last_message == -1 (nouveau) : présente-toi brièvement + "C'est quoi ton objectif principal en ce moment ?" — PAS de tâches/rituels tout de suite
         all_tasks_completed + all_rituals_completed : "Journée parfaite. C'est quoi qui a fait la différence ?"
@@ -1439,8 +1509,11 @@ class BackboardService {
         let tools: [[String: Any]] = [
             tool("get_user_context", "Récupère le contexte actuel: tâches, rituels, minutes focus, moment de la journée, statut blocage apps."),
             tool("get_today_tasks", "Récupère la liste des tâches du jour avec statut, bloc horaire et priorité."),
+            tool("get_tasks_for_date", "Récupère les tâches pour une date spécifique (demain, la semaine prochaine, etc). Utilise-le pour voir les tâches futures avant d'en créer.", [
+                "date": param("string", "Date au format YYYY-MM-DD")
+            ], required: ["date"]),
             tool("get_rituals", "Récupère la liste des rituels quotidiens avec statut de complétion."),
-            tool("create_task", "Crée une nouvelle tâche dans le calendrier.", [
+            tool("create_task", "Crée une nouvelle tâche. Peut être pour aujourd'hui ou n'importe quelle date future (date au format YYYY-MM-DD).", [
                 "title": param("string", "Le titre de la tâche"),
                 "date": param("string", "Date YYYY-MM-DD (défaut: aujourd'hui)"),
                 "priority": param("string", "Priorité", enumValues: ["high", "medium", "low"]),
