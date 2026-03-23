@@ -268,15 +268,8 @@ class BackboardService {
         try await ensureAssistant()
         let threadId = try await getOrCreateThread()
 
-        // Inject current date/time so the AI always knows "today" (invisible to user)
-        let now = Date()
-        let df = DateFormatter()
-        df.locale = Locale(identifier: "fr_FR")
-        df.dateFormat = "EEEE d MMMM yyyy, HH:mm"
-        let messageForAI = "\(text)\n\n[system: date_actuelle=\(df.string(from: now))]"
-
-        // Send message with memory enabled
-        var response = try await addMessage(threadId: threadId, content: messageForAI)
+        // Send message with memory enabled — date context passed via additional_instructions
+        var response = try await addMessage(threadId: threadId, content: text)
 
         var allSideEffects: [BackboardSideEffect] = []
         let maxToolCallRounds = 10
@@ -313,10 +306,18 @@ class BackboardService {
         request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
+        // Inject current date/time via additional_instructions (not visible in message history)
+        let now = Date()
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "fr_FR")
+        df.dateFormat = "EEEE d MMMM yyyy, HH:mm"
+        let dateInstruction = "Date et heure actuelles : \(df.string(from: now)). Utilise cette date pour tous les calculs de dates (demain, la semaine prochaine, etc)."
+
         let body: [String: Any] = [
             "content": content,
             "stream": false,
-            "memory": "Readonly"
+            "memory": "Readonly",
+            "additional_instructions": dateInstruction
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
