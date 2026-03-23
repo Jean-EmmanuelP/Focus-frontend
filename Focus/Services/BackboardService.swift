@@ -104,9 +104,10 @@ class BackboardService {
         // Rebuild the full config with the current date injected at the top of the prompt
         let harshMode = FocusAppStore.shared.user?.coachHarshMode ?? false
         var config = Self.assistantTemplate(coachHarshMode: harshMode)
-        if var instructions = config["instructions"] as? String {
-            instructions = "[DATE ET HEURE ACTUELLES : \(dateStr)]\n\n" + instructions
-            config["instructions"] = instructions
+        if var prompt = config["system_prompt"] as? String {
+            prompt = "[DATE ET HEURE ACTUELLES : \(dateStr)]\n\n" + prompt
+            config["system_prompt"] = prompt
+            config["description"] = prompt
         }
 
         let url = URL(string: "\(baseURL)/assistants/\(assistantId)")!
@@ -398,6 +399,9 @@ class BackboardService {
             case "get_user_context":
                 return (getUserContext(), [])
 
+            case "get_current_datetime":
+                return (getCurrentDatetime(), [])
+
             case "get_today_tasks":
                 let result = try await getTodayTasks()
                 return (result, [])
@@ -625,6 +629,20 @@ class BackboardService {
             context["weekly_goals"] = weeklyGoalsList
         }
         return toJSON(context)
+    }
+
+    private func getCurrentDatetime() -> String {
+        let now = Date()
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "fr_FR")
+        df.dateFormat = "EEEE d MMMM yyyy"
+        let tf = DateFormatter()
+        tf.dateFormat = "HH:mm"
+        return toJSON([
+            "date": df.string(from: now),
+            "time": tf.string(from: now),
+            "iso_date": todayString()
+        ])
     }
 
     private func getTodayTasks() async throws -> String {
@@ -1370,6 +1388,8 @@ class BackboardService {
         - Création → tool correspondant
         - "J'ai terminé [tâche]" → complete_task avec le bon ID
         - Suppression/modification → delete_task, update_task, delete_routine
+        - Heure ou date demandée ("quelle heure", "on est quel jour") → get_current_datetime
+        - Calculs de dates (demain, dans 3 jours, la semaine prochaine) → get_current_datetime d'abord pour avoir la date exacte, puis utilise iso_date pour les tools
 
         FOCUS & BLOCAGE — FLOW INTELLIGENT:
         Quand l'utilisateur veut se concentrer ("je bosse", "focus", "bloque mes apps") :
@@ -1556,6 +1576,7 @@ class BackboardService {
 
         let tools: [[String: Any]] = [
             tool("get_user_context", "Récupère le contexte actuel: tâches, rituels, minutes focus, moment de la journée, statut blocage apps."),
+            tool("get_current_datetime", "Retourne la date et l'heure exactes actuelles. Appelle ce tool quand tu as besoin de connaître la date ou l'heure précise, ou pour calculer des dates futures (demain, dans 3 jours, etc)."),
             tool("get_today_tasks", "Récupère la liste des tâches du jour avec statut, bloc horaire et priorité."),
             tool("get_tasks_for_date", "Récupère les tâches pour une date spécifique (demain, la semaine prochaine, etc). Utilise-le pour voir les tâches futures avant d'en créer.", [
                 "date": param("string", "Date au format YYYY-MM-DD")
