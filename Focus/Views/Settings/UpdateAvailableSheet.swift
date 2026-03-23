@@ -83,63 +83,6 @@ struct UpdateAvailableSheet: View {
     }
 }
 
-/// Small banner that can be shown at the top of the app
-struct UpdateAvailableBanner: View {
-    @ObservedObject var updateService: AppUpdateService
-    @Binding var isPresented: Bool
-
-    var body: some View {
-        if updateService.updateAvailable {
-            HStack(spacing: SpacingTokens.md) {
-                Image(systemName: "arrow.down.app.fill")
-                    .foregroundStyle(ColorTokens.fireGradient)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Mise à jour disponible")
-                        .font(.satoshi(14, weight: .semibold))
-                        .foregroundColor(ColorTokens.textPrimary)
-                    Text("Version \(updateService.appStoreVersion ?? "")")
-                        .font(.satoshi(12))
-                        .foregroundColor(ColorTokens.textSecondary)
-                }
-
-                Spacer()
-
-                Button(action: {
-                    isPresented = true
-                }) {
-                    Text("Voir")
-                        .font(.satoshi(13, weight: .semibold))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, SpacingTokens.md)
-                        .padding(.vertical, SpacingTokens.xs)
-                        .background(ColorTokens.fireGradient)
-                        .cornerRadius(RadiusTokens.full)
-                }
-
-                Button(action: {
-                    withAnimation {
-                        updateService.updateAvailable = false
-                    }
-                }) {
-                    Image(systemName: "xmark")
-                        .font(.satoshi(12))
-                        .foregroundColor(ColorTokens.textMuted)
-                }
-            }
-            .padding(SpacingTokens.md)
-            .background(ColorTokens.surface)
-            .cornerRadius(RadiusTokens.md)
-            .overlay(
-                RoundedRectangle(cornerRadius: RadiusTokens.md)
-                    .stroke(ColorTokens.primaryStart.opacity(0.3), lineWidth: 1)
-            )
-            .padding(.horizontal, SpacingTokens.md)
-            .transition(.move(edge: .top).combined(with: .opacity))
-        }
-    }
-}
-
 #Preview {
     UpdateAvailableSheet(updateService: AppUpdateService.shared)
 }

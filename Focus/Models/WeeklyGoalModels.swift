@@ -141,14 +141,3 @@ extension WeeklyGoalItem {
     }
 }
 
-// MARK: - Draft Goal Item (for creation UI)
-struct DraftGoalItem: Identifiable {
-    let id = UUID()
-    var content: String
-    var areaId: String?
-
-    init(content: String = "", areaId: String? = nil) {
-        self.content = content
-        self.areaId = areaId
-    }
-}

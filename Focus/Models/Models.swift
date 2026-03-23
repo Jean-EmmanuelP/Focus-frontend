@@ -360,17 +360,6 @@ struct EveningReview: Codable, Identifiable {
     let tomorrowGoal: String?
 }
 
-// MARK: - Dashboard Data
-struct DashboardData: Codable {
-    let user: User
-    let todaysSessions: [FocusSession]
-    let weekSessions: [FocusSession]
-    let rituals: [DailyRitual]
-    let morningCheckIn: MorningCheckIn?
-    let eveningReview: EveningReview?
-    let weeklyProgress: [DayProgress]
-}
-
 struct DayProgress: Codable, Identifiable {
     var id: String { "\(day)-\(date.timeIntervalSince1970)" }
     let day: String // "M", "T", "W", "T", "F", "S", "S"

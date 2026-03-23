@@ -137,67 +137,6 @@ extension String {
     }
 }
 
-// MARK: - Localization Keys
-enum L10n {
-    // MARK: - Common
-    static var done: String { "common.done".localized }
-    static var cancel: String { "common.cancel".localized }
-    static var save: String { "common.save".localized }
-    static var delete: String { "common.delete".localized }
-    static var edit: String { "common.edit".localized }
-    static var error: String { "common.error".localized }
-    static var retry: String { "common.retry".localized }
-    static var loading: String { "common.loading".localized }
-    static var ok: String { "common.ok".localized }
-    static var yes: String { "common.yes".localized }
-    static var no: String { "common.no".localized }
-
-    // MARK: - Profile / Account
-    static var profileTitle: String { "profile.title".localized }
-    static var profileMyStatistics: String { "profile.my_statistics".localized }
-    static var profileDayVisibility: String { "profile.day_visibility".localized }
-    static var profileVisibilityDescription: String { "profile.visibility_description".localized }
-    static var profilePublic: String { "profile.public".localized }
-    static var profilePublicDesc: String { "profile.public_desc".localized }
-    static var profileCrewOnly: String { "profile.crew_only".localized }
-    static var profileCrewOnlyDesc: String { "profile.crew_only_desc".localized }
-    static var profilePrivate: String { "profile.private".localized }
-    static var profilePrivateDesc: String { "profile.private_desc".localized }
-    static var profileLanguage: String { "profile.language".localized }
-    static var profileSignOut: String { "profile.sign_out".localized }
-    static var profileSignOutConfirm: String { "profile.sign_out_confirm".localized }
-
-    // MARK: - Statistics
-    static var statsTitle: String { "stats.title".localized }
-    static var statsWeek: String { "stats.week".localized }
-    static var statsMonth: String { "stats.month".localized }
-    static var statsFocusTime: String { "stats.focus_time".localized }
-    static var statsAvgDaily: String { "stats.avg_daily".localized }
-    static var statsRoutines: String { "stats.routines".localized }
-    static var statsCompletion: String { "stats.completion".localized }
-    static var statsCompleted: String { "stats.completed".localized }
-    static var statsThisWeek: String { "stats.this_week".localized }
-    static var statsThisMonth: String { "stats.this_month".localized }
-    static var statsLast7Days: String { "stats.last_7_days".localized }
-    static var statsLast30Days: String { "stats.last_30_days".localized }
-    static var statsFocusSessions: String { "stats.focus_sessions".localized }
-
-    // MARK: - Time Formatting
-    static var timeHours: String { "time.hours".localized }
-    static var timeMinutes: String { "time.minutes".localized }
-    static var timeH: String { "time.h".localized }
-    static var timeM: String { "time.m".localized }
-    static var timeDays: String { "time.days".localized }
-    static var timeToday: String { "time.today".localized }
-    static var timeYesterday: String { "time.yesterday".localized }
-
-    // MARK: - Errors
-    static var errorGeneric: String { "error.generic".localized }
-    static var errorNetwork: String { "error.network".localized }
-    static var errorLoadingData: String { "error.loading_data".localized }
-    static var errorSaving: String { "error.saving".localized }
-}
-
 // MARK: - Hardcoded Translations Fallback
 extension LocalizationManager {
     static let englishTranslations: [String: String] = [

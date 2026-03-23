@@ -36,53 +36,11 @@ struct FocusMapStatPill: View {
     }
 }
 
-// MARK: - Stats Overlay
-
-struct FocusMapStatsOverlay: View {
-    let activeUsers: Int
-    let blockedAppsUsers: Int
-    let totalMinutesToday: Int
-
-    var body: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 8) {
-                FocusMapStatPill(
-                    sfSymbol: "flame.fill",
-                    value: activeUsers,
-                    label: "en focus",
-                    color: .orange
-                )
-
-                FocusMapStatPill(
-                    sfSymbol: "lock.fill",
-                    value: blockedAppsUsers,
-                    label: "apps bloquees",
-                    color: ColorTokens.primaryStart
-                )
-            }
-
-            FocusMapStatPill(
-                sfSymbol: "timer",
-                value: totalMinutesToday,
-                label: "min aujourd'hui",
-                color: ColorTokens.accent
-            )
-        }
-        .animation(.easeOut(duration: 0.6), value: activeUsers)
-        .animation(.easeOut(duration: 0.6), value: blockedAppsUsers)
-        .animation(.easeOut(duration: 0.6), value: totalMinutesToday)
-    }
-}
-
 #Preview {
-    ZStack {
-        Color(hex: "#050508")
-            .ignoresSafeArea()
-
-        FocusMapStatsOverlay(
-            activeUsers: 47,
-            blockedAppsUsers: 31,
-            totalMinutesToday: 2_341
-        )
-    }
+    FocusMapStatPill(
+        sfSymbol: "flame.fill",
+        value: 47,
+        label: "en focus",
+        color: .orange
+    )
 }
