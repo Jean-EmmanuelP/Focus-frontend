@@ -977,6 +977,14 @@ class ChatViewModel: ObservableObject {
     private func detectCardFromReply(_ reply: String) -> String? {
         let lower = reply.lowercased()
 
+        // Skip card auto-detection when the AI is discussing future dates (not today)
+        let futurePatterns = ["demain", "après-demain", "la semaine prochaine", "lundi prochain",
+                              "mardi prochain", "mercredi prochain", "jeudi prochain",
+                              "vendredi prochain", "samedi prochain", "dimanche prochain"]
+        for pattern in futurePatterns {
+            if lower.contains(pattern) { return nil }
+        }
+
         let taskPatterns = ["voici tes tâches", "voici tes taches", "ton planning", "ta journée",
                             "tes tâches du jour", "voici ton programme", "voici ta journée",
                             "voici ton planning", "prévues pour", "tes tâches", "tes taches"]
