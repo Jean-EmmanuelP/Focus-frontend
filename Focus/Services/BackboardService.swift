@@ -358,7 +358,8 @@ class BackboardService {
             case "get_tasks_for_date":
                 let dateStr = args["date"] as? String ?? todayString()
                 let result = try await getTasksForDate(dateStr)
-                return (result, [])
+                let effects: [BackboardSideEffect] = dateStr != todayString() ? [.queriedFutureDate(dateStr)] : []
+                return (result, effects)
 
             case "get_rituals":
                 let result = try await getRituals()

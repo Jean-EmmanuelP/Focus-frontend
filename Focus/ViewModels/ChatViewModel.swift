@@ -383,7 +383,9 @@ class ChatViewModel: ObservableObject {
             await applySideEffects(sideEffects)
 
             var aiMessage = SimpleChatMessage(content: reply, isFromUser: false)
-            if let video = sideEffects.firstShowVideo {
+            if sideEffects.hasQueriedFutureDate {
+                // Skip today-only card when discussing future dates
+            } else if let video = sideEffects.firstShowVideo {
                 aiMessage.cardData = makeVideoCard(url: video.url, title: video.title)
             } else if let category = sideEffects.firstShowVideoSuggestions {
                 aiMessage.cardData = makeVideoSuggestionsCard(for: category)
@@ -462,7 +464,9 @@ class ChatViewModel: ObservableObject {
             await applySideEffects(sideEffects)
 
             var aiMessage = SimpleChatMessage(content: reply, isFromUser: false)
-            if let video = sideEffects.firstShowVideo {
+            if sideEffects.hasQueriedFutureDate {
+                // Skip today-only card when discussing future dates
+            } else if let video = sideEffects.firstShowVideo {
                 aiMessage.cardData = makeVideoCard(url: video.url, title: video.title)
             } else if let category = sideEffects.firstShowVideoSuggestions {
                 aiMessage.cardData = makeVideoSuggestionsCard(for: category)
@@ -681,7 +685,9 @@ class ChatViewModel: ObservableObject {
             await applySideEffects(sideEffects)
 
             var aiMessage = SimpleChatMessage(content: reply, isFromUser: false)
-            if sideEffects.firstStartFocusSession != nil || sideEffects.hasBlockApps {
+            if sideEffects.hasQueriedFutureDate {
+                // Skip today-only card when discussing future dates
+            } else if sideEffects.firstStartFocusSession != nil || sideEffects.hasBlockApps {
                 aiMessage.cardData = await buildFocusPlanningCard(sideEffects: sideEffects)
             } else if let video = sideEffects.firstShowVideo {
                 aiMessage.cardData = makeVideoCard(url: video.url, title: video.title)
@@ -783,7 +789,9 @@ class ChatViewModel: ObservableObject {
                 print("📋 sideEffect[\(i)]: \(effect)")
             }
 
-            if sideEffects.firstStartFocusSession != nil || sideEffects.hasBlockApps {
+            if sideEffects.hasQueriedFutureDate {
+                // AI discussed future dates — skip today-only planning card
+            } else if sideEffects.firstStartFocusSession != nil || sideEffects.hasBlockApps {
                 aiMessage.cardData = await buildFocusPlanningCard(sideEffects: sideEffects)
             } else if let video = sideEffects.firstShowVideo {
                 aiMessage.cardData = makeVideoCard(url: video.url, title: video.title)
@@ -879,6 +887,9 @@ class ChatViewModel: ObservableObject {
                 await manager.fetchEvents()
                 let blockingEvents = manager.todayEvents.filter { $0.blockApps }
                 await CalendarEventBlockingService.shared.scheduleBlockingForEvents(blockingEvents)
+
+            case .queriedFutureDate:
+                break // Handled in the message attachment step (suppresses today-only card)
             }
         }
     }
@@ -1581,6 +1592,11 @@ extension Array where Element == BackboardSideEffect {
             if case .blockApps(let duration) = effect { return duration }
         }
         return nil
+    }
+
+    /// Check if a future (non-today) date was queried via get_tasks_for_date
+    var hasQueriedFutureDate: Bool {
+        contains { if case .queriedFutureDate = $0 { return true }; return false }
     }
 }
 

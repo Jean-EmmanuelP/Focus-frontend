@@ -110,6 +110,7 @@ enum BackboardSideEffect {
     case startFocusSession(duration: Int?, taskId: String?, taskTitle: String?)
     case refreshSettings
     case refreshCalendarEvents
+    case queriedFutureDate(String) // Date string (YYYY-MM-DD) when AI queried a non-today date
 }
 
 // MARK: - AnyCodableValue (for memory metadata)
