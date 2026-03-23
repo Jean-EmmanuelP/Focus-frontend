@@ -268,8 +268,15 @@ class BackboardService {
         try await ensureAssistant()
         let threadId = try await getOrCreateThread()
 
+        // Inject current date/time so the AI always knows "today"
+        let now = Date()
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "fr_FR")
+        df.dateFormat = "EEEE d MMMM yyyy, HH:mm"
+        let messageWithDate = "[Date actuelle : \(df.string(from: now))] \(text)"
+
         // Send message with memory enabled
-        var response = try await addMessage(threadId: threadId, content: text)
+        var response = try await addMessage(threadId: threadId, content: messageWithDate)
 
         var allSideEffects: [BackboardSideEffect] = []
         let maxToolCallRounds = 10
