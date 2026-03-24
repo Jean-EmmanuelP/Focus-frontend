@@ -8,7 +8,7 @@ struct PlanningView: View {
 
     @State private var tasks: [CalendarTask] = []
     @State private var rituals: [DailyRitual] = []
-    @State private var isLoading = true
+    @State private var isInitialLoading = true
     @State private var showAddTask = false
     @State private var showAddRitual = false
     @State private var taskToDelete: CalendarTask?
@@ -16,6 +16,8 @@ struct PlanningView: View {
     @State private var isSyncing = false
     @State private var syncFeedback: String?
     @State private var selectedDate: Date = Date()
+    @State private var tasksCache: [String: [CalendarTask]] = [:]
+    @State private var ritualsCache: [DailyRitual]? = nil
 
     // Background color matching chat screen avatar background
     private let bgColor = Color(red: 0.10, green: 0.12, blue: 0.20)
@@ -45,7 +47,7 @@ struct PlanningView: View {
         ZStack {
             bgColor.ignoresSafeArea()
 
-            if isLoading {
+            if isInitialLoading {
                 ProgressView()
                     .tint(.white)
             } else {
@@ -91,6 +93,7 @@ struct PlanningView: View {
                     }
                     .padding(.top, 8)
                 }
+                .transition(.opacity)
             }
 
             // Top bar overlay
@@ -289,8 +292,24 @@ struct PlanningView: View {
                     let isDayToday = calendar.isDateInToday(day)
 
                     Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            selectedDate = day
+                        selectedDate = day
+                        // Show cached data instantly
+                        let dateKey = {
+                            let f = DateFormatter()
+                            f.dateFormat = "yyyy-MM-dd"
+                            return f.string(from: day)
+                        }()
+                        if let cached = tasksCache[dateKey] {
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                tasks = cached
+                            }
+                        }
+                        if Calendar.current.isDateInToday(day), let cachedRituals = ritualsCache {
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                rituals = cachedRituals
+                            }
+                        } else if !Calendar.current.isDateInToday(day) {
+                            rituals = []
                         }
                         Task { await loadData() }
                     } label: {
@@ -570,22 +589,50 @@ struct PlanningView: View {
     }
 
     private func loadData() async {
-        isLoading = true
+        let dateKey = selectedDateString
+        let isFirst = isInitialLoading
+
+        // Show cached data instantly if available
+        if let cached = tasksCache[dateKey] {
+            withAnimation(.easeInOut(duration: 0.15)) {
+                tasks = cached
+                if isToday, let cachedRituals = ritualsCache {
+                    rituals = cachedRituals
+                } else if !isToday {
+                    rituals = []
+                }
+            }
+        }
+
         await store.ensureAreasExist()
         do {
             let calendarService = CalendarService()
-            tasks = try await calendarService.getTasks(date: selectedDateString)
+            let fetched = try await calendarService.getTasks(date: dateKey)
+            // Only update if still on the same date
+            if selectedDateString == dateKey {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    tasks = fetched
+                }
+                tasksCache[dateKey] = fetched
+            }
         } catch {
-            print("⚠️ Failed to load tasks for \(selectedDateString): \(error)")
-            tasks = []
+            print("⚠️ Failed to load tasks for \(dateKey): \(error)")
+            if selectedDateString == dateKey && tasksCache[dateKey] == nil {
+                tasks = []
+            }
         }
-        if isToday {
+        if Calendar.current.isDateInToday(selectedDate) && selectedDateString == dateKey {
             await store.loadRituals()
-            rituals = store.rituals
-        } else {
+            withAnimation(.easeInOut(duration: 0.15)) {
+                rituals = store.rituals
+            }
+            ritualsCache = store.rituals
+        } else if selectedDateString == dateKey {
             rituals = []
         }
-        isLoading = false
+        if isFirst {
+            isInitialLoading = false
+        }
     }
 
     private func syncCalendar() {
@@ -594,7 +641,9 @@ struct PlanningView: View {
             do {
                 let result = try await GoogleCalendarService.shared.syncNow()
                 let calendarService = CalendarService()
-                tasks = try await calendarService.getTasks(date: selectedDateString)
+                let fetched = try await calendarService.getTasks(date: selectedDateString)
+                tasks = fetched
+                tasksCache[selectedDateString] = fetched
                 syncFeedback = "\(result.tasksSynced) tâches synchronisées"
             } catch {
                 syncFeedback = "Échec de la synchronisation"
@@ -617,7 +666,9 @@ struct PlanningView: View {
             do {
                 try await store.toggleTask(taskId: task.id, completed: !wasCompleted)
                 let calendarService = CalendarService()
-                tasks = try await calendarService.getTasks(date: selectedDateString)
+                let fetched = try await calendarService.getTasks(date: selectedDateString)
+                tasks = fetched
+                tasksCache[selectedDateString] = fetched
             } catch {
                 tasks[index].status = previousStatus
             }
@@ -638,11 +689,14 @@ struct PlanningView: View {
         withAnimation(.easeInOut(duration: 0.25)) {
             tasks.removeAll { $0.id == task.id }
         }
+        tasksCache[selectedDateString] = tasks
         Task {
             do {
                 let calendarService = CalendarService()
                 try await calendarService.deleteTask(id: task.id)
-                tasks = try await calendarService.getTasks(date: selectedDateString)
+                let fetched = try await calendarService.getTasks(date: selectedDateString)
+                tasks = fetched
+                tasksCache[selectedDateString] = fetched
             } catch {
                 print("⚠️ Failed to delete task: \(error)")
             }
