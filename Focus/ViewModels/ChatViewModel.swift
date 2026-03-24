@@ -337,21 +337,20 @@ class ChatViewModel: ObservableObject {
         }
     }
 
-    /// Fetch all messages from Backboard thread and sync with local cache
+    /// Fetch all messages from backend (which reads from Backboard thread)
     private func fetchBackboardHistory() async {
         do {
-            let threadId = try await BackboardService.shared.getOrCreateThread()
-            let bbMessages = try await BackboardService.shared.listMessages(threadId: threadId)
+            let history = try await ChatV2Service.shared.fetchHistory()
 
-            if !bbMessages.isEmpty {
+            if !history.isEmpty {
                 let dateFormatter = DateFormatter()
                 dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
                 dateFormatter.timeZone = TimeZone(identifier: "UTC")
 
-                messages = bbMessages.map { msg in
+                messages = history.map { msg in
                     SimpleChatMessage(
                         id: UUID(),
-                        content: msg.content ?? "",
+                        content: msg.content,
                         isFromUser: msg.role == "user",
                         timestamp: dateFormatter.date(from: msg.createdAt ?? "") ?? Date(),
                         type: .text
@@ -365,7 +364,7 @@ class ChatViewModel: ObservableObject {
                 checkForDailyGreeting()
             }
         } catch {
-            print("⚠️ Failed to fetch Backboard history, using local cache: \(error)")
+            print("⚠️ Failed to fetch history from backend, using local cache: \(error)")
             if messages.isEmpty {
                 await requestGreeting()
             } else {
@@ -379,7 +378,7 @@ class ChatViewModel: ObservableObject {
         isLoading = true
 
         do {
-            let (reply, sideEffects) = try await BackboardService.shared.sendMessage("Salut")
+            let (reply, sideEffects) = try await ChatV2Service.shared.sendMessage("Salut")
             await applySideEffects(sideEffects)
 
             var aiMessage = SimpleChatMessage(content: reply, isFromUser: false)
@@ -458,7 +457,7 @@ class ChatViewModel: ObservableObject {
         let greetingMessage = isMorning ? "[MORNING_FLOW]" : "Salut, nouvelle journée"
 
         do {
-            let (reply, sideEffects) = try await BackboardService.shared.sendMessage(greetingMessage)
+            let (reply, sideEffects) = try await ChatV2Service.shared.sendMessage(greetingMessage)
             await applySideEffects(sideEffects)
 
             var aiMessage = SimpleChatMessage(content: reply, isFromUser: false)
@@ -487,7 +486,7 @@ class ChatViewModel: ObservableObject {
     private func requestCompletionReaction(itemName: String, isTask: Bool) async {
         let verb = isTask ? "la tâche" : "le rituel"
         do {
-            let (reply, sideEffects) = try await BackboardService.shared.sendMessage("J'ai terminé \(verb): \(itemName)")
+            let (reply, sideEffects) = try await ChatV2Service.shared.sendMessage("J'ai terminé \(verb): \(itemName)")
             await applySideEffects(sideEffects)
 
             let aiMessage = SimpleChatMessage(content: reply, isFromUser: false)
@@ -671,7 +670,7 @@ class ChatViewModel: ObservableObject {
         // Send transcribed text (or fallback) to Backboard
         let textToSend = transcript ?? "Message vocal"
         do {
-            let (reply, sideEffects) = try await BackboardService.shared.sendMessage(textToSend)
+            let (reply, sideEffects) = try await ChatV2Service.shared.sendMessage(textToSend)
 
             // Mark voice message as sent
             if let index = messages.lastIndex(where: { $0.id == voiceMessage.id }) {
@@ -765,8 +764,8 @@ class ChatViewModel: ObservableObject {
         isLoading = true
 
         do {
-            let (reply, sideEffects) = try await BackboardService.shared.sendMessage(text)
-            print("💬 Backboard response — sideEffects: \(sideEffects.count), reply: \(reply.prefix(50))")
+            let (reply, sideEffects) = try await ChatV2Service.shared.sendMessage(text)
+            print("💬 ChatV2 response — sideEffects: \(sideEffects.count), reply: \(reply.prefix(50))")
 
             // Mark user message as sent
             if let msgId = userMessageId, let index = messages.firstIndex(where: { $0.id == msgId }) {
@@ -1535,10 +1534,9 @@ class ChatViewModel: ObservableObject {
         messages = []
         SimpleChatPersistence.clearMessages()
 
-        // Delete Backboard thread and create a new one
+        // Delete conversation via backend (which deletes Backboard thread)
         Task {
-            await BackboardService.shared.deleteThread()
-            _ = try? await BackboardService.shared.createNewThread()
+            try? await ChatV2Service.shared.clearHistory()
         }
     }
 

@@ -290,6 +290,11 @@ enum APIConfiguration {
         case livekitToken    // POST /voice/livekit-token — get LiveKit room token
         case chatTts         // POST /chat/tts — Gradium TTS preview
 
+        // Chat V2 (Backboard via backend)
+        case chatV2Message   // POST /chat/v2/message
+        case chatV2History   // GET /chat/v2/history
+        case chatV2Delete    // DELETE /chat/v2/history
+
         // Google Calendar
         case googleCalendarConfig
         case googleCalendarSaveTokens
@@ -491,6 +496,12 @@ enum APIConfiguration {
                 return "/voice/livekit-token"
             case .chatTts:
                 return "/chat/tts"
+            case .chatV2Message:
+                return "/chat/v2/message"
+            case .chatV2History:
+                return "/chat/v2/history"
+            case .chatV2Delete:
+                return "/chat/v2/history"
 
             // Google Calendar
             case .googleCalendarConfig, .googleCalendarUpdateConfig, .googleCalendarDisconnect:
