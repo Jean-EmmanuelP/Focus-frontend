@@ -712,11 +712,19 @@ class BackboardService {
     }
 
     private func completeTask(taskId: String) async throws -> String {
-        try await APIClient.shared.request(
-            endpoint: .completeCalendarTask(taskId),
-            method: .post
-        )
-        return toJSON(["completed": true, "task_id": taskId] as [String: Any])
+        guard !taskId.isEmpty else {
+            return toJSON(["error": "task_id is empty"] as [String: Any])
+        }
+        do {
+            let _: CalendarTask = try await APIClient.shared.request(
+                endpoint: .completeCalendarTask(taskId),
+                method: .post
+            )
+            return toJSON(["completed": true, "task_id": taskId] as [String: Any])
+        } catch {
+            print("❌ completeTask failed for ID '\(taskId)': \(error)")
+            return toJSON(["error": "Failed to complete task: \(error.localizedDescription)", "task_id": taskId] as [String: Any])
+        }
     }
 
     private func uncompleteTask(taskId: String) async throws -> String {
