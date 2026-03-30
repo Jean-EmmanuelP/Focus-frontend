@@ -217,18 +217,11 @@ struct ChatView: View {
         }
     }
 
-    // MARK: - Background (Full screen 3D Avatar)
+    // MARK: - Background (Focus Pulse)
 
     private var replikaBackground: some View {
-        // Full-screen 3D Avatar as background (same as personalizeAvatarStep)
-        Avatar3DView(
-            avatarURL: AvatarURLs.cesiumMan,
-            backgroundColor: UIColor(red: 0.10, green: 0.12, blue: 0.20, alpha: 1.0),
-            enableRotation: false,
-            autoRotate: false,
-            isPaused: isAvatarPaused
-        )
-        .ignoresSafeArea()
+        FocusPulseView()
+            .ignoresSafeArea()
     }
 
     // MARK: - Home Header (home mode or empty state)

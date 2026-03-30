@@ -107,7 +107,7 @@ struct NewOnboardingView: View {
             AnimatedMeshBackground()
 
         case .personalizeAvatar, .meetCompanion:
-            Color(red: 0.85, green: 0.78, blue: 0.70)
+            Color(red: 0.10, green: 0.12, blue: 0.20)
         }
     }
 
@@ -346,13 +346,8 @@ struct NewOnboardingView: View {
 
     private var personalizeAvatarStep: some View {
         ZStack {
-            Avatar3DView(
-                avatarURL: AvatarURLs.cesiumMan,
-                backgroundColor: UIColor(red: 0.10, green: 0.12, blue: 0.20, alpha: 1.0),
-                enableRotation: true,
-                autoRotate: false
-            )
-            .ignoresSafeArea()
+            FocusPulseView()
+                .ignoresSafeArea()
 
             VStack(spacing: 0) {
                 HStack {
@@ -366,7 +361,7 @@ struct NewOnboardingView: View {
 
                     Spacer()
 
-                    Text("Personnalisez votre Focus")
+                    Text("Votre compagnon Focus")
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(.white)
 
@@ -378,61 +373,16 @@ struct NewOnboardingView: View {
 
                 Spacer()
 
-                HStack(spacing: 12) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "butterfly.fill")
-                            .font(.system(size: 14))
-                        Text("Réaliste")
-                            .font(.system(size: 15, weight: .semibold))
-                    }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 12)
-                    .background(
-                        Capsule()
-                            .fill(Color.black.opacity(0.4))
-                    )
-
-                    Circle()
-                        .fill(Color.orange)
-                        .frame(width: 40, height: 40)
-                        .overlay(
-                            Image(systemName: "sparkles")
-                                .font(.system(size: 16))
-                                .foregroundColor(.white)
-                        )
-                }
-                .padding(.bottom, 24)
-
-                HStack(spacing: 16) {
-                    ForEach(0..<4, id: \.self) { index in
-                        Circle()
-                            .fill(Color.black.opacity(0.3))
-                            .frame(width: 70, height: 70)
-                            .overlay(
-                                Circle()
-                                    .stroke(index == 0 ? Color.white : Color.clear, lineWidth: 3)
-                            )
-                            .overlay(
-                                Image(systemName: "person.fill")
-                                    .font(.system(size: 24))
-                                    .foregroundColor(.white.opacity(0.6))
-                            )
-                    }
-                }
-                .padding(.bottom, 24)
-
                 whiteContinueButton(isLoading: viewModel.isLoading) {
                     Task {
                         await viewModel.saveAndNext(step: 1, data: [
-                            "companion_gender": "male",
-                            "avatar_style": viewModel.selectedAvatarStyle
+                            "avatar_style": "pulse"
                         ])
                     }
                 }
                 .padding(.bottom, 16)
 
-                Text("Vous pourrez toujours changer l'apparence de\nvotre Focus plus tard.")
+                Text("Votre compagnon Focus vous\naccompagnera au quotidien.")
                     .font(.system(size: 13))
                     .foregroundColor(.white.opacity(0.6))
                     .multilineTextAlignment(.center)
@@ -556,13 +506,8 @@ struct NewOnboardingView: View {
 
     private var meetCompanionStep: some View {
         ZStack {
-            Avatar3DView(
-                avatarURL: AvatarURLs.cesiumMan,
-                backgroundColor: UIColor(red: 0.10, green: 0.12, blue: 0.20, alpha: 1.0),
-                enableRotation: true,
-                autoRotate: true
-            )
-            .ignoresSafeArea()
+            FocusPulseView()
+                .ignoresSafeArea()
 
             VStack(spacing: 0) {
                 Spacer()
