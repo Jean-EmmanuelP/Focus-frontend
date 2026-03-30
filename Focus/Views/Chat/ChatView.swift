@@ -259,19 +259,28 @@ struct ChatView: View {
 
             Spacer()
 
-            // Center: Score du jour
+            // Center: Score du jour (compact)
             Button(action: {
                 isInputFocused = false
                 showScoreDetail = true
             }) {
-                VStack(spacing: 4) {
-                    SatisfactionGaugeView(score: viewModel.satisfactionScore, size: 60)
-                    Text("Score du jour")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.5))
-                        .textCase(.uppercase)
-                        .tracking(0.5)
+                HStack(spacing: 8) {
+                    SatisfactionGaugeView(score: viewModel.satisfactionScore, size: 36)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(companionName)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.white)
+                        Text("Score du jour")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.white.opacity(0.45))
+                    }
                 }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(
+                    Capsule()
+                        .fill(.ultraThinMaterial)
+                )
             }
 
             Spacer()
@@ -321,24 +330,24 @@ struct ChatView: View {
 
                 Button(action: {
                     isInputFocused = false
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        showCompanionProfile = true
-                    }
+                    showScoreDetail = true
                 }) {
-                    HStack(spacing: 8) {
-                        SatisfactionGaugeView(score: viewModel.satisfactionScore, size: 28)
+                    HStack(spacing: 6) {
+                        SatisfactionGaugeView(score: viewModel.satisfactionScore, size: 24)
                         Text(companionName)
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.white)
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(.white.opacity(0.6))
+                        Text("·")
+                            .foregroundColor(.white.opacity(0.3))
+                        Text("\(viewModel.satisfactionScore)")
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .foregroundColor(.white.opacity(0.7))
                     }
                     .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
+                    .padding(.vertical, 7)
                     .background(
                         Capsule()
-                            .fill(Color.white.opacity(0.15))
+                            .fill(.ultraThinMaterial)
                     )
                 }
             }
