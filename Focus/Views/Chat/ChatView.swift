@@ -844,23 +844,22 @@ struct ScoreDetailSheet: View {
     private var focusMinutes: Int { store.todayMinutes }
     private var streak: Int { store.currentStreak }
 
-    // Each category contributes 25 points max → total 100
-    private var tasksPoints: Int {
+    // Percentages for each category (matches ChatViewModel formula)
+    private var tasksPct: Double {
         guard tasksTotal > 0 else { return 0 }
-        return min(25, Int(Double(tasksCompleted) / Double(tasksTotal) * 25))
+        return Double(tasksCompleted) / Double(tasksTotal)
     }
-    private var ritualsPoints: Int {
+    private var ritualsPct: Double {
         guard ritualsTotal > 0 else { return 0 }
-        return min(25, Int(Double(ritualsCompleted) / Double(ritualsTotal) * 25))
+        return Double(ritualsCompleted) / Double(ritualsTotal)
     }
-    private var focusPoints: Int {
-        // 25 min = 25 pts max
-        return min(25, focusMinutes)
+    private var focusPct: Double {
+        min(1.0, Double(focusMinutes) / 25.0)
     }
-    private var streakPoints: Int {
-        // 7+ days = 25 pts max
-        return min(25, Int(Double(min(streak, 7)) / 7.0 * 25))
-    }
+
+    private var tasksRemaining: Int { tasksTotal - tasksCompleted }
+    private var ritualsRemaining: Int { ritualsTotal - ritualsCompleted }
+    private var focusRemaining: Int { max(0, 25 - focusMinutes) }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -869,94 +868,112 @@ struct ScoreDetailSheet: View {
                 .frame(width: 36, height: 5)
                 .padding(.top, 10)
 
-            // Header
-            HStack(spacing: 12) {
-                SatisfactionGaugeView(score: score, size: 52)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Score du jour")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.white)
-                    Text(scoreMessage)
-                        .font(.system(size: 13))
-                        .foregroundColor(.white.opacity(0.5))
-                }
-                Spacer()
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 20)
-
-            // How to improve
+            // Header: score + message
             VStack(spacing: 8) {
-                scoreCategory(
+                Text("\(score)%")
+                    .font(.system(size: 48, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+
+                Text(scoreMessage)
+                    .font(.system(size: 14))
+                    .foregroundColor(.white.opacity(0.5))
+            }
+            .padding(.top, 16)
+
+            // "Pour atteindre 100%"
+            if score < 100 {
+                Text("Pour atteindre 100%")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.white.opacity(0.35))
+                    .textCase(.uppercase)
+                    .tracking(0.8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 20)
+                    .padding(.bottom, 8)
+            }
+
+            // Categories
+            VStack(spacing: 8) {
+                progressRow(
                     icon: "checkmark.circle.fill",
                     color: .green,
                     label: "Tâches",
-                    current: tasksCompleted,
-                    total: tasksTotal,
-                    points: tasksPoints,
-                    maxPoints: 25,
-                    hint: tasksTotal == 0 ? "Crée des tâches pour gagner des points" : tasksCompleted == tasksTotal ? "Toutes tes tâches sont faites !" : "Termine \(tasksTotal - tasksCompleted) tâche\(tasksTotal - tasksCompleted > 1 ? "s" : "") → +\(25 - tasksPoints) pts"
+                    progress: tasksPct,
+                    status: tasksTotal == 0 ? "Crée des tâches" : "\(tasksCompleted)/\(tasksTotal)",
+                    done: tasksTotal > 0 && tasksCompleted == tasksTotal,
+                    action: tasksTotal == 0 ? "Demande à ton coach de planifier ta journée" : tasksRemaining > 0 ? "Termine \(tasksRemaining) tâche\(tasksRemaining > 1 ? "s" : "")" : nil
                 )
 
-                scoreCategory(
+                progressRow(
                     icon: "sparkles",
                     color: .teal,
                     label: "Rituels",
-                    current: ritualsCompleted,
-                    total: ritualsTotal,
-                    points: ritualsPoints,
-                    maxPoints: 25,
-                    hint: ritualsTotal == 0 ? "Crée des rituels pour gagner des points" : ritualsCompleted == ritualsTotal ? "Tous tes rituels sont faits !" : "Complète \(ritualsTotal - ritualsCompleted) rituel\(ritualsTotal - ritualsCompleted > 1 ? "s" : "") → +\(25 - ritualsPoints) pts"
+                    progress: ritualsPct,
+                    status: ritualsTotal == 0 ? "Crée des rituels" : "\(ritualsCompleted)/\(ritualsTotal)",
+                    done: ritualsTotal > 0 && ritualsCompleted == ritualsTotal,
+                    action: ritualsTotal == 0 ? "Crée tes rituels quotidiens" : ritualsRemaining > 0 ? "Complète \(ritualsRemaining) rituel\(ritualsRemaining > 1 ? "s" : "")" : nil
                 )
 
-                scoreCategory(
+                progressRow(
                     icon: "timer",
                     color: .orange,
                     label: "Focus",
-                    current: focusMinutes,
-                    total: 25,
-                    points: focusPoints,
-                    maxPoints: 25,
-                    hint: focusMinutes >= 25 ? "Objectif focus atteint !" : "Encore \(25 - focusMinutes) min de focus → +\(25 - focusPoints) pts"
-                )
-
-                scoreCategory(
-                    icon: "flame.fill",
-                    color: .red,
-                    label: "Streak",
-                    current: streak,
-                    total: 7,
-                    points: streakPoints,
-                    maxPoints: 25,
-                    hint: streak >= 7 ? "Streak de 7+ jours, bravo !" : "Reviens \(7 - min(streak, 7)) jour\(7 - min(streak, 7) > 1 ? "s" : "") de suite → +\(25 - streakPoints) pts"
+                    progress: focusPct,
+                    status: "\(focusMinutes)/25 min",
+                    done: focusMinutes >= 25,
+                    action: focusRemaining > 0 ? "\(focusRemaining) min de concentration" : nil
                 )
             }
-            .padding(.top, 20)
             .padding(.horizontal, 16)
 
-            // Total breakdown
-            HStack(spacing: 0) {
-                pointsPill(label: "Tâches", points: tasksPoints, color: .green)
-                pointsPill(label: "Rituels", points: ritualsPoints, color: .teal)
-                pointsPill(label: "Focus", points: focusPoints, color: .orange)
-                pointsPill(label: "Streak", points: streakPoints, color: .red)
+            // Streak badge (separate — not part of %)
+            HStack(spacing: 10) {
+                Image(systemName: "flame.fill")
+                    .font(.system(size: 16))
+                    .foregroundColor(.orange)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Streak")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white)
+                    Text(streak > 0 ? "\(streak) jour\(streak > 1 ? "s" : "") d'affilée" : "Atteins 100% pour démarrer")
+                        .font(.system(size: 12))
+                        .foregroundColor(.white.opacity(0.5))
+                }
+
+                Spacer()
+
+                Text("\(streak)")
+                    .font(.system(size: 22, weight: .black, design: .rounded))
+                    .foregroundColor(streak > 0 ? .orange : .white.opacity(0.3))
             }
-            .padding(.top, 16)
-            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .padding(.horizontal, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(Color.orange.opacity(streak > 0 ? 0.08 : 0.03))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(Color.orange.opacity(streak > 0 ? 0.15 : 0), lineWidth: 0.5)
+                    )
+            )
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
 
             Spacer()
         }
         .background(Color(red: 0.10, green: 0.12, blue: 0.20).ignoresSafeArea())
     }
 
-    private func scoreCategory(icon: String, color: Color, label: String, current: Int, total: Int, points: Int, maxPoints: Int, hint: String) -> some View {
+    private func progressRow(icon: String, color: Color, label: String, progress: Double, status: String, done: Bool, action: String?) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 10) {
-                Image(systemName: icon)
+                Image(systemName: done ? "checkmark.circle.fill" : icon)
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(color)
-                    .frame(width: 28, height: 28)
-                    .background(color.opacity(0.15))
+                    .foregroundColor(done ? .green : color)
+                    .frame(width: 26, height: 26)
+                    .background((done ? Color.green : color).opacity(0.15))
                     .cornerRadius(7)
 
                 Text(label)
@@ -965,9 +982,9 @@ struct ScoreDetailSheet: View {
 
                 Spacer()
 
-                Text("\(points)/\(maxPoints)")
+                Text(status)
                     .font(.system(size: 13, weight: .bold, design: .rounded))
-                    .foregroundColor(points == maxPoints ? color : .white.opacity(0.6))
+                    .foregroundColor(done ? .green : .white.opacity(0.6))
             }
 
             // Progress bar
@@ -975,50 +992,37 @@ struct ScoreDetailSheet: View {
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 3)
                         .fill(Color.white.opacity(0.08))
-                        .frame(height: 6)
-
                     RoundedRectangle(cornerRadius: 3)
-                        .fill(color)
-                        .frame(width: geo.size.width * CGFloat(points) / CGFloat(maxPoints), height: 6)
-                        .animation(.spring(response: 0.5, dampingFraction: 0.8), value: points)
+                        .fill(done ? Color.green : color)
+                        .frame(width: max(0, geo.size.width * progress))
+                        .animation(.spring(response: 0.5, dampingFraction: 0.8), value: progress)
                 }
             }
-            .frame(height: 6)
+            .frame(height: 5)
 
-            // Hint: how to improve
-            if points < maxPoints {
-                Text(hint)
-                    .font(.system(size: 11))
-                    .foregroundColor(color.opacity(0.7))
+            // Action hint
+            if let action = action {
+                Text("→ \(action)")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(color.opacity(0.8))
             }
         }
         .padding(.vertical, 10)
         .padding(.horizontal, 14)
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(Color.white.opacity(0.04))
+                .fill(Color.white.opacity(done ? 0.06 : 0.03))
         )
-    }
-
-    private func pointsPill(label: String, points: Int, color: Color) -> some View {
-        VStack(spacing: 3) {
-            Text("\(points)")
-                .font(.system(size: 16, weight: .bold, design: .rounded))
-                .foregroundColor(points > 0 ? color : .white.opacity(0.3))
-            Text(label)
-                .font(.system(size: 9, weight: .medium))
-                .foregroundColor(.white.opacity(0.4))
-        }
-        .frame(maxWidth: .infinity)
     }
 
     private var scoreMessage: String {
         switch score {
-        case ..<20: return "C'est le moment de commencer !"
-        case 20..<40: return "Bon début, continue comme ça"
-        case 40..<60: return "Tu avances bien !"
-        case 60..<80: return "Belle journée en cours !"
-        default: return "Journée incroyable !"
+        case 0: return "Commence ta journée !"
+        case 1..<30: return "C'est parti, continue !"
+        case 30..<60: return "Tu avances bien"
+        case 60..<90: return "Belle journée en cours"
+        case 90..<100: return "Presque parfait !"
+        default: return "Journée parfaite !"
         }
     }
 }

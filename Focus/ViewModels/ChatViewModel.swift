@@ -262,7 +262,44 @@ class ChatViewModel: ObservableObject {
     @Published var groupedMessages: [MessageGroup] = []
     @Published var inputText: String = ""
     @Published var isLoading: Bool = false
-    @Published var satisfactionScore: Int = UserDefaults.standard.object(forKey: "satisfaction_score") as? Int ?? 50
+    /// Score du jour = calculated from real progress (tasks + rituals + focus)
+    var satisfactionScore: Int {
+        guard let store = store else { return 0 }
+        let tasks = store.todaysTasks
+        let rituals = store.rituals
+
+        // Tasks: X% of 40 points
+        let tasksTotal = tasks.count
+        let tasksCompleted = tasks.filter { $0.isCompleted }.count
+        let tasksPct = tasksTotal > 0 ? Double(tasksCompleted) / Double(tasksTotal) : 0
+
+        // Rituals: X% of 30 points
+        let ritualsTotal = rituals.count
+        let ritualsCompleted = rituals.filter { $0.isCompleted }.count
+        let ritualsPct = ritualsTotal > 0 ? Double(ritualsCompleted) / Double(ritualsTotal) : 0
+
+        // Focus: 25 min target = 30 points max
+        let focusMinutes = store.todayMinutes
+        let focusPct = min(1.0, Double(focusMinutes) / 25.0)
+
+        // Weighted: tasks 40% + rituals 30% + focus 30%
+        // If no tasks/rituals created, redistribute weight
+        let hasItems = tasksTotal > 0 || ritualsTotal > 0
+        let score: Double
+        if tasksTotal > 0 && ritualsTotal > 0 {
+            score = tasksPct * 40 + ritualsPct * 30 + focusPct * 30
+        } else if tasksTotal > 0 {
+            score = tasksPct * 55 + focusPct * 45
+        } else if ritualsTotal > 0 {
+            score = ritualsPct * 55 + focusPct * 45
+        } else if hasItems {
+            score = focusPct * 100
+        } else {
+            score = 0
+        }
+
+        return min(100, Int(score.rounded()))
+    }
     @Published var freeVoiceMessagesUsed: Int = FocusAppStore.shared.user?.freeVoiceMessagesUsed ?? 0
 
     var canSendFreeVoice: Bool {
@@ -302,28 +339,14 @@ class ChatViewModel: ObservableObject {
     private let apiClient = APIClient.shared
     private weak var store: FocusAppStore?
 
+    /// Score is now computed from real data — these are no-ops kept for call-site compat
     private func updateSatisfactionScore(_ score: Int?) {
-        guard let score = score else { return }
-        let clamped = max(0, min(100, score))
-        satisfactionScore = clamped
-        UserDefaults.standard.set(clamped, forKey: "satisfaction_score")
-
-        // Refresh afternoon notification with updated score
-        Task {
-            await NotificationService.shared.scheduleAfternoonCheck()
-        }
+        // Score is computed dynamically, no need to persist
     }
 
-    /// Adjust satisfaction locally when user completes/uncompletes a task or routine
     private func adjustSatisfaction(completed: Bool) {
-        let delta = completed ? 8 : -5
-        // Ensure completing tasks always pushes above 50 baseline
-        var newScore = max(0, min(100, satisfactionScore + delta))
-        if completed && newScore < 50 {
-            newScore = max(newScore, 50)
-        }
-        satisfactionScore = newScore
-        UserDefaults.standard.set(newScore, forKey: "satisfaction_score")
+        // Score is computed dynamically from tasks/rituals/focus — triggers UI update via store
+        store?.objectWillChange.send()
     }
 
     // MARK: - Initialization
