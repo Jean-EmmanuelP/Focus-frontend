@@ -183,9 +183,10 @@ struct PlanningView: View {
         }
         .sheet(isPresented: $showVoicePlanningSheet) {
             VoicePlanningScopeSheet(bgColor: bgColor) { scope in
-                voicePlanningScope = scope
+                let selectedScope = scope
                 showVoicePlanningSheet = false
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    voicePlanningScope = selectedScope
                     showVoiceCall = true
                 }
             }
