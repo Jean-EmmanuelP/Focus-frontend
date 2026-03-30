@@ -1,142 +1,85 @@
 import SwiftUI
 
-/// Abstract hypnotic splash screen - Replika-style organic shapes
 struct SplashView: View {
-    @State private var rotation: Double = 0
-    @State private var scale: CGFloat = 0.3
     @State private var opacity: Double = 0
-    @State private var individualRotations: [Double] = [0, 0, 0]
-    @State private var isExiting = false
+    @State private var breathe = false
 
     let onComplete: () -> Void
 
+    private let bgColor = Color(red: 0.10, green: 0.12, blue: 0.20)
+    private let accentBlue = Color(red: 0.20, green: 0.45, blue: 1.0)
+
     var body: some View {
         ZStack {
-            // Pure black background
-            Color.black
-                .ignoresSafeArea()
+            bgColor.ignoresSafeArea()
 
-            // Abstract organic shapes
-            ZStack {
-                // Shape 1 - Top left blob
-                AbstractBlob(rotation: individualRotations[0])
-                    .fill(Color.white)
-                    .frame(width: 120, height: 160)
-                    .offset(x: -50, y: -60)
-                    .rotationEffect(.degrees(-15))
+            VStack(spacing: 24) {
+                // Pulse orb (mini version)
+                ZStack {
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    accentBlue.opacity(0.3),
+                                    accentBlue.opacity(0.1),
+                                    accentBlue.opacity(0.0)
+                                ],
+                                center: .center,
+                                startRadius: 15,
+                                endRadius: breathe ? 50 : 40
+                            )
+                        )
+                        .frame(width: breathe ? 100 : 80, height: breathe ? 100 : 80)
 
-                // Shape 2 - Top right blob
-                AbstractBlob(rotation: individualRotations[1])
-                    .fill(Color.white)
-                    .frame(width: 130, height: 150)
-                    .offset(x: 50, y: -40)
-                    .rotationEffect(.degrees(20))
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    Color.white.opacity(0.9),
+                                    accentBlue.opacity(0.6),
+                                    accentBlue.opacity(0.2)
+                                ],
+                                center: .center,
+                                startRadius: 5,
+                                endRadius: 25
+                            )
+                        )
+                        .frame(width: breathe ? 44 : 36, height: breathe ? 44 : 36)
+                        .shadow(color: accentBlue.opacity(0.5), radius: breathe ? 20 : 12)
 
-                // Shape 3 - Bottom center blob
-                AbstractBlob(rotation: individualRotations[2])
-                    .fill(Color.white)
-                    .frame(width: 110, height: 140)
-                    .offset(x: -10, y: 90)
-                    .rotationEffect(.degrees(0))
+                    Image(systemName: "flame.fill")
+                        .font(.system(size: breathe ? 16 : 14, weight: .medium))
+                        .foregroundColor(.white)
+                }
+
+                VStack(spacing: 6) {
+                    Text("Focus")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundColor(.white)
+
+                    Text("Ton coach IA de productivité")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.white.opacity(0.45))
+                }
             }
-            .scaleEffect(scale)
-            .rotationEffect(.degrees(rotation))
             .opacity(opacity)
         }
         .onAppear {
-            startAnimation()
-        }
-    }
-
-    private func startAnimation() {
-        // Phase 1: Fade in and start small
-        withAnimation(.easeOut(duration: 0.5)) {
-            opacity = 1.0
-            scale = 0.4
-        }
-
-        // Phase 2: Continuous rotation and scale up
-        withAnimation(.easeInOut(duration: 2.0)) {
-            rotation = 45
-            scale = 1.2
-        }
-
-        // Individual blob subtle movements
-        for i in 0..<3 {
-            withAnimation(
-                .easeInOut(duration: 1.5 + Double(i) * 0.3)
-                .repeatForever(autoreverses: true)
-            ) {
-                individualRotations[i] = Double.random(in: -10...10)
+            withAnimation(.easeOut(duration: 0.5)) {
+                opacity = 1
+            }
+            withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
+                breathe = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                withAnimation(.easeIn(duration: 0.3)) {
+                    opacity = 0
+                }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.3) {
+                onComplete()
             }
         }
-
-        // Phase 3: Final expansion - zoom towards viewer
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
-            withAnimation(.easeIn(duration: 0.6)) {
-                scale = 8.0
-                opacity = 0
-                rotation = 90
-            }
-        }
-
-        // Complete
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-            onComplete()
-        }
-    }
-}
-
-// MARK: - Abstract Blob Shape
-
-struct AbstractBlob: Shape {
-    var rotation: Double = 0
-
-    var animatableData: Double {
-        get { rotation }
-        set { rotation = newValue }
-    }
-
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-
-        let width = rect.width
-        let height = rect.height
-        let centerX = rect.midX
-        let centerY = rect.midY
-
-        // Create organic egg/petal shape with subtle variation
-        let wobble = sin(rotation * .pi / 180) * 5
-
-        path.move(to: CGPoint(x: centerX, y: 0))
-
-        // Top curve
-        path.addQuadCurve(
-            to: CGPoint(x: width, y: centerY + wobble),
-            control: CGPoint(x: width + 10, y: height * 0.2)
-        )
-
-        // Bottom right curve
-        path.addQuadCurve(
-            to: CGPoint(x: centerX, y: height),
-            control: CGPoint(x: width - 10, y: height + 5)
-        )
-
-        // Bottom left curve
-        path.addQuadCurve(
-            to: CGPoint(x: 0, y: centerY - wobble),
-            control: CGPoint(x: 10, y: height + 5)
-        )
-
-        // Top left curve back to start
-        path.addQuadCurve(
-            to: CGPoint(x: centerX, y: 0),
-            control: CGPoint(x: -10, y: height * 0.2)
-        )
-
-        path.closeSubpath()
-
-        return path
     }
 }
 

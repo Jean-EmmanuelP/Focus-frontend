@@ -55,13 +55,18 @@ struct FocusApp: App {
                             MainTabView()
                                 .transition(.opacity)
                         } else if store.isAuthenticated && store.isCheckingOnboarding {
-                            // Still checking onboarding status - show loading to prevent flash
+                            // Still checking onboarding status
                             ZStack {
-                                Color(red: 0.102, green: 0.102, blue: 0.306)
+                                Color(red: 0.10, green: 0.12, blue: 0.20)
                                     .ignoresSafeArea()
-                                ProgressView()
-                                    .tint(.white)
-                                    .scaleEffect(1.2)
+                                VStack(spacing: 16) {
+                                    Image(systemName: "flame.fill")
+                                        .font(.system(size: 20))
+                                        .foregroundColor(.white.opacity(0.6))
+                                    Text("Focus")
+                                        .font(.system(size: 18, weight: .semibold))
+                                        .foregroundColor(.white.opacity(0.6))
+                                }
                             }
                             .transition(.opacity)
                         } else if store.isAuthenticated {
