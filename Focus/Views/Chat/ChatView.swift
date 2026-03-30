@@ -151,7 +151,7 @@ struct ChatView: View {
         .sheet(isPresented: $showScoreDetail) {
             ScoreDetailSheet(score: viewModel.satisfactionScore)
                 .environmentObject(store)
-                .presentationDetents([.height(480)])
+                .presentationDetents([.height(560)])
                 .presentationDragIndicator(.visible)
         }
         .overlay {
@@ -844,14 +844,22 @@ struct ScoreDetailSheet: View {
     private var focusMinutes: Int { store.todayMinutes }
     private var streak: Int { store.currentStreak }
 
-    private var gaugeColor: Color {
-        switch score {
-        case ..<30: return Color(red: 0.9, green: 0.25, blue: 0.2)
-        case 30..<50: return Color(red: 0.95, green: 0.55, blue: 0.2)
-        case 50..<70: return Color(red: 0.95, green: 0.8, blue: 0.2)
-        case 70..<86: return Color(red: 0.45, green: 0.85, blue: 0.4)
-        default: return Color(red: 0.2, green: 0.85, blue: 0.35)
-        }
+    // Each category contributes 25 points max → total 100
+    private var tasksPoints: Int {
+        guard tasksTotal > 0 else { return 0 }
+        return min(25, Int(Double(tasksCompleted) / Double(tasksTotal) * 25))
+    }
+    private var ritualsPoints: Int {
+        guard ritualsTotal > 0 else { return 0 }
+        return min(25, Int(Double(ritualsCompleted) / Double(ritualsTotal) * 25))
+    }
+    private var focusPoints: Int {
+        // 25 min = 25 pts max
+        return min(25, focusMinutes)
+    }
+    private var streakPoints: Int {
+        // 7+ days = 25 pts max
+        return min(25, Int(Double(min(streak, 7)) / 7.0 * 25))
     }
 
     var body: some View {
@@ -861,28 +869,79 @@ struct ScoreDetailSheet: View {
                 .frame(width: 36, height: 5)
                 .padding(.top, 10)
 
-            Text("Score du jour")
-                .font(.system(size: 20, weight: .bold))
-                .foregroundColor(.white)
-                .padding(.top, 20)
-
-            // Big score
-            SatisfactionGaugeView(score: score, size: 90)
-                .padding(.top, 16)
-
-            Text(scoreMessage)
-                .font(.system(size: 14))
-                .foregroundColor(.white.opacity(0.6))
-                .padding(.top, 8)
-
-            // Breakdown
-            VStack(spacing: 10) {
-                scoreRow(icon: "checkmark.circle.fill", color: .green, label: "Tâches", value: "\(tasksCompleted)/\(tasksTotal)", detail: tasksTotal == 0 ? "Aucune tâche" : "\(tasksCompleted) terminée\(tasksCompleted > 1 ? "s" : "")")
-                scoreRow(icon: "sparkles", color: .teal, label: "Rituels", value: "\(ritualsCompleted)/\(ritualsTotal)", detail: ritualsTotal == 0 ? "Aucun rituel" : "\(ritualsCompleted) complété\(ritualsCompleted > 1 ? "s" : "")")
-                scoreRow(icon: "timer", color: .orange, label: "Focus", value: "\(focusMinutes)m", detail: focusMinutes == 0 ? "Pas encore de focus" : "\(focusMinutes) minutes de concentration")
-                scoreRow(icon: "flame.fill", color: .red, label: "Streak", value: "\(streak)j", detail: streak == 0 ? "Commence ton streak !" : "\(streak) jour\(streak > 1 ? "s" : "") d'affilée")
+            // Header
+            HStack(spacing: 12) {
+                SatisfactionGaugeView(score: score, size: 52)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Score du jour")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.white)
+                    Text(scoreMessage)
+                        .font(.system(size: 13))
+                        .foregroundColor(.white.opacity(0.5))
+                }
+                Spacer()
             }
-            .padding(.top, 24)
+            .padding(.horizontal, 20)
+            .padding(.top, 20)
+
+            // How to improve
+            VStack(spacing: 8) {
+                scoreCategory(
+                    icon: "checkmark.circle.fill",
+                    color: .green,
+                    label: "Tâches",
+                    current: tasksCompleted,
+                    total: tasksTotal,
+                    points: tasksPoints,
+                    maxPoints: 25,
+                    hint: tasksTotal == 0 ? "Crée des tâches pour gagner des points" : tasksCompleted == tasksTotal ? "Toutes tes tâches sont faites !" : "Termine \(tasksTotal - tasksCompleted) tâche\(tasksTotal - tasksCompleted > 1 ? "s" : "") → +\(25 - tasksPoints) pts"
+                )
+
+                scoreCategory(
+                    icon: "sparkles",
+                    color: .teal,
+                    label: "Rituels",
+                    current: ritualsCompleted,
+                    total: ritualsTotal,
+                    points: ritualsPoints,
+                    maxPoints: 25,
+                    hint: ritualsTotal == 0 ? "Crée des rituels pour gagner des points" : ritualsCompleted == ritualsTotal ? "Tous tes rituels sont faits !" : "Complète \(ritualsTotal - ritualsCompleted) rituel\(ritualsTotal - ritualsCompleted > 1 ? "s" : "") → +\(25 - ritualsPoints) pts"
+                )
+
+                scoreCategory(
+                    icon: "timer",
+                    color: .orange,
+                    label: "Focus",
+                    current: focusMinutes,
+                    total: 25,
+                    points: focusPoints,
+                    maxPoints: 25,
+                    hint: focusMinutes >= 25 ? "Objectif focus atteint !" : "Encore \(25 - focusMinutes) min de focus → +\(25 - focusPoints) pts"
+                )
+
+                scoreCategory(
+                    icon: "flame.fill",
+                    color: .red,
+                    label: "Streak",
+                    current: streak,
+                    total: 7,
+                    points: streakPoints,
+                    maxPoints: 25,
+                    hint: streak >= 7 ? "Streak de 7+ jours, bravo !" : "Reviens \(7 - min(streak, 7)) jour\(7 - min(streak, 7) > 1 ? "s" : "") de suite → +\(25 - streakPoints) pts"
+                )
+            }
+            .padding(.top, 20)
+            .padding(.horizontal, 16)
+
+            // Total breakdown
+            HStack(spacing: 0) {
+                pointsPill(label: "Tâches", points: tasksPoints, color: .green)
+                pointsPill(label: "Rituels", points: ritualsPoints, color: .teal)
+                pointsPill(label: "Focus", points: focusPoints, color: .orange)
+                pointsPill(label: "Streak", points: streakPoints, color: .red)
+            }
+            .padding(.top, 16)
             .padding(.horizontal, 20)
 
             Spacer()
@@ -890,36 +949,67 @@ struct ScoreDetailSheet: View {
         .background(Color(red: 0.10, green: 0.12, blue: 0.20).ignoresSafeArea())
     }
 
-    private func scoreRow(icon: String, color: Color, label: String, value: String, detail: String) -> some View {
-        HStack(spacing: 14) {
-            Image(systemName: icon)
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(color)
-                .frame(width: 32, height: 32)
-                .background(color.opacity(0.15))
-                .cornerRadius(8)
+    private func scoreCategory(icon: String, color: Color, label: String, current: Int, total: Int, points: Int, maxPoints: Int, hint: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 10) {
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(color)
+                    .frame(width: 28, height: 28)
+                    .background(color.opacity(0.15))
+                    .cornerRadius(7)
 
-            VStack(alignment: .leading, spacing: 2) {
                 Text(label)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.white)
-                Text(detail)
-                    .font(.system(size: 12))
-                    .foregroundColor(.white.opacity(0.5))
+
+                Spacer()
+
+                Text("\(points)/\(maxPoints)")
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundColor(points == maxPoints ? color : .white.opacity(0.6))
             }
 
-            Spacer()
+            // Progress bar
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(Color.white.opacity(0.08))
+                        .frame(height: 6)
 
-            Text(value)
-                .font(.system(size: 17, weight: .bold, design: .rounded))
-                .foregroundColor(gaugeColor)
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(color)
+                        .frame(width: geo.size.width * CGFloat(points) / CGFloat(maxPoints), height: 6)
+                        .animation(.spring(response: 0.5, dampingFraction: 0.8), value: points)
+                }
+            }
+            .frame(height: 6)
+
+            // Hint: how to improve
+            if points < maxPoints {
+                Text(hint)
+                    .font(.system(size: 11))
+                    .foregroundColor(color.opacity(0.7))
+            }
         }
         .padding(.vertical, 10)
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 14)
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(Color.white.opacity(0.05))
+                .fill(Color.white.opacity(0.04))
         )
+    }
+
+    private func pointsPill(label: String, points: Int, color: Color) -> some View {
+        VStack(spacing: 3) {
+            Text("\(points)")
+                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .foregroundColor(points > 0 ? color : .white.opacity(0.3))
+            Text(label)
+                .font(.system(size: 9, weight: .medium))
+                .foregroundColor(.white.opacity(0.4))
+        }
+        .frame(maxWidth: .infinity)
     }
 
     private var scoreMessage: String {
