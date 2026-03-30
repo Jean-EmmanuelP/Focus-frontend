@@ -67,9 +67,11 @@ class VoiceCallViewModel: ObservableObject {
                 case .connected:
                     self.callState = .listening
                 case .disconnected:
+                    // Only end the call if we were actually connected (not during initial handshake)
                     if self.callState == .listening || self.callState == .speaking || self.callState == .processing {
                         self.callState = .ended
                     }
+                    // If still connecting, ignore — LiveKit can flash disconnected during handshake
                 default:
                     break
                 }
@@ -145,7 +147,13 @@ class VoiceCallViewModel: ObservableObject {
     var callMode: String = "voice_call"
     var planningScope: String?
 
+    private var hasStarted = false
+
     func startCall(mode: String = "voice_call", planningScope: String? = nil) {
+        // Prevent double-connect (SwiftUI can fire onAppear multiple times)
+        guard !hasStarted else { return }
+        hasStarted = true
+
         guard isOnline else {
             callState = .offline
             errorMessage = "Pas de connexion internet. Les messages seront envoyes quand tu seras reconnecte."
