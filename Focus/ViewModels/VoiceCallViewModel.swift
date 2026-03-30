@@ -142,20 +142,25 @@ class VoiceCallViewModel: ObservableObject {
 
     // MARK: - Call Lifecycle
 
-    func startCall() {
+    var callMode: String = "voice_call"
+    var planningScope: String?
+
+    func startCall(mode: String = "voice_call", planningScope: String? = nil) {
         guard isOnline else {
             callState = .offline
             errorMessage = "Pas de connexion internet. Les messages seront envoyes quand tu seras reconnecte."
             return
         }
 
+        self.callMode = mode
+        self.planningScope = planningScope
         callState = .connecting
         startCallTimer()
         startMaxDurationTimer()
 
         Task {
             do {
-                try await voiceService.connect(mode: "voice_call")
+                try await voiceService.connect(mode: mode, planningScope: planningScope)
             } catch {
                 print("Voice call error: \(error)")
                 errorMessage = "Impossible de se connecter. Reessaie plus tard."
@@ -256,6 +261,9 @@ class VoiceCallViewModel: ObservableObject {
                 if blocker.isBlocking {
                     blocker.stopBlocking()
                 }
+            case "planning_done":
+                await store?.refreshTodaysTasks()
+                NotificationCenter.default.post(name: .calendarNeedsRefresh, object: nil)
             default:
                 break
             }

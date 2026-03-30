@@ -10,7 +10,7 @@ import json
 import logging
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import httpx
 from dotenv import load_dotenv
@@ -158,6 +158,8 @@ async def send_transcript_to_backboard(
     assistant_id: str,
     transcript: list[dict],
     auth_token: str | None = None,
+    mode: str = "voice_call",
+    planning_scope: str = "",
 ):
     """Send the voice conversation transcript to Backboard for memory and tool execution."""
     if not assistant_id or not BACKBOARD_API_KEY or not transcript:
@@ -204,6 +206,14 @@ async def send_transcript_to_backboard(
             "(créer des tâches, compléter des rituels, etc.) si nécessaire. "
             "Mets aussi à jour ta mémoire avec les informations importantes."
         )
+
+        if mode == "planning":
+            scope_label = {"today": "aujourd'hui", "tomorrow": "demain", "2days": "les 2 prochains jours", "week": "la semaine"}.get(planning_scope, "aujourd'hui")
+            summary += (
+                f"\n\nIMPORTANT: C'était une session de PLANIFICATION pour {scope_label}. "
+                "Utilise create_tasks_batch pour créer TOUTES les tâches mentionnées d'un coup. "
+                "Puis appelle show_card(\"planning\") pour afficher le résultat."
+            )
 
         # Send summary as a message (Backboard will process with memory + tool calls)
         t0 = time.time()
@@ -285,6 +295,9 @@ def build_system_prompt(
     user_context: dict | None = None,
     memories: list[str] | None = None,
     companion_name: str = "",
+    mode: str = "voice_call",
+    planning_scope: str = "",
+    planning_context: dict | None = None,
 ) -> str:
     hour = datetime.now().hour
     time_of_day = "matin" if hour < 12 else "après-midi" if hour < 18 else "soirée"
@@ -339,6 +352,43 @@ def build_system_prompt(
         ctx += "\nMÉMOIRE (informations des conversations précédentes):\n"
         for mem in memories[:20]:
             ctx += f"- {mem}\n"
+
+    # Planning mode additions
+    if mode == "planning" and planning_scope:
+        scope_label = {
+            "today": "ta journée",
+            "tomorrow": "demain",
+            "2days": "les 2 prochains jours",
+            "week": "ta semaine",
+        }.get(planning_scope, "ta journée")
+
+        ctx += f"""
+MODE PLANIFICATION ACTIVE — Scope: {scope_label}
+Tu es en session de planification vocale. Ton rôle:
+1. Résume ce que tu vois (tâches existantes, événements calendrier)
+2. Demande les priorités et objectifs pour chaque jour
+3. Propose des créneaux en tenant compte des événements calendrier
+4. Confirme le plan avant de terminer l'appel
+5. Sois structuré mais conversationnel — pas de listes, c'est de la voix
+Après l'appel, les tâches seront créées automatiquement via le transcript.
+"""
+        # Inject actual planning data into prompt
+        if planning_context and planning_context.get("days"):
+            ctx += "\nÉTAT ACTUEL DU PLANNING:\n"
+            for day in planning_context["days"]:
+                date_str = day.get("date", "")
+                tasks = day.get("tasks", [])
+                events = day.get("calendar_events", [])
+                ctx += f"- {date_str}:"
+                if tasks:
+                    task_titles = [t.get("title", "") for t in tasks[:8] if t.get("title")]
+                    ctx += f" Tâches: {', '.join(task_titles)}."
+                if events:
+                    event_titles = [e.get("title", "") for e in events[:5] if e.get("title")]
+                    ctx += f" Calendrier: {', '.join(event_titles)}."
+                if not tasks and not events:
+                    ctx += " Vide."
+                ctx += "\n"
 
     return base + ctx
 
@@ -431,10 +481,43 @@ async def fetch_all_context_parallel(auth_token: str | None) -> tuple[dict | Non
     return (ctx if ctx else None), memories
 
 
-def build_greeting(lang: str, name: str = "", coach_name: str = "") -> str:
+def build_greeting(lang: str, name: str = "", coach_name: str = "", mode: str = "voice_call", planning_scope: str = "", planning_context: dict | None = None) -> str:
     hour = datetime.now().hour
     intro = f"Salut, c'est {coach_name}" if coach_name else "Salut"
     intro_en = f"Hey, it's {coach_name}" if coach_name else "Hey"
+
+    # Planning mode greeting
+    if mode == "planning" and lang.startswith("fr"):
+        scope_label = {
+            "today": "ta journée",
+            "tomorrow": "demain",
+            "2days": "les deux prochains jours",
+            "week": "ta semaine",
+        }.get(planning_scope, "ta journée")
+
+        greeting = f"{intro} ! On planifie {scope_label}"
+        if name:
+            greeting += f" {name}"
+        greeting += " !"
+
+        # Add context summary if available
+        if planning_context and planning_context.get("days"):
+            days = planning_context["days"]
+            total_events = sum(len(d.get("calendar_events", [])) for d in days)
+            total_tasks = sum(len(d.get("tasks", [])) for d in days)
+            if total_events > 0 or total_tasks > 0:
+                parts = []
+                if total_events > 0:
+                    parts.append(f"{total_events} événement{'s' if total_events > 1 else ''} dans ton calendrier")
+                if total_tasks > 0:
+                    parts.append(f"{total_tasks} tâche{'s' if total_tasks > 1 else ''} déjà posée{'s' if total_tasks > 1 else ''}")
+                greeting += f" Je vois {' et '.join(parts)}. On commence ?"
+            else:
+                greeting += " C'est vide pour l'instant, on construit ça ensemble ?"
+        else:
+            greeting += " Par quoi tu veux commencer ?"
+        return greeting
+
     if lang.startswith("fr"):
         if hour < 12:
             return f"{intro} ! Comment tu vas ce matin {name} ?" if name else f"{intro} ! Comment tu vas ce matin ?"
@@ -449,6 +532,55 @@ def build_greeting(lang: str, name: str = "", coach_name: str = "") -> str:
             return f"{intro_en}! How's your day going {name}?" if name else f"{intro_en}! How's your day going?"
         else:
             return f"{intro_en}! How was your day {name}?" if name else f"{intro_en}! How was your day?"
+
+
+# =============================================================================
+# Planning Context Fetcher
+# =============================================================================
+
+async def fetch_planning_context(auth_token: str, scope: str) -> dict | None:
+    """Fetch extended planning context: tasks + calendar events for the scope period."""
+    headers = {"Authorization": f"Bearer {auth_token}"}
+    today = datetime.now()
+
+    # Determine dates to fetch
+    if scope == "tomorrow":
+        dates = [(today + timedelta(days=1)).strftime("%Y-%m-%d")]
+    elif scope == "2days":
+        dates = [today.strftime("%Y-%m-%d"), (today + timedelta(days=1)).strftime("%Y-%m-%d")]
+    elif scope == "week":
+        dates = [(today + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(7)]
+    else:
+        dates = [today.strftime("%Y-%m-%d")]
+
+    days = []
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        for date_str in dates:
+            tasks = []
+            events = []
+            try:
+                r = await client.get(f"{FOCUS_API_URL}/calendar/tasks?date={date_str}", headers=headers)
+                if r.status_code == 200:
+                    data = r.json()
+                    tasks = data if isinstance(data, list) else []
+            except Exception as e:
+                logger.error("Planning context - tasks for %s: %s", date_str, e)
+
+            try:
+                r = await client.get(f"{FOCUS_API_URL}/calendar/events?date={date_str}", headers=headers)
+                if r.status_code == 200:
+                    data = r.json()
+                    events = data if isinstance(data, list) else []
+            except Exception as e:
+                logger.error("Planning context - events for %s: %s", date_str, e)
+
+            days.append({"date": date_str, "tasks": tasks, "calendar_events": events})
+
+    logger.info("Planning context fetched: %d days, %d total tasks, %d total events",
+                len(days),
+                sum(len(d["tasks"]) for d in days),
+                sum(len(d["calendar_events"]) for d in days))
+    return {"days": days}
 
 
 # =============================================================================
@@ -522,7 +654,16 @@ async def entrypoint(ctx: agents.JobContext):
     # Companion name: prefer metadata (instant), fallback to /me response
     companion_name = meta.get("companion_name") or (user_context or {}).get("companion_name", "")
 
-    system_prompt = build_system_prompt(lang, user_context, memories, companion_name=companion_name)
+    mode = meta.get("mode", "voice_call")
+    planning_scope = meta.get("planning_scope", "")
+    logger.info("Mode: %s, planning_scope: %s", mode, planning_scope)
+
+    # For planning mode, fetch extended context (week tasks + calendar events)
+    planning_context = None
+    if mode == "planning" and auth_token:
+        planning_context = await fetch_planning_context(auth_token, planning_scope)
+
+    system_prompt = build_system_prompt(lang, user_context, memories, companion_name=companion_name, mode=mode, planning_scope=planning_scope, planning_context=planning_context)
     logger.info("System prompt length: %d chars", len(system_prompt))
 
     # Choose voice: prefer metadata override, fallback to lang-based default
@@ -591,7 +732,7 @@ async def entrypoint(ctx: agents.JobContext):
 
     # Send greeting with user's first name and coach name
     user_name = (user_context or {}).get("name", "")
-    greeting = build_greeting(lang, user_name, coach_name=companion_name)
+    greeting = build_greeting(lang, user_name, coach_name=companion_name, mode=mode, planning_scope=planning_scope, planning_context=planning_context)
     logger.info("Greeting: %s", greeting)
     session.say(greeting, add_to_chat_ctx=True)
     logger.info("Greeting queued (direct TTS, no LLM)")
@@ -607,6 +748,8 @@ async def entrypoint(ctx: agents.JobContext):
                 assistant_id=backboard_assistant_id,
                 transcript=transcript,
                 auth_token=auth_token,
+                mode=mode,
+                planning_scope=planning_scope,
             )
             logger.info("Post-call Backboard sync total: %s", _elapsed(t0))
         else:

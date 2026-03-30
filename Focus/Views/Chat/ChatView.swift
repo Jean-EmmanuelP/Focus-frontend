@@ -33,6 +33,17 @@ struct ChatView: View {
         store.user?.companionName ?? "ton coach"
     }
 
+    private var userInitialForChat: String {
+        if let first = store.user?.firstName, !first.isEmpty {
+            return String(first.prefix(1)).uppercased()
+        }
+        return String(store.user?.name.prefix(1) ?? "U").uppercased()
+    }
+
+    private var companionInitialForChat: String {
+        String(companionName.prefix(1)).uppercased()
+    }
+
     var body: some View {
         GeometryReader { geometry in
             ZStack {
@@ -390,8 +401,14 @@ struct ChatView: View {
 
                         // Messages for this date
                         ForEach(group.messages) { message in
-                            ReplikaMessageBubble(message: message.withResolvedContent(viewModel.resolvedContent), viewModel: viewModel)
-                                .id(message.id)
+                            ReplikaMessageBubble(
+                                message: message.withResolvedContent(viewModel.resolvedContent),
+                                viewModel: viewModel,
+                                userAvatarURL: store.user?.avatarURL,
+                                userInitial: userInitialForChat,
+                                companionInitial: companionInitialForChat
+                            )
+                            .id(message.id)
                         }
                     }
 
@@ -785,11 +802,53 @@ struct SatisfactionGaugeView: View {
     }
 }
 
+// MARK: - Chat Avatar
+
+struct ChatAvatar: View {
+    let url: String?
+    let initial: String
+    let color: Color
+    var size: CGFloat = 28
+
+    var body: some View {
+        Group {
+            if let urlString = url, let imageURL = URL(string: urlString) {
+                AsyncImage(url: imageURL) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    default:
+                        initialView
+                    }
+                }
+            } else {
+                initialView
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(Circle())
+    }
+
+    private var initialView: some View {
+        ZStack {
+            Circle().fill(color)
+            Text(initial)
+                .font(.system(size: size * 0.4, weight: .bold, design: .rounded))
+                .foregroundColor(.white)
+        }
+    }
+}
+
 // MARK: - Replika Message Bubble
 
 struct ReplikaMessageBubble: View {
     let message: SimpleChatMessage
     var viewModel: ChatViewModel?
+    var userAvatarURL: String? = nil
+    var userInitial: String = ""
+    var companionInitial: String = ""
 
     @StateObject private var audioPlayer = AudioPlayerManager()
     @State private var isDownloading = false
@@ -801,11 +860,16 @@ struct ReplikaMessageBubble: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .bottom, spacing: 0) {
+            HStack(alignment: .bottom, spacing: 6) {
                 if message.isFromUser {
-                    Spacer(minLength: 120)
+                    Spacer(minLength: 80)
                 } else {
-                    Spacer(minLength: 100)
+                    // Coach avatar
+                    ChatAvatar(
+                        url: nil,
+                        initial: companionInitial,
+                        color: Color(red: 0.25, green: 0.50, blue: 1.0)
+                    )
                 }
 
                 VStack(alignment: .trailing, spacing: 4) {
@@ -831,21 +895,28 @@ struct ReplikaMessageBubble: View {
                     }
                 }
 
-                if !message.isFromUser {
-                    Spacer().frame(width: 16)
+                if message.isFromUser {
+                    // User avatar
+                    ChatAvatar(
+                        url: userAvatarURL,
+                        initial: userInitial,
+                        color: Color(red: 0.22, green: 0.28, blue: 0.42)
+                    )
+                } else {
+                    Spacer().frame(width: 4)
                 }
             }
 
             // Card data (task list, routine list)
             if let cardData = message.cardData {
                 HStack {
-                    Spacer(minLength: 60)
+                    Spacer().frame(width: 34) // align with avatar
                     cardView(for: cardData)
                     Spacer().frame(width: 16)
                 }
             }
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 12)
     }
 
     private var textBubble: some View {
@@ -909,6 +980,8 @@ struct ReplikaMessageBubble: View {
                 .cornerRadius(16)
                 .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
             }
+        case .productivityDiagnostic(let data):
+            ProductivityDiagnosticCard(data: data, viewModel: viewModel)
         }
     }
 
@@ -2051,6 +2124,185 @@ struct TypingDotsView: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Productivity Diagnostic Card
+
+struct ProductivityDiagnosticCard: View {
+    let data: ChatCardData.ProductivityDiagnosticData
+    var viewModel: ChatViewModel?
+
+    @State private var selectedIds: Set<String> = []
+    @State private var isSubmitted: Bool = false
+
+    private let maxSelections = 5
+
+    // Group challenges by category
+    private var groupedChallenges: [(category: String, challenges: [ChatCardData.ProductivityChallenge])] {
+        var dict: [String: [ChatCardData.ProductivityChallenge]] = [:]
+        var order: [String] = []
+        for challenge in data.challenges {
+            if dict[challenge.category] == nil {
+                order.append(challenge.category)
+            }
+            dict[challenge.category, default: []].append(challenge)
+        }
+        return order.map { (category: $0, challenges: dict[$0]!) }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            HStack(spacing: 8) {
+                Image(systemName: "brain.head.profile")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(Color(red: 0.20, green: 0.45, blue: 1.0))
+
+                Text("Diagnostic de productivité")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(.black)
+
+                Spacer()
+
+                if !isSubmitted && !data.isSubmitted {
+                    Text("\(selectedIds.count)/\(maxSelections)")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(selectedIds.count >= maxSelections ? .orange : .gray)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: selectedIds.count)
+                        .contentTransition(.numericText())
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
+            .padding(.bottom, 12)
+
+            if isSubmitted || data.isSubmitted {
+                // Show selected items as summary
+                let submittedIds = data.isSubmitted ? Set(data.selectedIds) : selectedIds
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(data.challenges.filter { submittedIds.contains($0.id) }) { challenge in
+                        HStack(spacing: 10) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 14))
+                                .foregroundColor(Color(red: 0.20, green: 0.45, blue: 1.0))
+
+                            Text(challenge.title)
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.black)
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 16)
+            } else {
+                // Scrollable selection list
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 16) {
+                        ForEach(groupedChallenges, id: \.category) { group in
+                            VStack(alignment: .leading, spacing: 8) {
+                                // Category header
+                                Text(group.category.uppercased())
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(.gray)
+                                    .tracking(0.5)
+                                    .padding(.horizontal, 16)
+
+                                // Challenge items
+                                ForEach(group.challenges) { challenge in
+                                    challengeRow(challenge)
+                                }
+                            }
+                        }
+                    }
+                    .padding(.bottom, 12)
+                }
+                .frame(maxHeight: 400)
+
+                // Submit button
+                Button(action: {
+                    guard !selectedIds.isEmpty else { return }
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        isSubmitted = true
+                    }
+                    viewModel?.submitDiagnostic(selectedIds: Array(selectedIds))
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "arrow.right.circle.fill")
+                            .font(.system(size: 16))
+                        Text("Valider mon diagnostic")
+                            .font(.system(size: 15, weight: .semibold))
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 48)
+                    .background(
+                        selectedIds.isEmpty
+                            ? Color.gray.opacity(0.4)
+                            : Color(red: 0.20, green: 0.45, blue: 1.0)
+                    )
+                    .cornerRadius(14)
+                }
+                .disabled(selectedIds.isEmpty)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 16)
+            }
+        }
+        .background(Color.white)
+        .cornerRadius(20)
+        .shadow(color: .black.opacity(0.08), radius: 10, x: 0, y: 4)
+        .onAppear {
+            if data.isSubmitted {
+                isSubmitted = true
+                selectedIds = Set(data.selectedIds)
+            }
+        }
+    }
+
+    private func challengeRow(_ challenge: ChatCardData.ProductivityChallenge) -> some View {
+        let isSelected = selectedIds.contains(challenge.id)
+        let isDisabled = !isSelected && selectedIds.count >= maxSelections
+
+        return Button(action: {
+            HapticFeedback.selection()
+            if isSelected {
+                selectedIds.remove(challenge.id)
+            } else if selectedIds.count < maxSelections {
+                selectedIds.insert(challenge.id)
+            }
+        }) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 20))
+                    .foregroundColor(isSelected ? Color(red: 0.20, green: 0.45, blue: 1.0) : .gray.opacity(0.4))
+                    .frame(width: 24)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(challenge.title)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(isDisabled ? .gray.opacity(0.5) : .black)
+                        .multilineTextAlignment(.leading)
+
+                    Text(challenge.description)
+                        .font(.system(size: 12))
+                        .foregroundColor(isDisabled ? .gray.opacity(0.3) : .gray)
+                        .multilineTextAlignment(.leading)
+                        .lineLimit(2)
+                }
+
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(
+                isSelected
+                    ? Color(red: 0.20, green: 0.45, blue: 1.0).opacity(0.06)
+                    : Color.clear
+            )
+            .cornerRadius(12)
+        }
+        .disabled(isDisabled)
+        .animation(.easeInOut(duration: 0.15), value: isSelected)
     }
 }
 

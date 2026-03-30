@@ -70,7 +70,7 @@ class LiveKitVoiceService: ObservableObject {
 
     // MARK: - Connection
 
-    func connect(mode: String = "voice_call") async throws {
+    func connect(mode: String = "voice_call", planningScope: String? = nil) async throws {
         connectionState = .connecting
         agentTranscription = ""
         userTranscription = ""
@@ -84,7 +84,7 @@ class LiveKitVoiceService: ObservableObject {
         let response: LiveKitTokenResponse = try await apiClient.request(
             endpoint: .livekitToken,
             method: .post,
-            body: LiveKitTokenRequest(mode: mode, lang: lang, voiceId: voiceId, companionName: companionName)
+            body: LiveKitTokenRequest(mode: mode, lang: lang, voiceId: voiceId, companionName: companionName, planningScope: planningScope)
         )
 
         let url = response.url ?? Self.livekitURL
@@ -201,6 +201,7 @@ struct LiveKitTokenRequest: Encodable {
     let lang: String
     let voiceId: String?
     let companionName: String?
+    let planningScope: String?
 }
 
 struct LiveKitTokenResponse: Decodable {

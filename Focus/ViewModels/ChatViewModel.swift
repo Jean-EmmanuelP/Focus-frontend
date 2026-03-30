@@ -24,6 +24,22 @@ enum ChatCardData: Codable {
     case actionButton(ActionButton)
     case videoCard(VideoCard)
     case videoSuggestions(VideoSuggestionsData)
+    case productivityDiagnostic(ProductivityDiagnosticData)
+
+    // MARK: - Productivity Diagnostic
+
+    struct ProductivityChallenge: Codable, Identifiable, Hashable {
+        let id: String
+        let category: String
+        let title: String
+        let description: String
+    }
+
+    struct ProductivityDiagnosticData: Codable {
+        let challenges: [ProductivityChallenge]
+        var selectedIds: [String]
+        var isSubmitted: Bool
+    }
 
     struct PlanningFocusState: Codable {
         var activeTaskId: String?
@@ -80,7 +96,7 @@ enum ChatCardData: Codable {
     // MARK: - Backward-compatible Codable
 
     private enum CodingKeys: String, CodingKey {
-        case taskList, routineList, planning, actionButton, videoCard, videoSuggestions
+        case taskList, routineList, planning, actionButton, videoCard, videoSuggestions, productivityDiagnostic
     }
 
     private struct PlanningPayload: Codable {
@@ -114,6 +130,8 @@ enum ChatCardData: Codable {
             self = .videoCard(video)
         } else if let data = try? container.decode(VideoSuggestionsData.self, forKey: .videoSuggestions) {
             self = .videoSuggestions(data)
+        } else if let data = try? container.decode(ProductivityDiagnosticData.self, forKey: .productivityDiagnostic) {
+            self = .productivityDiagnostic(data)
         } else {
             // Old focusTimer or unknown — fallback to empty task list
             self = .taskList([])
@@ -135,6 +153,8 @@ enum ChatCardData: Codable {
             try container.encode(video, forKey: .videoCard)
         case .videoSuggestions(let data):
             try container.encode(data, forKey: .videoSuggestions)
+        case .productivityDiagnostic(let data):
+            try container.encode(data, forKey: .productivityDiagnostic)
         }
     }
 }
@@ -375,6 +395,15 @@ class ChatViewModel: ObservableObject {
 
     /// Request a greeting from the coach (first message when chat is empty)
     private func requestGreeting() async {
+        // Check if user hasn't done the diagnostic yet
+        let hasDoneDiagnostic = UserDefaults.standard.bool(forKey: "productivity_diagnostic_completed")
+
+        if !hasDoneDiagnostic {
+            // Show diagnostic as first interaction
+            showProductivityDiagnostic()
+            return
+        }
+
         isLoading = true
 
         do {
@@ -392,7 +421,6 @@ class ChatViewModel: ObservableObject {
             messages.append(aiMessage)
             saveMessages()
         } catch {
-            // Fallback greeting for first-time users
             let userName = store?.user?.pseudo ?? store?.user?.firstName ?? ""
             let name = userName.isEmpty ? "" : " \(userName)"
             let fallback = "Salut\(name) ! Je suis ton coach. Dis-moi ce que tu veux accomplir."
@@ -403,6 +431,146 @@ class ChatViewModel: ObservableObject {
         }
 
         isLoading = false
+    }
+
+    // MARK: - Productivity Diagnostic
+
+    private static let productivityChallenges: [ChatCardData.ProductivityChallenge] = [
+        // La gestion de l'énergie et du focus
+        .init(id: "fatigue_decisionnelle", category: "Énergie & Focus", title: "La fatigue décisionnelle", description: "S'épuiser à force de devoir choisir quoi faire, au point de ne plus rien faire du tout."),
+        .init(id: "incapacite_prioriser", category: "Énergie & Focus", title: "L'incapacité à prioriser", description: "Tout traiter avec la même urgence (l'effet \"pompier\")."),
+        .init(id: "dispersion", category: "Énergie & Focus", title: "La dispersion (Deep Work impossible)", description: "Être incapable de rester concentré plus de 10 minutes sur une tâche complexe."),
+        .init(id: "multitache", category: "Énergie & Focus", title: "Le multitâche illusoire", description: "Sauter d'une application à l'autre en pensant être productif alors qu'on fragmente son attention."),
+        // Les blocages émotionnels
+        .init(id: "perfectionnisme", category: "Blocages émotionnels", title: "Le perfectionnisme paralysant", description: "Ne pas oser finir ou publier de peur que ce ne soit pas \"parfait\"."),
+        .init(id: "peur_echec", category: "Blocages émotionnels", title: "La peur de l'échec (ou du succès)", description: "Saboter son propre travail pour éviter d'être jugé ou de devoir assumer de nouvelles responsabilités."),
+        .init(id: "syndrome_imposteur", category: "Blocages émotionnels", title: "Le syndrome de l'imposteur", description: "Se sentir illégitime, ce qui freine la prise d'initiative."),
+        .init(id: "culpabilite_repos", category: "Blocages émotionnels", title: "La culpabilité du repos", description: "Être incapable de déconnecter sans se sentir mal, ce qui mène au burn-out."),
+        // L'organisation et la méthode
+        .init(id: "surestimation", category: "Organisation & Méthode", title: "La surestimation de ses capacités", description: "Remplir une \"To-do list\" impossible à tenir en une journée (planification irréaliste)."),
+        .init(id: "absence_systemes", category: "Organisation & Méthode", title: "L'absence de systèmes", description: "Dépendre uniquement de la volonté au lieu d'avoir des routines automatiques."),
+        .init(id: "gestion_interruptions", category: "Organisation & Méthode", title: "La gestion des interruptions", description: "Ne pas savoir dire \"non\" aux sollicitations externes (collègues, notifications, famille)."),
+        .init(id: "perte_information", category: "Organisation & Méthode", title: "La perte d'information", description: "Ne pas avoir de système de capture (notes, idées) et passer son temps à chercher ses documents."),
+        // La motivation et le sens
+        .init(id: "perte_pourquoi", category: "Motivation & Sens", title: "La perte du \"Pourquoi\"", description: "Faire les tâches par automatisme sans comprendre la vision globale, ce qui tue l'envie."),
+        .init(id: "absence_recompense", category: "Motivation & Sens", title: "L'absence de récompense", description: "Ne jamais célébrer les petites victoires, ce qui rend le travail monotone et épuisant."),
+        .init(id: "ennui_repetitif", category: "Motivation & Sens", title: "L'ennui sur les tâches répétitives", description: "Difficulté à maintenir la discipline sur les aspects moins \"excitants\" d'un projet."),
+        // L'environnement et l'hygiène de vie
+        .init(id: "desordre", category: "Environnement & Hygiène de vie", title: "Le désordre physique ou numérique", description: "Un bureau ou un bureau d'ordinateur encombré qui crée une charge mentale invisible."),
+        .init(id: "manque_limites", category: "Environnement & Hygiène de vie", title: "Le manque de limites pro/perso", description: "Surtout en télétravail, ne plus savoir quand la journée s'arrête."),
+        .init(id: "dependance_outils", category: "Environnement & Hygiène de vie", title: "La dépendance aux outils", description: "Passer plus de temps à configurer son application de productivité qu'à travailler réellement."),
+        .init(id: "isolement_social", category: "Environnement & Hygiène de vie", title: "L'isolement social", description: "Travailler seul trop longtemps, ce qui baisse la créativité et le moral."),
+        .init(id: "manque_feedback", category: "Environnement & Hygiène de vie", title: "Le manque de feedback", description: "Avancer dans le noir sans savoir si ce que l'on fait est correct ou efficace."),
+    ]
+
+    private func showProductivityDiagnostic() {
+        let userName = store?.user?.firstName ?? ""
+        let greeting = userName.isEmpty
+            ? "Hey ! Je vais te poser quelques questions pour mieux t'aider, il y en a pour 5 min max."
+            : "Hey \(userName) ! Je vais te poser quelques questions pour mieux t'aider, il y en a pour 5 min max."
+
+        let introMessage = SimpleChatMessage(content: greeting, isFromUser: false)
+        messages.append(introMessage)
+
+        let diagnosticData = ChatCardData.ProductivityDiagnosticData(
+            challenges: Self.productivityChallenges,
+            selectedIds: [],
+            isSubmitted: false
+        )
+        var diagnosticMessage = SimpleChatMessage(
+            content: "Sélectionne jusqu'à 5 défis qui te parlent le plus :",
+            isFromUser: false
+        )
+        diagnosticMessage.cardData = .productivityDiagnostic(diagnosticData)
+        messages.append(diagnosticMessage)
+        saveMessages()
+    }
+
+    func submitDiagnostic(selectedIds: [String]) {
+        guard !selectedIds.isEmpty else { return }
+
+        // Mark diagnostic as completed
+        UserDefaults.standard.set(true, forKey: "productivity_diagnostic_completed")
+
+        // Update the card to show submitted state
+        if let index = messages.lastIndex(where: {
+            if case .productivityDiagnostic = $0.cardData { return true }
+            return false
+        }) {
+            messages[index].cardData = .productivityDiagnostic(
+                ChatCardData.ProductivityDiagnosticData(
+                    challenges: Self.productivityChallenges,
+                    selectedIds: selectedIds,
+                    isSubmitted: true
+                )
+            )
+        }
+
+        // Build a summary of selected challenges to send to AI
+        let selectedTitles = selectedIds.compactMap { id in
+            Self.productivityChallenges.first(where: { $0.id == id })?.title
+        }
+        let userSummary = "Voici mes 5 plus grands défis de productivité :\n" + selectedTitles.enumerated().map { "\($0.offset + 1). \($0.element)" }.joined(separator: "\n")
+
+        // Add user selection as a message
+        let userMessage = SimpleChatMessage(content: userSummary, isFromUser: true, status: .sending)
+        messages.append(userMessage)
+        saveMessages()
+
+        // Persist challenges to backend (so AI coach always knows them via get_user_context)
+        Task {
+            await saveDiagnosticToBackend(selectedTitles: selectedTitles)
+        }
+
+        // Send to AI for personalized analysis
+        Task {
+            isLoading = true
+            do {
+                let prompt = userSummary + "\n\nDonne-moi une analyse personnalisée et un plan d'action concret adapté à mes défis."
+                let (reply, sideEffects) = try await ChatV2Service.shared.sendMessage(prompt)
+                await applySideEffects(sideEffects)
+
+                var aiMessage = SimpleChatMessage(content: reply, isFromUser: false)
+                if let cardType = sideEffects.firstShowCard {
+                    aiMessage.cardData = await buildCardData(for: cardType, date: sideEffects.queriedFutureDateString)
+                }
+                messages.append(aiMessage)
+                if let idx = messages.lastIndex(where: { $0.isFromUser && $0.status == .sending }) {
+                    messages[idx].status = .sent
+                }
+                saveMessages()
+            } catch {
+                let fallback = SimpleChatMessage(content: "Merci pour tes réponses ! Je vais adapter mon accompagnement à tes défis. On commence quand tu veux.", isFromUser: false)
+                messages.append(fallback)
+                if let idx = messages.lastIndex(where: { $0.isFromUser && $0.status == .sending }) {
+                    messages[idx].status = .sent
+                }
+                saveMessages()
+            }
+            isLoading = false
+        }
+    }
+
+    /// Save productivity challenges to backend via onboarding progress endpoint
+    private func saveDiagnosticToBackend(selectedTitles: [String]) async {
+        struct DiagnosticSaveRequest: Encodable {
+            let currentStep: Int
+            let productivityChallenges: [String]
+        }
+        let request = DiagnosticSaveRequest(
+            currentStep: 99, // Special step number for post-onboarding diagnostic
+            productivityChallenges: selectedTitles
+        )
+        do {
+            struct Ignored: Decodable {}
+            let _: Ignored = try await APIClient.shared.request(
+                endpoint: .onboardingProgress,
+                method: .put,
+                body: request
+            )
+        } catch {
+            print("Failed to save diagnostic to backend: \(error)")
+        }
     }
 
     /// Check and send any pending message from the onboarding flow

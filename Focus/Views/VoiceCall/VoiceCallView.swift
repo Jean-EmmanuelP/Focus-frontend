@@ -7,6 +7,9 @@ struct VoiceCallView: View {
     @State private var copiedMessageId: UUID?
     @State private var messageText: String = ""
 
+    var mode: String = "voice_call"
+    var planningScope: String?
+
     private var isListening: Bool {
         viewModel.callState == .listening && !viewModel.isAgentSpeaking
     }
@@ -32,7 +35,7 @@ struct VoiceCallView: View {
                 transcriptOverlay
             }
         }
-        .onAppear { viewModel.startCall() }
+        .onAppear { viewModel.startCall(mode: mode, planningScope: planningScope) }
         .onDisappear { viewModel.endCall() }
         .onChange(of: viewModel.callState) { newState in
             if newState == .ended && viewModel.errorMessage == nil {

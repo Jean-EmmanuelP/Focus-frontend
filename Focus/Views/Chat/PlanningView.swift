@@ -18,6 +18,9 @@ struct PlanningView: View {
     @State private var selectedDate: Date = Date()
     @State private var tasksCache: [String: [CalendarTask]] = [:]
     @State private var ritualsCache: [DailyRitual]? = nil
+    @State private var showVoicePlanningSheet = false
+    @State private var showVoiceCall = false
+    @State private var voicePlanningScope: String = "today"
 
     // Background color matching chat screen avatar background
     private let bgColor = Color(red: 0.10, green: 0.12, blue: 0.20)
@@ -127,6 +130,7 @@ struct PlanningView: View {
         }
         .task {
             await loadData()
+            await preloadWeekDots()
         }
         .alert("Supprimer cette tâche ?", isPresented: Binding(
             get: { taskToDelete != nil },
@@ -177,6 +181,20 @@ struct PlanningView: View {
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         }
+        .sheet(isPresented: $showVoicePlanningSheet) {
+            VoicePlanningScopeSheet(bgColor: bgColor) { scope in
+                voicePlanningScope = scope
+                showVoicePlanningSheet = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    showVoiceCall = true
+                }
+            }
+            .presentationDetents([.height(320)])
+            .presentationDragIndicator(.visible)
+        }
+        .fullScreenCover(isPresented: $showVoiceCall) {
+            VoiceCallView(mode: "planning", planningScope: voicePlanningScope)
+        }
     }
 
     // MARK: - Top Bar
@@ -204,16 +222,12 @@ struct PlanningView: View {
 
             Spacer()
 
-            // Sync Google Calendar button
-            Button {
-                syncCalendar()
-            } label: {
-                if isSyncing {
-                    ProgressView()
-                        .tint(.white.opacity(0.8))
-                        .frame(width: 36, height: 36)
-                } else {
-                    Image(systemName: "arrow.triangle.2.circlepath")
+            HStack(spacing: 8) {
+                // Voice planning button
+                Button {
+                    showVoicePlanningSheet = true
+                } label: {
+                    Image(systemName: "mic.fill")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(.white.opacity(0.8))
                         .frame(width: 36, height: 36)
@@ -222,8 +236,28 @@ struct PlanningView: View {
                                 .fill(.ultraThinMaterial)
                         )
                 }
+
+                // Sync Google Calendar button
+                Button {
+                    syncCalendar()
+                } label: {
+                    if isSyncing {
+                        ProgressView()
+                            .tint(.white.opacity(0.8))
+                            .frame(width: 36, height: 36)
+                    } else {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.white.opacity(0.8))
+                            .frame(width: 36, height: 36)
+                            .background(
+                                Circle()
+                                    .fill(.ultraThinMaterial)
+                            )
+                    }
+                }
+                .disabled(isSyncing)
             }
-            .disabled(isSyncing)
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
@@ -313,18 +347,37 @@ struct PlanningView: View {
                         }
                         Task { await loadData() }
                     } label: {
-                        VStack(spacing: 4) {
-                            Text(isDayToday ? "Auj." : dayNameFormatter.string(from: day).capitalized)
-                                .font(.system(size: 11, weight: .medium))
-                            Text("\(calendar.component(.day, from: day))")
-                                .font(.system(size: 17, weight: isSelected ? .bold : .semibold, design: .rounded))
+                        VStack(spacing: 2) {
+                            VStack(spacing: 4) {
+                                Text(isDayToday ? "Auj." : dayNameFormatter.string(from: day).capitalized)
+                                    .font(.system(size: 11, weight: .medium))
+                                Text("\(calendar.component(.day, from: day))")
+                                    .font(.system(size: 17, weight: isSelected ? .bold : .semibold, design: .rounded))
+                            }
+                            .foregroundColor(isSelected ? bgColor : .white.opacity(isDayToday ? 0.9 : 0.5))
+                            .frame(width: 48, height: 56)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .fill(isSelected ? Color.white : Color.white.opacity(0.06))
+                            )
+
+                            // Task indicator dot
+                            let dateKey = {
+                                let f = DateFormatter()
+                                f.dateFormat = "yyyy-MM-dd"
+                                return f.string(from: day)
+                            }()
+                            if let cached = tasksCache[dateKey], !cached.isEmpty {
+                                let allDone = cached.allSatisfy { $0.isCompleted }
+                                Circle()
+                                    .fill(allDone ? Color.green : Color.orange)
+                                    .frame(width: 5, height: 5)
+                            } else {
+                                Circle()
+                                    .fill(Color.clear)
+                                    .frame(width: 5, height: 5)
+                            }
                         }
-                        .foregroundColor(isSelected ? bgColor : .white.opacity(isDayToday ? 0.9 : 0.5))
-                        .frame(width: 48, height: 56)
-                        .background(
-                            RoundedRectangle(cornerRadius: 14)
-                                .fill(isSelected ? Color.white : Color.white.opacity(0.06))
-                        )
                     }
                 }
             }
@@ -632,6 +685,27 @@ struct PlanningView: View {
         }
         if isFirst {
             isInitialLoading = false
+        }
+    }
+
+    /// Preload task counts for all 7 days to show indicator dots immediately
+    private func preloadWeekDots() async {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+
+        let calendarService = CalendarService()
+        for i in 0..<7 {
+            guard let day = calendar.date(byAdding: .day, value: i, to: today) else { continue }
+            let dateKey = formatter.string(from: day)
+            if tasksCache[dateKey] != nil { continue } // already cached
+            do {
+                let fetched = try await calendarService.getTasks(date: dateKey)
+                tasksCache[dateKey] = fetched
+            } catch {
+                // Silently skip — dots just won't show for this day
+            }
         }
     }
 
@@ -1105,5 +1179,92 @@ struct AddRitualSheet: View {
         let f = DateFormatter()
         f.dateFormat = "HH:mm"
         return f.string(from: date)
+    }
+}
+
+// MARK: - Voice Planning Scope Sheet
+
+struct VoicePlanningScopeSheet: View {
+    let bgColor: Color
+    let onSelect: (String) -> Void
+
+    @State private var appeared = false
+
+    private let options: [(scope: String, title: String, subtitle: String, icon: String)] = [
+        ("today", "Aujourd'hui", "Planifie ta journée", "sun.max.fill"),
+        ("tomorrow", "Demain", "Prépare demain", "sunrise.fill"),
+        ("week", "Ma semaine", "Organise ta semaine", "calendar"),
+    ]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            RoundedRectangle(cornerRadius: 3)
+                .fill(Color.white.opacity(0.3))
+                .frame(width: 36, height: 5)
+                .padding(.top, 10)
+
+            Text("Planifie par la voix")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(.white)
+                .padding(.top, 20)
+                .padding(.bottom, 4)
+
+            Text("Choisis la période à planifier")
+                .font(.system(size: 14))
+                .foregroundColor(.white.opacity(0.6))
+                .padding(.bottom, 20)
+
+            VStack(spacing: 10) {
+                ForEach(Array(options.enumerated()), id: \.element.scope) { index, option in
+                    Button {
+                        HapticFeedback.selection()
+                        onSelect(option.scope)
+                    } label: {
+                        HStack(spacing: 14) {
+                            Image(systemName: option.icon)
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundColor(.white.opacity(0.8))
+                                .frame(width: 36)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(option.title)
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(.white)
+                                Text(option.subtitle)
+                                    .font(.system(size: 13))
+                                    .foregroundColor(.white.opacity(0.5))
+                            }
+
+                            Spacer()
+
+                            Image(systemName: "mic.fill")
+                                .font(.system(size: 14))
+                                .foregroundColor(.white.opacity(0.4))
+                        }
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14)
+                                .fill(Color.white.opacity(0.08))
+                        )
+                    }
+                    .opacity(appeared ? 1 : 0)
+                    .offset(y: appeared ? 0 : 12)
+                    .animation(
+                        .spring(response: 0.4, dampingFraction: 0.8).delay(Double(index) * 0.08),
+                        value: appeared
+                    )
+                }
+            }
+            .padding(.horizontal, 16)
+
+            Spacer()
+        }
+        .background(bgColor.ignoresSafeArea())
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                appeared = true
+            }
+        }
     }
 }
