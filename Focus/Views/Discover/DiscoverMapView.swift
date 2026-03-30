@@ -11,6 +11,8 @@ struct DiscoverMapView: View {
     @State private var showCategoryPicker = false
     @State private var pendingCategory: FocusRoomCategory?
     @State private var activeRoomCategory: FocusRoomCategory?
+    @State private var showLeaderboard = false
+    @State private var showFriends = false
 
     var body: some View {
         ZStack {
@@ -134,6 +136,18 @@ struct DiscoverMapView: View {
         .fullScreenCover(item: $activeRoomCategory) { category in
             FocusRoomView(category: category)
         }
+        .sheet(isPresented: $showLeaderboard) {
+            LeaderboardView(onDismiss: { showLeaderboard = false })
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+                .presentationBackground(.ultraThinMaterial)
+        }
+        .sheet(isPresented: $showFriends) {
+            FriendsView(onDismiss: { showFriends = false })
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+                .presentationBackground(.ultraThinMaterial)
+        }
         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: viewModel.incomingToast != nil)
         .task {
             await viewModel.loadData()
@@ -167,40 +181,48 @@ struct DiscoverMapView: View {
 
             Spacer()
 
-            // Title (tappable for easter egg)
-            Button(action: {
-                viewModel.handleDebugTap()
-            }) {
-                VStack(spacing: 2) {
-                    Text("Focus Pulse")
-                        .font(.satoshi(18, weight: .bold))
-                        .foregroundColor(ColorTokens.textPrimary)
-                    if !viewModel.fakeUsersEnabled {
-                        Text("Mode reel")
-                            .font(.satoshi(10, weight: .medium))
-                            .foregroundColor(ColorTokens.success)
-                    }
-                }
-            }
+            Text("Focus Pulse")
+                .font(.satoshi(18, weight: .bold))
+                .foregroundColor(ColorTokens.textPrimary)
 
             Spacer()
 
-            // LIVE indicator
-            HStack(spacing: 5) {
-                Circle()
-                    .fill(ColorTokens.success)
-                    .frame(width: 6, height: 6)
+            HStack(spacing: 8) {
+                // LIVE indicator
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(ColorTokens.success)
+                        .frame(width: 6, height: 6)
 
-                Text("LIVE")
-                    .font(.satoshi(11, weight: .bold))
-                    .foregroundColor(ColorTokens.success)
+                    Text("LIVE")
+                        .font(.satoshi(11, weight: .bold))
+                        .foregroundColor(ColorTokens.success)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 5)
+                .background(
+                    Capsule()
+                        .fill(ColorTokens.success.opacity(0.12))
+                )
+
+                // Leaderboard button
+                Button { showLeaderboard = true } label: {
+                    Image(systemName: "trophy.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.orange)
+                        .frame(width: 36, height: 36)
+                        .background(Circle().fill(.ultraThinMaterial))
+                }
+
+                // Friends button
+                Button { showFriends = true } label: {
+                    Image(systemName: "person.2.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(ColorTokens.accent)
+                        .frame(width: 36, height: 36)
+                        .background(Circle().fill(.ultraThinMaterial))
+                }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 5)
-            .background(
-                Capsule()
-                    .fill(ColorTokens.success.opacity(0.12))
-            )
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)

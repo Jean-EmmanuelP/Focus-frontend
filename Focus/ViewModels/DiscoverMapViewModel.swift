@@ -23,19 +23,11 @@ class DiscoverMapViewModel: ObservableObject {
     // Coach
     @Published var coachMessage: String = ""
 
-    // Fake users ON by default — 10 taps on title disables them
-    @Published var fakeUsersEnabled = true
-
     private let discoverService = DiscoverService()
     private let locationService = LocationService.shared
-    private let fakeUserGenerator = FakeUserGenerator()
     private var pollingTimer: Timer?
     private var encouragementTimer: Timer?
     private let pollingInterval: TimeInterval = 30
-
-    // Easter egg tap counter
-    private var debugTapCount = 0
-    private var lastTapTime = Date.distantPast
 
     // MARK: - Computed
 
@@ -86,13 +78,7 @@ class DiscoverMapViewModel: ObservableObject {
             print("[DiscoverMap] API error: \(error)")
         }
 
-        // 3. Merge with fake users if enabled
-        if fakeUsersEnabled {
-            let fakeUsers = fakeUserGenerator.generate(around: coordinate)
-            nearbyUsers = realUsers + fakeUsers
-        } else {
-            nearbyUsers = realUsers
-        }
+        nearbyUsers = realUsers
 
         // 4. Compute stats
         updateStats()
@@ -238,27 +224,6 @@ class DiscoverMapViewModel: ObservableObject {
             return "Soiree focus. \(count) personnes terminent leur journee en force."
         default:
             return "\(count) personnes focus pres de toi en ce moment."
-        }
-    }
-
-    // MARK: - Easter Egg (10 taps to toggle fake users)
-
-    func handleDebugTap() {
-        let now = Date()
-        if now.timeIntervalSince(lastTapTime) > 3 {
-            debugTapCount = 0
-        }
-        lastTapTime = now
-        debugTapCount += 1
-
-        if debugTapCount >= 10 {
-            debugTapCount = 0
-            fakeUsersEnabled.toggle()
-            HapticFeedback.heavy()
-
-            Task {
-                await loadData()
-            }
         }
     }
 

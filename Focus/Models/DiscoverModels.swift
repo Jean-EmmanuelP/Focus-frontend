@@ -24,9 +24,6 @@ struct NearbyUser: Codable, Identifiable {
     var focusSessionDescription: String?
     var totalMinutesToday: Int = 0
 
-    // Client-side enrichment (not from API)
-    var isFake: Bool = false
-
     var coordinate: CLLocationCoordinate2D {
         CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
     }
@@ -72,7 +69,6 @@ struct NearbyUser: Codable, Identifiable {
         focusSessionDurationMin = try container.decodeIfPresent(Int.self, forKey: .focusSessionDurationMin)
         focusSessionDescription = try container.decodeIfPresent(String.self, forKey: .focusSessionDescription)
         totalMinutesToday = try container.decodeIfPresent(Int.self, forKey: .totalMinutesToday) ?? 0
-        isFake = false
     }
 
     init(
@@ -82,8 +78,7 @@ struct NearbyUser: Codable, Identifiable {
         latitude: Double, longitude: Double,
         isInFocusSession: Bool = false, focusSessionStartedAt: Date? = nil,
         focusSessionDurationMin: Int? = nil, focusSessionDescription: String? = nil,
-        totalMinutesToday: Int = 0,
-        isFake: Bool = false
+        totalMinutesToday: Int = 0
     ) {
         self.id = id
         self.pseudo = pseudo
@@ -102,7 +97,6 @@ struct NearbyUser: Codable, Identifiable {
         self.focusSessionDurationMin = focusSessionDurationMin
         self.focusSessionDescription = focusSessionDescription
         self.totalMinutesToday = totalMinutesToday
-        self.isFake = isFake
     }
 }
 
@@ -128,4 +122,93 @@ struct EncouragementToast: Identifiable, Equatable {
     let emoji: String
     let message: String
     let fromInitial: String
+}
+
+// MARK: - Leaderboard
+
+struct LeaderboardEntry: Codable, Identifiable {
+    let id: String
+    let pseudo: String?
+    let firstName: String?
+    let avatarUrl: String?
+    let productivityScore: Double
+    let tasksCompleted: Int
+    let tasksCreated: Int
+    let completionRate: Double
+    let totalFocusMinutes: Int
+    let currentStreak: Int
+    let rank: Int
+    let isFriend: Bool
+
+    var displayName: String {
+        if let pseudo = pseudo, !pseudo.isEmpty { return pseudo }
+        if let first = firstName, !first.isEmpty { return first }
+        return "User"
+    }
+
+    var initial: String {
+        String(displayName.prefix(1)).uppercased()
+    }
+
+    var formattedScore: String {
+        String(format: "%.0f", productivityScore)
+    }
+}
+
+enum LeaderboardScope: String, CaseIterable {
+    case global = "global"
+    case friends = "friends"
+
+    var title: String {
+        switch self {
+        case .global: return "Mondial"
+        case .friends: return "Amis"
+        }
+    }
+}
+
+// MARK: - Friends
+
+struct FriendRequest: Codable, Identifiable {
+    let id: String
+    let fromUserId: String
+    let fromPseudo: String?
+    let fromFirstName: String?
+    let fromAvatarUrl: String?
+    let status: FriendRequestStatus
+    let createdAt: Date
+
+    var displayName: String {
+        if let pseudo = fromPseudo, !pseudo.isEmpty { return pseudo }
+        if let first = fromFirstName, !first.isEmpty { return first }
+        return "User"
+    }
+
+    var initial: String {
+        String(displayName.prefix(1)).uppercased()
+    }
+}
+
+enum FriendRequestStatus: String, Codable {
+    case pending, accepted, declined
+}
+
+struct Friend: Codable, Identifiable {
+    let id: String
+    let userId: String
+    let pseudo: String?
+    let firstName: String?
+    let avatarUrl: String?
+    let currentStreak: Int?
+    let productivityScore: Double?
+
+    var displayName: String {
+        if let pseudo = pseudo, !pseudo.isEmpty { return pseudo }
+        if let first = firstName, !first.isEmpty { return first }
+        return "User"
+    }
+
+    var initial: String {
+        String(displayName.prefix(1)).uppercased()
+    }
 }
