@@ -18,6 +18,7 @@ struct ChatView: View {
     @State private var recordingTimer: Timer?
     @State private var showPaywall = false
     @State private var showCompanionProfile = false
+    @State private var showScoreDetail = false
     @State private var showVoiceCall = false
     @State private var isHomeMode = false  // Toggle between home view and chat view
     @State private var showAppBlocker = false
@@ -147,6 +148,12 @@ struct ChatView: View {
             }
         }
         .animation(.easeInOut(duration: 0.3), value: showSettings)
+        .sheet(isPresented: $showScoreDetail) {
+            ScoreDetailSheet(score: viewModel.satisfactionScore)
+                .environmentObject(store)
+                .presentationDetents([.height(480)])
+                .presentationDragIndicator(.visible)
+        }
         .overlay {
             if showAppBlocker {
                 AppBlockerSettingsView(onDismiss: {
@@ -252,18 +259,18 @@ struct ChatView: View {
 
             Spacer()
 
-            // Center: Satisfaction gauge + companion name
+            // Center: Score du jour
             Button(action: {
                 isInputFocused = false
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    showCompanionProfile = true
-                }
+                showScoreDetail = true
             }) {
                 VStack(spacing: 4) {
                     SatisfactionGaugeView(score: viewModel.satisfactionScore, size: 60)
-                    Text(companionName)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.white.opacity(0.7))
+                    Text("Score du jour")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.5))
+                        .textCase(.uppercase)
+                        .tracking(0.5)
                 }
             }
 
@@ -773,6 +780,16 @@ struct SatisfactionGaugeView: View {
         }
     }
 
+    private var emoji: String {
+        switch score {
+        case ..<20: return "😴"
+        case 20..<40: return "😐"
+        case 40..<60: return "💪"
+        case 60..<80: return "⚡"
+        default: return "🔥"
+        }
+    }
+
     var body: some View {
         ZStack {
             // Track
@@ -786,12 +803,124 @@ struct SatisfactionGaugeView: View {
                 .rotationEffect(.degrees(-90))
                 .animation(.spring(response: 0.6, dampingFraction: 0.7), value: score)
 
-            // Score text
-            Text("\(score)")
-                .font(.system(size: size * 0.33, weight: .bold, design: .rounded))
-                .foregroundColor(.white)
+            // Emoji + score
+            VStack(spacing: 0) {
+                if size >= 50 {
+                    Text(emoji)
+                        .font(.system(size: size * 0.2))
+                    Text("\(score)")
+                        .font(.system(size: size * 0.22, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                } else {
+                    Text("\(score)")
+                        .font(.system(size: size * 0.33, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                }
+            }
         }
         .frame(width: size, height: size)
+    }
+}
+
+// MARK: - Score Detail Popup
+
+struct ScoreDetailSheet: View {
+    @EnvironmentObject var store: FocusAppStore
+    let score: Int
+
+    private var tasksCompleted: Int { store.todaysTasks.filter { $0.isCompleted }.count }
+    private var tasksTotal: Int { store.todaysTasks.count }
+    private var ritualsCompleted: Int { store.rituals.filter { $0.isCompleted }.count }
+    private var ritualsTotal: Int { store.rituals.count }
+    private var focusMinutes: Int { store.todayMinutes }
+    private var streak: Int { store.currentStreak }
+
+    private var gaugeColor: Color {
+        switch score {
+        case ..<30: return Color(red: 0.9, green: 0.25, blue: 0.2)
+        case 30..<50: return Color(red: 0.95, green: 0.55, blue: 0.2)
+        case 50..<70: return Color(red: 0.95, green: 0.8, blue: 0.2)
+        case 70..<86: return Color(red: 0.45, green: 0.85, blue: 0.4)
+        default: return Color(red: 0.2, green: 0.85, blue: 0.35)
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            RoundedRectangle(cornerRadius: 3)
+                .fill(Color.white.opacity(0.3))
+                .frame(width: 36, height: 5)
+                .padding(.top, 10)
+
+            Text("Score du jour")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(.white)
+                .padding(.top, 20)
+
+            // Big score
+            SatisfactionGaugeView(score: score, size: 90)
+                .padding(.top, 16)
+
+            Text(scoreMessage)
+                .font(.system(size: 14))
+                .foregroundColor(.white.opacity(0.6))
+                .padding(.top, 8)
+
+            // Breakdown
+            VStack(spacing: 10) {
+                scoreRow(icon: "checkmark.circle.fill", color: .green, label: "Tâches", value: "\(tasksCompleted)/\(tasksTotal)", detail: tasksTotal == 0 ? "Aucune tâche" : "\(tasksCompleted) terminée\(tasksCompleted > 1 ? "s" : "")")
+                scoreRow(icon: "sparkles", color: .teal, label: "Rituels", value: "\(ritualsCompleted)/\(ritualsTotal)", detail: ritualsTotal == 0 ? "Aucun rituel" : "\(ritualsCompleted) complété\(ritualsCompleted > 1 ? "s" : "")")
+                scoreRow(icon: "timer", color: .orange, label: "Focus", value: "\(focusMinutes)m", detail: focusMinutes == 0 ? "Pas encore de focus" : "\(focusMinutes) minutes de concentration")
+                scoreRow(icon: "flame.fill", color: .red, label: "Streak", value: "\(streak)j", detail: streak == 0 ? "Commence ton streak !" : "\(streak) jour\(streak > 1 ? "s" : "") d'affilée")
+            }
+            .padding(.top, 24)
+            .padding(.horizontal, 20)
+
+            Spacer()
+        }
+        .background(Color(red: 0.10, green: 0.12, blue: 0.20).ignoresSafeArea())
+    }
+
+    private func scoreRow(icon: String, color: Color, label: String, value: String, detail: String) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(color)
+                .frame(width: 32, height: 32)
+                .background(color.opacity(0.15))
+                .cornerRadius(8)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.white)
+                Text(detail)
+                    .font(.system(size: 12))
+                    .foregroundColor(.white.opacity(0.5))
+            }
+
+            Spacer()
+
+            Text(value)
+                .font(.system(size: 17, weight: .bold, design: .rounded))
+                .foregroundColor(gaugeColor)
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 16)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color.white.opacity(0.05))
+        )
+    }
+
+    private var scoreMessage: String {
+        switch score {
+        case ..<20: return "C'est le moment de commencer !"
+        case 20..<40: return "Bon début, continue comme ça"
+        case 40..<60: return "Tu avances bien !"
+        case 60..<80: return "Belle journée en cours !"
+        default: return "Journée incroyable !"
+        }
     }
 }
 
