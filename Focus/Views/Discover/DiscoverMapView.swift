@@ -11,8 +11,9 @@ struct DiscoverMapView: View {
     @State private var showCategoryPicker = false
     @State private var pendingCategory: FocusRoomCategory?
     @State private var activeRoomCategory: FocusRoomCategory?
-    @State private var showLeaderboard = false
     @State private var showFriends = false
+    @State private var leaderboardExpanded = false
+    @StateObject private var leaderboardVM = LeaderboardViewModel()
 
     var body: some View {
         ZStack {
@@ -92,6 +93,16 @@ struct DiscoverMapView: View {
                 }
             }
 
+            // Leaderboard overlay panel
+            if leaderboardExpanded {
+                VStack {
+                    Spacer()
+                    LeaderboardOverlayPanel(viewModel: leaderboardVM, currentUserId: store.user?.id)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                .zIndex(5)
+            }
+
             // Encouragement toast (top)
             if let toast = viewModel.incomingToast {
                 VStack {
@@ -136,12 +147,6 @@ struct DiscoverMapView: View {
         .fullScreenCover(item: $activeRoomCategory) { category in
             FocusRoomView(category: category)
         }
-        .sheet(isPresented: $showLeaderboard) {
-            LeaderboardView(onDismiss: { showLeaderboard = false })
-                .presentationDetents([.large])
-                .presentationDragIndicator(.visible)
-                .presentationBackground(.ultraThinMaterial)
-        }
         .sheet(isPresented: $showFriends) {
             FriendsView(onDismiss: { showFriends = false })
                 .presentationDetents([.large])
@@ -151,6 +156,7 @@ struct DiscoverMapView: View {
         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: viewModel.incomingToast != nil)
         .task {
             await viewModel.loadData()
+            await leaderboardVM.loadLeaderboard()
             if let loc = viewModel.userLocation {
                 cameraPosition = .region(MKCoordinateRegion(
                     center: loc,
@@ -205,13 +211,17 @@ struct DiscoverMapView: View {
                         .fill(ColorTokens.success.opacity(0.12))
                 )
 
-                // Leaderboard button
-                Button { showLeaderboard = true } label: {
+                // Leaderboard toggle
+                Button {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+                        leaderboardExpanded.toggle()
+                    }
+                } label: {
                     Image(systemName: "trophy.fill")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.orange)
+                        .foregroundColor(leaderboardExpanded ? .white : .orange)
                         .frame(width: 36, height: 36)
-                        .background(Circle().fill(.ultraThinMaterial))
+                        .background(Circle().fill(leaderboardExpanded ? AnyShapeStyle(Color.orange) : AnyShapeStyle(.ultraThinMaterial)))
                 }
 
                 // Friends button
@@ -276,6 +286,8 @@ struct DiscoverMapView: View {
 
     // MARK: - Empty State
 
+    // Note: LeaderboardOverlayPanel is defined at bottom of file
+
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "sparkles")
@@ -313,4 +325,152 @@ struct DiscoverMapView: View {
         .padding(40)
     }
 
+}
+
+// MARK: - Leaderboard Overlay Panel
+
+struct LeaderboardOverlayPanel: View {
+    @ObservedObject var viewModel: LeaderboardViewModel
+    let currentUserId: String?
+
+    private func podiumColor(_ place: Int) -> Color {
+        switch place {
+        case 1: return Color(hex: "#FFD700")
+        case 2: return Color(hex: "#C0C0C0")
+        case 3: return Color(hex: "#CD7F32")
+        default: return .gray
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Handle
+            RoundedRectangle(cornerRadius: 3)
+                .fill(Color.white.opacity(0.3))
+                .frame(width: 36, height: 4)
+                .padding(.top, 10)
+                .padding(.bottom, 12)
+
+            // Title
+            HStack {
+                Image(systemName: "trophy.fill")
+                    .font(.system(size: 13))
+                    .foregroundStyle(
+                        LinearGradient(colors: [Color(hex: "#FFD700"), Color(hex: "#FFA500")], startPoint: .top, endPoint: .bottom)
+                    )
+                Text("Classement")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.white)
+                Spacer()
+                Text("\(viewModel.entries.count) focuseurs")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.white.opacity(0.4))
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 14)
+
+            if viewModel.isLoading {
+                ProgressView().tint(.white).padding(.vertical, 30)
+            } else if viewModel.entries.isEmpty {
+                Text("Lance une session pour apparaître")
+                    .font(.system(size: 13))
+                    .foregroundColor(.white.opacity(0.4))
+                    .padding(.vertical, 30)
+            } else {
+                // Top entries (scrollable)
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 4) {
+                        ForEach(Array(viewModel.entries.prefix(10).enumerated()), id: \.element.id) { index, entry in
+                            let isMe = entry.id == currentUserId
+                            HStack(spacing: 10) {
+                                // Rank
+                                if entry.rank <= 3 {
+                                    Text(entry.rank == 1 ? "🥇" : entry.rank == 2 ? "🥈" : "🥉")
+                                        .font(.system(size: 16))
+                                        .frame(width: 28)
+                                } else {
+                                    Text("#\(entry.rank)")
+                                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                                        .foregroundColor(.white.opacity(0.4))
+                                        .frame(width: 28)
+                                }
+
+                                // Avatar
+                                if let url = entry.avatarUrl, let imageURL = URL(string: url) {
+                                    AsyncImage(url: imageURL) { phase in
+                                        if case .success(let img) = phase {
+                                            img.resizable().scaledToFill()
+                                        } else {
+                                            Circle().fill(Color.white.opacity(0.1))
+                                                .overlay(
+                                                    Text(entry.initial)
+                                                        .font(.system(size: 12, weight: .bold))
+                                                        .foregroundColor(.white)
+                                                )
+                                        }
+                                    }
+                                    .frame(width: 32, height: 32)
+                                    .clipShape(Circle())
+                                } else {
+                                    Circle().fill(Color.white.opacity(0.1))
+                                        .frame(width: 32, height: 32)
+                                        .overlay(
+                                            Text(entry.initial)
+                                                .font(.system(size: 12, weight: .bold))
+                                                .foregroundColor(.white)
+                                        )
+                                }
+
+                                // Name
+                                Text(isMe ? "Toi" : entry.displayName)
+                                    .font(.system(size: 14, weight: isMe ? .bold : .medium))
+                                    .foregroundColor(isMe ? Color(red: 0.20, green: 0.45, blue: 1.0) : .white)
+                                    .lineLimit(1)
+
+                                Spacer()
+
+                                // Streak
+                                if entry.currentStreak > 0 {
+                                    HStack(spacing: 2) {
+                                        Image(systemName: "flame.fill")
+                                            .font(.system(size: 9))
+                                            .foregroundColor(.orange)
+                                        Text("\(entry.currentStreak)")
+                                            .font(.system(size: 11, weight: .bold))
+                                            .foregroundColor(.white.opacity(0.5))
+                                    }
+                                }
+
+                                // Score
+                                Text("\(entry.formattedScore)")
+                                    .font(.system(size: 15, weight: .black, design: .rounded))
+                                    .foregroundColor(isMe ? Color(red: 0.20, green: 0.45, blue: 1.0) : .white)
+                                    .frame(width: 36, alignment: .trailing)
+                            }
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(isMe ? Color(red: 0.20, green: 0.45, blue: 1.0).opacity(0.1) : Color.clear)
+                            )
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                }
+                .frame(maxHeight: 320)
+            }
+        }
+        .padding(.bottom, 16)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .stroke(Color.white.opacity(0.08), lineWidth: 0.5)
+                )
+                .shadow(color: .black.opacity(0.3), radius: 20, y: -5)
+        )
+        .padding(.horizontal, 8)
+        .padding(.bottom, 4)
+    }
 }
