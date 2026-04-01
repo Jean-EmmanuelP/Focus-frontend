@@ -229,6 +229,7 @@ enum APIConfiguration {
 
         // Quests (objectives)
         case quests
+        case deleteQuest(String)
 
         // Completions
         case completions(routineId: String?, from: String?, to: String?)
@@ -400,6 +401,8 @@ enum APIConfiguration {
             // Quests
             case .quests:
                 return "/quests"
+            case .deleteQuest(let id):
+                return "/quests/\(id)"
 
             // Completions
             case .completions(let routineId, let from, let to):

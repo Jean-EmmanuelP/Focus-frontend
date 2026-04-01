@@ -22,6 +22,8 @@ struct PlanningView: View {
     @State private var showVoiceCall = false
     @State private var voicePlanningScope: String = "today"
     @State private var quests: [QuestResponse] = []
+    @State private var showAddQuest = false
+    @State private var questToDelete: QuestResponse?
 
     // Background color matching chat screen avatar background
     private let bgColor = Color(red: 0.10, green: 0.12, blue: 0.20)
@@ -89,10 +91,8 @@ struct PlanningView: View {
                             }
                         }
 
-                        // Objectifs section
-                        if !quests.isEmpty {
-                            objectivesSection
-                        }
+                        // Objectifs section (always visible)
+                        objectivesSection
 
                         if tasks.isEmpty && (isToday ? rituals.isEmpty : true) && quests.isEmpty {
                             emptyState
@@ -159,6 +159,22 @@ struct PlanningView: View {
         } message: {
             if let task = taskToDelete {
                 Text("« \(task.title) » sera supprimée définitivement.")
+            }
+        }
+        .alert("Supprimer cet objectif ?", isPresented: Binding(
+            get: { questToDelete != nil },
+            set: { if !$0 { questToDelete = nil } }
+        )) {
+            Button("Annuler", role: .cancel) { questToDelete = nil }
+            Button("Supprimer", role: .destructive) {
+                if let quest = questToDelete {
+                    performDeleteQuest(quest)
+                    questToDelete = nil
+                }
+            }
+        } message: {
+            if let quest = questToDelete {
+                Text("« \(quest.title) » sera supprimé définitivement.")
             }
         }
         .alert("Supprimer ce rituel ?", isPresented: Binding(
@@ -532,24 +548,44 @@ struct PlanningView: View {
                     .textCase(.uppercase)
                     .kerning(1)
                 Spacer()
+                Button(action: { showAddQuest = true }) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(.white.opacity(0.4))
+                }
             }
             .padding(.horizontal, 20)
 
-            let shortTerm = quests.filter { ($0.term ?? "short") == "short" }
-            let mediumTerm = quests.filter { $0.term == "medium" }
-            let longTerm = quests.filter { $0.term == "long" }
+            if quests.isEmpty {
+                Text("Aucun objectif pour l'instant")
+                    .font(.system(size: 14))
+                    .foregroundColor(.white.opacity(0.3))
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 8)
+            } else {
+                let shortTerm = quests.filter { ($0.term ?? "short") == "short" }
+                let mediumTerm = quests.filter { $0.term == "medium" }
+                let longTerm = quests.filter { $0.term == "long" }
 
-            if !shortTerm.isEmpty {
-                objectiveTermGroup(label: "Court terme", icon: "bolt.fill", color: .orange, items: shortTerm)
-            }
-            if !mediumTerm.isEmpty {
-                objectiveTermGroup(label: "Moyen terme", icon: "calendar", color: .blue, items: mediumTerm)
-            }
-            if !longTerm.isEmpty {
-                objectiveTermGroup(label: "Long terme", icon: "star.fill", color: .purple, items: longTerm)
+                if !shortTerm.isEmpty {
+                    objectiveTermGroup(label: "Court terme", icon: "bolt.fill", color: .orange, items: shortTerm)
+                }
+                if !mediumTerm.isEmpty {
+                    objectiveTermGroup(label: "Moyen terme", icon: "calendar", color: .blue, items: mediumTerm)
+                }
+                if !longTerm.isEmpty {
+                    objectiveTermGroup(label: "Long terme", icon: "star.fill", color: .purple, items: longTerm)
+                }
             }
         }
         .padding(.horizontal, 16)
+        .sheet(isPresented: $showAddQuest) {
+            AddQuestSheet(bgColor: bgColor) { title, term in
+                performCreateQuest(title: title, term: term)
+            }
+            .presentationDetents([.height(350)])
+            .presentationDragIndicator(.visible)
+        }
     }
 
     private func objectiveTermGroup(label: String, icon: String, color: Color, items: [QuestResponse]) -> some View {
@@ -589,6 +625,49 @@ struct PlanningView: View {
                     RoundedRectangle(cornerRadius: 10)
                         .fill(Color.white.opacity(0.06))
                 )
+                .contextMenu {
+                    Button(role: .destructive) {
+                        questToDelete = quest
+                    } label: {
+                        Label("Supprimer", systemImage: "trash")
+                    }
+                }
+            }
+        }
+    }
+
+    private func performCreateQuest(title: String, term: String) {
+        Task {
+            do {
+                struct CreateQuestBody: Encodable {
+                    let title: String
+                    let area: String
+                    let term: String
+                }
+                let _: QuestResponse = try await APIClient.shared.request(
+                    endpoint: .quests,
+                    method: .post,
+                    body: CreateQuestBody(title: title, area: "other", term: term)
+                )
+                await loadQuests()
+            } catch {
+                print("Failed to create quest: \(error)")
+            }
+        }
+    }
+
+    private func performDeleteQuest(_ quest: QuestResponse) {
+        Task {
+            do {
+                try await APIClient.shared.request(
+                    endpoint: .deleteQuest(quest.id),
+                    method: .delete
+                )
+                withAnimation {
+                    quests.removeAll { $0.id == quest.id }
+                }
+            } catch {
+                print("Failed to delete quest: \(error)")
             }
         }
     }
@@ -1381,5 +1460,98 @@ struct VoicePlanningScopeSheet: View {
                 appeared = true
             }
         }
+    }
+}
+
+// MARK: - Add Quest Sheet
+
+struct AddQuestSheet: View {
+    let bgColor: Color
+    var onCreate: (String, String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var title = ""
+    @State private var selectedTerm = "short"
+    @FocusState private var isFocused: Bool
+
+    private let terms = [
+        ("short", "Court terme", "bolt.fill", Color.orange),
+        ("medium", "Moyen terme", "calendar", Color.blue),
+        ("long", "Long terme", "star.fill", Color.purple),
+    ]
+
+    var body: some View {
+        VStack(spacing: 20) {
+            // Header
+            HStack {
+                Text("Nouvel objectif")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(.white)
+                Spacer()
+                Button(action: { dismiss() }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 24))
+                        .foregroundColor(.white.opacity(0.3))
+                }
+            }
+            .padding(.top, 20)
+
+            // Title input
+            TextField("", text: $title, prompt: Text("Ex: Courir un semi-marathon").foregroundColor(.white.opacity(0.3)))
+                .font(.system(size: 16))
+                .foregroundColor(.white)
+                .padding(14)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.white.opacity(0.08))
+                )
+                .focused($isFocused)
+
+            // Term selector
+            HStack(spacing: 8) {
+                ForEach(terms, id: \.0) { term, label, icon, color in
+                    Button(action: { selectedTerm = term }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: icon)
+                                .font(.system(size: 11))
+                            Text(label)
+                                .font(.system(size: 12, weight: .medium))
+                        }
+                        .foregroundColor(selectedTerm == term ? bgColor : color)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(
+                            Capsule()
+                                .fill(selectedTerm == term ? color : color.opacity(0.15))
+                        )
+                    }
+                }
+            }
+
+            Spacer()
+
+            // Create button
+            Button(action: {
+                let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !t.isEmpty else { return }
+                onCreate(t, selectedTerm)
+                dismiss()
+            }) {
+                Text("Creer")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(bgColor)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(
+                        Capsule()
+                            .fill(Color.white.opacity(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.3 : 0.9))
+                    )
+            }
+            .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .padding(.bottom, 20)
+        }
+        .padding(.horizontal, 20)
+        .background(bgColor.ignoresSafeArea())
+        .onAppear { isFocused = true }
     }
 }
