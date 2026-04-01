@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 import httpx
 from dotenv import load_dotenv
 from livekit import agents, rtc
-from livekit.agents import AgentSession, RoomInputOptions
+from livekit.agents import AgentSession, RoomInputOptions, RunContext, function_tool
 from livekit.plugins import openai, gradium, silero
 
 logger = logging.getLogger("volta-agent")
@@ -588,9 +588,37 @@ async def fetch_planning_context(auth_token: str, scope: str) -> dict | None:
 # =============================================================================
 
 class VoltaAgent(agents.Agent):
-    def __init__(self, instructions: str, lang: str = "fr") -> None:
+    def __init__(self, instructions: str, lang: str = "fr", room: rtc.Room | None = None) -> None:
         super().__init__(instructions=instructions)
         self._lang = lang
+        self._room = room
+
+    @function_tool(name="block_apps")
+    async def tool_block_apps(self, context: RunContext, duration_minutes: int = 30) -> str:
+        """Bloque les apps de distraction de l'utilisateur pendant la duree indiquee (en minutes)."""
+        if not self._room:
+            return "Erreur: pas de connexion a la room."
+        payload = json.dumps({
+            "type": "coach_action",
+            "action": "block_apps",
+            "duration_minutes": duration_minutes,
+        }).encode()
+        await self._room.local_participant.publish_data(payload, reliable=True)
+        logger.info("📱 Sent block_apps data message (duration=%d)", duration_minutes)
+        return f"Apps bloquees pour {duration_minutes} minutes."
+
+    @function_tool(name="unblock_apps")
+    async def tool_unblock_apps(self, context: RunContext) -> str:
+        """Debloque les apps de distraction de l'utilisateur immediatement."""
+        if not self._room:
+            return "Erreur: pas de connexion a la room."
+        payload = json.dumps({
+            "type": "coach_action",
+            "action": "unblock_apps",
+        }).encode()
+        await self._room.local_participant.publish_data(payload, reliable=True)
+        logger.info("📱 Sent unblock_apps data message")
+        return "Apps debloquees."
 
 
 # =============================================================================
@@ -671,43 +699,18 @@ async def entrypoint(ctx: agents.JobContext):
     logger.info("TTS voice_id=%s (from_metadata=%s)", voice_id, bool(meta.get("voice_id")))
 
     # Create session: Gradium STT + Blackbox AI LLM (fast model) + Gradium TTS
-    llm_model = "blackboxai/google/gemini-2.5-flash"
-    logger.info("LLM model: %s via Blackbox AI", llm_model)
+    llm_model = "gemini-2.5-flash"
+    logger.info("LLM model: %s via Google Gemini", llm_model)
     session = AgentSession(
         stt=gradium.STT(sample_rate=24000),
         llm=openai.LLM(
             model=llm_model,
-            base_url="https://api.blackbox.ai",
-            api_key=os.environ.get("BLACKBOX_API_KEY", ""),
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+            api_key=os.environ.get("GOOGLE_API_KEY", ""),
         ),
         tts=gradium.TTS(voice_id=voice_id),
         vad=silero.VAD.load(),
     )
-
-    # ---- Real-time tools (called by LLM, send data messages to iOS) ----
-
-    @session.tool("block_apps")
-    async def tool_block_apps(duration_minutes: int = 30) -> str:
-        """Bloque les apps de distraction de l'utilisateur pendant la duree indiquee (en minutes)."""
-        payload = json.dumps({
-            "type": "coach_action",
-            "action": "block_apps",
-            "duration_minutes": duration_minutes,
-        }).encode()
-        await ctx.room.local_participant.publish_data(payload, reliable=True)
-        logger.info("📱 Sent block_apps data message (duration=%d)", duration_minutes)
-        return f"Apps bloquees pour {duration_minutes} minutes."
-
-    @session.tool("unblock_apps")
-    async def tool_unblock_apps() -> str:
-        """Debloque les apps de distraction de l'utilisateur immediatement."""
-        payload = json.dumps({
-            "type": "coach_action",
-            "action": "unblock_apps",
-        }).encode()
-        await ctx.room.local_participant.publish_data(payload, reliable=True)
-        logger.info("📱 Sent unblock_apps data message")
-        return "Apps debloquees."
 
     # Track conversation for post-call Backboard sync
     transcript: list[dict] = []
@@ -726,7 +729,7 @@ async def entrypoint(ctx: agents.JobContext):
     t0 = time.time()
     await session.start(
         room=ctx.room,
-        agent=VoltaAgent(instructions=system_prompt, lang=lang),
+        agent=VoltaAgent(instructions=system_prompt, lang=lang, room=ctx.room),
     )
     logger.info("Session started in %s", _elapsed(t0))
 

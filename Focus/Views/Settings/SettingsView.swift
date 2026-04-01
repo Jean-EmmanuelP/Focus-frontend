@@ -3,6 +3,7 @@ import SceneKit
 import GLTFKit2
 import Combine
 import AVFoundation
+import PhotosUI
 
 // MARK: - UserDefaults Keys for Settings Preferences
 enum SettingsPrefsKeys {
@@ -69,12 +70,16 @@ struct SettingsView: View {
     @State private var showChangeEmail = false
     @State private var showChangePassword = false
     @State private var showDeleteAccount = false
+    @State private var isDeletingAccount = false
+    @State private var deleteError: String?
     @State private var showSubscription = false
     @State private var showOnboarding = false
     @State private var showAvatarTest = false
     @State private var showAppBlocker = false
     @State private var showCalendarProviders = false
     @State private var showEditCoachName = false
+    @State private var showEditPseudo = false
+    @State private var showFriendsFromSettings = false
 
     private let userService = UserService()
 
@@ -117,6 +122,14 @@ struct SettingsView: View {
             .animation(.easeInOut(duration: 0.3), value: showChangeEmail)
             .animation(.easeInOut(duration: 0.3), value: showChangePassword)
             .animation(.easeInOut(duration: 0.3), value: showDeleteAccount)
+            .animation(.easeInOut(duration: 0.3), value: showEditPseudo)
+            .animation(.easeInOut(duration: 0.3), value: showFriendsFromSettings)
+            .sheet(isPresented: $showFriendsFromSettings) {
+                FriendsView(onDismiss: { showFriendsFromSettings = false })
+                    .presentationDetents([.large])
+                    .presentationDragIndicator(.visible)
+                    .presentationBackground(.ultraThinMaterial)
+            }
     }
 
     // MARK: - Settings Content
@@ -140,6 +153,8 @@ struct SettingsView: View {
                         resourcesSection
                             .padding(.top, 24)
                         communitySection
+                            .padding(.top, 24)
+                        socialSection
                             .padding(.top, 24)
                         signOutButton
                             .padding(.top, 32)
@@ -167,6 +182,7 @@ struct SettingsView: View {
         if showAccount {
             ReplicaAccountView(
                 onDismiss: { withAnimation(.easeInOut(duration: 0.3)) { showAccount = false } },
+                onShowEditPseudo: { withAnimation(.easeInOut(duration: 0.3)) { showEditPseudo = true } },
                 onShowEditName: { withAnimation(.easeInOut(duration: 0.3)) { showEditName = true } },
                 onShowEditPronouns: { withAnimation(.easeInOut(duration: 0.3)) { showEditPronouns = true } },
                 onShowChangeEmail: { withAnimation(.easeInOut(duration: 0.3)) { showChangeEmail = true } },
@@ -190,7 +206,12 @@ struct SettingsView: View {
         } else if showDeleteAccount {
             ReplicaDeleteAccountView(
                 userName: store.user?.firstName ?? store.user?.name ?? "Utilisateur",
-                onDismiss: { withAnimation(.easeInOut(duration: 0.3)) { showDeleteAccount = false } },
+                isDeleting: isDeletingAccount,
+                errorMessage: deleteError,
+                onDismiss: {
+                    deleteError = nil
+                    withAnimation(.easeInOut(duration: 0.3)) { showDeleteAccount = false }
+                },
                 onConfirm: { deleteAccount() }
             )
             .transition(.opacity)
@@ -201,7 +222,18 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var editOverlays: some View {
-        if showEditName {
+        if showEditPseudo {
+            EditPseudoView(
+                currentPseudo: store.user?.pseudo ?? "",
+                onDismiss: { withAnimation(.easeInOut(duration: 0.3)) { showEditPseudo = false } },
+                onSave: { pseudo in
+                    store.user?.pseudo = pseudo
+                    withAnimation(.easeInOut(duration: 0.3)) { showEditPseudo = false }
+                    Task { await updatePseudo(pseudo) }
+                }
+            )
+            .transition(.opacity)
+        } else if showEditName {
             ReplicaEditNameView(
                 currentName: store.user?.firstName ?? store.user?.name ?? "",
                 onDismiss: { withAnimation(.easeInOut(duration: 0.3)) { showEditName = false } },
@@ -480,6 +512,56 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - Social Section
+
+    private var socialSection: some View {
+        VStack(spacing: 0) {
+            sectionLabel("Social")
+
+            ShareLink(
+                item: URL(string: "https://apps.apple.com/app/id6743387301")!,
+                subject: Text("Focus"),
+                message: Text("Rejoins-moi sur Focus et restons productifs ensemble !")
+            ) {
+                HStack {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 16))
+                        .foregroundColor(.white)
+                    Text("Partager Focus")
+                        .font(.system(size: 16))
+                        .foregroundColor(.white)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(ReplicaColors.chevron)
+                }
+                .padding(.vertical, 14)
+            }
+
+            replicaDivider
+
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showFriendsFromSettings = true
+                }
+            }) {
+                HStack {
+                    Image(systemName: "person.2.fill")
+                        .font(.system(size: 16))
+                        .foregroundColor(.white)
+                    Text("Mes amis")
+                        .font(.system(size: 16))
+                        .foregroundColor(.white)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(ReplicaColors.chevron)
+                }
+                .padding(.vertical, 14)
+            }
+        }
+    }
+
     // MARK: - Sign Out Button
 
     private var signOutButton: some View {
@@ -728,6 +810,17 @@ struct SettingsView: View {
         }
     }
 
+    private func updatePseudo(_ pseudo: String) async {
+        do {
+            let updated = try await userService.updateProfile(pseudo: pseudo)
+            await MainActor.run {
+                FocusAppStore.shared.user = User(from: updated)
+            }
+        } catch {
+            print("Failed to update pseudo: \(error)")
+        }
+    }
+
     private func updateName(_ name: String) async {
         do {
             let updated = try await userService.updateProfile(firstName: name)
@@ -768,15 +861,22 @@ struct SettingsView: View {
     }
 
     private func deleteAccount() {
+        isDeletingAccount = true
+        deleteError = nil
         Task {
             do {
                 try await userService.deleteAccount()
                 await MainActor.run {
+                    isDeletingAccount = false
                     AppRouter.shared.showSettings = false
                     FocusAppStore.shared.signOut()
                     onDismiss()
                 }
             } catch {
+                await MainActor.run {
+                    isDeletingAccount = false
+                    deleteError = "Impossible de supprimer le compte. Verifie ta connexion et reessaie."
+                }
                 print("Failed to delete account: \(error)")
             }
         }
@@ -824,6 +924,7 @@ private func replicaHeader(title: String, showBack: Bool, onClose: @escaping () 
 
 struct ReplicaAccountView: View {
     var onDismiss: () -> Void
+    var onShowEditPseudo: () -> Void
     var onShowEditName: () -> Void
     var onShowEditPronouns: () -> Void
     var onShowChangeEmail: () -> Void
@@ -831,6 +932,9 @@ struct ReplicaAccountView: View {
     var onShowDeleteAccount: () -> Void
 
     @EnvironmentObject var store: FocusAppStore
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var isUploadingAvatar = false
+    private let userService = UserService()
 
     private var pronounsDisplay: String {
         switch store.user?.gender {
@@ -868,6 +972,72 @@ struct ReplicaAccountView: View {
                 replicaHeader(title: "Compte", showBack: true, onClose: onDismiss)
 
                 VStack(spacing: 0) {
+                    // Photo de profil
+                    VStack(spacing: 12) {
+                        PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                            ZStack(alignment: .bottomTrailing) {
+                                if let avatarURL = store.user?.avatarURL, let url = URL(string: avatarURL) {
+                                    AsyncImage(url: url) { phase in
+                                        switch phase {
+                                        case .success(let image):
+                                            image
+                                                .resizable()
+                                                .scaledToFill()
+                                        default:
+                                            profileInitialView
+                                        }
+                                    }
+                                    .frame(width: 80, height: 80)
+                                    .clipShape(Circle())
+                                } else {
+                                    profileInitialView
+                                        .frame(width: 80, height: 80)
+                                        .clipShape(Circle())
+                                }
+
+                                if isUploadingAvatar {
+                                    Circle()
+                                        .fill(.black.opacity(0.5))
+                                        .frame(width: 80, height: 80)
+                                        .overlay(ProgressView().tint(.white))
+                                }
+
+                                Image(systemName: "camera.fill")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .frame(width: 28, height: 28)
+                                    .background(Circle().fill(Color(red: 0.25, green: 0.50, blue: 1.0)))
+                                    .overlay(Circle().stroke(.white, lineWidth: 2))
+                            }
+                        }
+                        .disabled(isUploadingAvatar)
+                        .onChange(of: selectedPhotoItem) { _, newItem in
+                            guard let newItem else { return }
+                            Task { await uploadSelectedPhoto(newItem) }
+                        }
+
+                        Text(store.user?.firstName ?? store.user?.name ?? "Utilisateur")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(.white)
+
+                        if let pseudo = store.user?.pseudo, !pseudo.isEmpty {
+                            Text("@\(pseudo)")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.white.opacity(0.5))
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
+
+                    Divider().background(ReplicaColors.rowDivider)
+
+                    // Pseudo
+                    Button(action: onShowEditPseudo) {
+                        accountRow(label: "Pseudo", value: store.user?.pseudo ?? "Non défini")
+                    }
+
+                    Divider().background(ReplicaColors.rowDivider)
+
                     // Nom
                     Button(action: onShowEditName) {
                         accountRow(label: "Nom", value: store.user?.firstName ?? store.user?.name ?? "Non défini")
@@ -922,10 +1092,45 @@ struct ReplicaAccountView: View {
                 .padding(.horizontal, 16)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
+                #if DEBUG
+                Spacer().frame(height: 24)
+
+                // Reset onboarding (dev only)
+                Button(action: resetOnboarding) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "arrow.counterclockwise")
+                            .font(.system(size: 14))
+                        Text("Reset onboarding")
+                            .font(.system(size: 14))
+                    }
+                    .foregroundColor(.orange)
+                }
+                .padding(.horizontal, 16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                #endif
+
                 Spacer()
             }
         }
     }
+
+    #if DEBUG
+    private func resetOnboarding() {
+        Task {
+            do {
+                try await OnboardingService().resetOnboarding()
+                await MainActor.run {
+                    // Clear local cache
+                    UserDefaults.standard.removeObject(forKey: "volta_onboarding_completed")
+                    UserDefaults.standard.removeObject(forKey: "volta_onboarding_user_id")
+                    FocusAppStore.shared.hasCompletedOnboarding = false
+                }
+            } catch {
+                print("Failed to reset onboarding: \(error)")
+            }
+        }
+    }
+    #endif
 
     private func accountRow(label: String, value: String, showChevron: Bool = true) -> some View {
         HStack {
@@ -945,6 +1150,201 @@ struct ReplicaAccountView: View {
             }
         }
         .padding(.vertical, 16)
+    }
+
+    private var profileInitialText: String {
+        if let first = store.user?.firstName, !first.isEmpty {
+            return String(first.prefix(1)).uppercased()
+        }
+        if let user = store.user {
+            return String(user.name.prefix(1)).uppercased()
+        }
+        return "U"
+    }
+
+    private var profileInitialView: some View {
+        ZStack {
+            Circle().fill(Color(red: 0.25, green: 0.50, blue: 1.0))
+            Text(profileInitialText)
+                .font(.system(size: 32, weight: .bold, design: .rounded))
+                .foregroundColor(.white)
+        }
+    }
+
+    private func uploadSelectedPhoto(_ item: PhotosPickerItem) async {
+        isUploadingAvatar = true
+        defer { isUploadingAvatar = false }
+
+        guard let data = try? await item.loadTransferable(type: Data.self) else { return }
+
+        do {
+            let newURL = try await userService.uploadAvatar(imageData: data, contentType: "image/jpeg")
+            await MainActor.run {
+                store.user?.avatarURL = newURL
+            }
+        } catch {
+            print("Failed to upload avatar: \(error)")
+        }
+    }
+}
+
+// MARK: - Edit Name View
+
+// MARK: - Edit Pseudo View
+
+struct EditPseudoView: View {
+    let currentPseudo: String
+    var onDismiss: () -> Void
+    var onSave: (String) -> Void
+
+    @State private var pseudo: String = ""
+    @State private var isAvailable: Bool? = nil
+    @State private var isChecking = false
+    @State private var errorMessage: String?
+    @FocusState private var isInputFocused: Bool
+
+    private var cleanPseudo: String {
+        pseudo.lowercased()
+            .trimmingCharacters(in: .whitespaces)
+            .replacingOccurrences(of: " ", with: "_")
+    }
+
+    private var isValid: Bool {
+        let p = cleanPseudo
+        return p.count >= 3 && p.count <= 20 && p.range(of: "^[a-z0-9_]+$", options: .regularExpression) != nil
+    }
+
+    private var canSave: Bool {
+        isValid && (isAvailable == true || cleanPseudo == currentPseudo.lowercased())
+    }
+
+    var body: some View {
+        ZStack {
+            ReplicaColors.background
+                .ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                replicaHeader(title: "Pseudo", showBack: true, onClose: onDismiss)
+
+                VStack(spacing: 12) {
+                    // Input
+                    HStack(spacing: 8) {
+                        Text("@")
+                            .font(.system(size: 17, weight: .medium))
+                            .foregroundColor(.gray)
+
+                        TextField("", text: $pseudo, prompt: Text("ton_pseudo").foregroundColor(.gray))
+                            .font(.system(size: 17))
+                            .foregroundColor(ReplicaColors.backgroundSolid)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                            .focused($isInputFocused)
+                            .onChange(of: pseudo) { _, newValue in
+                                pseudo = newValue.lowercased().replacingOccurrences(of: " ", with: "_")
+                                isAvailable = nil
+                                checkAvailability()
+                            }
+
+                        // Status indicator
+                        if isChecking {
+                            ProgressView()
+                                .scaleEffect(0.7)
+                        } else if let available = isAvailable {
+                            Image(systemName: available ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                .foregroundColor(available ? .green : .red)
+                                .font(.system(size: 18))
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .frame(height: 56)
+                    .background(Color.white)
+                    .cornerRadius(28)
+                    .padding(.horizontal, 24)
+
+                    // Validation hints
+                    VStack(alignment: .leading, spacing: 4) {
+                        if !cleanPseudo.isEmpty && !isValid {
+                            Text("3-20 caractères, lettres, chiffres et _ uniquement")
+                                .font(.system(size: 12))
+                                .foregroundColor(.orange)
+                        } else if isAvailable == false {
+                            Text("Ce pseudo est déjà pris")
+                                .font(.system(size: 12))
+                                .foregroundColor(.red)
+                        } else if isAvailable == true {
+                            Text("Pseudo disponible !")
+                                .font(.system(size: 12))
+                                .foregroundColor(.green)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 32)
+                }
+                .padding(.top, 32)
+
+                Spacer()
+
+                // Save button
+                Button(action: { onSave(cleanPseudo) }) {
+                    Text("Sauvegarder")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(ReplicaColors.backgroundSolid)
+                        .frame(width: 200, height: 56)
+                        .background(
+                            Capsule()
+                                .fill(Color.white.opacity(0.9))
+                        )
+                }
+                .disabled(!canSave)
+                .opacity(canSave ? 1 : 0.4)
+                .padding(.bottom, 50)
+            }
+        }
+        .onAppear {
+            pseudo = currentPseudo
+            isInputFocused = true
+        }
+    }
+
+    private func checkAvailability() {
+        let p = cleanPseudo
+        guard isValid else {
+            isAvailable = nil
+            return
+        }
+        // Same as current = always available
+        if p == currentPseudo.lowercased() {
+            isAvailable = true
+            return
+        }
+
+        isChecking = true
+        Task {
+            try? await Task.sleep(nanoseconds: 500_000_000) // debounce
+            guard cleanPseudo == p else { return } // stale check
+
+            do {
+                struct CheckResponse: Decodable {
+                    let available: Bool
+                }
+                let response: CheckResponse = try await APIClient.shared.request(
+                    endpoint: .checkPseudo(pseudo: p),
+                    method: .get
+                )
+                await MainActor.run {
+                    if cleanPseudo == p {
+                        isAvailable = response.available
+                        isChecking = false
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    // If endpoint doesn't exist yet, assume available
+                    isAvailable = true
+                    isChecking = false
+                }
+            }
+        }
     }
 }
 
@@ -1762,6 +2162,8 @@ struct ReplicaChangeEmailView: View {
 
 struct ReplicaDeleteAccountView: View {
     let userName: String
+    var isDeleting: Bool = false
+    var errorMessage: String? = nil
     var onDismiss: () -> Void
     var onConfirm: () -> Void
 
@@ -1844,6 +2246,15 @@ struct ReplicaDeleteAccountView: View {
                 )
                 .padding(.horizontal, 16)
 
+                // Error message
+                if let errorMessage {
+                    Text(errorMessage)
+                        .font(.system(size: 14))
+                        .foregroundColor(.red)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 12)
+                }
+
                 // Buttons
                 HStack(spacing: 12) {
                     Button(action: onDismiss) {
@@ -1857,18 +2268,27 @@ struct ReplicaDeleteAccountView: View {
                                     .fill(Color.white.opacity(0.15))
                             )
                     }
+                    .disabled(isDeleting)
 
                     Button(action: onConfirm) {
-                        Text("Continuer")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(ReplicaColors.backgroundSolid)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 50)
-                            .background(
-                                Capsule()
-                                    .fill(Color.white.opacity(0.9))
-                            )
+                        Group {
+                            if isDeleting {
+                                ProgressView()
+                                    .tint(ReplicaColors.backgroundSolid)
+                            } else {
+                                Text("Supprimer")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(ReplicaColors.backgroundSolid)
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                        .background(
+                            Capsule()
+                                .fill(isDeleting ? Color.white.opacity(0.5) : Color.red.opacity(0.9))
+                        )
                     }
+                    .disabled(isDeleting)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 24)
