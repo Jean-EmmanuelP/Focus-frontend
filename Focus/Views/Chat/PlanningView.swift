@@ -21,6 +21,7 @@ struct PlanningView: View {
     @State private var showVoicePlanningSheet = false
     @State private var showVoiceCall = false
     @State private var voicePlanningScope: String = "today"
+    @State private var quests: [QuestResponse] = []
 
     // Background color matching chat screen avatar background
     private let bgColor = Color(red: 0.10, green: 0.12, blue: 0.20)
@@ -88,7 +89,12 @@ struct PlanningView: View {
                             }
                         }
 
-                        if tasks.isEmpty && (isToday ? rituals.isEmpty : true) {
+                        // Objectifs section
+                        if !quests.isEmpty {
+                            objectivesSection
+                        }
+
+                        if tasks.isEmpty && (isToday ? rituals.isEmpty : true) && quests.isEmpty {
                             emptyState
                         }
 
@@ -130,7 +136,14 @@ struct PlanningView: View {
         }
         .task {
             await loadData()
+            await loadQuests()
             await preloadWeekDots()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .calendarNeedsRefresh)) { _ in
+            Task {
+                await loadData()
+                await loadQuests()
+            }
         }
         .alert("Supprimer cette tâche ?", isPresented: Binding(
             get: { taskToDelete != nil },
@@ -195,6 +208,16 @@ struct PlanningView: View {
         }
         .fullScreenCover(isPresented: $showVoiceCall) {
             VoiceCallView(mode: "planning", planningScope: voicePlanningScope)
+        }
+        .onChange(of: showVoiceCall) { newValue in
+            if !newValue {
+                // Voice planning ended — refresh tasks after a short delay for Backboard processing
+                Task {
+                    try? await Task.sleep(nanoseconds: 2_000_000_000)
+                    await FocusAppStore.shared.refreshTodaysTasks()
+                    NotificationCenter.default.post(name: .calendarNeedsRefresh, object: nil)
+                }
+            }
         }
     }
 
@@ -495,6 +518,81 @@ struct PlanningView: View {
 
     // MARK: - Rituals Section
 
+    // MARK: - Objectives Section
+
+    private var objectivesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "target")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.5))
+                Text("Objectifs")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(.white.opacity(0.5))
+                    .textCase(.uppercase)
+                    .kerning(1)
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+
+            let shortTerm = quests.filter { ($0.term ?? "short") == "short" }
+            let mediumTerm = quests.filter { $0.term == "medium" }
+            let longTerm = quests.filter { $0.term == "long" }
+
+            if !shortTerm.isEmpty {
+                objectiveTermGroup(label: "Court terme", icon: "bolt.fill", color: .orange, items: shortTerm)
+            }
+            if !mediumTerm.isEmpty {
+                objectiveTermGroup(label: "Moyen terme", icon: "calendar", color: .blue, items: mediumTerm)
+            }
+            if !longTerm.isEmpty {
+                objectiveTermGroup(label: "Long terme", icon: "star.fill", color: .purple, items: longTerm)
+            }
+        }
+        .padding(.horizontal, 16)
+    }
+
+    private func objectiveTermGroup(label: String, icon: String, color: Color, items: [QuestResponse]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 11))
+                    .foregroundColor(color)
+                Text(label)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(color)
+            }
+            .padding(.horizontal, 4)
+
+            ForEach(items) { quest in
+                HStack(spacing: 10) {
+                    Circle()
+                        .fill(color.opacity(0.3))
+                        .frame(width: 8, height: 8)
+
+                    Text(quest.title)
+                        .font(.system(size: 15))
+                        .foregroundColor(.white.opacity(0.85))
+                        .lineLimit(1)
+
+                    Spacer()
+
+                    if quest.targetValue > 0 {
+                        Text("\(quest.currentValue)/\(quest.targetValue)")
+                            .font(.system(size: 12, design: .monospaced))
+                            .foregroundColor(.white.opacity(0.4))
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color.white.opacity(0.06))
+                )
+            }
+        }
+    }
+
     private var ritualsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
@@ -640,6 +738,22 @@ struct PlanningView: View {
         f.locale = Locale(identifier: "fr_FR")
         f.dateFormat = "EEEE d MMMM"
         return f.string(from: selectedDate).capitalized
+    }
+
+    private func loadQuests() async {
+        do {
+            let result: [QuestResponse] = try await APIClient.shared.request(
+                endpoint: .quests,
+                method: .get
+            )
+            await MainActor.run {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    quests = result
+                }
+            }
+        } catch {
+            print("Failed to load quests: \(error)")
+        }
     }
 
     private func loadData() async {

@@ -790,10 +790,19 @@ struct QuestResponse: Codable, Identifiable {
     let currentValue: Int
     let targetValue: Int
     let targetDate: String? // ISO date string
+    let term: String? // short, medium, long
 
     var progress: Double {
         guard targetValue > 0 else { return 0 }
         return Double(currentValue) / Double(targetValue)
+    }
+
+    var termLabel: String {
+        switch term {
+        case "long": return "Long terme"
+        case "medium": return "Moyen terme"
+        default: return "Court terme"
+        }
     }
 }
 

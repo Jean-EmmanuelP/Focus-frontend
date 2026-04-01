@@ -272,6 +272,10 @@ class VoiceCallViewModel: ObservableObject {
             case "planning_done":
                 await store?.refreshTodaysTasks()
                 NotificationCenter.default.post(name: .calendarNeedsRefresh, object: nil)
+            case "quest_created":
+                NotificationCenter.default.post(name: .calendarNeedsRefresh, object: nil)
+            case "end_call":
+                endCall()
             default:
                 break
             }

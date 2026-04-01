@@ -318,10 +318,14 @@ def build_system_prompt(
         "Par exemple: créer une tâche, compléter un rituel, créer un objectif, etc. "
         "Ces actions seront exécutées automatiquement après l'appel.\n\n"
         "ACTIONS EN TEMPS RÉEL (via tes outils):\n"
-        "- block_apps(duration_minutes): Bloque les apps de distraction immédiatement. "
-        "Utilise cet outil quand l'utilisateur dit 'bloque mes apps', 'je veux me concentrer', 'focus', etc.\n"
-        "- unblock_apps(): Débloque les apps immédiatement. "
-        "Utilise cet outil quand l'utilisateur dit 'débloque mes apps', 'c'est bon j'ai fini', etc.\n"
+        "- create_task(title, date, time_block, priority): Crée une tâche immédiatement. "
+        "En mode planning, crée TOUTES les tâches d'un coup pendant ton résumé de fin.\n"
+        "- create_quest(title, area, term): Crée un objectif. term = 'short' (court terme), 'medium' (moyen terme), 'long' (long terme).\n"
+        "- block_apps(duration_minutes): Bloque les apps de distraction immédiatement.\n"
+        "- unblock_apps(): Débloque les apps immédiatement.\n"
+        "- end_call(): Termine l'appel vocal. "
+        "Utilise quand l'utilisateur dit 'merci', 'c'est bon', 'au revoir', etc. "
+        "Avant de raccrocher, fais un bref résumé et crée les tâches/objectifs discutés.\n"
     )
 
     ctx = f"\nCONTEXTE ACTUEL:\n- Moment: {time_of_day}\n- Langue: {lang}\n"
@@ -588,10 +592,11 @@ async def fetch_planning_context(auth_token: str, scope: str) -> dict | None:
 # =============================================================================
 
 class VoltaAgent(agents.Agent):
-    def __init__(self, instructions: str, lang: str = "fr", room: rtc.Room | None = None) -> None:
+    def __init__(self, instructions: str, lang: str = "fr", room: rtc.Room | None = None, auth_token: str | None = None) -> None:
         super().__init__(instructions=instructions)
         self._lang = lang
         self._room = room
+        self._auth_token = auth_token
 
     @function_tool(name="block_apps")
     async def tool_block_apps(self, context: RunContext, duration_minutes: int = 30) -> str:
@@ -619,6 +624,80 @@ class VoltaAgent(agents.Agent):
         await self._room.local_participant.publish_data(payload, reliable=True)
         logger.info("📱 Sent unblock_apps data message")
         return "Apps debloquees."
+
+    @function_tool(name="end_call")
+    async def tool_end_call(self, context: RunContext) -> str:
+        """Termine l'appel vocal. Utilise quand l'utilisateur dit au revoir, merci, c'est bon, j'ai fini, etc."""
+        if not self._room:
+            return "Appel deja termine."
+        payload = json.dumps({
+            "type": "coach_action",
+            "action": "end_call",
+        }).encode()
+        await self._room.local_participant.publish_data(payload, reliable=True)
+        logger.info("📱 Sent end_call data message")
+        return "Appel termine."
+
+    @function_tool(name="create_task")
+    async def tool_create_task(
+        self, context: RunContext,
+        title: str,
+        date: str = "",
+        time_block: str = "",
+        priority: str = "",
+    ) -> str:
+        """Cree une tache pour l'utilisateur. Utilise pendant le resume de fin pour creer toutes les taches discutees.
+
+        Args:
+            title: Le titre de la tache
+            date: La date au format YYYY-MM-DD (par defaut aujourd'hui)
+            time_block: Le creneau: morning, afternoon, ou evening
+            priority: La priorite: low, medium, ou high
+        """
+        if not self._auth_token:
+            return "Erreur: pas de token d'authentification."
+        headers = {"Authorization": f"Bearer {self._auth_token}", "Content-Type": "application/json"}
+        body = {"title": title, "date": date or datetime.now().strftime("%Y-%m-%d")}
+        if time_block:
+            body["time_block"] = time_block
+        if priority:
+            body["priority"] = priority
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(f"{FOCUS_API_URL}/calendar/tasks", headers=headers, json=body)
+        created = resp.status_code in (200, 201)
+        logger.info("📋 create_task '%s' → %s", title, "OK" if created else f"FAIL({resp.status_code})")
+        # Notify iOS to refresh tasks
+        if created and self._room:
+            payload = json.dumps({"type": "coach_action", "action": "task_created"}).encode()
+            await self._room.local_participant.publish_data(payload, reliable=True)
+        return f"Tache '{title}' creee." if created else f"Erreur lors de la creation de '{title}'."
+
+    @function_tool(name="create_quest")
+    async def tool_create_quest(
+        self, context: RunContext,
+        title: str,
+        area: str = "other",
+        term: str = "short",
+    ) -> str:
+        """Cree un objectif pour l'utilisateur.
+
+        Args:
+            title: Le titre de l'objectif
+            area: Le domaine: health, learning, career, relationships, creativity, other
+            term: L'horizon: short (court terme), medium (moyen terme), long (long terme)
+        """
+        if not self._auth_token:
+            return "Erreur: pas de token d'authentification."
+        headers = {"Authorization": f"Bearer {self._auth_token}", "Content-Type": "application/json"}
+        body = {"title": title, "area": area, "term": term}
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(f"{FOCUS_API_URL}/quests", headers=headers, json=body)
+        created = resp.status_code in (200, 201)
+        logger.info("🎯 create_quest '%s' (term=%s) → %s", title, term, "OK" if created else f"FAIL({resp.status_code})")
+        if created and self._room:
+            payload = json.dumps({"type": "coach_action", "action": "quest_created"}).encode()
+            await self._room.local_participant.publish_data(payload, reliable=True)
+        return f"Objectif '{title}' cree." if created else f"Erreur lors de la creation de '{title}'."
 
 
 # =============================================================================
@@ -716,20 +795,21 @@ async def entrypoint(ctx: agents.JobContext):
     transcript: list[dict] = []
 
     @session.on("conversation_item_added")
-    def on_conversation_item(item):
+    def on_conversation_item(event):
+        item = event.item
         role = getattr(item, "role", None)
-        content = getattr(item, "content", "") or getattr(item, "text", "") or ""
-        if not content or role not in ("user", "assistant"):
+        text = getattr(item, "text_content", None) or ""
+        if not text or role not in ("user", "assistant"):
             return
         transcript_role = "user" if role == "user" else "agent"
-        transcript.append({"role": transcript_role, "text": content})
+        transcript.append({"role": transcript_role, "text": text})
         label = "USER" if role == "user" else "AGENT"
-        logger.info("%s: %s", label, content[:120])
+        logger.info("%s: %s", label, text[:120])
 
     t0 = time.time()
     await session.start(
         room=ctx.room,
-        agent=VoltaAgent(instructions=system_prompt, lang=lang, room=ctx.room),
+        agent=VoltaAgent(instructions=system_prompt, lang=lang, room=ctx.room, auth_token=auth_token),
     )
     logger.info("Session started in %s", _elapsed(t0))
 

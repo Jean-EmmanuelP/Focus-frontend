@@ -227,6 +227,9 @@ enum APIConfiguration {
         case uncompleteRoutine(String)
         case completeRoutinesBatch
 
+        // Quests (objectives)
+        case quests
+
         // Completions
         case completions(routineId: String?, from: String?, to: String?)
 
@@ -343,6 +346,20 @@ enum APIConfiguration {
         case leaveFocusRoom(String)
         case focusRoom(String)
 
+        // Friends
+        case friends
+        case friendRequests
+        case sendFriendRequest(userId: String)
+        case respondFriendRequest(id: String)
+        case removeFriend(id: String)
+        case searchUsers(query: String)
+
+        // Pseudo
+        case checkPseudo(pseudo: String)
+
+        // Leaderboard
+        case leaderboard(scope: String)
+
         var path: String {
             switch self {
             // Health
@@ -379,6 +396,10 @@ enum APIConfiguration {
                 return "/routines/\(id)/complete"
             case .completeRoutinesBatch:
                 return "/routines/complete-batch"
+
+            // Quests
+            case .quests:
+                return "/quests"
 
             // Completions
             case .completions(let routineId, let from, let to):
@@ -579,6 +600,28 @@ enum APIConfiguration {
                 return "/focus-rooms/\(id)/leave"
             case .focusRoom(let id):
                 return "/focus-rooms/\(id)"
+
+            // Friends
+            case .friends:
+                return "/friends"
+            case .friendRequests:
+                return "/friends/requests"
+            case .sendFriendRequest(let userId):
+                return "/friends/request/\(userId)"
+            case .respondFriendRequest(let id):
+                return "/friends/request/\(id)"
+            case .removeFriend(let id):
+                return "/friends/\(id)"
+            case .searchUsers(let query):
+                return "/users/search?q=\(query)"
+
+            // Pseudo
+            case .checkPseudo(let pseudo):
+                return "/users/check-pseudo?pseudo=\(pseudo)"
+
+            // Leaderboard
+            case .leaderboard(let scope):
+                return "/leaderboard?scope=\(scope)"
 
             }
         }
