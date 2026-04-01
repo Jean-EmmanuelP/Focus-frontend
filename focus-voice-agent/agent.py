@@ -372,9 +372,12 @@ Tu es en session de planification vocale. Ton rôle:
 1. Résume ce que tu vois (tâches existantes, événements calendrier)
 2. Demande les priorités et objectifs pour chaque jour
 3. Propose des créneaux en tenant compte des événements calendrier
-4. Confirme le plan avant de terminer l'appel
-5. Sois structuré mais conversationnel — pas de listes, c'est de la voix
-Après l'appel, les tâches seront créées automatiquement via le transcript.
+4. Quand l'utilisateur confirme le plan, CRÉE IMMÉDIATEMENT les tâches avec create_task (une par une)
+5. Puis appelle end_call pour terminer
+
+IMPORTANT: Tu DOIS utiliser create_task pour chaque tâche mentionnée AVANT d'appeler end_call.
+L'ordre est: discussion → confirmation → create_task x N → end_call.
+Ne te contente pas de "noter" les tâches — crée-les réellement avec l'outil.
 """
         # Inject actual planning data into prompt
         if planning_context and planning_context.get("days"):
@@ -627,9 +630,11 @@ class VoltaAgent(agents.Agent):
 
     @function_tool(name="end_call")
     async def tool_end_call(self, context: RunContext) -> str:
-        """Termine l'appel vocal. Utilise quand l'utilisateur dit au revoir, merci, c'est bon, j'ai fini, etc."""
+        """Termine l'appel vocal. IMPORTANT: Avant d'appeler end_call, tu DOIS d'abord creer toutes les taches et objectifs discutes avec create_task/create_quest. end_call est toujours le DERNIER outil appele."""
         if not self._room:
             return "Appel deja termine."
+        # Wait 3s to let TTS finish the summary before disconnecting
+        await asyncio.sleep(3)
         payload = json.dumps({
             "type": "coach_action",
             "action": "end_call",

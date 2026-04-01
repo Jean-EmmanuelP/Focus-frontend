@@ -276,7 +276,11 @@ class VoiceCallViewModel: ObservableObject {
             case "quest_created":
                 NotificationCenter.default.post(name: .calendarNeedsRefresh, object: nil)
             case "end_call":
-                endCall()
+                // Small delay to let last audio finish before disconnecting
+                Task {
+                    try? await Task.sleep(nanoseconds: 1_500_000_000)
+                    await MainActor.run { endCall() }
+                }
             default:
                 break
             }
