@@ -38,7 +38,7 @@ struct VoiceCallView: View {
         .onAppear { viewModel.startCall(mode: mode, planningScope: planningScope) }
         .onDisappear { viewModel.endCall() }
         .onChange(of: viewModel.callState) { newState in
-            if newState == .ended && viewModel.errorMessage == nil {
+            if newState == .ended && viewModel.errorMessage == nil && viewModel.callDuration > 3 {
                 dismiss()
             }
         }

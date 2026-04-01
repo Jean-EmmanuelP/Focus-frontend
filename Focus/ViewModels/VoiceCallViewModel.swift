@@ -67,11 +67,12 @@ class VoiceCallViewModel: ObservableObject {
                 case .connected:
                     self.callState = .listening
                 case .disconnected:
-                    // Only end the call if we were actually connected (not during initial handshake)
-                    if self.callState == .listening || self.callState == .speaking || self.callState == .processing {
+                    // Only end the call if we were actually connected AND call has been going for > 3s
+                    // LiveKit can flash disconnected during handshake or right after connect
+                    if (self.callState == .listening || self.callState == .speaking || self.callState == .processing),
+                       self.callDuration > 3 {
                         self.callState = .ended
                     }
-                    // If still connecting, ignore — LiveKit can flash disconnected during handshake
                 default:
                     break
                 }
