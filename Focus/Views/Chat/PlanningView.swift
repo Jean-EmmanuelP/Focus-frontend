@@ -28,12 +28,29 @@ struct PlanningView: View {
     // Background color matching chat screen avatar background
     private let bgColor = Color(red: 0.10, green: 0.12, blue: 0.20)
 
+    // Cached formatters (avoid re-creating on every render)
+    private static let isoFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
+    private static let displayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "fr_FR")
+        f.dateFormat = "EEEE d MMMM"
+        return f
+    }()
+    private static let dayNameFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "fr_FR")
+        f.dateFormat = "EEE"
+        return f
+    }()
+
     private var isToday: Bool { Calendar.current.isDateInToday(selectedDate) }
 
     private var selectedDateString: String {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        return f.string(from: selectedDate)
+        Self.isoFormatter.string(from: selectedDate)
     }
 
     private var completedTasks: Int { tasks.filter { $0.isCompleted }.count }
@@ -60,6 +77,9 @@ struct PlanningView: View {
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 20) {
                         progressHeader
+
+                        // Objectifs en haut — vision globale
+                        objectivesSection
 
                         dateStrip
 
@@ -90,9 +110,6 @@ struct PlanningView: View {
                                 showAddRitual = true
                             }
                         }
-
-                        // Objectifs section (always visible)
-                        objectivesSection
 
                         if tasks.isEmpty && (isToday ? rituals.isEmpty : true) && quests.isEmpty {
                             emptyState
@@ -140,10 +157,7 @@ struct PlanningView: View {
             await preloadWeekDots()
         }
         .onReceive(NotificationCenter.default.publisher(for: .calendarNeedsRefresh)) { _ in
-            Task {
-                await loadData()
-                await loadQuests()
-            }
+            Task { await loadData() }
         }
         .alert("Supprimer cette tâche ?", isPresented: Binding(
             get: { taskToDelete != nil },
@@ -227,11 +241,11 @@ struct PlanningView: View {
         }
         .onChange(of: showVoiceCall) { newValue in
             if !newValue {
-                // Voice planning ended — refresh tasks after a short delay for Backboard processing
+                // Voice planning ended — refresh after a short delay for task creation
                 Task {
                     try? await Task.sleep(nanoseconds: 2_000_000_000)
-                    await FocusAppStore.shared.refreshTodaysTasks()
-                    NotificationCenter.default.post(name: .calendarNeedsRefresh, object: nil)
+                    await loadData()
+                    await loadQuests()
                 }
             }
         }
@@ -352,44 +366,29 @@ struct PlanningView: View {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         let days = (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: today) }
-        let dayNameFormatter: DateFormatter = {
-            let f = DateFormatter()
-            f.locale = Locale(identifier: "fr_FR")
-            f.dateFormat = "EEE"
-            return f
-        }()
 
         return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(days, id: \.self) { day in
                     let isSelected = calendar.isDate(day, inSameDayAs: selectedDate)
                     let isDayToday = calendar.isDateInToday(day)
+                    let dateKey = Self.isoFormatter.string(from: day)
 
                     Button {
                         selectedDate = day
-                        // Show cached data instantly
-                        let dateKey = {
-                            let f = DateFormatter()
-                            f.dateFormat = "yyyy-MM-dd"
-                            return f.string(from: day)
-                        }()
                         if let cached = tasksCache[dateKey] {
-                            withAnimation(.easeInOut(duration: 0.15)) {
-                                tasks = cached
-                            }
+                            withAnimation(.easeInOut(duration: 0.15)) { tasks = cached }
                         }
-                        if Calendar.current.isDateInToday(day), let cachedRituals = ritualsCache {
-                            withAnimation(.easeInOut(duration: 0.15)) {
-                                rituals = cachedRituals
-                            }
-                        } else if !Calendar.current.isDateInToday(day) {
+                        if calendar.isDateInToday(day), let cachedRituals = ritualsCache {
+                            withAnimation(.easeInOut(duration: 0.15)) { rituals = cachedRituals }
+                        } else if !calendar.isDateInToday(day) {
                             rituals = []
                         }
                         Task { await loadData() }
                     } label: {
                         VStack(spacing: 2) {
                             VStack(spacing: 4) {
-                                Text(isDayToday ? "Auj." : dayNameFormatter.string(from: day).capitalized)
+                                Text(isDayToday ? "Auj." : Self.dayNameFormatter.string(from: day).capitalized)
                                     .font(.system(size: 11, weight: .medium))
                                 Text("\(calendar.component(.day, from: day))")
                                     .font(.system(size: 17, weight: isSelected ? .bold : .semibold, design: .rounded))
@@ -402,15 +401,9 @@ struct PlanningView: View {
                             )
 
                             // Task indicator dot
-                            let dateKey = {
-                                let f = DateFormatter()
-                                f.dateFormat = "yyyy-MM-dd"
-                                return f.string(from: day)
-                            }()
                             if let cached = tasksCache[dateKey], !cached.isEmpty {
-                                let allDone = cached.allSatisfy { $0.isCompleted }
                                 Circle()
-                                    .fill(allDone ? Color.green : Color.orange)
+                                    .fill(cached.allSatisfy { $0.isCompleted } ? Color.green : Color.orange)
                                     .frame(width: 5, height: 5)
                             } else {
                                 Circle()
@@ -517,19 +510,16 @@ struct PlanningView: View {
             }
 
             Spacer()
-
-            Button {
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .contextMenu {
+            Button(role: .destructive) {
                 taskToDelete = task
             } label: {
-                Image(systemName: "trash")
-                    .font(.system(size: 13))
-                    .foregroundColor(.white.opacity(0.25))
-                    .frame(width: 30, height: 30)
+                Label("Supprimer", systemImage: "trash")
             }
         }
-        .padding(.leading, 16)
-        .padding(.trailing, 8)
-        .padding(.vertical, 12)
     }
 
     // MARK: - Rituals Section
@@ -761,19 +751,16 @@ struct PlanningView: View {
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.white.opacity(0.35))
             }
-
-            Button {
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .contextMenu {
+            Button(role: .destructive) {
                 ritualToDelete = ritual
             } label: {
-                Image(systemName: "trash")
-                    .font(.system(size: 13))
-                    .foregroundColor(.white.opacity(0.25))
-                    .frame(width: 30, height: 30)
+                Label("Supprimer", systemImage: "trash")
             }
         }
-        .padding(.leading, 16)
-        .padding(.trailing, 8)
-        .padding(.vertical, 12)
     }
 
     // MARK: - Add Button
@@ -823,10 +810,7 @@ struct PlanningView: View {
     // MARK: - Helpers
 
     private var selectedDateFormatted: String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "fr_FR")
-        f.dateFormat = "EEEE d MMMM"
-        return f.string(from: selectedDate).capitalized
+        Self.displayFormatter.string(from: selectedDate).capitalized
     }
 
     private func loadQuests() async {
@@ -848,6 +832,7 @@ struct PlanningView: View {
     private func loadData() async {
         let dateKey = selectedDateString
         let isFirst = isInitialLoading
+        defer { if isFirst { isInitialLoading = false } }
 
         // Show cached data instantly if available
         if let cached = tasksCache[dateKey] {
@@ -887,22 +872,18 @@ struct PlanningView: View {
         } else if selectedDateString == dateKey {
             rituals = []
         }
-        if isFirst {
-            isInitialLoading = false
-        }
+        // isInitialLoading handled by defer
     }
 
     /// Preload task counts for all 7 days to show indicator dots immediately
     private func preloadWeekDots() async {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
 
         let calendarService = CalendarService()
         for i in 0..<7 {
             guard let day = calendar.date(byAdding: .day, value: i, to: today) else { continue }
-            let dateKey = formatter.string(from: day)
+            let dateKey = Self.isoFormatter.string(from: day)
             if tasksCache[dateKey] != nil { continue } // already cached
             do {
                 let fetched = try await calendarService.getTasks(date: dateKey)
