@@ -367,16 +367,16 @@ def build_system_prompt(
         ctx += f"""
 MODE PLANIFICATION ACTIVE — Scope: {scope_label}
 Tu es en session de planification vocale. Ton rôle:
-1. Résume ce que tu vois (tâches existantes, événements calendrier)
-2. Demande les priorités et objectifs pour chaque jour
-3. Propose des créneaux en tenant compte des événements calendrier
-4. Quand l'utilisateur confirme le plan, CRÉE IMMÉDIATEMENT les tâches avec create_task (une par une)
-5. Puis appelle end_call pour terminer
+1. Demande quelles tâches l'utilisateur veut planifier, leurs créneaux (matin/après-midi/soir) et priorités
+2. Demande s'il a des objectifs de vie à poser (pro, santé, relations, apprentissage)
+3. Dès que l'utilisateur confirme ("c'est bon", "on fait ça", "parfait"):
+   → Appelle create_task pour CHAQUE tâche (ne dis pas "je note", appelle l'outil directement)
+   → Appelle create_quest pour chaque objectif
+   → Puis appelle end_call
 
-IMPORTANT: Tu DOIS utiliser create_task pour chaque tâche et create_quest pour chaque objectif AVANT d'appeler end_call.
-L'ordre est: discussion → confirmation → create_task x N → create_quest x N → end_call.
-Ne te contente pas de "noter" — crée-les réellement avec les outils.
-Demande aussi les objectifs de vie (pro, santé, relations, apprentissage) et leur horizon.
+RÈGLE CRITIQUE: Quand l'utilisateur valide, tu NE DOIS PAS répondre "je vais créer les tâches" ou "c'est noté".
+Tu DOIS appeler create_task/create_quest SILENCIEUSEMENT puis dire "C'est fait, j'ai tout créé ! Bonne journée."
+Si tu ne crées pas les tâches avec les outils, elles n'existeront PAS.
 """
         # Inject actual planning data into prompt
         if planning_context and planning_context.get("days"):
@@ -793,7 +793,7 @@ async def entrypoint(ctx: agents.JobContext):
         ),
         tts=gradium.TTS(voice_id=voice_id),
         vad=silero.VAD.load(),
-        max_tool_steps=15,
+        max_tool_steps=20,
     )
 
     # Track conversation for post-call Backboard sync
@@ -826,20 +826,28 @@ async def entrypoint(ctx: agents.JobContext):
     logger.info("Greeting queued (direct TTS, no LLM)")
     logger.info("=== AGENT READY === (total setup: %s)", _elapsed(t_entry))
 
-    # Register shutdown callback: send transcript to Backboard when call ends
+    # Register shutdown callback: send transcript to Backboard (fire-and-forget, 5s timeout)
+    # Tasks are created in real-time via tools, so this is just for memory/context
     async def on_shutdown():
         logger.info("=== SHUTDOWN CALLBACK === (transcript: %d messages)", len(transcript))
         if transcript and backboard_assistant_id:
-            logger.info("Sending voice transcript (%d messages) to Backboard...", len(transcript))
-            t0 = time.time()
-            await send_transcript_to_backboard(
-                assistant_id=backboard_assistant_id,
-                transcript=transcript,
-                auth_token=auth_token,
-                mode=mode,
-                planning_scope=planning_scope,
-            )
-            logger.info("Post-call Backboard sync total: %s", _elapsed(t0))
+            try:
+                logger.info("Sending voice transcript (%d messages) to Backboard...", len(transcript))
+                await asyncio.wait_for(
+                    send_transcript_to_backboard(
+                        assistant_id=backboard_assistant_id,
+                        transcript=transcript,
+                        auth_token=auth_token,
+                        mode=mode,
+                        planning_scope=planning_scope,
+                    ),
+                    timeout=5.0,
+                )
+                logger.info("Post-call Backboard sync done")
+            except asyncio.TimeoutError:
+                logger.warning("Post-call Backboard sync timed out (5s) — skipping (tasks already created via tools)")
+            except Exception as e:
+                logger.warning("Post-call Backboard sync error: %s — skipping", e)
         else:
             logger.info("No transcript to send (empty or no Backboard assistant)")
 

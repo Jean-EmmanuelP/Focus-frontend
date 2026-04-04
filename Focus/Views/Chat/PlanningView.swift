@@ -1492,11 +1492,11 @@ struct AddQuestSheet: View {
     ]
 
     private let areas = [
-        ("career", "Carriere", "briefcase.fill", Color.blue),
-        ("health", "Sante", "heart.fill", Color.red),
+        ("career", "Carrière", "briefcase.fill", Color.blue),
+        ("health", "Santé", "heart.fill", Color.red),
         ("relationships", "Relations", "person.2.fill", Color.pink),
         ("learning", "Apprentissage", "book.fill", Color.green),
-        ("creativity", "Creativite", "paintbrush.fill", Color.purple),
+        ("creativity", "Créativité", "paintbrush.fill", Color.purple),
         ("other", "Autre", "star.fill", Color.gray),
     ]
 
@@ -1591,7 +1591,7 @@ struct AddQuestSheet: View {
                 onCreate(t, selectedTerm, selectedArea)
                 dismiss()
             }) {
-                Text("Creer")
+                Text("Créer")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(bgColor)
                     .frame(maxWidth: .infinity)
