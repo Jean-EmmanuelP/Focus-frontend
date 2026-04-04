@@ -99,6 +99,24 @@ class LiveKitVoiceService: ObservableObject {
             try await room.connect(url: url, token: response.token)
             try await room.localParticipant.setMicrophone(enabled: true)
             try await room.localParticipant.setCamera(enabled: false)
+
+            // Register for native transcription streams (LiveKit SDK 2.12+)
+            try await room.registerTextStreamHandler(for: "lk.transcription") { [weak self] reader, participantIdentity in
+                guard let self else { return }
+                // Read the full transcription text from the stream
+                let fullText = try await reader.readAll()
+                Task { @MainActor in
+                    // Agent transcriptions come from non-local participants
+                    if participantIdentity.stringValue != self.room.localParticipant.identity?.stringValue {
+                        self.agentTranscription = fullText
+                        self.messages.append(VoiceMessage(role: .agent, text: fullText))
+                    } else {
+                        self.userTranscription = fullText
+                        self.messages.append(VoiceMessage(role: .user, text: fullText))
+                    }
+                }
+            }
+
             connectionState = .connected
             isMicEnabled = true
         } catch {
@@ -169,15 +187,11 @@ extension LiveKitVoiceService: RoomDelegate {
                 isAgentSpeaking = isSpeaking
             } else if participant is LocalParticipant {
                 isUserSpeaking = isSpeaking
+                // Update audio level proxy
+                withAnimation(.easeOut(duration: 0.1)) {
+                    audioLevel = isSpeaking ? 0.7 : 0.0
+                }
             }
-        }
-    }
-
-    /// Track audio level from local participant
-    nonisolated func room(_ room: Room, participant: Participant, trackPublication: TrackPublication, didUpdateAudioLevel audioLevel: Float) {
-        guard participant is LocalParticipant else { return }
-        Task { @MainActor in
-            self.audioLevel = audioLevel
         }
     }
 
