@@ -580,10 +580,10 @@ struct PlanningView: View {
         }
         .padding(.horizontal, 16)
         .sheet(isPresented: $showAddQuest) {
-            AddQuestSheet(bgColor: bgColor) { title, term in
-                performCreateQuest(title: title, term: term)
+            AddQuestSheet(bgColor: bgColor) { title, term, area in
+                performCreateQuest(title: title, term: term, area: area)
             }
-            .presentationDetents([.height(350)])
+            .presentationDetents([.height(480)])
             .presentationDragIndicator(.visible)
         }
     }
@@ -602,14 +602,24 @@ struct PlanningView: View {
 
             ForEach(items) { quest in
                 HStack(spacing: 10) {
-                    Circle()
-                        .fill(color.opacity(0.3))
-                        .frame(width: 8, height: 8)
+                    // Area icon
+                    Image(systemName: quest.areaIcon ?? "star")
+                        .font(.system(size: 12))
+                        .foregroundColor(color.opacity(0.6))
+                        .frame(width: 20)
 
-                    Text(quest.title)
-                        .font(.system(size: 15))
-                        .foregroundColor(.white.opacity(0.85))
-                        .lineLimit(1)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(quest.title)
+                            .font(.system(size: 15))
+                            .foregroundColor(.white.opacity(0.85))
+                            .lineLimit(1)
+
+                        if let areaName = quest.areaName, areaName != "Autre" {
+                            Text(areaName)
+                                .font(.system(size: 11))
+                                .foregroundColor(.white.opacity(0.35))
+                        }
+                    }
 
                     Spacer()
 
@@ -636,7 +646,7 @@ struct PlanningView: View {
         }
     }
 
-    private func performCreateQuest(title: String, term: String) {
+    private func performCreateQuest(title: String, term: String, area: String = "other") {
         Task {
             do {
                 struct CreateQuestBody: Encodable {
@@ -647,7 +657,7 @@ struct PlanningView: View {
                 let _: QuestResponse = try await APIClient.shared.request(
                     endpoint: .quests,
                     method: .post,
-                    body: CreateQuestBody(title: title, area: "other", term: term)
+                    body: CreateQuestBody(title: title, area: area, term: term)
                 )
                 await loadQuests()
             } catch {
@@ -1467,11 +1477,12 @@ struct VoicePlanningScopeSheet: View {
 
 struct AddQuestSheet: View {
     let bgColor: Color
-    var onCreate: (String, String) -> Void
+    var onCreate: (String, String, String) -> Void // title, term, area
 
     @Environment(\.dismiss) private var dismiss
     @State private var title = ""
     @State private var selectedTerm = "short"
+    @State private var selectedArea = "other"
     @FocusState private var isFocused: Bool
 
     private let terms = [
@@ -1480,8 +1491,17 @@ struct AddQuestSheet: View {
         ("long", "Long terme", "star.fill", Color.purple),
     ]
 
+    private let areas = [
+        ("career", "Carriere", "briefcase.fill", Color.blue),
+        ("health", "Sante", "heart.fill", Color.red),
+        ("relationships", "Relations", "person.2.fill", Color.pink),
+        ("learning", "Apprentissage", "book.fill", Color.green),
+        ("creativity", "Creativite", "paintbrush.fill", Color.purple),
+        ("other", "Autre", "star.fill", Color.gray),
+    ]
+
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 16) {
             // Header
             HStack {
                 Text("Nouvel objectif")
@@ -1507,23 +1527,57 @@ struct AddQuestSheet: View {
                 )
                 .focused($isFocused)
 
-            // Term selector
-            HStack(spacing: 8) {
-                ForEach(terms, id: \.0) { term, label, icon, color in
-                    Button(action: { selectedTerm = term }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: icon)
-                                .font(.system(size: 11))
-                            Text(label)
-                                .font(.system(size: 12, weight: .medium))
+            // Area selector
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Domaine")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.white.opacity(0.4))
+
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: 8)], spacing: 8) {
+                    ForEach(areas, id: \.0) { area, label, icon, color in
+                        Button(action: { selectedArea = area }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: icon)
+                                    .font(.system(size: 11))
+                                Text(label)
+                                    .font(.system(size: 12, weight: .medium))
+                            }
+                            .foregroundColor(selectedArea == area ? bgColor : color)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 7)
+                            .frame(maxWidth: .infinity)
+                            .background(
+                                Capsule()
+                                    .fill(selectedArea == area ? color : color.opacity(0.15))
+                            )
                         }
-                        .foregroundColor(selectedTerm == term ? bgColor : color)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(
-                            Capsule()
-                                .fill(selectedTerm == term ? color : color.opacity(0.15))
-                        )
+                    }
+                }
+            }
+
+            // Term selector
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Horizon")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.white.opacity(0.4))
+
+                HStack(spacing: 8) {
+                    ForEach(terms, id: \.0) { term, label, icon, color in
+                        Button(action: { selectedTerm = term }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: icon)
+                                    .font(.system(size: 11))
+                                Text(label)
+                                    .font(.system(size: 12, weight: .medium))
+                            }
+                            .foregroundColor(selectedTerm == term ? bgColor : color)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(
+                                Capsule()
+                                    .fill(selectedTerm == term ? color : color.opacity(0.15))
+                            )
+                        }
                     }
                 }
             }
@@ -1534,7 +1588,7 @@ struct AddQuestSheet: View {
             Button(action: {
                 let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !t.isEmpty else { return }
-                onCreate(t, selectedTerm)
+                onCreate(t, selectedTerm, selectedArea)
                 dismiss()
             }) {
                 Text("Creer")

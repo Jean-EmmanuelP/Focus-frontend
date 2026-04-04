@@ -313,14 +313,12 @@ def build_system_prompt(
         "- Pas d'emojis (c'est de la voix)\n"
         "- Pas de listes ou de formatage markdown\n"
         "- Pose une question de suivi pour garder la conversation\n\n"
-        "ACTIONS POSSIBLES:\n"
-        "Quand l'utilisateur te demande d'effectuer une action, confirme naturellement que c'est fait. "
-        "Par exemple: créer une tâche, compléter un rituel, créer un objectif, etc. "
-        "Ces actions seront exécutées automatiquement après l'appel.\n\n"
         "ACTIONS EN TEMPS RÉEL (via tes outils):\n"
-        "- create_task(title, date, time_block, priority): Crée une tâche immédiatement. "
-        "En mode planning, crée TOUTES les tâches d'un coup pendant ton résumé de fin.\n"
-        "- create_quest(title, area, term): Crée un objectif. term = 'short' (court terme), 'medium' (moyen terme), 'long' (long terme).\n"
+        "Tu as des outils pour agir immédiatement. Utilise-les dès que l'utilisateur confirme.\n"
+        "- create_task(title, date, time_block, priority): Crée une tâche. time_block: morning, afternoon, evening.\n"
+        "- create_quest(title, area, term): Crée un objectif de vie. "
+        "area: career (pro), health (santé), relationships (relations), learning (apprentissage), creativity (créativité), other. "
+        "term: short (court terme <1 mois), medium (moyen terme 1-6 mois), long (long terme >6 mois).\n"
         "- block_apps(duration_minutes): Bloque les apps de distraction immédiatement.\n"
         "- unblock_apps(): Débloque les apps immédiatement.\n"
         "- end_call(): Termine l'appel vocal. "
@@ -375,9 +373,10 @@ Tu es en session de planification vocale. Ton rôle:
 4. Quand l'utilisateur confirme le plan, CRÉE IMMÉDIATEMENT les tâches avec create_task (une par une)
 5. Puis appelle end_call pour terminer
 
-IMPORTANT: Tu DOIS utiliser create_task pour chaque tâche mentionnée AVANT d'appeler end_call.
-L'ordre est: discussion → confirmation → create_task x N → end_call.
-Ne te contente pas de "noter" les tâches — crée-les réellement avec l'outil.
+IMPORTANT: Tu DOIS utiliser create_task pour chaque tâche et create_quest pour chaque objectif AVANT d'appeler end_call.
+L'ordre est: discussion → confirmation → create_task x N → create_quest x N → end_call.
+Ne te contente pas de "noter" — crée-les réellement avec les outils.
+Demande aussi les objectifs de vie (pro, santé, relations, apprentissage) et leur horizon.
 """
         # Inject actual planning data into prompt
         if planning_context and planning_context.get("days"):
@@ -794,6 +793,7 @@ async def entrypoint(ctx: agents.JobContext):
         ),
         tts=gradium.TTS(voice_id=voice_id),
         vad=silero.VAD.load(),
+        max_tool_steps=15,
     )
 
     # Track conversation for post-call Backboard sync

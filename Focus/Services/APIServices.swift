@@ -785,6 +785,8 @@ struct Area: Codable, Identifiable {
 struct QuestResponse: Codable, Identifiable {
     let id: String
     let areaId: String
+    let areaName: String?
+    let areaIcon: String?
     let title: String
     let status: String
     let currentValue: Int
