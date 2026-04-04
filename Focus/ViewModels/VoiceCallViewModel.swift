@@ -26,6 +26,8 @@ class VoiceCallViewModel: ObservableObject {
     @Published var lastAIResponse: String = ""
     @Published var callDuration: TimeInterval = 0
     @Published var isAgentSpeaking = false
+    @Published var isUserSpeaking = false
+    @Published var audioLevel: Float = 0.0
     @Published var isMicMuted = false
     @Published var errorMessage: String?
     @Published var messages: [VoiceMessage] = []
@@ -108,6 +110,16 @@ class VoiceCallViewModel: ObservableObject {
                 }
             }
             .store(in: &cancellables)
+
+        // User speaking state
+        voiceService.$isUserSpeaking
+            .receive(on: DispatchQueue.main)
+            .assign(to: &$isUserSpeaking)
+
+        // Audio level
+        voiceService.$audioLevel
+            .receive(on: DispatchQueue.main)
+            .assign(to: &$audioLevel)
 
         // Messages (transcription history)
         voiceService.$messages

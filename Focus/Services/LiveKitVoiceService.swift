@@ -43,8 +43,10 @@ class LiveKitVoiceService: ObservableObject {
     @Published var agentTranscription: String = ""
     @Published var userTranscription: String = ""
     @Published var isAgentSpeaking: Bool = false
+    @Published var isUserSpeaking: Bool = false
     @Published var isMicEnabled: Bool = true
     @Published var messages: [VoiceMessage] = []
+    @Published var audioLevel: Float = 0.0
 
     // MARK: - Private
 
@@ -162,9 +164,20 @@ extension LiveKitVoiceService: RoomDelegate {
 
     /// Track speaking state from audio levels
     nonisolated func room(_ room: Room, participant: Participant, trackPublication: TrackPublication, didUpdateIsSpeaking isSpeaking: Bool) {
-        guard participant is RemoteParticipant else { return }
         Task { @MainActor in
-            isAgentSpeaking = isSpeaking
+            if participant is RemoteParticipant {
+                isAgentSpeaking = isSpeaking
+            } else if participant is LocalParticipant {
+                isUserSpeaking = isSpeaking
+            }
+        }
+    }
+
+    /// Track audio level from local participant
+    nonisolated func room(_ room: Room, participant: Participant, trackPublication: TrackPublication, didUpdateAudioLevel audioLevel: Float) {
+        guard participant is LocalParticipant else { return }
+        Task { @MainActor in
+            self.audioLevel = audioLevel
         }
     }
 

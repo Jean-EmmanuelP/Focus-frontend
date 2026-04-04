@@ -65,6 +65,11 @@ struct VoiceCallView: View {
 
             Spacer()
 
+            // Audio level bar — shows mic intensity
+            audioLevelBar
+                .padding(.horizontal, 40)
+                .padding(.bottom, 16)
+
             bottomControls
                 .padding(.bottom, 50)
         }
@@ -107,16 +112,21 @@ struct VoiceCallView: View {
 
     private var centralVisualization: some View {
         VStack(spacing: 0) {
-            // Agent transcription — large, centered
+            // Agent transcription — large, centered, colored when speaking
             if !viewModel.lastAIResponse.isEmpty {
                 Text(viewModel.lastAIResponse)
                     .font(.satoshi(22, weight: .medium))
-                    .foregroundColor(.white.opacity(0.85))
+                    .foregroundColor(
+                        viewModel.isAgentSpeaking
+                            ? ColorTokens.primaryStart.opacity(0.95)
+                            : .white.opacity(0.7)
+                    )
                     .multilineTextAlignment(.center)
                     .lineLimit(5)
                     .padding(.horizontal, 32)
-                    .padding(.bottom, 32)
+                    .padding(.bottom, 24)
                     .animation(.easeInOut(duration: 0.3), value: viewModel.lastAIResponse)
+                    .animation(.easeInOut(duration: 0.4), value: viewModel.isAgentSpeaking)
             }
 
             // Central orb with glow
@@ -145,60 +155,79 @@ struct VoiceCallView: View {
                     )
                     .animation(.easeInOut(duration: 0.8), value: isListening)
 
-                // Orb visualization
-                if viewModel.isAgentSpeaking && !displayText.isEmpty {
-                    Text(displayText)
-                        .font(.satoshi(28, weight: .bold))
-                        .foregroundColor(ColorTokens.primaryStart.opacity(0.9))
-                        .multilineTextAlignment(.center)
-                        .frame(width: 220, height: 220)
-                        .transition(.scale(scale: 0.9).combined(with: .opacity))
-                } else {
-                    Circle()
-                        .fill(
-                            RadialGradient(
-                                colors: [orbGlowColor.opacity(0.6), orbGlowColor.opacity(0.1)],
-                                center: .center,
-                                startRadius: 20,
-                                endRadius: 90
-                            )
+                // Orb
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [orbGlowColor.opacity(0.6), orbGlowColor.opacity(0.1)],
+                            center: .center,
+                            startRadius: 20,
+                            endRadius: 90
                         )
-                        .frame(width: 180, height: 180)
-                        .scaleEffect(isActive ? 1.0 + orbIntensity * 0.1 : 0.9)
-                        .animation(
-                            isActive
-                                ? .easeInOut(duration: 1.2).repeatForever(autoreverses: true)
-                                : .easeInOut(duration: 0.5),
-                            value: isActive
-                        )
-                        .transition(.scale(scale: 0.9).combined(with: .opacity))
-                }
+                    )
+                    .frame(width: 180, height: 180)
+                    .scaleEffect(isActive ? 1.0 + orbIntensity * 0.1 : 0.9)
+                    .animation(
+                        isActive
+                            ? .easeInOut(duration: 1.2).repeatForever(autoreverses: true)
+                            : .easeInOut(duration: 0.5),
+                        value: isActive
+                    )
             }
-            .frame(height: 260)
+            .frame(height: 220)
             .animation(.easeInOut(duration: 0.5), value: viewModel.isAgentSpeaking)
 
-            // User transcription or status
-            Group {
-                if !viewModel.transcribedText.isEmpty && isListening {
+            // User transcription — always visible when user speaks
+            VStack(spacing: 8) {
+                if !viewModel.transcribedText.isEmpty {
                     Text(viewModel.transcribedText)
                         .font(.satoshi(16))
-                        .foregroundColor(.white.opacity(0.3))
+                        .foregroundColor(.white.opacity(0.5))
                         .italic()
                         .multilineTextAlignment(.center)
                         .lineLimit(2)
                         .padding(.horizontal, 40)
-                        .padding(.top, 24)
                         .transition(.opacity)
                 } else if viewModel.callState == .connecting {
                     Text("Connexion...")
                         .font(.satoshi(16))
                         .foregroundColor(.white.opacity(0.2))
-                        .padding(.top, 24)
                 }
             }
+            .frame(height: 50)
             .animation(.easeInOut(duration: 0.3), value: viewModel.transcribedText)
             .animation(.easeInOut(duration: 0.3), value: viewModel.callState)
         }
+    }
+
+    // MARK: - Audio Level Bar
+
+    private var audioLevelBar: some View {
+        GeometryReader { geo in
+            let level = CGFloat(min(max(viewModel.audioLevel, 0), 1))
+            let barWidth = geo.size.width * (0.1 + level * 0.9)
+
+            HStack {
+                Spacer()
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                ColorTokens.accent.opacity(0.4 + Double(level) * 0.6),
+                                ColorTokens.primaryStart.opacity(0.3 + Double(level) * 0.5)
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(width: barWidth, height: 4)
+                    .animation(.easeOut(duration: 0.08), value: level)
+                Spacer()
+            }
+        }
+        .frame(height: 4)
+        .opacity(viewModel.isUserSpeaking || viewModel.audioLevel > 0.05 ? 1 : 0.2)
+        .animation(.easeInOut(duration: 0.2), value: viewModel.isUserSpeaking)
     }
 
     // MARK: - Orb Properties
