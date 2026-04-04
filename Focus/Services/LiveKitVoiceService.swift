@@ -187,10 +187,7 @@ extension LiveKitVoiceService: RoomDelegate {
                 isAgentSpeaking = isSpeaking
             } else if participant is LocalParticipant {
                 isUserSpeaking = isSpeaking
-                // Update audio level proxy
-                withAnimation(.easeOut(duration: 0.1)) {
-                    audioLevel = isSpeaking ? 0.7 : 0.0
-                }
+                audioLevel = isSpeaking ? 0.7 : 0.0
             }
         }
     }
