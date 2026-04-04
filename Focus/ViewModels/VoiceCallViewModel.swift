@@ -191,17 +191,14 @@ class VoiceCallViewModel: ObservableObject {
     }
 
     func endCall() {
-        guard callState != .ended else { return } // Prevent double endCall
+        guard callState != .ended else { return }
         callTimer?.invalidate()
         callTimer = nil
         maxDurationTimer?.invalidate()
         maxDurationTimer = nil
         callState = .ended
-
-        // Fire-and-forget disconnect — never block the main thread
-        Task.detached { [voiceService] in
-            await voiceService.disconnect()
-        }
+        // Don't disconnect here — let onDisappear handle it
+        // room.disconnect() blocks MainActor and causes freeze
     }
 
     // MARK: - Queue Message (offline)

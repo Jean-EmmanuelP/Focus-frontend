@@ -126,11 +126,15 @@ class LiveKitVoiceService: ObservableObject {
     }
 
     func disconnect() async {
-        await room.disconnect()
         connectionState = .disconnected
         agentTranscription = ""
         userTranscription = ""
         isAgentSpeaking = false
+        isUserSpeaking = false
+        audioLevel = 0
+        // Fire-and-forget room disconnect — don't block caller
+        let roomRef = room
+        Task.detached { await roomRef.disconnect() }
     }
 
     func setMicEnabled(_ enabled: Bool) async throws {
