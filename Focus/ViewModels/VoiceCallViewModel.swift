@@ -198,17 +198,9 @@ class VoiceCallViewModel: ObservableObject {
         maxDurationTimer = nil
         callState = .ended
 
-        Task {
-            // Disconnect with timeout to prevent freeze
-            await withTaskGroup(of: Void.self) { group in
-                group.addTask { await self.voiceService.disconnect() }
-                group.addTask {
-                    try? await Task.sleep(nanoseconds: 3_000_000_000)
-                }
-                // Return as soon as either completes (disconnect or 3s timeout)
-                await group.next()
-                group.cancelAll()
-            }
+        // Fire-and-forget disconnect — never block the main thread
+        Task.detached { [voiceService] in
+            await voiceService.disconnect()
         }
     }
 

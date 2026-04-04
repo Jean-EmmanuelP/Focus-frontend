@@ -666,18 +666,25 @@ class VoltaAgent(agents.Agent):
         if not self._auth_token:
             return "Erreur: pas de token d'authentification."
         headers = {"Authorization": f"Bearer {self._auth_token}", "Content-Type": "application/json"}
-        body = {"title": title, "date": date or datetime.now().strftime("%Y-%m-%d")}
-        if time_block:
+        # Validate and sanitize params
+        task_date = date if date and len(date) == 10 else datetime.now().strftime("%Y-%m-%d")
+        body: dict = {"title": title, "date": task_date}
+        if time_block in ("morning", "afternoon", "evening"):
             body["time_block"] = time_block
-        if priority:
+        if priority in ("low", "medium", "high"):
             body["priority"] = priority
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.post(f"{FOCUS_API_URL}/calendar/tasks", headers=headers, json=body)
-        created = resp.status_code in (200, 201)
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post(f"{FOCUS_API_URL}/calendar/tasks", headers=headers, json=body)
+            created = resp.status_code in (200, 201)
+            if not created:
+                logger.warning("📋 create_task FAIL: status=%d body=%s", resp.status_code, resp.text[:200])
+        except Exception as e:
+            logger.error("📋 create_task EXCEPTION: %s", e)
+            return f"Erreur reseau lors de la creation de '{title}'. Reessaie."
         if created:
             self._tasks_created += 1
         logger.info("📋 create_task '%s' → %s (total: %d)", title, "OK" if created else f"FAIL({resp.status_code})", self._tasks_created)
-        # Notify iOS to refresh tasks
         if created and self._room:
             payload = json.dumps({"type": "coach_action", "action": "task_created"}).encode()
             await self._room.local_participant.publish_data(payload, reliable=True)

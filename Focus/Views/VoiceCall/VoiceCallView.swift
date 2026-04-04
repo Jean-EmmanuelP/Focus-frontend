@@ -111,92 +111,72 @@ struct VoiceCallView: View {
     // MARK: - Central Visualization
 
     private var centralVisualization: some View {
-        VStack(spacing: 0) {
-            // Agent transcription — large, centered, colored when speaking
-            if !viewModel.lastAIResponse.isEmpty {
-                Text(viewModel.lastAIResponse)
-                    .font(.satoshi(22, weight: .medium))
-                    .foregroundColor(
-                        viewModel.isAgentSpeaking
-                            ? ColorTokens.primaryStart.opacity(0.95)
-                            : .white.opacity(0.7)
+        ZStack {
+            // Background orb — changes color based on who is speaking
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            orbGlowColor.opacity(orbGlowOpacity),
+                            orbGlowColor.opacity(0.05),
+                            Color.clear
+                        ],
+                        center: .center,
+                        startRadius: 60,
+                        endRadius: 250
                     )
-                    .multilineTextAlignment(.center)
-                    .lineLimit(5)
-                    .padding(.horizontal, 32)
-                    .padding(.bottom, 24)
-                    .animation(.easeInOut(duration: 0.3), value: viewModel.lastAIResponse)
-                    .animation(.easeInOut(duration: 0.4), value: viewModel.isAgentSpeaking)
-            }
+                )
+                .frame(width: 500, height: 500)
+                .scaleEffect(glowScale)
+                .animation(
+                    viewModel.isAgentSpeaking
+                        ? .easeInOut(duration: 1.2).repeatForever(autoreverses: true)
+                        : .easeInOut(duration: 0.8),
+                    value: viewModel.isAgentSpeaking
+                )
+                .animation(.easeInOut(duration: 0.5), value: viewModel.isUserSpeaking)
 
-            // Central orb with glow
-            ZStack {
-                // Radial glow behind orb
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                orbGlowColor.opacity(orbGlowOpacity),
-                                orbGlowColor.opacity(0.05),
-                                Color.clear
-                            ],
-                            center: .center,
-                            startRadius: 50,
-                            endRadius: 200
+            // Transcription overlay — full screen
+            VStack(spacing: 24) {
+                Spacer()
+
+                // Agent transcription — large, centered
+                if !viewModel.lastAIResponse.isEmpty {
+                    Text(viewModel.lastAIResponse)
+                        .font(.satoshi(24, weight: .medium))
+                        .foregroundColor(
+                            viewModel.isAgentSpeaking
+                                ? ColorTokens.primaryStart
+                                : .white.opacity(0.75)
                         )
-                    )
-                    .frame(width: 400, height: 400)
-                    .scaleEffect(glowScale)
-                    .animation(
-                        viewModel.isAgentSpeaking
-                            ? .easeInOut(duration: 1.0).repeatForever(autoreverses: true)
-                            : .easeInOut(duration: 0.8),
-                        value: viewModel.isAgentSpeaking
-                    )
-                    .animation(.easeInOut(duration: 0.8), value: isListening)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(8)
+                        .padding(.horizontal, 28)
+                        .animation(.easeInOut(duration: 0.3), value: viewModel.lastAIResponse)
+                        .animation(.easeInOut(duration: 0.4), value: viewModel.isAgentSpeaking)
+                }
 
-                // Orb
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [orbGlowColor.opacity(0.6), orbGlowColor.opacity(0.1)],
-                            center: .center,
-                            startRadius: 20,
-                            endRadius: 90
-                        )
-                    )
-                    .frame(width: 180, height: 180)
-                    .scaleEffect(isActive ? 1.0 + orbIntensity * 0.1 : 0.9)
-                    .animation(
-                        isActive
-                            ? .easeInOut(duration: 1.2).repeatForever(autoreverses: true)
-                            : .easeInOut(duration: 0.5),
-                        value: isActive
-                    )
-            }
-            .frame(height: 220)
-            .animation(.easeInOut(duration: 0.5), value: viewModel.isAgentSpeaking)
+                Spacer()
 
-            // User transcription — always visible when user speaks
-            VStack(spacing: 8) {
+                // User transcription — bottom, italic
                 if !viewModel.transcribedText.isEmpty {
                     Text(viewModel.transcribedText)
-                        .font(.satoshi(16))
+                        .font(.satoshi(17))
                         .foregroundColor(.white.opacity(0.5))
                         .italic()
                         .multilineTextAlignment(.center)
-                        .lineLimit(2)
-                        .padding(.horizontal, 40)
+                        .lineLimit(3)
+                        .padding(.horizontal, 32)
                         .transition(.opacity)
+                        .animation(.easeInOut(duration: 0.2), value: viewModel.transcribedText)
                 } else if viewModel.callState == .connecting {
                     Text("Connexion...")
                         .font(.satoshi(16))
                         .foregroundColor(.white.opacity(0.2))
                 }
+
+                Spacer().frame(height: 8)
             }
-            .frame(height: 50)
-            .animation(.easeInOut(duration: 0.3), value: viewModel.transcribedText)
-            .animation(.easeInOut(duration: 0.3), value: viewModel.callState)
         }
     }
 
@@ -234,21 +214,24 @@ struct VoiceCallView: View {
 
     private var orbGlowColor: Color {
         if viewModel.isAgentSpeaking { return ColorTokens.primaryStart }
+        if viewModel.isUserSpeaking { return Color.green }
         if isListening { return ColorTokens.accent }
         return ColorTokens.primaryStart
     }
 
     private var orbGlowOpacity: Double {
-        if viewModel.isAgentSpeaking { return 0.35 }
-        if isListening { return 0.2 }
+        if viewModel.isAgentSpeaking { return 0.4 }
+        if viewModel.isUserSpeaking { return 0.3 }
+        if isListening { return 0.15 }
         if viewModel.callState == .connecting { return 0.1 }
-        return 0.15
+        return 0.12
     }
 
     private var glowScale: CGFloat {
-        if viewModel.isAgentSpeaking { return 1.15 }
-        if isListening { return 1.05 }
-        return 0.95
+        if viewModel.isAgentSpeaking { return 1.2 }
+        if viewModel.isUserSpeaking { return 1.1 }
+        if isListening { return 1.0 }
+        return 0.9
     }
 
     private var orbIntensity: Double {
