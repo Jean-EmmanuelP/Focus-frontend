@@ -6,6 +6,7 @@ struct VoiceCallView: View {
     @State private var showTranscript = false
     @State private var copiedMessageId: UUID?
     @State private var messageText: String = ""
+    @State private var hasDismissed = false
 
     var mode: String = "voice_call"
     var planningScope: String?
@@ -48,7 +49,8 @@ struct VoiceCallView: View {
         .onAppear { viewModel.startCall(mode: mode, planningScope: planningScope) }
         .onDisappear { viewModel.endCall() }
         .onChange(of: viewModel.callState) { newState in
-            if newState == .ended && viewModel.errorMessage == nil && viewModel.callDuration > 3 {
+            if newState == .ended && viewModel.errorMessage == nil && viewModel.callDuration > 3 && !hasDismissed {
+                hasDismissed = true
                 dismiss()
             }
         }

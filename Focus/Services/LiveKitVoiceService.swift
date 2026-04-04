@@ -101,18 +101,31 @@ class LiveKitVoiceService: ObservableObject {
             try await room.localParticipant.setCamera(enabled: false)
 
             // Register for native transcription streams (LiveKit SDK 2.12+)
+            // Read progressively for smooth word-by-word display
             try await room.registerTextStreamHandler(for: "lk.transcription") { [weak self] reader, participantIdentity in
                 guard let self else { return }
-                // Read the full transcription text from the stream
-                let fullText = try await reader.readAll()
-                Task { @MainActor in
-                    // Agent transcriptions come from non-local participants
-                    if participantIdentity.stringValue != self.room.localParticipant.identity?.stringValue {
-                        self.agentTranscription = fullText
-                        self.messages.append(VoiceMessage(role: .agent, text: fullText))
-                    } else {
-                        self.userTranscription = fullText
-                        self.messages.append(VoiceMessage(role: .user, text: fullText))
+                let isAgent = participantIdentity.stringValue != self.room.localParticipant.identity?.stringValue
+                var accumulated = ""
+                // Stream chunks progressively for smooth animation
+                for try await chunk in reader {
+                    accumulated += chunk
+                    let text = accumulated
+                    Task { @MainActor in
+                        if isAgent {
+                            self.agentTranscription = text
+                        } else {
+                            self.userTranscription = text
+                        }
+                    }
+                }
+                // Stream complete — save to messages
+                let finalText = accumulated
+                if !finalText.isEmpty {
+                    Task { @MainActor in
+                        self.messages.append(VoiceMessage(
+                            role: isAgent ? .agent : .user,
+                            text: finalText
+                        ))
                     }
                 }
             }
@@ -126,7 +139,8 @@ class LiveKitVoiceService: ObservableObject {
     }
 
     func disconnect() async {
-        connectionState = .disconnected
+        // Don't set connectionState here — the RoomDelegate will handle it
+        // Setting it here causes double-dismiss crash via the observer chain
         agentTranscription = ""
         userTranscription = ""
         isAgentSpeaking = false
