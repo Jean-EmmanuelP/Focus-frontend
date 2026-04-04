@@ -165,8 +165,12 @@ struct VoiceCallView: View {
 
     private var bottomControlsWithOrb: some View {
         HStack {
-            // Close button (X)
-            Button(action: { viewModel.endCall() }) {
+            // Close button (X) — directly dismiss, endCall happens in onDisappear
+            Button(action: {
+                viewModel.endCall()
+                hasDismissed = true
+                dismiss()
+            }) {
                 Image(systemName: "xmark")
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(.white.opacity(0.7))
