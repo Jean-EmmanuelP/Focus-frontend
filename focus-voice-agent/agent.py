@@ -594,11 +594,13 @@ async def fetch_planning_context(auth_token: str, scope: str) -> dict | None:
 # =============================================================================
 
 class VoltaAgent(agents.Agent):
-    def __init__(self, instructions: str, lang: str = "fr", room: rtc.Room | None = None, auth_token: str | None = None) -> None:
+    def __init__(self, instructions: str, lang: str = "fr", room: rtc.Room | None = None, auth_token: str | None = None, mode: str = "voice_call") -> None:
         super().__init__(instructions=instructions)
         self._lang = lang
         self._room = room
         self._auth_token = auth_token
+        self._mode = mode
+        self._tasks_created = 0
 
     @function_tool(name="block_apps")
     async def tool_block_apps(self, context: RunContext, duration_minutes: int = 30) -> str:
@@ -629,17 +631,20 @@ class VoltaAgent(agents.Agent):
 
     @function_tool(name="end_call")
     async def tool_end_call(self, context: RunContext) -> str:
-        """Termine l'appel vocal. IMPORTANT: Avant d'appeler end_call, tu DOIS d'abord creer toutes les taches et objectifs discutes avec create_task/create_quest. end_call est toujours le DERNIER outil appele."""
+        """Termine l'appel vocal. En mode planning, tu DOIS avoir appele create_task au moins une fois avant."""
         if not self._room:
             return "Appel deja termine."
-        # Wait 3s to let TTS finish the summary before disconnecting
+        # In planning mode, refuse to end if no tasks were created
+        if self._mode == "planning" and self._tasks_created == 0:
+            return "ERREUR: Tu n'as cree aucune tache ! Utilise create_task pour chaque tache discutee AVANT d'appeler end_call. Rappel: create_task(title, date, time_block, priority)."
+        # Wait 3s to let TTS finish before disconnecting
         await asyncio.sleep(3)
         payload = json.dumps({
             "type": "coach_action",
             "action": "end_call",
         }).encode()
         await self._room.local_participant.publish_data(payload, reliable=True)
-        logger.info("📱 Sent end_call data message")
+        logger.info("📱 Sent end_call data message (tasks_created=%d)", self._tasks_created)
         return "Appel termine."
 
     @function_tool(name="create_task")
@@ -669,7 +674,9 @@ class VoltaAgent(agents.Agent):
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.post(f"{FOCUS_API_URL}/calendar/tasks", headers=headers, json=body)
         created = resp.status_code in (200, 201)
-        logger.info("📋 create_task '%s' → %s", title, "OK" if created else f"FAIL({resp.status_code})")
+        if created:
+            self._tasks_created += 1
+        logger.info("📋 create_task '%s' → %s (total: %d)", title, "OK" if created else f"FAIL({resp.status_code})", self._tasks_created)
         # Notify iOS to refresh tasks
         if created and self._room:
             payload = json.dumps({"type": "coach_action", "action": "task_created"}).encode()
@@ -814,7 +821,7 @@ async def entrypoint(ctx: agents.JobContext):
     t0 = time.time()
     await session.start(
         room=ctx.room,
-        agent=VoltaAgent(instructions=system_prompt, lang=lang, room=ctx.room, auth_token=auth_token),
+        agent=VoltaAgent(instructions=system_prompt, lang=lang, room=ctx.room, auth_token=auth_token, mode=mode),
     )
     logger.info("Session started in %s", _elapsed(t0))
 

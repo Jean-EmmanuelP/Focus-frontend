@@ -191,6 +191,7 @@ class VoiceCallViewModel: ObservableObject {
     }
 
     func endCall() {
+        guard callState != .ended else { return } // Prevent double endCall
         callTimer?.invalidate()
         callTimer = nil
         maxDurationTimer?.invalidate()
@@ -198,7 +199,16 @@ class VoiceCallViewModel: ObservableObject {
         callState = .ended
 
         Task {
-            await voiceService.disconnect()
+            // Disconnect with timeout to prevent freeze
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask { await self.voiceService.disconnect() }
+                group.addTask {
+                    try? await Task.sleep(nanoseconds: 3_000_000_000)
+                }
+                // Return as soon as either completes (disconnect or 3s timeout)
+                await group.next()
+                group.cancelAll()
+            }
         }
     }
 
