@@ -18,11 +18,21 @@ struct VoiceCallView: View {
         viewModel.callState == .listening || viewModel.callState == .speaking || viewModel.callState == .processing
     }
 
+    // Dynamic background color
+    private var bgGradientColor: Color {
+        if viewModel.isAgentSpeaking { return Color(red: 0.05, green: 0.15, blue: 0.18) } // cyan/teal
+        if isListening || viewModel.isUserSpeaking { return Color(red: 0.18, green: 0.10, blue: 0.02) } // orange/amber
+        return Color(hex: "050508") // neutral dark
+    }
+
     var body: some View {
         ZStack {
-            // Pure dark background
-            Color(hex: "050508")
+            // Dynamic background that changes with speaking state
+            bgGradientColor
                 .ignoresSafeArea()
+                .animation(.easeInOut(duration: 0.6), value: viewModel.isAgentSpeaking)
+                .animation(.easeInOut(duration: 0.6), value: isListening)
+                .animation(.easeInOut(duration: 0.4), value: viewModel.isUserSpeaking)
 
             if viewModel.callState == .offline {
                 offlineView
@@ -56,22 +66,40 @@ struct VoiceCallView: View {
 
     private var mainCallView: some View {
         VStack(spacing: 0) {
-            topBar
-                .padding(.top, 8)
+            // Transcription area — fills most of the screen
+            transcriptionArea
+                .padding(.top, 80)
 
             Spacer()
 
-            centralVisualization
+            // "Dites quelque chose..." prompt when listening
+            if isListening && !viewModel.isAgentSpeaking && viewModel.transcribedText.isEmpty {
+                Text("Dites quelque chose...")
+                    .font(.satoshi(16, weight: .medium))
+                    .foregroundColor(Color.orange.opacity(0.7))
+                    .padding(.bottom, 16)
+                    .transition(.opacity)
+                    .animation(.easeInOut(duration: 0.3), value: isListening)
+            }
 
-            Spacer()
+            // User's live transcription
+            if !viewModel.transcribedText.isEmpty {
+                Text(viewModel.transcribedText)
+                    .font(.satoshi(16, weight: .medium))
+                    .foregroundColor(.white.opacity(0.6))
+                    .italic()
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 48)
+                    .padding(.bottom, 16)
+                    .transition(.opacity)
+                    .animation(.easeInOut(duration: 0.15), value: viewModel.transcribedText)
+            }
 
-            // Audio level bar — shows mic intensity
-            audioLevelBar
-                .padding(.horizontal, 40)
-                .padding(.bottom, 16)
-
-            bottomControls
-                .padding(.bottom, 50)
+            // Bottom: X button — orb — mic button
+            bottomControlsWithOrb
+                .padding(.bottom, 40)
         }
     }
 
@@ -110,175 +138,109 @@ struct VoiceCallView: View {
 
     // MARK: - Central Visualization
 
-    private var centralVisualization: some View {
-        ZStack {
-            // Background orb — changes color based on who is speaking
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            orbGlowColor.opacity(orbGlowOpacity),
-                            orbGlowColor.opacity(0.05),
-                            Color.clear
-                        ],
-                        center: .center,
-                        startRadius: 60,
-                        endRadius: 250
-                    )
-                )
-                .frame(width: 500, height: 500)
-                .scaleEffect(glowScale)
-                .animation(
-                    viewModel.isAgentSpeaking
-                        ? .easeInOut(duration: 1.2).repeatForever(autoreverses: true)
-                        : .easeInOut(duration: 0.8),
-                    value: viewModel.isAgentSpeaking
-                )
-                .animation(.easeInOut(duration: 0.5), value: viewModel.isUserSpeaking)
+    // MARK: - Transcription Area (top of screen)
 
-            // Transcription overlay — full screen
-            VStack(spacing: 24) {
-                Spacer()
-
-                // Agent transcription — large, centered
-                if !viewModel.lastAIResponse.isEmpty {
-                    Text(viewModel.lastAIResponse)
-                        .font(.satoshi(24, weight: .medium))
-                        .foregroundColor(
-                            viewModel.isAgentSpeaking
-                                ? ColorTokens.primaryStart
-                                : .white.opacity(0.75)
-                        )
-                        .multilineTextAlignment(.center)
-                        .lineLimit(8)
-                        .padding(.horizontal, 28)
-                        .animation(.easeInOut(duration: 0.3), value: viewModel.lastAIResponse)
-                        .animation(.easeInOut(duration: 0.4), value: viewModel.isAgentSpeaking)
-                }
-
-                Spacer()
-
-                // User transcription — bottom, italic
-                if !viewModel.transcribedText.isEmpty {
-                    Text(viewModel.transcribedText)
-                        .font(.satoshi(17))
-                        .foregroundColor(.white.opacity(0.5))
-                        .italic()
-                        .multilineTextAlignment(.center)
-                        .lineLimit(3)
-                        .padding(.horizontal, 32)
-                        .transition(.opacity)
-                        .animation(.easeInOut(duration: 0.2), value: viewModel.transcribedText)
-                } else if viewModel.callState == .connecting {
-                    Text("Connexion...")
-                        .font(.satoshi(16))
-                        .foregroundColor(.white.opacity(0.2))
-                }
-
-                Spacer().frame(height: 8)
+    private var transcriptionArea: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if viewModel.callState == .connecting {
+                Text("Connexion...")
+                    .font(.satoshi(20, weight: .medium))
+                    .foregroundColor(.white.opacity(0.3))
+            } else if !viewModel.lastAIResponse.isEmpty {
+                Text(viewModel.lastAIResponse)
+                    .font(.satoshi(26, weight: .medium))
+                    .foregroundColor(.white.opacity(0.65))
+                    .lineSpacing(6)
+                    .multilineTextAlignment(.leading)
+                    .animation(.easeInOut(duration: 0.15), value: viewModel.lastAIResponse)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 48)
     }
 
-    // MARK: - Audio Level Bar
+    // MARK: - Bottom Controls with Orb
 
-    private var audioLevelBar: some View {
-        GeometryReader { geo in
-            let level = CGFloat(min(max(viewModel.audioLevel, 0), 1))
-            let barWidth = geo.size.width * (0.1 + level * 0.9)
-
-            HStack {
-                Spacer()
-                RoundedRectangle(cornerRadius: 3)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                ColorTokens.accent.opacity(0.4 + Double(level) * 0.6),
-                                ColorTokens.primaryStart.opacity(0.3 + Double(level) * 0.5)
-                            ],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .frame(width: barWidth, height: 4)
-                    .animation(.easeOut(duration: 0.08), value: level)
-                Spacer()
-            }
-        }
-        .frame(height: 4)
-        .opacity(viewModel.isUserSpeaking || viewModel.audioLevel > 0.05 ? 1 : 0.2)
-        .animation(.easeInOut(duration: 0.2), value: viewModel.isUserSpeaking)
-    }
-
-    // MARK: - Orb Properties
-
-    private var orbGlowColor: Color {
-        if viewModel.isAgentSpeaking { return ColorTokens.primaryStart }
-        if viewModel.isUserSpeaking { return Color.green }
-        if isListening { return ColorTokens.accent }
-        return ColorTokens.primaryStart
-    }
-
-    private var orbGlowOpacity: Double {
-        if viewModel.isAgentSpeaking { return 0.4 }
-        if viewModel.isUserSpeaking { return 0.3 }
-        if isListening { return 0.15 }
-        if viewModel.callState == .connecting { return 0.1 }
-        return 0.12
-    }
-
-    private var glowScale: CGFloat {
-        if viewModel.isAgentSpeaking { return 1.2 }
-        if viewModel.isUserSpeaking { return 1.1 }
-        if isListening { return 1.0 }
-        return 0.9
-    }
-
-    private var orbIntensity: Double {
-        if viewModel.isAgentSpeaking { return 1.2 }
-        if isListening { return 0.8 }
-        if viewModel.callState == .connecting { return 0.2 }
-        return 0.4
-    }
-
-    private var displayText: String {
-        let text = viewModel.lastAIResponse.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return "" }
-        let words = text.split(separator: " ")
-        return words.suffix(3).joined(separator: " ")
-    }
-
-    // MARK: - Bottom Controls
-
-    private var bottomControls: some View {
+    private var bottomControlsWithOrb: some View {
         HStack {
-            // End call (red)
+            // Close button (X)
             Button(action: { viewModel.endCall() }) {
-                Image(systemName: "phone.down.fill")
-                    .font(.system(size: 22))
-                    .foregroundColor(.white)
-                    .frame(width: 64, height: 64)
-                    .background(Circle().fill(ColorTokens.error))
+                Image(systemName: "xmark")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.7))
+                    .frame(width: 56, height: 56)
+                    .background(Circle().fill(Color.white.opacity(0.1)))
             }
 
             Spacer()
 
-            // Mute
-            Button(action: { viewModel.toggleMic() }) {
-                Image(systemName: viewModel.isMicMuted ? "mic.slash.fill" : "mic.fill")
-                    .font(.system(size: 20))
-                    .foregroundColor(viewModel.isMicMuted ? .white.opacity(0.5) : .white)
-                    .frame(width: 64, height: 64)
-                    .background(
-                        Circle().fill(
-                            viewModel.isMicMuted ? Color.white.opacity(0.15) : Color.white.opacity(0.08)
+            // Central orb — small, changes color
+            ZStack {
+                // Glow behind orb
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [orbGlowColor.opacity(0.4), orbGlowColor.opacity(0.05), .clear],
+                            center: .center,
+                            startRadius: 20,
+                            endRadius: 100
                         )
                     )
+                    .frame(width: 200, height: 200)
+
+                // Orb
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [orbGlowColor.opacity(0.7), orbGlowColor.opacity(0.2)],
+                            center: .center,
+                            startRadius: 10,
+                            endRadius: 45
+                        )
+                    )
+                    .frame(width: 80, height: 80)
+                    .scaleEffect(isActive ? 1.0 + orbPulse : 0.85)
+                    .animation(
+                        isActive
+                            ? .easeInOut(duration: 0.8).repeatForever(autoreverses: true)
+                            : .easeInOut(duration: 0.4),
+                        value: isActive
+                    )
             }
-            .disabled(viewModel.callState == .offline)
+            .animation(.easeInOut(duration: 0.5), value: viewModel.isAgentSpeaking)
+            .animation(.easeInOut(duration: 0.3), value: viewModel.isUserSpeaking)
+
+            Spacer()
+
+            // Mic button
+            Button(action: { viewModel.toggleMic() }) {
+                Image(systemName: viewModel.isMicMuted ? "mic.slash.fill" : "mic.fill")
+                    .font(.system(size: 18))
+                    .foregroundColor(viewModel.isMicMuted ? .white.opacity(0.4) : .white.opacity(0.7))
+                    .frame(width: 56, height: 56)
+                    .background(Circle().fill(Color.white.opacity(0.1)))
+            }
         }
-        .padding(.horizontal, 56)
+        .padding(.horizontal, 40)
     }
+
+    // MARK: - Orb Properties
+
+    // Orb color: cyan/teal when agent speaks, orange when user's turn
+    private var orbGlowColor: Color {
+        if viewModel.isAgentSpeaking { return Color(red: 0.2, green: 0.7, blue: 0.75) } // cyan/teal
+        if viewModel.isUserSpeaking { return Color(red: 0.85, green: 0.55, blue: 0.15) } // warm orange
+        if isListening { return Color(red: 0.85, green: 0.55, blue: 0.15) } // orange when waiting
+        return Color(red: 0.3, green: 0.5, blue: 0.55) // neutral teal
+    }
+
+    private var orbPulse: CGFloat {
+        if viewModel.isAgentSpeaking { return 0.08 }
+        if viewModel.isUserSpeaking { return 0.12 }
+        return 0.04
+    }
+
+    // bottomControls removed — replaced by bottomControlsWithOrb
 
     // MARK: - Transcript Overlay
 
