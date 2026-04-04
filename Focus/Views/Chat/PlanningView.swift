@@ -591,33 +591,48 @@ struct PlanningView: View {
             .padding(.horizontal, 4)
 
             ForEach(items) { quest in
+                let isCompleted = quest.status == "completed"
                 HStack(spacing: 10) {
+                    // Checkbox
+                    Button(action: { if !isCompleted { completeQuest(quest) } }) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(isCompleted ? Color.clear : color.opacity(0.4), lineWidth: 1.5)
+                                .frame(width: 22, height: 22)
+                            if isCompleted {
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(color)
+                                    .frame(width: 22, height: 22)
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(.white)
+                            }
+                        }
+                    }
+                    .disabled(isCompleted)
+
                     // Area icon
-                    Image(systemName: quest.areaIcon ?? "star")
+                    let icon = quest.areaIcon ?? "star.fill"
+                    Image(systemName: icon.hasSuffix(".fill") ? icon : "\(icon).fill")
                         .font(.system(size: 12))
-                        .foregroundColor(color.opacity(0.6))
+                        .foregroundColor(color.opacity(isCompleted ? 0.3 : 0.6))
                         .frame(width: 20)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(quest.title)
-                            .font(.system(size: 15))
-                            .foregroundColor(.white.opacity(0.85))
+                            .font(.system(size: 15, weight: isCompleted ? .regular : .medium))
+                            .foregroundColor(isCompleted ? .white.opacity(0.3) : .white.opacity(0.85))
+                            .strikethrough(isCompleted, color: .white.opacity(0.2))
                             .lineLimit(1)
 
                         if let areaName = quest.areaName, areaName != "Autre" {
                             Text(areaName)
                                 .font(.system(size: 11))
-                                .foregroundColor(.white.opacity(0.35))
+                                .foregroundColor(.white.opacity(isCompleted ? 0.2 : 0.35))
                         }
                     }
 
                     Spacer()
-
-                    if quest.targetValue > 0 {
-                        Text("\(quest.currentValue)/\(quest.targetValue)")
-                            .font(.system(size: 12, design: .monospaced))
-                            .foregroundColor(.white.opacity(0.4))
-                    }
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
@@ -652,6 +667,31 @@ struct PlanningView: View {
                 await loadQuests()
             } catch {
                 print("Failed to create quest: \(error)")
+            }
+        }
+    }
+
+    private func completeQuest(_ quest: QuestResponse) {
+        // Optimistic update
+        if let index = quests.firstIndex(where: { $0.id == quest.id }) {
+            withAnimation(.easeInOut(duration: 0.3)) {
+                quests[index] = QuestResponse(
+                    id: quest.id, areaId: quest.areaId, areaName: quest.areaName, areaIcon: quest.areaIcon,
+                    title: quest.title, status: "completed",
+                    currentValue: quest.targetValue, targetValue: quest.targetValue,
+                    targetDate: quest.targetDate, term: quest.term
+                )
+            }
+        }
+        Task {
+            do {
+                try await APIClient.shared.request(
+                    endpoint: .completeQuest(quest.id),
+                    method: .post
+                )
+            } catch {
+                print("Failed to complete quest: \(error)")
+                await loadQuests() // Revert on failure
             }
         }
     }
