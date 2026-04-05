@@ -777,7 +777,16 @@ struct PlanningView: View {
 
     private func addRecommendedRitual(_ rec: (title: String, icon: String, time: String?)) {
         Task {
-            await createRitual(title: rec.title, icon: rec.icon, areaId: "", scheduledTime: rec.time)
+            // Use the first valid area, or ensure areas exist first
+            await store.ensureAreasExist()
+            let areaId = store.areas.first(where: { !$0.id.hasPrefix("placeholder-") })?.id ?? ""
+            guard !areaId.isEmpty else {
+                print("⚠️ No valid area found for ritual recommendation")
+                return
+            }
+            await createRitual(title: rec.title, icon: rec.icon, areaId: areaId, scheduledTime: rec.time)
+            // Also update cache so recommendations filter updates
+            ritualsCache = rituals
         }
     }
 
