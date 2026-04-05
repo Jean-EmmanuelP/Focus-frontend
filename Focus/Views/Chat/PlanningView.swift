@@ -726,12 +726,12 @@ struct PlanningView: View {
     // MARK: - Ritual Recommendations
 
     private let recommendedRituals: [(title: String, icon: String, time: String?)] = [
-        ("Aller à la salle", "figure.strengthtraining.traditional", "07:00"),
-        ("Douche froide", "drop.fill", "07:30"),
+        ("Aller à la salle", "dumbbell.fill", "07:00"),
+        ("Douche froide", "snowflake", "07:30"),
         ("Lire 30 minutes", "book.fill", "21:00"),
-        ("Dormir à 23h", "moon.zzz.fill", "23:00"),
-        ("Méditer 10 min", "brain.head.profile.fill", "08:00"),
-        ("Boire 2L d'eau", "cup.and.saucer.fill", nil),
+        ("Dormir à 23h", "moon.fill", "23:00"),
+        ("Méditer 10 min", "leaf.fill", "08:00"),
+        ("Boire 2L d'eau", "drop.fill", nil),
     ]
 
     private var ritualRecommendations: some View {
