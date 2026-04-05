@@ -448,19 +448,24 @@ struct PlanningView: View {
             }
             .padding(.horizontal, 20)
 
-            VStack(spacing: 0) {
+            List {
                 ForEach(blockTasks) { task in
                     taskRow(task)
-
-                    if task.id != blockTasks.last?.id {
-                        Rectangle()
-                            .fill(Color.white.opacity(0.06))
-                            .frame(height: 0.5)
-                            .padding(.leading, 54)
-                    }
+                        .listRowBackground(Color.white.opacity(0.08))
+                        .listRowInsets(EdgeInsets())
+                        .listRowSeparator(.hidden)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                performDeleteTask(task)
+                            } label: {
+                                Label("Supprimer", systemImage: "trash")
+                            }
+                        }
                 }
             }
-            .background(Color.white.opacity(0.08))
+            .listStyle(.plain)
+            .scrollDisabled(true)
+            .frame(height: CGFloat(blockTasks.count) * 52)
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .padding(.horizontal, 16)
         }
@@ -876,19 +881,24 @@ struct PlanningView: View {
             .padding(.horizontal, 20)
 
             if !rituals.isEmpty {
-                VStack(spacing: 0) {
+                List {
                     ForEach(rituals) { ritual in
                         ritualRow(ritual)
-
-                        if ritual.id != rituals.last?.id {
-                            Rectangle()
-                                .fill(Color.white.opacity(0.06))
-                                .frame(height: 0.5)
-                                .padding(.leading, 54)
-                        }
+                            .listRowBackground(Color.white.opacity(0.08))
+                            .listRowInsets(EdgeInsets())
+                            .listRowSeparator(.hidden)
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                Button(role: .destructive) {
+                                    performDeleteRitual(ritual)
+                                } label: {
+                                    Label("Supprimer", systemImage: "trash")
+                                }
+                            }
                     }
                 }
-                .background(Color.white.opacity(0.08))
+                .listStyle(.plain)
+                .scrollDisabled(true)
+                .frame(height: CGFloat(rituals.count) * 52)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
                 .padding(.horizontal, 16)
             }
