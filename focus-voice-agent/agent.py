@@ -304,26 +304,20 @@ def build_system_prompt(
 
     coach_name = companion_name or "Volta"
     base = (
-        f"Tu es {coach_name}, un coach de productivité bienveillant et motivant. "
-        "Tu parles en français de manière naturelle et chaleureuse. "
-        "Tu aides les utilisateurs à planifier leur journée, rester concentrés et atteindre leurs objectifs.\n\n"
-        "RÈGLES IMPORTANTES:\n"
-        "- Sois TRÈS concis: 1-2 phrases max par réponse\n"
-        "- Parle naturellement, comme un ami bienveillant\n"
-        "- Pas d'emojis (c'est de la voix)\n"
-        "- Pas de listes ou de formatage markdown\n"
-        "- Pose une question de suivi pour garder la conversation\n\n"
-        "ACTIONS EN TEMPS RÉEL (via tes outils):\n"
-        "Tu as des outils pour agir immédiatement. Utilise-les dès que l'utilisateur confirme.\n"
-        "- create_task(title, date, time_block, priority): Crée une tâche. time_block: morning, afternoon, evening.\n"
-        "- create_quest(title, area, term): Crée un objectif de vie. "
-        "area: career (pro), health (santé), relationships (relations), learning (apprentissage), creativity (créativité), other. "
-        "term: short (court terme <1 mois), medium (moyen terme 1-6 mois), long (long terme >6 mois).\n"
-        "- block_apps(duration_minutes): Bloque les apps de distraction immédiatement.\n"
-        "- unblock_apps(): Débloque les apps immédiatement.\n"
-        "- end_call(): Termine l'appel vocal. "
-        "Utilise quand l'utilisateur dit 'merci', 'c'est bon', 'au revoir', etc. "
-        "Avant de raccrocher, fais un bref résumé et crée les tâches/objectifs discutés.\n"
+        f"Tu es {coach_name}, un coach de productivité. "
+        "Tu parles en français, de manière directe et chaleureuse.\n\n"
+        "RÈGLES:\n"
+        "- MAXIMUM 1 phrase par réponse. Sois ultra bref.\n"
+        "- Ne demande JAMAIS le créneau ou la priorité. Choisis toi-même intelligemment.\n"
+        "- Pas d'emojis, pas de listes, pas de markdown.\n"
+        "- Crée les tâches IMMÉDIATEMENT avec create_task dès que l'utilisateur les mentionne.\n"
+        "- Ne récapitule pas. Ne demande pas confirmation. Agis direct.\n\n"
+        "OUTILS (utilise-les sans attendre):\n"
+        "- create_task(title, date, time_block, priority): Crée une tâche immédiatement.\n"
+        "- create_quest(title, area, term): Crée un objectif (area: career/health/relationships/learning/creativity/other, term: short/medium/long).\n"
+        "- block_apps(duration_minutes): Bloque les apps.\n"
+        "- unblock_apps(): Débloque les apps.\n"
+        "- end_call(): Termine l'appel quand l'utilisateur a fini.\n"
     )
 
     ctx = f"\nCONTEXTE ACTUEL:\n- Moment: {time_of_day}\n- Langue: {lang}\n"
@@ -365,18 +359,11 @@ def build_system_prompt(
         }.get(planning_scope, "ta journée")
 
         ctx += f"""
-MODE PLANIFICATION ACTIVE — Scope: {scope_label}
-Tu es en session de planification vocale. Ton rôle:
-1. Demande quelles tâches l'utilisateur veut planifier, leurs créneaux (matin/après-midi/soir) et priorités
-2. Demande s'il a des objectifs de vie à poser (pro, santé, relations, apprentissage)
-3. Dès que l'utilisateur confirme ("c'est bon", "on fait ça", "parfait"):
-   → Appelle create_task pour CHAQUE tâche (ne dis pas "je note", appelle l'outil directement)
-   → Appelle create_quest pour chaque objectif
-   → Puis appelle end_call
-
-RÈGLE CRITIQUE: Quand l'utilisateur valide, tu NE DOIS PAS répondre "je vais créer les tâches" ou "c'est noté".
-Tu DOIS appeler create_task/create_quest SILENCIEUSEMENT puis dire "C'est fait, j'ai tout créé ! Bonne journée."
-Si tu ne crées pas les tâches avec les outils, elles n'existeront PAS.
+MODE PLANIFICATION — {scope_label}
+L'utilisateur te dit ses tâches → tu appelles create_task IMMÉDIATEMENT pour chacune. Pas de récap, pas de confirmation.
+Quand il dit une tâche, tu la crées direct et tu dis juste "OK" ou "C'est fait".
+Quand il a fini ("c'est bon", "c'est tout", "merci") → end_call.
+Ne pose PAS de questions sur le créneau ou la priorité. Choisis selon l'heure actuelle.
 """
         # Inject actual planning data into prompt
         if planning_context and planning_context.get("days"):
@@ -501,27 +488,9 @@ def build_greeting(lang: str, name: str = "", coach_name: str = "", mode: str = 
             "week": "ta semaine",
         }.get(planning_scope, "ta journée")
 
-        greeting = f"{intro} ! On planifie {scope_label}"
+        greeting = f"{intro} ! Dis-moi tes tâches"
         if name:
-            greeting += f" {name}"
-        greeting += " !"
-
-        # Add context summary if available
-        if planning_context and planning_context.get("days"):
-            days = planning_context["days"]
-            total_events = sum(len(d.get("calendar_events", [])) for d in days)
-            total_tasks = sum(len(d.get("tasks", [])) for d in days)
-            if total_events > 0 or total_tasks > 0:
-                parts = []
-                if total_events > 0:
-                    parts.append(f"{total_events} événement{'s' if total_events > 1 else ''} dans ton calendrier")
-                if total_tasks > 0:
-                    parts.append(f"{total_tasks} tâche{'s' if total_tasks > 1 else ''} déjà posée{'s' if total_tasks > 1 else ''}")
-                greeting += f" Je vois {' et '.join(parts)}. On commence ?"
-            else:
-                greeting += " C'est vide pour l'instant, on construit ça ensemble ?"
-        else:
-            greeting += " Par quoi tu veux commencer ?"
+            greeting = f"{intro} {name} ! Dis-moi tes tâches"
         return greeting
 
     if lang.startswith("fr"):
@@ -668,11 +637,14 @@ class VoltaAgent(agents.Agent):
         headers = {"Authorization": f"Bearer {self._auth_token}", "Content-Type": "application/json"}
         # Validate and sanitize params
         task_date = date if date and len(date) == 10 else datetime.now().strftime("%Y-%m-%d")
-        body: dict = {"title": title, "date": task_date}
-        if time_block in ("morning", "afternoon", "evening"):
-            body["time_block"] = time_block
-        if priority in ("low", "medium", "high"):
-            body["priority"] = priority
+        # Auto time_block based on current hour if not specified
+        if time_block not in ("morning", "afternoon", "evening"):
+            hour = datetime.now().hour
+            time_block = "morning" if hour < 12 else "afternoon" if hour < 18 else "evening"
+        # Default priority
+        if priority not in ("low", "medium", "high"):
+            priority = "medium"
+        body: dict = {"title": title, "date": task_date, "time_block": time_block, "priority": priority}
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.post(f"{FOCUS_API_URL}/calendar/tasks", headers=headers, json=body)
@@ -805,7 +777,7 @@ async def entrypoint(ctx: agents.JobContext):
             base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
             api_key=os.environ.get("GOOGLE_API_KEY", ""),
         ),
-        tts=gradium.TTS(voice_id=voice_id),
+        tts=gradium.TTS(voice_id=voice_id, json_config={"speed": 1.25}),
         vad=silero.VAD.load(),
         max_tool_steps=20,
     )
