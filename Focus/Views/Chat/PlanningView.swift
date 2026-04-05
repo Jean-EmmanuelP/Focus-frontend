@@ -777,7 +777,7 @@ struct PlanningView: View {
 
     private func addRecommendedRitual(_ rec: (title: String, icon: String, time: String?)) {
         Task {
-            await createRitual(title: rec.title, icon: rec.icon, areaId: nil, scheduledTime: rec.time)
+            await createRitual(title: rec.title, icon: rec.icon, areaId: "", scheduledTime: rec.time)
         }
     }
 
