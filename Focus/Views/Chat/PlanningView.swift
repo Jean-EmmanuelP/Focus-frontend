@@ -777,16 +777,27 @@ struct PlanningView: View {
 
     private func addRecommendedRitual(_ rec: (title: String, icon: String, time: String?)) {
         Task {
-            // Use the first valid area, or ensure areas exist first
-            await store.ensureAreasExist()
-            let areaId = store.areas.first(where: { !$0.id.hasPrefix("placeholder-") })?.id ?? ""
-            guard !areaId.isEmpty else {
-                print("⚠️ No valid area found for ritual recommendation")
-                return
+            do {
+                struct CreateRitualBody: Encodable {
+                    let title: String
+                    let icon: String
+                    let frequency: String
+                    let scheduledTime: String?
+                }
+                let _: RoutineResponse = try await APIClient.shared.request(
+                    endpoint: .createRoutine,
+                    method: .post,
+                    body: CreateRitualBody(title: rec.title, icon: rec.icon, frequency: "daily", scheduledTime: rec.time)
+                )
+                // Reload rituals from store
+                await store.loadRituals()
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    rituals = store.rituals
+                    ritualsCache = rituals
+                }
+            } catch {
+                print("⚠️ Failed to add recommended ritual: \(error)")
             }
-            await createRitual(title: rec.title, icon: rec.icon, areaId: areaId, scheduledTime: rec.time)
-            // Also update cache so recommendations filter updates
-            ritualsCache = rituals
         }
     }
 
