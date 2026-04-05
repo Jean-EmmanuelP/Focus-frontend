@@ -465,7 +465,7 @@ struct PlanningView: View {
             }
             .listStyle(.plain)
             .scrollDisabled(true)
-            .frame(height: CGFloat(blockTasks.count) * 64)
+            .frame(minHeight: CGFloat(blockTasks.count) * 64)
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .padding(.horizontal, 16)
         }
@@ -498,7 +498,7 @@ struct PlanningView: View {
                     .font(.system(size: 16, weight: task.isCompleted ? .regular : .medium))
                     .foregroundColor(task.isCompleted ? .white.opacity(0.3) : .white.opacity(0.9))
                     .strikethrough(task.isCompleted, color: .white.opacity(0.2))
-                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 HStack(spacing: 8) {
                     if let start = task.scheduledStart {
@@ -898,7 +898,7 @@ struct PlanningView: View {
                 }
                 .listStyle(.plain)
                 .scrollDisabled(true)
-                .frame(height: CGFloat(rituals.count) * 64)
+                .frame(minHeight: CGFloat(rituals.count) * 64)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
                 .padding(.horizontal, 16)
             }
@@ -936,7 +936,7 @@ struct PlanningView: View {
                 .font(.system(size: 16, weight: ritual.isCompleted ? .regular : .medium))
                 .foregroundColor(ritual.isCompleted ? .white.opacity(0.3) : .white.opacity(0.9))
                 .strikethrough(ritual.isCompleted, color: .white.opacity(0.2))
-                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
 
             Spacer()
 

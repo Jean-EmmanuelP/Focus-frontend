@@ -313,7 +313,7 @@ def build_system_prompt(
         "- Crée les tâches IMMÉDIATEMENT avec create_task dès que l'utilisateur les mentionne.\n"
         "- Ne récapitule pas. Ne demande pas confirmation. Agis direct.\n\n"
         "OUTILS (utilise-les sans attendre):\n"
-        "- create_task(title, date, time_block, priority): Crée une tâche immédiatement.\n"
+        "- create_task(title, date, time_block, priority): Crée une tâche. IMPORTANT: le titre doit être COURT (5 mots max). Ex: 'Finir le planning', 'Sport salle', 'Bilan associé'.\n"
         "- create_quest(title, area, term): Crée un objectif (area: career/health/relationships/learning/creativity/other, term: short/medium/long).\n"
         "- block_apps(duration_minutes): Bloque les apps.\n"
         "- unblock_apps(): Débloque les apps.\n"
