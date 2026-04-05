@@ -586,6 +586,59 @@ class NotificationService: ObservableObject {
         }
     }
 
+    // MARK: - Coaching Notifications
+
+    private let coachingNotificationPrefix = "focus.coaching"
+
+    func scheduleCoachingNotifications() async {
+        cancelCoachingNotifications()
+
+        guard let symptomIds = UserDefaults.standard.stringArray(forKey: "coaching_symptoms"), !symptomIds.isEmpty else { return }
+        let symptoms = CoachingSymptomData.symptomsFor(ids: symptomIds)
+        let companionName = FocusAppStore.shared.user?.companionName ?? "Kai"
+
+        for symptom in symptoms {
+            let content = UNMutableNotificationContent()
+            content.title = companionName
+            content.body = symptom.coachMessage
+            content.sound = .default
+            content.userInfo = [
+                "deepLink": "focus://chat",
+                "coachingSymptom": symptom.id
+            ]
+
+            var dateComponents = DateComponents()
+            dateComponents.hour = symptom.scheduledHour
+            dateComponents.minute = symptom.scheduledMinute
+
+            let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
+            let request = UNNotificationRequest(
+                identifier: "\(coachingNotificationPrefix).\(symptom.id)",
+                content: content,
+                trigger: trigger
+            )
+
+            do {
+                try await notificationCenter.add(request)
+            } catch {
+                print("Failed to schedule coaching notification: \(error)")
+            }
+        }
+        print("Coaching notifications scheduled for \(symptoms.count) symptoms")
+    }
+
+    func cancelCoachingNotifications() {
+        notificationCenter.getPendingNotificationRequests { [weak self] requests in
+            guard let self else { return }
+            let ids = requests
+                .filter { $0.identifier.hasPrefix(self.coachingNotificationPrefix) }
+                .map { $0.identifier }
+            if !ids.isEmpty {
+                self.notificationCenter.removePendingNotificationRequests(withIdentifiers: ids)
+            }
+        }
+    }
+
     // MARK: - Phrase Generation (Local)
 
     private func getMorningPhrase() -> String {

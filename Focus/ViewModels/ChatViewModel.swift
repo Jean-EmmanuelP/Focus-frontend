@@ -31,6 +31,7 @@ enum ChatCardData: Codable {
     struct ProductivityChallenge: Codable, Identifiable, Hashable {
         let id: String
         let category: String
+        let emoji: String
         let title: String
         let description: String
     }
@@ -39,6 +40,8 @@ enum ChatCardData: Codable {
         let challenges: [ProductivityChallenge]
         var selectedIds: [String]
         var isSubmitted: Bool
+        var categoryIndex: Int // Which category is shown (0-4), or 5 = recap
+        var categoryName: String // Display name of current category
     }
 
     struct PlanningFocusState: Codable {
@@ -459,54 +462,131 @@ class ChatViewModel: ObservableObject {
     // MARK: - Productivity Diagnostic
 
     private static let productivityChallenges: [ChatCardData.ProductivityChallenge] = [
-        // La gestion de l'énergie et du focus
-        .init(id: "fatigue_decisionnelle", category: "Énergie & Focus", title: "La fatigue décisionnelle", description: "S'épuiser à force de devoir choisir quoi faire, au point de ne plus rien faire du tout."),
-        .init(id: "incapacite_prioriser", category: "Énergie & Focus", title: "L'incapacité à prioriser", description: "Tout traiter avec la même urgence (l'effet \"pompier\")."),
-        .init(id: "dispersion", category: "Énergie & Focus", title: "La dispersion (Deep Work impossible)", description: "Être incapable de rester concentré plus de 10 minutes sur une tâche complexe."),
-        .init(id: "multitache", category: "Énergie & Focus", title: "Le multitâche illusoire", description: "Sauter d'une application à l'autre en pensant être productif alors qu'on fragmente son attention."),
-        // Les blocages émotionnels
-        .init(id: "perfectionnisme", category: "Blocages émotionnels", title: "Le perfectionnisme paralysant", description: "Ne pas oser finir ou publier de peur que ce ne soit pas \"parfait\"."),
-        .init(id: "peur_echec", category: "Blocages émotionnels", title: "La peur de l'échec (ou du succès)", description: "Saboter son propre travail pour éviter d'être jugé ou de devoir assumer de nouvelles responsabilités."),
-        .init(id: "syndrome_imposteur", category: "Blocages émotionnels", title: "Le syndrome de l'imposteur", description: "Se sentir illégitime, ce qui freine la prise d'initiative."),
-        .init(id: "culpabilite_repos", category: "Blocages émotionnels", title: "La culpabilité du repos", description: "Être incapable de déconnecter sans se sentir mal, ce qui mène au burn-out."),
-        // L'organisation et la méthode
-        .init(id: "surestimation", category: "Organisation & Méthode", title: "La surestimation de ses capacités", description: "Remplir une \"To-do list\" impossible à tenir en une journée (planification irréaliste)."),
-        .init(id: "absence_systemes", category: "Organisation & Méthode", title: "L'absence de systèmes", description: "Dépendre uniquement de la volonté au lieu d'avoir des routines automatiques."),
-        .init(id: "gestion_interruptions", category: "Organisation & Méthode", title: "La gestion des interruptions", description: "Ne pas savoir dire \"non\" aux sollicitations externes (collègues, notifications, famille)."),
-        .init(id: "perte_information", category: "Organisation & Méthode", title: "La perte d'information", description: "Ne pas avoir de système de capture (notes, idées) et passer son temps à chercher ses documents."),
-        // La motivation et le sens
-        .init(id: "perte_pourquoi", category: "Motivation & Sens", title: "La perte du \"Pourquoi\"", description: "Faire les tâches par automatisme sans comprendre la vision globale, ce qui tue l'envie."),
-        .init(id: "absence_recompense", category: "Motivation & Sens", title: "L'absence de récompense", description: "Ne jamais célébrer les petites victoires, ce qui rend le travail monotone et épuisant."),
-        .init(id: "ennui_repetitif", category: "Motivation & Sens", title: "L'ennui sur les tâches répétitives", description: "Difficulté à maintenir la discipline sur les aspects moins \"excitants\" d'un projet."),
-        // L'environnement et l'hygiène de vie
-        .init(id: "desordre", category: "Environnement & Hygiène de vie", title: "Le désordre physique ou numérique", description: "Un bureau ou un bureau d'ordinateur encombré qui crée une charge mentale invisible."),
-        .init(id: "manque_limites", category: "Environnement & Hygiène de vie", title: "Le manque de limites pro/perso", description: "Surtout en télétravail, ne plus savoir quand la journée s'arrête."),
-        .init(id: "dependance_outils", category: "Environnement & Hygiène de vie", title: "La dépendance aux outils", description: "Passer plus de temps à configurer son application de productivité qu'à travailler réellement."),
-        .init(id: "isolement_social", category: "Environnement & Hygiène de vie", title: "L'isolement social", description: "Travailler seul trop longtemps, ce qui baisse la créativité et le moral."),
-        .init(id: "manque_feedback", category: "Environnement & Hygiène de vie", title: "Le manque de feedback", description: "Avancer dans le noir sans savoir si ce que l'on fait est correct ou efficace."),
+        // Énergie & Focus
+        .init(id: "fatigue_decisionnelle", category: "Énergie & Focus", emoji: "🧠", title: "Fatigue décisionnelle", description: "S'épuiser à force de devoir choisir quoi faire"),
+        .init(id: "incapacite_prioriser", category: "Énergie & Focus", emoji: "🚒", title: "Incapacité à prioriser", description: "Tout traiter avec la même urgence"),
+        .init(id: "dispersion", category: "Énergie & Focus", emoji: "🎯", title: "Dispersion", description: "Incapable de rester concentré plus de 10 min"),
+        .init(id: "multitache", category: "Énergie & Focus", emoji: "🔄", title: "Multitâche illusoire", description: "Sauter d'une app à l'autre sans avancer"),
+        // Blocages émotionnels
+        .init(id: "perfectionnisme", category: "Blocages émotionnels", emoji: "✨", title: "Perfectionnisme", description: "Ne pas oser finir de peur que ce ne soit pas parfait"),
+        .init(id: "peur_echec", category: "Blocages émotionnels", emoji: "😰", title: "Peur de l'échec", description: "Saboter son travail pour éviter d'être jugé"),
+        .init(id: "syndrome_imposteur", category: "Blocages émotionnels", emoji: "🎭", title: "Syndrome imposteur", description: "Se sentir illégitime, freinant l'initiative"),
+        .init(id: "culpabilite_repos", category: "Blocages émotionnels", emoji: "😓", title: "Culpabilité du repos", description: "Incapable de déconnecter sans culpabiliser"),
+        // Organisation & Méthode
+        .init(id: "surestimation", category: "Organisation & Méthode", emoji: "📋", title: "Surestimation", description: "To-do list impossible à tenir en une journée"),
+        .init(id: "absence_systemes", category: "Organisation & Méthode", emoji: "⚙️", title: "Pas de systèmes", description: "Dépendre de la volonté au lieu de routines"),
+        .init(id: "gestion_interruptions", category: "Organisation & Méthode", emoji: "🔔", title: "Interruptions", description: "Ne pas savoir dire non aux sollicitations"),
+        .init(id: "perte_information", category: "Organisation & Méthode", emoji: "📂", title: "Perte d'info", description: "Pas de système de capture, on cherche tout"),
+        // Motivation & Sens
+        .init(id: "perte_pourquoi", category: "Motivation & Sens", emoji: "❓", title: "Perte du Pourquoi", description: "Faire les tâches par automatisme sans vision"),
+        .init(id: "absence_recompense", category: "Motivation & Sens", emoji: "🏆", title: "Pas de récompense", description: "Ne jamais célébrer les petites victoires"),
+        .init(id: "ennui_repetitif", category: "Motivation & Sens", emoji: "😴", title: "Ennui répétitif", description: "Pas de discipline sur les tâches ennuyeuses"),
+        // Environnement & Hygiène de vie
+        .init(id: "desordre", category: "Environnement & Hygiène de vie", emoji: "🗑️", title: "Désordre", description: "Bureau encombré, charge mentale invisible"),
+        .init(id: "manque_limites", category: "Environnement & Hygiène de vie", emoji: "⏰", title: "Limites pro/perso", description: "Ne plus savoir quand la journée s'arrête"),
+        .init(id: "dependance_outils", category: "Environnement & Hygiène de vie", emoji: "🔧", title: "Dépendance outils", description: "Plus de temps à configurer qu'à travailler"),
+        .init(id: "isolement_social", category: "Environnement & Hygiène de vie", emoji: "🏠", title: "Isolement", description: "Travailler seul trop longtemps"),
+        .init(id: "manque_feedback", category: "Environnement & Hygiène de vie", emoji: "🔇", title: "Manque de feedback", description: "Avancer sans savoir si c'est efficace"),
+    ]
+
+    // Category grouping for step-by-step diagnostic
+    private static let diagnosticCategories: [(name: String, icon: String)] = [
+        ("Énergie & Focus", "bolt.fill"),
+        ("Blocages émotionnels", "heart.fill"),
+        ("Organisation & Méthode", "list.bullet.clipboard.fill"),
+        ("Motivation & Sens", "flame.fill"),
+        ("Environnement & Hygiène de vie", "leaf.fill"),
     ]
 
     private func showProductivityDiagnostic() {
+        let companionName = store?.user?.companionName ?? "Kai"
         let userName = store?.user?.firstName ?? ""
-        let greeting = userName.isEmpty
-            ? "Hey ! Je vais te poser quelques questions pour mieux t'aider, il y en a pour 5 min max."
-            : "Hey \(userName) ! Je vais te poser quelques questions pour mieux t'aider, il y en a pour 5 min max."
+        let greeting: String
+        if userName.isEmpty {
+            greeting = "Hey ! Moi c'est \(companionName) (tu peux me renommer quand tu veux). Je vais te poser quelques questions pour mieux t'aider, il y en a pour 2 min max."
+        } else {
+            greeting = "Hey \(userName) ! Moi c'est \(companionName) — tu peux me renommer quand tu veux. Je vais te poser quelques questions pour mieux t'aider, il y en a pour 2 min max."
+        }
 
         let introMessage = SimpleChatMessage(content: greeting, isFromUser: false)
         messages.append(introMessage)
 
+        // Show first category only
+        showDiagnosticCategory(index: 0, previousSelections: [])
+    }
+
+    private func showDiagnosticCategory(index: Int, previousSelections: [String]) {
+        let categories = Self.diagnosticCategories
+        guard index < categories.count else {
+            // All categories done → show recap
+            showDiagnosticRecap(selectedIds: previousSelections)
+            return
+        }
+
+        let category = categories[index]
+        let categoryChalllenges = Self.productivityChallenges.filter { $0.category == category.name }
+
+        let prompts = [
+            "On commence. Est-ce que tu te reconnais là-dedans ?",
+            "Et côté émotions, ça te parle ?",
+            "Et ton organisation au quotidien ?",
+            "Parlons de ce qui te motive (ou pas).",
+            "Dernière catégorie — ton environnement."
+        ]
+
         let diagnosticData = ChatCardData.ProductivityDiagnosticData(
-            challenges: Self.productivityChallenges,
-            selectedIds: [],
-            isSubmitted: false
+            challenges: categoryChalllenges,
+            selectedIds: previousSelections,
+            isSubmitted: false,
+            categoryIndex: index,
+            categoryName: category.name
         )
         var diagnosticMessage = SimpleChatMessage(
-            content: "Sélectionne jusqu'à 5 défis qui te parlent le plus :",
+            content: prompts[index],
             isFromUser: false
         )
         diagnosticMessage.cardData = .productivityDiagnostic(diagnosticData)
         messages.append(diagnosticMessage)
         saveMessages()
+    }
+
+    private func showDiagnosticRecap(selectedIds: [String]) {
+        // Show recap card
+        let diagnosticData = ChatCardData.ProductivityDiagnosticData(
+            challenges: Self.productivityChallenges.filter { selectedIds.contains($0.id) },
+            selectedIds: selectedIds,
+            isSubmitted: false,
+            categoryIndex: 5, // 5 = recap step
+            categoryName: "Récapitulatif"
+        )
+        var recapMessage = SimpleChatMessage(
+            content: "Voilà ce que j'ai retenu. Tu valides ?",
+            isFromUser: false
+        )
+        recapMessage.cardData = .productivityDiagnostic(diagnosticData)
+        messages.append(recapMessage)
+        saveMessages()
+    }
+
+    /// Called by the card when user confirms a single category and moves to next
+    func advanceDiagnostic(fromCategoryIndex: Int, selectedIds: [String]) {
+        // Lock the current card as submitted
+        if let index = messages.lastIndex(where: {
+            if case .productivityDiagnostic(let data) = $0.cardData, data.categoryIndex == fromCategoryIndex {
+                return true
+            }
+            return false
+        }) {
+            if case .productivityDiagnostic(var data) = messages[index].cardData {
+                data.isSubmitted = true
+                data.selectedIds = selectedIds
+                messages[index].cardData = .productivityDiagnostic(data)
+            }
+        }
+        saveMessages()
+
+        // Show next category
+        showDiagnosticCategory(index: fromCategoryIndex + 1, previousSelections: selectedIds)
     }
 
     func submitDiagnostic(selectedIds: [String]) {
@@ -524,7 +604,9 @@ class ChatViewModel: ObservableObject {
                 ChatCardData.ProductivityDiagnosticData(
                     challenges: Self.productivityChallenges,
                     selectedIds: selectedIds,
-                    isSubmitted: true
+                    isSubmitted: true,
+                    categoryIndex: 5,
+                    categoryName: "Récapitulatif"
                 )
             )
         }

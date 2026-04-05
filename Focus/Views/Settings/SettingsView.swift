@@ -612,8 +612,50 @@ struct SettingsView: View {
                 settingsRow(title: "Test Avatar 3D", showChevron: true)
             }
 
+            replicaDivider
+
+            Button(action: resetAllData) {
+                HStack {
+                    Image(systemName: "arrow.counterclockwise")
+                        .font(.system(size: 14))
+                    Text("Reset complet (test tutoriel)")
+                        .font(.system(size: 16))
+                    Spacer()
+                }
+                .foregroundColor(.orange)
+                .padding(.vertical, 14)
+            }
+
         }
         .padding(.horizontal, 16)
+    }
+
+    private func resetAllData() {
+        Task {
+            // 1. Reset onboarding in DB (clears productivity_challenges + all responses)
+            do {
+                try await OnboardingService().resetOnboarding()
+                print("Onboarding reset in DB")
+            } catch {
+                print("Failed to reset onboarding: \(error)")
+            }
+
+            // 2. Delete Backboard thread (fresh conversation on next login)
+            do {
+                try await BackboardService.shared.deleteThread()
+                print("Backboard thread deleted")
+            } catch {
+                print("Failed to delete thread: \(error)")
+            }
+
+            // 3. Clear diagnostic flag + sign out (signOut handles all local cleanup)
+            await MainActor.run {
+                UserDefaults.standard.removeObject(forKey: "productivity_diagnostic_completed")
+                UserDefaults.standard.removeObject(forKey: "coaching_symptoms")
+                print("Full reset done — signing out")
+                FocusAppStore.shared.signOut()
+            }
+        }
     }
     #endif
 
@@ -1120,7 +1162,6 @@ struct ReplicaAccountView: View {
             do {
                 try await OnboardingService().resetOnboarding()
                 await MainActor.run {
-                    // Clear local cache
                     UserDefaults.standard.removeObject(forKey: "volta_onboarding_completed")
                     UserDefaults.standard.removeObject(forKey: "volta_onboarding_user_id")
                     FocusAppStore.shared.hasCompletedOnboarding = false

@@ -2361,41 +2361,55 @@ struct ProductivityDiagnosticCard: View {
     @State private var selectedIds: Set<String> = []
     @State private var isSubmitted: Bool = false
 
-    private let maxSelections = 5
+    private let maxTotalSelections = 5
+    private let accentBlue = Color(red: 0.20, green: 0.45, blue: 1.0)
 
-    // Group challenges by category
-    private var groupedChallenges: [(category: String, challenges: [ChatCardData.ProductivityChallenge])] {
-        var dict: [String: [ChatCardData.ProductivityChallenge]] = [:]
-        var order: [String] = []
-        for challenge in data.challenges {
-            if dict[challenge.category] == nil {
-                order.append(challenge.category)
-            }
-            dict[challenge.category, default: []].append(challenge)
-        }
-        return order.map { (category: $0, challenges: dict[$0]!) }
+    private var isRecapStep: Bool { data.categoryIndex >= 5 }
+
+    // Icons per category
+    private static let categoryIcons: [String: String] = [
+        "Énergie & Focus": "bolt.fill",
+        "Blocages émotionnels": "heart.fill",
+        "Organisation & Méthode": "list.bullet.clipboard.fill",
+        "Motivation & Sens": "flame.fill",
+        "Environnement & Hygiène de vie": "leaf.fill",
+        "Récapitulatif": "checkmark.seal.fill",
+    ]
+
+    // How many already selected before this category
+    private var previouslySelectedCount: Int {
+        data.selectedIds.filter { id in !data.challenges.contains { $0.id == id } }.count
+    }
+
+    private var totalSelected: Int {
+        previouslySelectedCount + selectedIds.count
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
             HStack(spacing: 8) {
-                Image(systemName: "brain.head.profile")
+                Image(systemName: Self.categoryIcons[data.categoryName] ?? "brain.head.profile")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(Color(red: 0.20, green: 0.45, blue: 1.0))
+                    .foregroundColor(accentBlue)
 
-                Text("Diagnostic de productivité")
+                Text(data.categoryName)
                     .font(.system(size: 15, weight: .bold))
                     .foregroundColor(.black)
 
                 Spacer()
 
                 if !isSubmitted && !data.isSubmitted {
-                    Text("\(selectedIds.count)/\(maxSelections)")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(selectedIds.count >= maxSelections ? .orange : .gray)
-                        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: selectedIds.count)
-                        .contentTransition(.numericText())
+                    // Step indicator for categories (1-5), or total count for recap
+                    if isRecapStep {
+                        Text("\(data.selectedIds.count) sélectionnés")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.gray)
+                    } else {
+                        Text("Étape \(data.categoryIndex + 1)/5")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.gray)
+                    }
                 }
             }
             .padding(.horizontal, 16)
@@ -2403,74 +2417,14 @@ struct ProductivityDiagnosticCard: View {
             .padding(.bottom, 12)
 
             if isSubmitted || data.isSubmitted {
-                // Show selected items as summary
-                let submittedIds = data.isSubmitted ? Set(data.selectedIds) : selectedIds
-                VStack(alignment: .leading, spacing: 8) {
-                    ForEach(data.challenges.filter { submittedIds.contains($0.id) }) { challenge in
-                        HStack(spacing: 10) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 14))
-                                .foregroundColor(Color(red: 0.20, green: 0.45, blue: 1.0))
-
-                            Text(challenge.title)
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(.black)
-                        }
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 16)
+                // Submitted state — show selected items as compact summary
+                submittedView
+            } else if isRecapStep {
+                // Recap step — show all selected with final validate button
+                recapView
             } else {
-                // Scrollable selection list
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 16) {
-                        ForEach(groupedChallenges, id: \.category) { group in
-                            VStack(alignment: .leading, spacing: 8) {
-                                // Category header
-                                Text(group.category.uppercased())
-                                    .font(.system(size: 11, weight: .bold))
-                                    .foregroundColor(.gray)
-                                    .tracking(0.5)
-                                    .padding(.horizontal, 16)
-
-                                // Challenge items
-                                ForEach(group.challenges) { challenge in
-                                    challengeRow(challenge)
-                                }
-                            }
-                        }
-                    }
-                    .padding(.bottom, 12)
-                }
-                .frame(maxHeight: 400)
-
-                // Submit button
-                Button(action: {
-                    guard !selectedIds.isEmpty else { return }
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                        isSubmitted = true
-                    }
-                    viewModel?.submitDiagnostic(selectedIds: Array(selectedIds))
-                }) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "arrow.right.circle.fill")
-                            .font(.system(size: 16))
-                        Text("Valider mon diagnostic")
-                            .font(.system(size: 15, weight: .semibold))
-                    }
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 48)
-                    .background(
-                        selectedIds.isEmpty
-                            ? Color.gray.opacity(0.4)
-                            : Color(red: 0.20, green: 0.45, blue: 1.0)
-                    )
-                    .cornerRadius(14)
-                }
-                .disabled(selectedIds.isEmpty)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 16)
+                // Category step — show challenges for this category
+                categorySelectionView
             }
         }
         .background(Color.white)
@@ -2480,54 +2434,210 @@ struct ProductivityDiagnosticCard: View {
             if data.isSubmitted {
                 isSubmitted = true
                 selectedIds = Set(data.selectedIds)
+            } else {
+                // Pre-select any items from this category that were in previousSelections
+                selectedIds = Set(data.selectedIds.filter { id in data.challenges.contains { $0.id == id } })
             }
         }
     }
 
-    private func challengeRow(_ challenge: ChatCardData.ProductivityChallenge) -> some View {
+    // MARK: - Submitted State
+
+    private var submittedView: some View {
+        let displayChallenges = data.challenges.filter { selectedIds.contains($0.id) || data.selectedIds.contains($0.id) }
+        return VStack(alignment: .leading, spacing: 8) {
+            if displayChallenges.isEmpty {
+                Text("Aucun sélectionné — passé")
+                    .font(.system(size: 13))
+                    .foregroundColor(.gray)
+            } else {
+                ForEach(displayChallenges) { challenge in
+                    HStack(spacing: 10) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 14))
+                            .foregroundColor(accentBlue)
+                        Text(challenge.title)
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.black)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 16)
+    }
+
+    // MARK: - Category Selection (Carousel)
+
+    private var categorySelectionView: some View {
+        VStack(spacing: 0) {
+            // Horizontal carousel — one symptom per slide
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(data.challenges) { challenge in
+                        challengeSlide(challenge)
+                            .frame(width: 240)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 4)
+            }
+            .padding(.bottom, 12)
+
+            // Selection summary
+            if !selectedIds.isEmpty {
+                HStack(spacing: 4) {
+                    ForEach(data.challenges.filter { selectedIds.contains($0.id) }) { challenge in
+                        Text(challenge.emoji)
+                            .font(.system(size: 18))
+                            .frame(width: 32, height: 32)
+                            .background(accentBlue.opacity(0.1))
+                            .cornerRadius(8)
+                    }
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+            }
+
+            // "Next" button
+            Button(action: {
+                HapticFeedback.selection()
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    isSubmitted = true
+                }
+                let allSelected = data.selectedIds.filter { id in
+                    !data.challenges.contains { $0.id == id }
+                } + Array(selectedIds)
+                viewModel?.advanceDiagnostic(fromCategoryIndex: data.categoryIndex, selectedIds: allSelected)
+            }) {
+                HStack(spacing: 8) {
+                    Text(selectedIds.isEmpty ? "Rien ici, suivant" : "Suivant (\(selectedIds.count) choisis)")
+                        .font(.system(size: 15, weight: .semibold))
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 14, weight: .semibold))
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 44)
+                .background(accentBlue)
+                .cornerRadius(14)
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 16)
+        }
+    }
+
+    // MARK: - Recap View
+
+    private var recapView: some View {
+        VStack(spacing: 0) {
+            if data.selectedIds.isEmpty {
+                Text("Tu n'as rien sélectionné. Tu peux quand même valider — on apprendra en discutant.")
+                    .font(.system(size: 13))
+                    .foregroundColor(.gray)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(data.challenges) { challenge in
+                        HStack(spacing: 10) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 14))
+                                .foregroundColor(accentBlue)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(challenge.title)
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(.black)
+                                Text(challenge.category)
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.gray)
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
+            }
+
+            // Final validate button
+            Button(action: {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    isSubmitted = true
+                }
+                viewModel?.submitDiagnostic(selectedIds: data.selectedIds)
+            }) {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.system(size: 16))
+                    Text("Valider mon diagnostic")
+                        .font(.system(size: 15, weight: .semibold))
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 48)
+                .background(accentBlue)
+                .cornerRadius(14)
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 16)
+        }
+    }
+
+    // MARK: - Challenge Slide (Carousel card)
+
+    private func challengeSlide(_ challenge: ChatCardData.ProductivityChallenge) -> some View {
         let isSelected = selectedIds.contains(challenge.id)
-        let isDisabled = !isSelected && selectedIds.count >= maxSelections
+        let isDisabled = !isSelected && totalSelected >= maxTotalSelections
 
         return Button(action: {
             HapticFeedback.selection()
             if isSelected {
                 selectedIds.remove(challenge.id)
-            } else if selectedIds.count < maxSelections {
+            } else if totalSelected < maxTotalSelections {
                 selectedIds.insert(challenge.id)
             }
         }) {
-            HStack(alignment: .top, spacing: 12) {
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 20))
-                    .foregroundColor(isSelected ? Color(red: 0.20, green: 0.45, blue: 1.0) : .gray.opacity(0.4))
-                    .frame(width: 24)
+            VStack(spacing: 12) {
+                Text(challenge.emoji)
+                    .font(.system(size: 40))
 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(challenge.title)
+                Text(challenge.title)
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundColor(isSelected ? .white : .black)
+                    .multilineTextAlignment(.center)
+
+                Text(challenge.description)
+                    .font(.system(size: 14))
+                    .foregroundColor(isSelected ? .white.opacity(0.8) : .gray)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                // Selection indicator
+                HStack(spacing: 6) {
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "plus.circle")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(isDisabled ? .gray.opacity(0.5) : .black)
-                        .multilineTextAlignment(.leading)
-
-                    Text(challenge.description)
-                        .font(.system(size: 12))
-                        .foregroundColor(isDisabled ? .gray.opacity(0.3) : .gray)
-                        .multilineTextAlignment(.leading)
-                        .lineLimit(2)
+                    Text(isSelected ? "Sélectionné" : "Ça me parle")
+                        .font(.system(size: 13, weight: .semibold))
                 }
-
-                Spacer()
+                .foregroundColor(isSelected ? .white.opacity(0.9) : accentBlue)
+                .padding(.top, 4)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(
-                isSelected
-                    ? Color(red: 0.20, green: 0.45, blue: 1.0).opacity(0.06)
-                    : Color.clear
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            .frame(maxWidth: .infinity)
+            .background(isSelected ? accentBlue : Color.white)
+            .cornerRadius(16)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(isSelected ? accentBlue : Color.gray.opacity(0.2), lineWidth: isSelected ? 2 : 1)
             )
-            .cornerRadius(12)
+            .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 2)
+            .opacity(isDisabled ? 0.35 : 1.0)
+            .padding(.horizontal, 8)
         }
         .disabled(isDisabled)
-        .animation(.easeInOut(duration: 0.15), value: isSelected)
+        .animation(.easeInOut(duration: 0.2), value: isSelected)
     }
 }
 

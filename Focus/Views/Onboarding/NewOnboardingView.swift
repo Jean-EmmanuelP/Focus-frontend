@@ -342,6 +342,10 @@ struct NewOnboardingView: View {
         }
     }
 
+    // MARK: - Coach Diagnosis (DISABLED — moved to chat-based onboarding via Backboard)
+    // Code kept for reference. See CoachingSymptomData.swift for symptom definitions.
+    // The coaching diagnostic is now handled conversationally by Kai in the chat.
+
     // MARK: - Step 2: Personalize Avatar
 
     private var personalizeAvatarStep: some View {
@@ -632,7 +636,11 @@ class NewOnboardingViewModel: ObservableObject {
     @Published var selectedSex: String = ""
     @Published var selectedPronouns: String = ""
 
-    // Step 2: Avatar customization
+    // Step 2: Coach diagnosis
+    @Published var selectedSymptoms: Set<String> = []
+    let maxSymptoms = 5
+
+    // Step 3: Avatar customization
     @Published var selectedAvatarStyle: String = "realistic"
 
     // Step 3: Companion name
@@ -640,6 +648,15 @@ class NewOnboardingViewModel: ObservableObject {
 
     // Loading state
     @Published var loadingProgress: Int = 0
+
+    func toggleSymptom(_ id: String) {
+        if selectedSymptoms.contains(id) {
+            selectedSymptoms.remove(id)
+        } else if selectedSymptoms.count < maxSymptoms {
+            selectedSymptoms.insert(id)
+            HapticFeedback.selection()
+        }
+    }
 
     var displayName: String {
         companionName.isEmpty ? "ton coach" : companionName
@@ -682,6 +699,9 @@ class NewOnboardingViewModel: ObservableObject {
             }
             if let avatarStyle = data["avatar_style"] as? String {
                 request.avatarStyle = avatarStyle
+            }
+            if let areas = data["development_areas"] as? [String] {
+                request.developmentAreas = areas
             }
 
             let _: OnboardingAPIResponse = try await APIClient.shared.request(
