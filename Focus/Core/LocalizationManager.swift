@@ -499,7 +499,32 @@ extension LocalizationManager {
 
         // Legal
         "legal.privacy.title": "Privacy Policy",
-        "legal.privacy.content": "Volta only collects the information necessary to create and secure your account (name, email, password via Apple Sign In). No data is shared with third parties. You can delete your account at any time. Questions? support@volta.app"
+        "legal.privacy.content": "Volta only collects the information necessary to create and secure your account (name, email, password via Apple Sign In). No data is shared with third parties. You can delete your account at any time. Questions? support@volta.app",
+
+        // Social & Leaderboard
+        "leaderboard.title": "Leaderboard",
+        "leaderboard.global": "Global",
+        "leaderboard.friends": "Friends",
+        "leaderboard.score": "Score",
+        "leaderboard.tasks": "tasks",
+        "leaderboard.empty_friends": "No friends yet",
+        "leaderboard.empty_friends_subtitle": "Add friends to see their ranking",
+        "friends.title": "Friends",
+        "friends.my_friends": "My friends",
+        "friends.add": "Add a friend",
+        "friends.search": "Search a user...",
+        "friends.search_results": "Results",
+        "friends.search_no_results": "No user found",
+        "friends.pending": "Pending requests",
+        "friends.empty": "No friends yet",
+        "friends.empty_subtitle": "Invite your friends to join Focus",
+        "friends.invite": "Invite friends",
+        "friends.add_button": "Add",
+        "friends.days": "days",
+        "social.title": "Social",
+        "social.share": "Share Focus",
+        "social.share_message": "Join me on Focus and let's stay productive together!",
+        "social.friends": "My friends"
     ]
 
     static let frenchTranslations: [String: String] = [
@@ -861,7 +886,32 @@ extension LocalizationManager {
 
         // Legal
         "legal.privacy.title": "Confidentialité",
-        "legal.privacy.content": "Volta collecte uniquement les informations nécessaires pour créer et sécuriser votre compte (nom, email, mot de passe via Apple Sign In). Aucune donnée n'est partagée avec des tiers. Vous pouvez supprimer votre compte à tout moment. Questions ? support@volta.app"
+        "legal.privacy.content": "Volta collecte uniquement les informations nécessaires pour créer et sécuriser votre compte (nom, email, mot de passe via Apple Sign In). Aucune donnée n'est partagée avec des tiers. Vous pouvez supprimer votre compte à tout moment. Questions ? support@volta.app",
+
+        // Social & Leaderboard
+        "leaderboard.title": "Classement",
+        "leaderboard.global": "Mondial",
+        "leaderboard.friends": "Amis",
+        "leaderboard.score": "Score",
+        "leaderboard.tasks": "tâches",
+        "leaderboard.empty_friends": "Pas encore d'amis",
+        "leaderboard.empty_friends_subtitle": "Ajoute des amis pour voir leur classement",
+        "friends.title": "Amis",
+        "friends.my_friends": "Mes amis",
+        "friends.add": "Ajouter un ami",
+        "friends.search": "Rechercher un utilisateur...",
+        "friends.search_results": "Résultats",
+        "friends.search_no_results": "Aucun utilisateur trouvé",
+        "friends.pending": "Demandes en attente",
+        "friends.empty": "Pas encore d'amis",
+        "friends.empty_subtitle": "Invite tes amis à rejoindre Focus",
+        "friends.invite": "Inviter des amis",
+        "friends.add_button": "Ajouter",
+        "friends.days": "jours",
+        "social.title": "Social",
+        "social.share": "Partager Focus",
+        "social.share_message": "Rejoins-moi sur Focus et restons productifs ensemble !",
+        "social.friends": "Mes amis"
     ]
 
     static let spanishTranslations: [String: String] = [
@@ -1193,6 +1243,31 @@ extension LocalizationManager {
 
         // Legal
         "legal.privacy.title": "Política de Privacidad",
-        "legal.privacy.content": "Volta solo recopila la información necesaria para crear y proteger tu cuenta (nombre, correo, contraseña mediante Apple Sign In). No se comparten datos con terceros. Puedes eliminar tu cuenta en cualquier momento. ¿Preguntas? support@volta.app"
+        "legal.privacy.content": "Volta solo recopila la información necesaria para crear y proteger tu cuenta (nombre, correo, contraseña mediante Apple Sign In). No se comparten datos con terceros. Puedes eliminar tu cuenta en cualquier momento. ¿Preguntas? support@volta.app",
+
+        // Social & Leaderboard
+        "leaderboard.title": "Clasificación",
+        "leaderboard.global": "Mundial",
+        "leaderboard.friends": "Amigos",
+        "leaderboard.score": "Puntuación",
+        "leaderboard.tasks": "tareas",
+        "leaderboard.empty_friends": "Aún no tienes amigos",
+        "leaderboard.empty_friends_subtitle": "Añade amigos para ver su clasificación",
+        "friends.title": "Amigos",
+        "friends.my_friends": "Mis amigos",
+        "friends.add": "Añadir amigo",
+        "friends.search": "Buscar un usuario...",
+        "friends.search_results": "Resultados",
+        "friends.search_no_results": "Ningún usuario encontrado",
+        "friends.pending": "Solicitudes pendientes",
+        "friends.empty": "Aún no tienes amigos",
+        "friends.empty_subtitle": "Invita a tus amigos a unirse a Focus",
+        "friends.invite": "Invitar amigos",
+        "friends.add_button": "Añadir",
+        "friends.days": "días",
+        "social.title": "Social",
+        "social.share": "Compartir Focus",
+        "social.share_message": "¡Únete a Focus y seamos productivos juntos!",
+        "social.friends": "Mis amigos"
     ]
 }

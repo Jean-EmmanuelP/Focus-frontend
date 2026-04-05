@@ -81,7 +81,7 @@ struct MainTabView: View {
                 .environmentObject(router)
         }
         .sheet(isPresented: $router.showPaywall) {
-            VoltaPaywallView()
+            FocusPaywallView()
                 .environmentObject(SubscriptionManager.shared)
         }
         .environmentObject(router)

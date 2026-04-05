@@ -616,96 +616,68 @@ struct ChatView: View {
                 Capsule()
                     .fill(Color(red: 0.25, green: 0.28, blue: 0.35).opacity(0.85))
             )
+            .onTapGesture {
+                // Pause 3D avatar immediately before keyboard appears (reduces lag)
+                isAvatarPaused = true
+                isInputFocused = true
+            }
         }
     }
 
-    // MARK: - WhatsApp-style Recording Bar
+    // MARK: - Recording Bar (Apple style)
 
     private var recordingInputBar: some View {
-        VStack(spacing: 16) {
-            // Timer row: dot + time + waveform
-            HStack(spacing: 0) {
-                // Red blinking dot + timer
-                HStack(spacing: 8) {
-                    Circle()
-                        .fill(Color.red)
-                        .frame(width: 10, height: 10)
-                        .opacity(recordingDotOpacity)
+        HStack(spacing: 12) {
+            // Cancel
+            Button {
+                cancelRecording()
+            } label: {
+                Text("Annuler")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(.white.opacity(0.7))
+            }
 
-                    Text(formatRecordingTime(recordingTime))
-                        .font(.system(size: 28, weight: .light).monospacedDigit())
-                        .foregroundColor(.white)
-                }
+            // Timer + waveform
+            HStack(spacing: 10) {
+                Circle()
+                    .fill(Color.red)
+                    .frame(width: 8, height: 8)
+                    .opacity(recordingDotOpacity)
 
-                Spacer()
+                Text(formatRecordingTime(recordingTime))
+                    .font(.system(size: 15).monospacedDigit())
+                    .foregroundColor(.white.opacity(0.6))
 
-                // Waveform dots
-                HStack(spacing: 3) {
-                    ForEach(0..<25, id: \.self) { i in
-                        Circle()
-                            .fill(Color.white.opacity(0.45))
-                            .frame(width: 3, height: 3)
+                // Waveform bars
+                HStack(spacing: 2) {
+                    ForEach(0..<20, id: \.self) { i in
+                        RoundedRectangle(cornerRadius: 1)
+                            .fill(Color.white.opacity(0.4))
+                            .frame(width: 2, height: 4)
                             .scaleEffect(y: waveformScale(for: i), anchor: .center)
                     }
                 }
             }
-            .padding(.horizontal, 20)
 
-            // Action buttons: Delete — Stop — Send
-            HStack {
-                // Delete (trash)
-                Button {
-                    cancelRecording()
-                } label: {
-                    Image(systemName: "trash")
-                        .font(.system(size: 24))
-                        .foregroundColor(.white.opacity(0.7))
-                        .frame(width: 56, height: 56)
-                }
+            Spacer()
 
-                Spacer()
-
-                // Stop recording (red outlined circle + pause icon)
-                Button {
-                    stopRecordingAndSend()
-                } label: {
-                    ZStack {
-                        Circle()
-                            .stroke(Color(red: 0.95, green: 0.30, blue: 0.35), lineWidth: 3)
-                            .frame(width: 64, height: 64)
-
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(Color(red: 0.95, green: 0.30, blue: 0.35))
-                            .frame(width: 22, height: 22)
-                    }
-                }
-
-                Spacer()
-
-                // Send (green circle + play triangle)
-                Button {
-                    stopRecordingAndSend()
-                } label: {
-                    ZStack {
-                        Circle()
-                            .fill(Color(red: 0.15, green: 0.78, blue: 0.35))
-                            .frame(width: 56, height: 56)
-
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 22))
-                            .foregroundColor(.white)
-                            .offset(x: 2) // Optical centering for play triangle
-                    }
-                }
+            // Send button (blue circle, arrow up — like iMessage)
+            Button {
+                stopRecordingAndSend()
+            } label: {
+                Image(systemName: "arrow.up.circle.fill")
+                    .font(.system(size: 32))
+                    .foregroundColor(Color(red: 0.20, green: 0.45, blue: 1.0))
             }
-            .padding(.horizontal, 24)
         }
-        .padding(.top, 20)
-        .padding(.bottom, 16)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
         .background(
-            ColorTokens.background
-                .shadow(.drop(color: .black.opacity(0.4), radius: 20, y: -8))
+            Capsule()
+                .fill(Color(red: 0.25, green: 0.28, blue: 0.35).opacity(0.85))
         )
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
     }
 
     // MARK: - Recording Helpers

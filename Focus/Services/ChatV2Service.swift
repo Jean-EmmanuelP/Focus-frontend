@@ -34,7 +34,7 @@ struct ChatV2DeviceContext: Codable {
 /// Response from POST /chat/v2/message
 struct ChatV2MessageResponse: Codable {
     let reply: String
-    let messageId: String
+    let messageId: String?
     let sideEffects: [ChatV2SideEffect]?
 
     enum CodingKeys: String, CodingKey {

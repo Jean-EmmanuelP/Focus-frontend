@@ -22,7 +22,7 @@ Répondre en **français** par défaut.
 | API HTTP | `Core/APIClient.swift` |
 | Chat IA | `ViewModels/ChatViewModel.swift`, `Services/BackboardService.swift` |
 | Voice LiveKit | `Services/LiveKitVoiceService.swift`, `ViewModels/VoiceCallViewModel.swift` |
-| Abonnements | `Services/SubscriptionManager.swift` (StoreKit 2 + RevenueCat) |
+| Abonnements | `Services/SubscriptionManager.swift` (StoreKit 2 natif) |
 | Navigation | `Navigation/Navigation.swift` |
 | Modèles | `Models/Models.swift` |
 
