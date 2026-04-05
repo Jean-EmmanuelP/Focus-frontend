@@ -465,7 +465,7 @@ struct PlanningView: View {
             }
             .listStyle(.plain)
             .scrollDisabled(true)
-            .frame(height: CGFloat(blockTasks.count) * 52)
+            .frame(height: CGFloat(blockTasks.count) * 64)
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .padding(.horizontal, 16)
         }
@@ -495,7 +495,7 @@ struct PlanningView: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(task.title)
-                    .font(.system(size: 15, weight: task.isCompleted ? .regular : .medium))
+                    .font(.system(size: 16, weight: task.isCompleted ? .regular : .medium))
                     .foregroundColor(task.isCompleted ? .white.opacity(0.3) : .white.opacity(0.9))
                     .strikethrough(task.isCompleted, color: .white.opacity(0.2))
                     .lineLimit(2)
@@ -526,7 +526,7 @@ struct PlanningView: View {
             Spacer()
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.vertical, 16)
         .contextMenu {
             Button(role: .destructive) {
                 taskToDelete = task
@@ -898,7 +898,7 @@ struct PlanningView: View {
                 }
                 .listStyle(.plain)
                 .scrollDisabled(true)
-                .frame(height: CGFloat(rituals.count) * 52)
+                .frame(height: CGFloat(rituals.count) * 64)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
                 .padding(.horizontal, 16)
             }
@@ -927,11 +927,13 @@ struct PlanningView: View {
                 }
             }
 
-            Text(ritual.icon)
-                .font(.system(size: 16))
+            Image(systemName: ritual.icon.isEmpty ? "star" : ritual.icon)
+                .font(.system(size: 14))
+                .foregroundColor(ritual.isCompleted ? .white.opacity(0.3) : Color(red: 0.31, green: 0.80, blue: 0.77))
+                .frame(width: 20)
 
             Text(ritual.title)
-                .font(.system(size: 15, weight: ritual.isCompleted ? .regular : .medium))
+                .font(.system(size: 16, weight: ritual.isCompleted ? .regular : .medium))
                 .foregroundColor(ritual.isCompleted ? .white.opacity(0.3) : .white.opacity(0.9))
                 .strikethrough(ritual.isCompleted, color: .white.opacity(0.2))
                 .lineLimit(2)
@@ -945,7 +947,7 @@ struct PlanningView: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.vertical, 16)
         .contextMenu {
             Button(role: .destructive) {
                 ritualToDelete = ritual
