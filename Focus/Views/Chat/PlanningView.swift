@@ -48,6 +48,7 @@ struct PlanningView: View {
     }()
 
     private var isToday: Bool { Calendar.current.isDateInToday(selectedDate) }
+    private var isEvening: Bool { Calendar.current.component(.hour, from: Date()) >= 18 }
 
     private var selectedDateString: String {
         Self.isoFormatter.string(from: selectedDate)
@@ -106,8 +107,16 @@ struct PlanningView: View {
                         if isToday {
                             ritualsSection
 
+                            // Ritual recommendations
+                            ritualRecommendations
+
                             addButton(title: "Ajouter un rituel") {
                                 showAddRitual = true
+                            }
+
+                            // End of day check-in
+                            if isEvening {
+                                endOfDayCheckIn
                             }
                         }
 
@@ -593,8 +602,8 @@ struct PlanningView: View {
             ForEach(items) { quest in
                 let isCompleted = quest.status == "completed"
                 HStack(spacing: 10) {
-                    // Checkbox
-                    Button(action: { if !isCompleted { completeQuest(quest) } }) {
+                    // Checkbox — toggle complete/uncomplete
+                    Button(action: { toggleQuest(quest) }) {
                         ZStack {
                             RoundedRectangle(cornerRadius: 6)
                                 .stroke(isCompleted ? Color.clear : color.opacity(0.4), lineWidth: 1.5)
@@ -609,7 +618,6 @@ struct PlanningView: View {
                             }
                         }
                     }
-                    .disabled(isCompleted)
 
                     // Area icon
                     let icon = quest.areaIcon ?? "star.fill"
@@ -671,14 +679,17 @@ struct PlanningView: View {
         }
     }
 
-    private func completeQuest(_ quest: QuestResponse) {
+    private func toggleQuest(_ quest: QuestResponse) {
+        let wasCompleted = quest.status == "completed"
+        let newStatus = wasCompleted ? "active" : "completed"
+
         // Optimistic update
         if let index = quests.firstIndex(where: { $0.id == quest.id }) {
             withAnimation(.easeInOut(duration: 0.3)) {
                 quests[index] = QuestResponse(
                     id: quest.id, areaId: quest.areaId, areaName: quest.areaName, areaIcon: quest.areaIcon,
-                    title: quest.title, status: "completed",
-                    currentValue: quest.targetValue, targetValue: quest.targetValue,
+                    title: quest.title, status: newStatus,
+                    currentValue: wasCompleted ? 0 : quest.targetValue, targetValue: quest.targetValue,
                     targetDate: quest.targetDate, term: quest.term
                 )
             }
@@ -690,8 +701,8 @@ struct PlanningView: View {
                     method: .post
                 )
             } catch {
-                print("Failed to complete quest: \(error)")
-                await loadQuests() // Revert on failure
+                print("Failed to toggle quest: \(error)")
+                await loadQuests()
             }
         }
     }
@@ -710,6 +721,117 @@ struct PlanningView: View {
                 print("Failed to delete quest: \(error)")
             }
         }
+    }
+
+    // MARK: - Ritual Recommendations
+
+    private let recommendedRituals: [(title: String, icon: String, time: String?)] = [
+        ("Aller à la salle", "figure.strengthtraining.traditional", "07:00"),
+        ("Douche froide", "drop.fill", "07:30"),
+        ("Lire 30 minutes", "book.fill", "21:00"),
+        ("Dormir à 23h", "moon.zzz.fill", "23:00"),
+        ("Méditer 10 min", "brain.head.profile.fill", "08:00"),
+        ("Boire 2L d'eau", "cup.and.saucer.fill", nil),
+    ]
+
+    private var ritualRecommendations: some View {
+        let existingTitles = Set(rituals.map { $0.title.lowercased() })
+        let filtered = recommendedRituals.filter { !existingTitles.contains($0.title.lowercased()) }
+
+        return Group {
+            if !filtered.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Suggestions")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.4))
+                        .textCase(.uppercase)
+                        .tracking(0.5)
+                        .padding(.horizontal, 20)
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 10) {
+                            ForEach(filtered, id: \.title) { rec in
+                                Button(action: { addRecommendedRitual(rec) }) {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: rec.icon)
+                                            .font(.system(size: 12))
+                                        Text(rec.title)
+                                            .font(.system(size: 13, weight: .medium))
+                                    }
+                                    .foregroundColor(.white.opacity(0.7))
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 9)
+                                    .background(
+                                        Capsule()
+                                            .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                                    )
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                    }
+                }
+            }
+        }
+    }
+
+    private func addRecommendedRitual(_ rec: (title: String, icon: String, time: String?)) {
+        Task {
+            await createRitual(title: rec.title, icon: rec.icon, areaId: nil, scheduledTime: rec.time)
+        }
+    }
+
+    // MARK: - End of Day Check-In
+
+    private var endOfDayCheckIn: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 10) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 16))
+                    .foregroundColor(.yellow)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Bilan du jour")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.9))
+                    Text("Tu as complété \(completedItems)/\(totalItems) éléments. Comment s'est passée ta journée ?")
+                        .font(.system(size: 13))
+                        .foregroundColor(.white.opacity(0.5))
+                }
+
+                Spacer()
+            }
+
+            HStack(spacing: 10) {
+                ForEach(["😤", "😐", "😊", "🔥"], id: \.self) { emoji in
+                    Button(action: {
+                        // TODO: Save reflection
+                        syncFeedback = "Merci pour ton retour !"
+                        Task {
+                            try? await Task.sleep(nanoseconds: 2_000_000_000)
+                            withAnimation { syncFeedback = nil }
+                        }
+                    }) {
+                        Text(emoji)
+                            .font(.system(size: 28))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(Color.white.opacity(0.06))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.white.opacity(0.06))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.yellow.opacity(0.15), lineWidth: 1)
+                )
+        )
+        .padding(.horizontal, 16)
     }
 
     private var ritualsSection: some View {
