@@ -1144,8 +1144,12 @@ struct ReplikaMessageBubble: View {
         .padding(.horizontal, 12)
     }
 
+    private var markdownContent: AttributedString {
+        (try? AttributedString(markdown: message.content, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(message.content)
+    }
+
     private var textBubble: some View {
-        Text(message.content)
+        Text(markdownContent)
             .font(.system(size: 16))
             .foregroundColor(message.isFromUser ? .white : .black)
             .padding(.horizontal, 18)
@@ -1161,7 +1165,7 @@ struct ReplikaMessageBubble: View {
                     Label("Copier", systemImage: "doc.on.doc")
                 }
             } preview: {
-                Text(message.content)
+                Text(markdownContent)
                     .font(.system(size: 16))
                     .foregroundColor(message.isFromUser ? .white : .black)
                     .padding(.horizontal, 18)
@@ -2530,6 +2534,13 @@ struct ProductivityDiagnosticCard: View {
 
     // MARK: - Recap View
 
+    @State private var recapSelectedIds: Set<String> = []
+    @State private var recapInitialized = false
+
+    private var tooManySelected: Bool {
+        recapSelectedIds.count > maxTotalSelections
+    }
+
     private var recapView: some View {
         VStack(spacing: 0) {
             if data.selectedIds.isEmpty {
@@ -2539,24 +2550,49 @@ struct ProductivityDiagnosticCard: View {
                     .padding(.horizontal, 16)
                     .padding(.bottom, 12)
             } else {
-                VStack(alignment: .leading, spacing: 8) {
+                if tooManySelected {
+                    Text("Tu as sélectionné \(recapSelectedIds.count) défis — garde les 5 qui te parlent le plus.")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.orange)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 8)
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
                     ForEach(data.challenges) { challenge in
-                        HStack(spacing: 10) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 14))
-                                .foregroundColor(accentBlue)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(challenge.title)
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundColor(.black)
-                                Text(challenge.category)
-                                    .font(.system(size: 11))
-                                    .foregroundColor(.gray)
+                        let isKept = recapSelectedIds.contains(challenge.id)
+                        Button(action: {
+                            HapticFeedback.selection()
+                            if isKept {
+                                recapSelectedIds.remove(challenge.id)
+                            } else {
+                                recapSelectedIds.insert(challenge.id)
                             }
+                        }) {
+                            HStack(spacing: 10) {
+                                Text(challenge.emoji)
+                                    .font(.system(size: 20))
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(challenge.title)
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundColor(isKept ? .black : .gray)
+                                    Text(challenge.category)
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.gray.opacity(0.7))
+                                }
+
+                                Spacer()
+
+                                Image(systemName: isKept ? "checkmark.circle.fill" : "circle")
+                                    .font(.system(size: 18))
+                                    .foregroundColor(isKept ? accentBlue : .gray.opacity(0.3))
+                            }
+                            .padding(.vertical, 6)
+                            .padding(.horizontal, 16)
                         }
                     }
                 }
-                .padding(.horizontal, 16)
                 .padding(.bottom, 12)
             }
 
@@ -2565,7 +2601,7 @@ struct ProductivityDiagnosticCard: View {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                     isSubmitted = true
                 }
-                viewModel?.submitDiagnostic(selectedIds: data.selectedIds)
+                viewModel?.submitDiagnostic(selectedIds: Array(recapSelectedIds))
             }) {
                 HStack(spacing: 8) {
                     Image(systemName: "checkmark.seal.fill")
@@ -2576,11 +2612,18 @@ struct ProductivityDiagnosticCard: View {
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .frame(height: 48)
-                .background(accentBlue)
+                .background(tooManySelected ? Color.gray.opacity(0.4) : accentBlue)
                 .cornerRadius(14)
             }
+            .disabled(tooManySelected)
             .padding(.horizontal, 16)
             .padding(.bottom, 16)
+        }
+        .onAppear {
+            if !recapInitialized {
+                recapSelectedIds = Set(data.selectedIds)
+                recapInitialized = true
+            }
         }
     }
 
@@ -2588,55 +2631,52 @@ struct ProductivityDiagnosticCard: View {
 
     private func challengeSlide(_ challenge: ChatCardData.ProductivityChallenge) -> some View {
         let isSelected = selectedIds.contains(challenge.id)
-        let isDisabled = !isSelected && totalSelected >= maxTotalSelections
 
-        return Button(action: {
+        return VStack(spacing: 12) {
+            Text(challenge.emoji)
+                .font(.system(size: 40))
+
+            Text(challenge.title)
+                .font(.system(size: 17, weight: .bold))
+                .foregroundColor(isSelected ? .white : .black)
+                .multilineTextAlignment(.center)
+
+            Text(challenge.description)
+                .font(.system(size: 14))
+                .foregroundColor(isSelected ? .white.opacity(0.8) : .gray)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+
+            // Selection indicator
+            HStack(spacing: 6) {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "plus.circle")
+                    .font(.system(size: 14, weight: .semibold))
+                Text(isSelected ? "Sélectionné" : "Ça me parle")
+                    .font(.system(size: 13, weight: .semibold))
+            }
+            .foregroundColor(isSelected ? .white.opacity(0.9) : accentBlue)
+            .padding(.top, 4)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
+        .frame(maxWidth: .infinity)
+        .background(isSelected ? accentBlue : Color.white)
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(isSelected ? accentBlue : Color.gray.opacity(0.2), lineWidth: isSelected ? 2 : 1)
+        )
+        .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 2)
+        .padding(.horizontal, 8)
+        .contentShape(Rectangle())
+        .onTapGesture {
             HapticFeedback.selection()
             if isSelected {
                 selectedIds.remove(challenge.id)
-            } else if totalSelected < maxTotalSelections {
+            } else {
                 selectedIds.insert(challenge.id)
             }
-        }) {
-            VStack(spacing: 12) {
-                Text(challenge.emoji)
-                    .font(.system(size: 40))
-
-                Text(challenge.title)
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundColor(isSelected ? .white : .black)
-                    .multilineTextAlignment(.center)
-
-                Text(challenge.description)
-                    .font(.system(size: 14))
-                    .foregroundColor(isSelected ? .white.opacity(0.8) : .gray)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                // Selection indicator
-                HStack(spacing: 6) {
-                    Image(systemName: isSelected ? "checkmark.circle.fill" : "plus.circle")
-                        .font(.system(size: 14, weight: .semibold))
-                    Text(isSelected ? "Sélectionné" : "Ça me parle")
-                        .font(.system(size: 13, weight: .semibold))
-                }
-                .foregroundColor(isSelected ? .white.opacity(0.9) : accentBlue)
-                .padding(.top, 4)
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-            .frame(maxWidth: .infinity)
-            .background(isSelected ? accentBlue : Color.white)
-            .cornerRadius(16)
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(isSelected ? accentBlue : Color.gray.opacity(0.2), lineWidth: isSelected ? 2 : 1)
-            )
-            .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 2)
-            .opacity(isDisabled ? 0.35 : 1.0)
-            .padding(.horizontal, 8)
         }
-        .disabled(isDisabled)
         .animation(.easeInOut(duration: 0.2), value: isSelected)
     }
 }

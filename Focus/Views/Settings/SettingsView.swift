@@ -640,12 +640,12 @@ struct SettingsView: View {
                 print("Failed to reset onboarding: \(error)")
             }
 
-            // 2. Delete Backboard thread (fresh conversation on next login)
+            // 2. Delete conversation via backend (ChatV2 manages the Backboard thread)
             do {
-                try await BackboardService.shared.deleteThread()
-                print("Backboard thread deleted")
+                try await ChatV2Service.shared.clearHistory()
+                print("Chat history cleared via backend")
             } catch {
-                print("Failed to delete thread: \(error)")
+                print("Failed to clear chat history: \(error)")
             }
 
             // 3. Clear diagnostic flag + sign out (signOut handles all local cleanup)
