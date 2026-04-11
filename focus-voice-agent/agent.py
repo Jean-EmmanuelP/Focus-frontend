@@ -388,6 +388,41 @@ def build_system_prompt(
         for mem in memories[:5]:
             ctx += f"- {mem}\n"
 
+    # Morning verification mode
+    if mode == "morning_verification":
+        ctx += """
+MODE MORNING CHECK — Vérification de réveil
+
+TON RÔLE: Tu es un coach sportif matinal ÉNERGIQUE et FUN. Tu vérifies que l'utilisateur est bien réveillé en lui faisant faire 3 exercices physiques courts.
+
+FLOW:
+1. Salue-le avec énergie : "Allez debout ! On va vérifier que t'es bien réveillé !"
+2. Demande le PREMIER exercice (choisis parmi la liste)
+3. Quand l'utilisateur dit "fait" ou "c'est bon" → confirme avec validate_exercise, puis passe au suivant
+4. Après 3 exercices validés → félicite, annonce les points (+50), et appelle end_call
+
+EXERCICES (choisis-en 3 différents, dans cet ordre de difficulté) :
+- "10 pompes, c'est parti !"
+- "20 squats, on y va !"
+- "Touche tes pieds 10 fois !"
+- "30 secondes de planche !"
+- "20 jumping jacks !"
+- "Cours sur place pendant 30 secondes !"
+- "10 fentes alternées !"
+
+STYLE:
+- Ultra énergique, comme un coach militaire mais bienveillant
+- Phrases COURTES (1-2 max)
+- Encourage entre chaque exercice : "Bien joué !", "T'es une machine !", "Encore un !"
+- Si l'utilisateur galère, adapte : "OK, fais-en 5 au lieu de 10"
+- Après les 3 exercices : "Morning check validé ! T'as gagné 50 points. Bonne journée champion !"
+- Termine avec end_call
+
+OUTILS:
+- validate_exercise(name) : valide un exercice (appelle après chaque exercice confirmé)
+- end_call() : termine après les 3 exercices
+"""
+
     # Planning mode additions
     if mode == "planning" and planning_scope:
         scope_label = {
@@ -546,6 +581,11 @@ def build_greeting(lang: str, name: str = "", coach_name: str = "", mode: str = 
     intro = f"Salut, c'est {coach_name}" if coach_name else "Salut"
     intro_en = f"Hey, it's {coach_name}" if coach_name else "Hey"
 
+    # Morning verification greeting
+    if mode == "morning_verification":
+        greeting = f"Debout {name} ! C'est l'heure du morning check. 3 exercices et t'es validé. On commence !" if name else "Debout ! C'est l'heure du morning check. 3 exercices et t'es validé. On commence !"
+        return greeting
+
     # Planning mode greeting — proactive, proposes plan
     if mode == "planning" and lang.startswith("fr"):
         scope_label = {
@@ -672,6 +712,24 @@ class VoltaAgent(agents.Agent):
         await self._room.local_participant.publish_data(payload, reliable=True)
         logger.info("📱 Sent unblock_apps data message")
         return "Apps debloquees."
+
+    @function_tool(name="validate_exercise")
+    async def tool_validate_exercise(self, context: RunContext, exercise_name: str = "") -> str:
+        """Valide un exercice du morning check. Appelle apres que l'utilisateur confirme avoir fait l'exercice.
+
+        Args:
+            exercise_name: Le nom de l'exercice valide (ex: pompes, squats, planche)
+        """
+        if not self._room:
+            return "Erreur: pas de connexion."
+        payload = json.dumps({
+            "type": "coach_action",
+            "action": "exercise_validated",
+            "exercise": exercise_name,
+        }).encode()
+        await self._room.local_participant.publish_data(payload, reliable=True)
+        logger.info("🏋️ Exercise validated: %s", exercise_name)
+        return f"Exercice '{exercise_name}' valide !"
 
     @function_tool(name="end_call")
     async def tool_end_call(self, context: RunContext) -> str:

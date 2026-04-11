@@ -222,9 +222,11 @@ struct FocusApp: App {
 
         switch url.host {
         case "wakeup-confirm":
-            // Wake-up challenge confirmation
+            // Wake-up: open morning verification live
             WakeUpService.shared.confirmWakeUp()
             router.selectedTab = .chat
+            // Post notification to trigger morning verification in ChatView
+            NotificationCenter.default.post(name: .openMorningVerification, object: nil)
 
         case "firemode", "dashboard", "starttheday", "calendar", "weekly-goals", "chat":
             // All legacy deep links redirect to chat

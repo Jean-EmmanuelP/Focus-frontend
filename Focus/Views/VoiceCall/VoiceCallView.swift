@@ -9,9 +9,13 @@ struct VoiceCallView: View {
     @State private var messageText: String = ""
     @State private var hasDismissed = false
     @State private var selectedVoiceId: String = UserDefaults.standard.string(forKey: SettingsPrefsKeys.voltaVoiceId) ?? "b35yykvVppLXyw_l"
+    @State private var exercisesCompleted: Int = 0
+    @State private var showExerciseConfirm = false
 
     var mode: String = "voice_call"
     var planningScope: String?
+
+    private var isMorningVerification: Bool { mode == "morning_verification" }
 
     private var isListening: Bool {
         viewModel.callState == .listening && !viewModel.isAgentSpeaking
@@ -92,50 +96,63 @@ struct VoiceCallView: View {
     // MARK: - Main Call View
 
     private var mainCallView: some View {
-        VStack(spacing: 0) {
-            // Transcription area — fills most of the screen
-            transcriptionArea
-                .padding(.top, 80)
+        ZStack {
+            VStack(spacing: 0) {
+                // Morning verification header
+                if isMorningVerification {
+                    morningVerificationHeader
+                }
 
-            Spacer()
+                // Transcription area — fills most of the screen
+                transcriptionArea
+                    .padding(.top, isMorningVerification ? 20 : 80)
 
-            // "Dites quelque chose..." prompt when listening
-            if isListening && !viewModel.isAgentSpeaking && viewModel.transcribedText.isEmpty {
-                Text("Dites quelque chose...")
-                    .font(.satoshi(16, weight: .medium))
-                    .foregroundColor(Color.orange.opacity(0.7))
-                    .padding(.bottom, 16)
-                    .transition(.opacity)
-                    .animation(.easeInOut(duration: 0.3), value: isListening)
+                Spacer()
+
+                // "Dites quelque chose..." prompt when listening
+                if !isMorningVerification && isListening && !viewModel.isAgentSpeaking && viewModel.transcribedText.isEmpty {
+                    Text("Dites quelque chose...")
+                        .font(.satoshi(16, weight: .medium))
+                        .foregroundColor(Color.orange.opacity(0.7))
+                        .padding(.bottom, 16)
+                        .transition(.opacity)
+                        .animation(.easeInOut(duration: 0.3), value: isListening)
+                }
+
+                // User's live transcription
+                if !viewModel.transcribedText.isEmpty {
+                    Text(viewModel.transcribedText)
+                        .font(.satoshi(16, weight: .medium))
+                        .foregroundColor(.white.opacity(0.6))
+                        .italic()
+                        .multilineTextAlignment(.leading)
+                        .lineLimit(2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 48)
+                        .padding(.bottom, 16)
+                        .transition(.opacity)
+                        .animation(.easeInOut(duration: 0.15), value: viewModel.transcribedText)
+                }
+
+                // Morning verification: big "Fait !" button
+                if isMorningVerification {
+                    morningExerciseButton
+                        .padding(.bottom, 16)
+                }
+
+                // Speaking status label
+                if !speakingStatusText.isEmpty {
+                    Text(speakingStatusText)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(speakingStatusColor)
+                        .animation(.easeInOut(duration: 0.3), value: speakingStatusText)
+                        .padding(.bottom, 8)
+                }
+
+                // Bottom: X button — waves — mic button
+                bottomControlsWithOrb
+                    .padding(.bottom, 40)
             }
-
-            // User's live transcription
-            if !viewModel.transcribedText.isEmpty {
-                Text(viewModel.transcribedText)
-                    .font(.satoshi(16, weight: .medium))
-                    .foregroundColor(.white.opacity(0.6))
-                    .italic()
-                    .multilineTextAlignment(.leading)
-                    .lineLimit(2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 48)
-                    .padding(.bottom, 16)
-                    .transition(.opacity)
-                    .animation(.easeInOut(duration: 0.15), value: viewModel.transcribedText)
-            }
-
-            // Speaking status label
-            if !speakingStatusText.isEmpty {
-                Text(speakingStatusText)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(speakingStatusColor)
-                    .animation(.easeInOut(duration: 0.3), value: speakingStatusText)
-                    .padding(.bottom, 8)
-            }
-
-            // Bottom: X button — orb — mic button
-            bottomControlsWithOrb
-                .padding(.bottom, 40)
         }
     }
 
@@ -288,6 +305,82 @@ struct VoiceCallView: View {
     }
 
     // MARK: - Orb Properties
+
+    // MARK: - Morning Verification UI
+
+    private var morningVerificationHeader: some View {
+        VStack(spacing: 8) {
+            // Exercise counter
+            HStack(spacing: 12) {
+                ForEach(0..<3, id: \.self) { i in
+                    ZStack {
+                        Circle()
+                            .fill(i < exercisesCompleted ? Color.green : Color.white.opacity(0.15))
+                            .frame(width: 36, height: 36)
+                        if i < exercisesCompleted {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(.white)
+                        } else {
+                            Text("\(i + 1)")
+                                .font(.system(size: 14, weight: .bold, design: .rounded))
+                                .foregroundColor(.white.opacity(0.4))
+                        }
+                    }
+                }
+            }
+
+            Text("Morning Check")
+                .font(.satoshi(13, weight: .bold))
+                .foregroundColor(.white.opacity(0.5))
+                .textCase(.uppercase)
+                .kerning(1.5)
+
+            if exercisesCompleted >= 3 {
+                HStack(spacing: 6) {
+                    Image(systemName: "star.fill")
+                        .foregroundColor(.yellow)
+                    Text("+50 points")
+                        .font(.satoshi(16, weight: .bold))
+                        .foregroundColor(.yellow)
+                }
+                .transition(.scale.combined(with: .opacity))
+            }
+        }
+        .padding(.top, 60)
+        .animation(.spring(response: 0.4), value: exercisesCompleted)
+    }
+
+    private var morningExerciseButton: some View {
+        Button {
+            exercisesCompleted += 1
+            // Haptic feedback
+            let impact = UIImpactFeedbackGenerator(style: .heavy)
+            impact.impactOccurred()
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "hand.thumbsup.fill")
+                    .font(.system(size: 20))
+                Text("Fait !")
+                    .font(.satoshi(20, weight: .bold))
+            }
+            .foregroundColor(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 18)
+            .background(
+                LinearGradient(
+                    colors: [Color.green, Color(red: 0.2, green: 0.8, blue: 0.4)],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .shadow(color: .green.opacity(0.3), radius: 12, y: 4)
+        }
+        .padding(.horizontal, 30)
+        .disabled(exercisesCompleted >= 3)
+        .opacity(exercisesCompleted >= 3 ? 0.4 : 1)
+    }
 
     // Orb color: distinct blue when AI speaks, warm orange when user speaks
     private var orbGlowColor: Color {

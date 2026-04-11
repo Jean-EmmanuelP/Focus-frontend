@@ -8,6 +8,7 @@ extension Notification.Name {
     static let calendarNeedsRefresh = Notification.Name("calendarNeedsRefresh")
     static let openAppBlockerSettings = Notification.Name("openAppBlockerSettings")
     static let forceUnblockApps = Notification.Name("forceUnblockApps")
+    static let openMorningVerification = Notification.Name("openMorningVerification")
 }
 
 // MARK: - Message Type

@@ -26,6 +26,7 @@ struct ChatView: View {
     @State private var showDiscoverMap = false
     @State private var showActionButtons = false
     @State private var showPlanning = false
+    @State private var showMorningVerification = false
     @State private var showCopiedToast = false
 
     @EnvironmentObject var subscriptionManager: SubscriptionManager
@@ -247,6 +248,12 @@ struct ChatView: View {
         }
         .fullScreenCover(isPresented: $showVoiceCall) {
             VoiceCallView()
+        }
+        .fullScreenCover(isPresented: $showMorningVerification) {
+            VoiceCallView(mode: "morning_verification")
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openMorningVerification)) { _ in
+            showMorningVerification = true
         }
         .fullScreenCover(isPresented: $showPlanning) {
             PlanningView()
