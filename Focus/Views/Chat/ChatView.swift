@@ -18,7 +18,7 @@ struct ChatView: View {
     @State private var recordingTimer: Timer?
     @State private var showPaywall = false
     @State private var showCompanionProfile = false
-    @State private var showScoreDetail = false
+    @State private var showStatsProfile = false
     @State private var showVoiceCall = false
     @State private var isHomeMode = false  // Toggle between home view and chat view
     @State private var showAppBlocker = false
@@ -45,6 +45,17 @@ struct ChatView: View {
         String(companionName.prefix(1)).uppercased()
     }
 
+    private var dynamicPlaceholder: String {
+        if viewModel.messages.isEmpty {
+            return "Demande à \(companionName) de planifier ta journée"
+        }
+        let hour = Calendar.current.component(.hour, from: Date())
+        if hour >= 20 {
+            return "Comment s'est passée ta journée ?"
+        }
+        return "Message..."
+    }
+
     var body: some View {
         GeometryReader { geometry in
             ZStack {
@@ -54,7 +65,7 @@ struct ChatView: View {
 
                 VStack(spacing: 0) {
                     // Header - changes based on mode
-                    if isHomeMode || viewModel.messages.isEmpty {
+                    if isHomeMode {
                         homeHeader
                     } else {
                         conversationHeader
@@ -67,8 +78,8 @@ struct ChatView: View {
                             .transition(.move(edge: .top).combined(with: .opacity))
                     }
 
-                    // Content area (avatar is in background)
-                    if isHomeMode || viewModel.messages.isEmpty {
+                    // Content area
+                    if isHomeMode {
                         // Home mode: just spacer, avatar is background
                         Spacer()
                     } else {
@@ -78,6 +89,18 @@ struct ChatView: View {
 
                     // Input bar - always visible
                     replikaInputBar
+                }
+
+                // Dimming overlay when action buttons are deployed
+                if showActionButtons {
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+                        .onTapGesture {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                                showActionButtons = false
+                            }
+                        }
+                        .allowsHitTesting(true)
                 }
             }
         }
@@ -92,7 +115,10 @@ struct ChatView: View {
             recordingTimer = nil
         }
         .onTapGesture {
-            isInputFocused = false
+            // Only dismiss keyboard from background areas, not during active chat
+            if isHomeMode || viewModel.messages.isEmpty {
+                isInputFocused = false
+            }
         }
         .overlay {
             if showPaywall {
@@ -148,11 +174,9 @@ struct ChatView: View {
             }
         }
         .animation(.easeInOut(duration: 0.3), value: showSettings)
-        .sheet(isPresented: $showScoreDetail) {
-            ScoreDetailSheet(score: viewModel.satisfactionScore)
+        .fullScreenCover(isPresented: $showStatsProfile) {
+            StatsProfileView()
                 .environmentObject(store)
-                .presentationDetents([.height(560)])
-                .presentationDragIndicator(.visible)
         }
         .overlay {
             if showAppBlocker {
@@ -235,45 +259,54 @@ struct ChatView: View {
 
     private var homeHeader: some View {
         HStack {
-            // Left: Discover map button
-            if AppConfiguration.FeatureFlags.discoverMapEnabled {
-                Button(action: {
-                    isInputFocused = false
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        showDiscoverMap = true
+            // Left: Profile photo
+            Button(action: {
+                isInputFocused = false
+                showStatsProfile = true
+            }) {
+                if let avatarURL = store.user?.avatarURL, let url = URL(string: avatarURL) {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .scaledToFill()
+                        default:
+                            profilePlaceholder
+                        }
                     }
-                }) {
-                    Image(systemName: "map.fill")
-                        .font(.system(size: 16))
-                        .foregroundColor(.white.opacity(0.8))
-                        .frame(width: 44, height: 44)
-                        .background(
-                            Circle()
-                                .fill(.ultraThinMaterial)
-                        )
+                    .frame(width: 40, height: 40)
+                    .clipShape(Circle())
+                    .overlay(
+                        Circle()
+                            .stroke(Color.white.opacity(0.2), lineWidth: 1.5)
+                    )
+                } else {
+                    profilePlaceholder
+                        .frame(width: 40, height: 40)
+                        .clipShape(Circle())
                 }
-            } else {
-                Color.clear
-                    .frame(width: 44, height: 44)
             }
 
             Spacer()
 
-            // Center: Score du jour (compact)
+            // Center: Companion name (opens stats)
             Button(action: {
                 isInputFocused = false
-                showScoreDetail = true
+                showStatsProfile = true
             }) {
                 HStack(spacing: 8) {
-                    SatisfactionGaugeView(score: viewModel.satisfactionScore, size: 36)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(companionName)
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.white)
-                        Text("Score du jour")
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundColor(.white.opacity(0.45))
-                    }
+                    Image(systemName: "flame.fill")
+                        .font(.system(size: 14))
+                        .foregroundColor(.orange)
+                    Text(companionName)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white)
+                    Text("·")
+                        .foregroundColor(.white.opacity(0.3))
+                    Text("\(store.currentStreak)j")
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundColor(.orange.opacity(0.8))
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
@@ -306,6 +339,16 @@ struct ChatView: View {
         .padding(.top, 8)
     }
 
+    private var profilePlaceholder: some View {
+        ZStack {
+            Circle()
+                .fill(Color.white.opacity(0.15))
+            Text(String(store.user?.name.prefix(1) ?? "U").uppercased())
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(.white.opacity(0.6))
+        }
+    }
+
     // MARK: - Conversation Header
 
     private var conversationHeader: some View {
@@ -330,18 +373,20 @@ struct ChatView: View {
 
                 Button(action: {
                     isInputFocused = false
-                    showScoreDetail = true
+                    showStatsProfile = true
                 }) {
                     HStack(spacing: 6) {
-                        SatisfactionGaugeView(score: viewModel.satisfactionScore, size: 24)
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(.orange)
                         Text(companionName)
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.white)
                         Text("·")
                             .foregroundColor(.white.opacity(0.3))
-                        Text("\(viewModel.satisfactionScore)")
+                        Text("\(store.currentStreak)j")
                             .font(.system(size: 13, weight: .bold, design: .rounded))
-                            .foregroundColor(.white.opacity(0.7))
+                            .foregroundColor(.orange.opacity(0.7))
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 7)
@@ -403,21 +448,42 @@ struct ChatView: View {
         ScrollViewReader { proxy in
             ScrollView(showsIndicators: false) {
                 LazyVStack(spacing: 8) {
-                    // Group messages by date
-                    ForEach(viewModel.groupedMessages) { group in
-                        // Date separator
-                        dateSeparator(date: group.date)
+                    if viewModel.messages.isEmpty {
+                        // Welcome state
+                        VStack(spacing: 16) {
+                            Spacer().frame(height: 60)
 
-                        // Messages for this date
-                        ForEach(group.messages) { message in
-                            ReplikaMessageBubble(
-                                message: message.withResolvedContent(viewModel.resolvedContent),
-                                viewModel: viewModel,
-                                userAvatarURL: store.user?.avatarURL,
-                                userInitial: userInitialForChat,
-                                companionInitial: companionInitialForChat
-                            )
-                            .id(message.id)
+                            Text("Salut ! Je suis \(companionName)")
+                                .font(.system(size: 16))
+                                .foregroundColor(.black)
+                                .padding(.horizontal, 18)
+                                .padding(.vertical, 14)
+                                .background(Color.white.opacity(0.95))
+                                .cornerRadius(26)
+
+                            Text("Écris-moi pour commencer")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.white.opacity(0.35))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, 16)
+                    } else {
+                        // Group messages by date
+                        ForEach(viewModel.groupedMessages) { group in
+                            // Date separator
+                            dateSeparator(date: group.date)
+
+                            // Messages for this date
+                            ForEach(group.messages) { message in
+                                ReplikaMessageBubble(
+                                    message: message.withResolvedContent(viewModel.resolvedContent),
+                                    viewModel: viewModel,
+                                    userAvatarURL: store.user?.avatarURL,
+                                    userInitial: userInitialForChat,
+                                    companionInitial: companionInitialForChat
+                                )
+                                .id(message.id)
+                            }
                         }
                     }
 
@@ -430,6 +496,7 @@ struct ChatView: View {
                 .padding(.top, 12)
                 .padding(.bottom, 8)
             }
+            .scrollDismissesKeyboard(.interactively)
             .onChange(of: viewModel.messages.count) { _, _ in
                 withAnimation(.easeOut(duration: 0.2)) {
                     proxy.scrollTo("bottom", anchor: .bottom)
@@ -527,6 +594,7 @@ struct ChatView: View {
                 .offset(y: showActionButtons ? -116 : 0)
                 .opacity(showActionButtons ? 1 : 0)
                 .scaleEffect(showActionButtons ? 1 : 0.4)
+                .allowsHitTesting(showActionButtons)
 
                 // Phone call button (deploys upward)
                 Button(action: {
@@ -555,6 +623,7 @@ struct ChatView: View {
                 .offset(y: showActionButtons ? -60 : 0)
                 .opacity(showActionButtons ? 1 : 0)
                 .scaleEffect(showActionButtons ? 1 : 0.4)
+                .allowsHitTesting(showActionButtons)
 
                 // Main toggle button
                 Button(action: {
@@ -576,7 +645,7 @@ struct ChatView: View {
 
             // Text field capsule
             HStack(spacing: 0) {
-                TextField("", text: $viewModel.inputText, prompt: Text("Votre message").foregroundColor(.white.opacity(0.45)))
+                TextField("", text: $viewModel.inputText, prompt: Text(dynamicPlaceholder).foregroundColor(.white.opacity(0.45)))
                     .font(.system(size: 16))
                     .foregroundColor(.white)
                     .focused($isInputFocused)
@@ -589,7 +658,6 @@ struct ChatView: View {
                             isHomeMode = false
                         }
                         viewModel.sendMessage()
-                        isInputFocused = false
                     } label: {
                         Image(systemName: "arrow.up.circle.fill")
                             .font(.system(size: 28))
@@ -604,8 +672,13 @@ struct ChatView: View {
                         }
                     } label: {
                         Image(systemName: "mic.fill")
-                            .font(.system(size: 22, weight: .semibold))
-                            .foregroundColor(.white.opacity(0.5))
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundColor(.white.opacity(0.7))
+                            .frame(width: 36, height: 36)
+                            .background(
+                                Circle()
+                                    .fill(Color.white.opacity(0.1))
+                            )
                     }
                 }
             }
@@ -616,11 +689,7 @@ struct ChatView: View {
                 Capsule()
                     .fill(Color(red: 0.25, green: 0.28, blue: 0.35).opacity(0.85))
             )
-            .onTapGesture {
-                // Pause 3D avatar immediately before keyboard appears (reduces lag)
-                isAvatarPaused = true
-                isInputFocused = true
-            }
+            .contentShape(Capsule())
         }
     }
 
@@ -741,7 +810,7 @@ struct ChatView: View {
     }
 }
 
-// MARK: - Satisfaction Gauge View
+// MARK: - Satisfaction Gauge View (kept for potential reuse)
 
 struct SatisfactionGaugeView: View {
     let score: Int

@@ -1079,6 +1079,14 @@ class ChatViewModel: ObservableObject {
                 saveMessages()
             }
 
+            // Show error as AI message so user knows something went wrong
+            let errorMessage = SimpleChatMessage(
+                content: "Désolé, je n'ai pas pu répondre. Vérifie ta connexion et réessaie.",
+                isFromUser: false
+            )
+            messages.append(errorMessage)
+            saveMessages()
+
             print("Chat AI error: \(error)")
         }
 
