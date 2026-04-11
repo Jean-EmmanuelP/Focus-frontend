@@ -939,6 +939,9 @@ final class FocusAppStore: ObservableObject {
             let todayStr = dateFormatter.string(from: Date())
             self.todaysTasks = try await calendarService.getTasks(date: todayStr)
             print("📋 Today's tasks refreshed: \(self.todaysTasks.count)")
+
+            // Schedule automatic app blocking for tasks with block_apps=true
+            await ScheduledBlockingService.shared.scheduleBlockingForTasks(self.todaysTasks)
         } catch {
             print("⚠️ Failed to refresh today's tasks: \(error)")
         }

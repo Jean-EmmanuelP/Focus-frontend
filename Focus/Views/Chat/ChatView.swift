@@ -26,6 +26,7 @@ struct ChatView: View {
     @State private var showDiscoverMap = false
     @State private var showActionButtons = false
     @State private var showPlanning = false
+    @State private var showCopiedToast = false
 
     @EnvironmentObject var subscriptionManager: SubscriptionManager
 
@@ -78,30 +79,34 @@ struct ChatView: View {
                             .transition(.move(edge: .top).combined(with: .opacity))
                     }
 
-                    // Content area
+                    // Content area — tap to dismiss action buttons
                     if isHomeMode {
                         // Home mode: just spacer, avatar is background
                         Spacer()
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                if showActionButtons {
+                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                                        showActionButtons = false
+                                    }
+                                }
+                            }
                     } else {
                         // Chat mode: messages overlay on avatar background
                         messagesScrollView
+                            .onTapGesture {
+                                if showActionButtons {
+                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                                        showActionButtons = false
+                                    }
+                                }
+                            }
                     }
 
                     // Input bar - always visible
                     replikaInputBar
                 }
 
-                // Dimming overlay when action buttons are deployed
-                if showActionButtons {
-                    Color.black.opacity(0.3)
-                        .ignoresSafeArea()
-                        .onTapGesture {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-                                showActionButtons = false
-                            }
-                        }
-                        .allowsHitTesting(true)
-                }
             }
         }
         .navigationBarHidden(true)
@@ -198,6 +203,24 @@ struct ChatView: View {
             }
         }
         .animation(.easeInOut(duration: 0.3), value: showDiscoverMap)
+        .overlay(alignment: .top) {
+            if showCopiedToast {
+                HStack(spacing: 6) {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text("Copié")
+                        .font(.system(size: 14, weight: .medium))
+                }
+                .foregroundColor(.white)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(.ultraThinMaterial, in: Capsule())
+                .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
+                .padding(.top, 60)
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: showCopiedToast)
         .onChange(of: showAppBlocker) { _, isShowing in
             // Auto-start blocking when user closes the app blocker settings after selecting apps
             if !isShowing {
@@ -480,7 +503,8 @@ struct ChatView: View {
                                     viewModel: viewModel,
                                     userAvatarURL: store.user?.avatarURL,
                                     userInitial: userInitialForChat,
-                                    companionInitial: companionInitialForChat
+                                    companionInitial: companionInitialForChat,
+                                    showCopiedToast: $showCopiedToast
                                 )
                                 .id(message.id)
                             }
@@ -1115,6 +1139,7 @@ struct ReplikaMessageBubble: View {
     var userAvatarURL: String? = nil
     var userInitial: String = ""
     var companionInitial: String = ""
+    @Binding var showCopiedToast: Bool
 
     @StateObject private var audioPlayer = AudioPlayerManager()
     @State private var isDownloading = false
@@ -1193,6 +1218,7 @@ struct ReplikaMessageBubble: View {
         Text(markdownContent)
             .font(.system(size: 16))
             .foregroundColor(message.isFromUser ? .white : .black)
+            .textSelection(.enabled)
             .padding(.horizontal, 18)
             .padding(.vertical, 14)
             .background(message.isFromUser ? userBubbleColor : aiBubbleColor)
@@ -1202,8 +1228,12 @@ struct ReplikaMessageBubble: View {
             .contextMenu {
                 Button {
                     UIPasteboard.general.string = message.content
+                    showCopiedToast = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        showCopiedToast = false
+                    }
                 } label: {
-                    Label("Copier", systemImage: "doc.on.doc")
+                    Label("Copier le message", systemImage: "doc.on.doc")
                 }
             } preview: {
                 Text(markdownContent)
