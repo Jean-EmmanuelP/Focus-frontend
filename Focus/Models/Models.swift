@@ -457,3 +457,27 @@ extension DayProgress {
         self.date = date
     }
 }
+
+// MARK: - Wake-Up Challenge
+
+struct WakeUpChallenge: Codable {
+    var alarmTime: String           // "07:00" format HH:mm
+    var isEnabled: Bool
+    var wakeUpStreak: Int
+    var longestStreak: Int
+    var lastWakeUpDate: String?     // "2026-04-11"
+    var lastWakeUpTime: String?     // "07:02"
+    var gracePeriodMinutes: Int     // default 15
+    var confirmedToday: Bool
+
+    static let `default` = WakeUpChallenge(
+        alarmTime: "07:00",
+        isEnabled: false,
+        wakeUpStreak: 0,
+        longestStreak: 0,
+        lastWakeUpDate: nil,
+        lastWakeUpTime: nil,
+        gracePeriodMinutes: 15,
+        confirmedToday: false
+    )
+}

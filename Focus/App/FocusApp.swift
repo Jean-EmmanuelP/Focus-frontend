@@ -221,6 +221,11 @@ struct FocusApp: App {
         guard url.scheme == "focus" else { return }
 
         switch url.host {
+        case "wakeup-confirm":
+            // Wake-up challenge confirmation
+            WakeUpService.shared.confirmWakeUp()
+            router.selectedTab = .chat
+
         case "firemode", "dashboard", "starttheday", "calendar", "weekly-goals", "chat":
             // All legacy deep links redirect to chat
             router.selectedTab = .chat
@@ -340,6 +345,13 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         // Track in our backend
         Task {
             await PushNotificationService.shared.trackNotificationOpened(notificationId: notificationId)
+        }
+
+        // Handle wake-up alarm actions
+        if response.notification.request.content.categoryIdentifier == "WAKE_UP_ALARM" {
+            Task { @MainActor in
+                WakeUpService.shared.handleNotificationAction(response.actionIdentifier)
+            }
         }
 
         // Handle deep link

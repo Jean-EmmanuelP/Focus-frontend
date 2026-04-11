@@ -397,6 +397,109 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - Wake-Up Challenge Section
+
+    private var wakeUpSection: some View {
+        VStack(spacing: 0) {
+            // Header with toggle
+            HStack {
+                Image(systemName: "alarm.fill")
+                    .font(.system(size: 16))
+                    .foregroundColor(WakeUpService.shared.challenge.isEnabled ? .orange : .white.opacity(0.5))
+                Text("Réveil Challenge")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.white)
+                Spacer()
+                Toggle("", isOn: Binding(
+                    get: { WakeUpService.shared.challenge.isEnabled },
+                    set: { newValue in
+                        WakeUpService.shared.challenge.isEnabled = newValue
+                        if newValue {
+                            WakeUpService.shared.scheduleAlarm()
+                        } else {
+                            WakeUpService.shared.cancelAlarm()
+                        }
+                    }
+                ))
+                .labelsHidden()
+                .tint(.orange)
+            }
+            .padding(.vertical, 10)
+
+            if WakeUpService.shared.challenge.isEnabled {
+                // Alarm time picker
+                HStack {
+                    Text("Heure de réveil")
+                        .font(.system(size: 14))
+                        .foregroundColor(.white.opacity(0.6))
+                    Spacer()
+                    DatePicker("", selection: Binding(
+                        get: {
+                            let parts = WakeUpService.shared.challenge.alarmTime.split(separator: ":").compactMap { Int($0) }
+                            var components = DateComponents()
+                            components.hour = parts.first ?? 7
+                            components.minute = parts.last ?? 0
+                            return Calendar.current.date(from: components) ?? Date()
+                        },
+                        set: { date in
+                            let h = Calendar.current.component(.hour, from: date)
+                            let m = Calendar.current.component(.minute, from: date)
+                            WakeUpService.shared.challenge.alarmTime = String(format: "%02d:%02d", h, m)
+                            WakeUpService.shared.scheduleAlarm()
+                        }
+                    ), displayedComponents: .hourAndMinute)
+                    .labelsHidden()
+                    .colorScheme(.dark)
+                }
+                .padding(.vertical, 6)
+
+                // Streak display
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Streak actuel")
+                            .font(.system(size: 12))
+                            .foregroundColor(.white.opacity(0.4))
+                        HStack(spacing: 4) {
+                            Text("\(WakeUpService.shared.challenge.wakeUpStreak)")
+                                .font(.system(size: 24, weight: .bold, design: .rounded))
+                                .foregroundColor(.orange)
+                            Text("jours")
+                                .font(.system(size: 14))
+                                .foregroundColor(.white.opacity(0.5))
+                        }
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("Record")
+                            .font(.system(size: 12))
+                            .foregroundColor(.white.opacity(0.4))
+                        HStack(spacing: 4) {
+                            Text("\(WakeUpService.shared.challenge.longestStreak)")
+                                .font(.system(size: 24, weight: .bold, design: .rounded))
+                                .foregroundColor(.white.opacity(0.7))
+                            Text("jours")
+                                .font(.system(size: 14))
+                                .foregroundColor(.white.opacity(0.5))
+                        }
+                    }
+                }
+                .padding(.vertical, 8)
+
+                // Status today
+                if WakeUpService.shared.challenge.confirmedToday {
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                        Text("Réveillé à \(WakeUpService.shared.challenge.lastWakeUpTime ?? "--")")
+                            .font(.system(size: 13))
+                            .foregroundColor(.green.opacity(0.8))
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+        }
+    }
+
     // MARK: - Preferences Section
 
     private var preferencesSection: some View {
@@ -468,6 +571,11 @@ struct SettingsView: View {
             Button(action: { withAnimation(.easeInOut(duration: 0.3)) { showAppBlocker = true } }) {
                 settingsRow(title: "Bloquer les apps", showChevron: true)
             }
+            replicaDivider
+
+            // Wake-Up Challenge section
+            wakeUpSection
+
             replicaDivider
             toggleRow(title: "Notifications", isOn: $notificationsEnabled)
             replicaDivider
