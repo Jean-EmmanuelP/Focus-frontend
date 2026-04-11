@@ -4,9 +4,11 @@ struct VoiceCallView: View {
     @StateObject private var viewModel = VoiceCallViewModel()
     @Environment(\.dismiss) private var dismiss
     @State private var showTranscript = false
+    @State private var showVoicePicker = false
     @State private var copiedMessageId: UUID?
     @State private var messageText: String = ""
     @State private var hasDismissed = false
+    @State private var selectedVoiceId: String = UserDefaults.standard.string(forKey: SettingsPrefsKeys.voltaVoiceId) ?? "b35yykvVppLXyw_l"
 
     var mode: String = "voice_call"
     var planningScope: String?
@@ -19,11 +21,12 @@ struct VoiceCallView: View {
         viewModel.callState == .listening || viewModel.callState == .speaking || viewModel.callState == .processing
     }
 
-    // Dynamic background color
+    // Dynamic background color — clearly different for AI vs user
     private var bgGradientColor: Color {
-        if viewModel.isAgentSpeaking { return Color(red: 0.05, green: 0.15, blue: 0.18) } // cyan/teal
-        if isListening || viewModel.isUserSpeaking { return Color(red: 0.18, green: 0.10, blue: 0.02) } // orange/amber
-        return Color(hex: "050508") // neutral dark
+        if viewModel.isAgentSpeaking { return Color(red: 0.04, green: 0.08, blue: 0.18) } // deep blue = AI
+        if viewModel.isUserSpeaking { return Color(red: 0.18, green: 0.10, blue: 0.03) } // warm amber = user
+        if isListening { return Color(red: 0.12, green: 0.08, blue: 0.02) } // subtle amber = your turn
+        return Color(red: 0.03, green: 0.03, blue: 0.05) // neutral dark
     }
 
     var body: some View {
@@ -56,6 +59,27 @@ struct VoiceCallView: View {
                 hasDismissed = true
                 dismiss()
             }
+        }
+        .sheet(isPresented: $showVoicePicker) {
+            VoltaVoicePickerView(
+                currentVoiceId: selectedVoiceId,
+                coachName: FocusAppStore.shared.user?.companionName ?? "Kai",
+                onSelect: { voiceId in
+                    selectedVoiceId = voiceId
+                    UserDefaults.standard.set(voiceId, forKey: SettingsPrefsKeys.voltaVoiceId)
+                    // Also save to backend
+                    Task {
+                        try? await APIClient.shared.request(
+                            endpoint: .updateMe,
+                            method: .patch,
+                            body: ["voice_id": voiceId]
+                        ) as [String: String]?
+                    }
+                    showVoicePicker = false
+                },
+                onDismiss: { showVoicePicker = false }
+            )
+            .presentationDetents([.large])
         }
         .alert("Erreur", isPresented: Binding<Bool>(
             get: { viewModel.errorMessage != nil && viewModel.callState != .offline },
@@ -105,6 +129,15 @@ struct VoiceCallView: View {
                     .animation(.easeInOut(duration: 0.15), value: viewModel.transcribedText)
             }
 
+            // Speaking status label
+            if !speakingStatusText.isEmpty {
+                Text(speakingStatusText)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(speakingStatusColor)
+                    .animation(.easeInOut(duration: 0.3), value: speakingStatusText)
+                    .padding(.bottom, 8)
+            }
+
             // Bottom: X button — orb — mic button
             bottomControlsWithOrb
                 .padding(.bottom, 40)
@@ -128,6 +161,16 @@ struct VoiceCallView: View {
                         .font(.system(size: 12))
                         .foregroundColor(.orange.opacity(0.8))
                 }
+            }
+
+            // Voice picker button
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.3)) { showVoicePicker = true }
+            }) {
+                Image(systemName: "waveform.circle")
+                    .font(.system(size: 15))
+                    .foregroundColor(.white.opacity(0.35))
+                    .frame(width: 40, height: 40)
             }
 
             if !viewModel.messages.isEmpty {
@@ -238,18 +281,36 @@ struct VoiceCallView: View {
 
     // MARK: - Orb Properties
 
-    // Orb color: cyan/teal when agent speaks, orange when user's turn
+    // Orb color: distinct blue when AI speaks, warm orange when user speaks
     private var orbGlowColor: Color {
-        if viewModel.isAgentSpeaking { return Color(red: 0.2, green: 0.7, blue: 0.75) } // cyan/teal
-        if viewModel.isUserSpeaking { return Color(red: 0.85, green: 0.55, blue: 0.15) } // warm orange
-        if isListening { return Color(red: 0.85, green: 0.55, blue: 0.15) } // orange when waiting
-        return Color(red: 0.3, green: 0.5, blue: 0.55) // neutral teal
+        if viewModel.isAgentSpeaking { return Color(red: 0.25, green: 0.55, blue: 1.0) } // vivid blue = AI
+        if viewModel.isUserSpeaking { return Color(red: 1.0, green: 0.55, blue: 0.15) } // vivid orange = user
+        if isListening { return Color(red: 0.9, green: 0.5, blue: 0.2) } // orange waiting for user
+        return Color(red: 0.3, green: 0.4, blue: 0.5) // neutral gray-blue
     }
 
     private var orbPulse: CGFloat {
-        if viewModel.isAgentSpeaking { return 0.08 }
-        if viewModel.isUserSpeaking { return 0.12 }
-        return 0.04
+        if viewModel.isAgentSpeaking { return 0.1 }
+        if viewModel.isUserSpeaking { return 0.15 }
+        return 0.03
+    }
+
+    // Status label showing who is speaking
+    private var speakingStatusText: String {
+        if viewModel.callState == .connecting { return "Connexion..." }
+        if viewModel.isAgentSpeaking {
+            let name = FocusAppStore.shared.user?.companionName ?? "Kai"
+            return "\(name) parle..."
+        }
+        if viewModel.isUserSpeaking { return "Vous parlez..." }
+        if isListening { return "À vous..." }
+        return ""
+    }
+
+    private var speakingStatusColor: Color {
+        if viewModel.isAgentSpeaking { return Color(red: 0.4, green: 0.7, blue: 1.0) }
+        if viewModel.isUserSpeaking { return Color(red: 1.0, green: 0.65, blue: 0.3) }
+        return .white.opacity(0.4)
     }
 
     // bottomControls removed — replaced by bottomControlsWithOrb
