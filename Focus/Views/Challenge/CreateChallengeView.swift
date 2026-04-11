@@ -246,7 +246,6 @@ struct CreateChallengeView: View {
                             let h = Calendar.current.component(.hour, from: customAlarmTime)
                             let m = Calendar.current.component(.minute, from: customAlarmTime)
                             onCreate(s.type, String(format: "%02d:%02d", h, m), customDuration, s.type == .custom ? s.title : nil)
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { shareInviteLink() }
                             dismiss()
                         } label: {
                             HStack(spacing: 8) {
