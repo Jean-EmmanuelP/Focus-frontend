@@ -1,163 +1,150 @@
 import SwiftUI
 
-// MARK: - Challenge Card (for Planning View)
+// MARK: - Challenge Card (Planning View)
 
 struct ChallengeCardView: View {
     let challenge: Challenge
     let currentUserId: String
     var onValidate: () -> Void = {}
 
-    private var isCreator: Bool {
-        currentUserId == challenge.creatorId
-    }
+    private var isCreator: Bool { currentUserId == challenge.creatorId }
+    private var myScore: Int { isCreator ? challenge.creatorScore : challenge.opponentScore }
+    private var theirScore: Int { isCreator ? challenge.opponentScore : challenge.creatorScore }
+    private var myStreak: Int { isCreator ? challenge.creatorStreak : challenge.opponentStreak }
+    private var theirStreak: Int { isCreator ? challenge.opponentStreak : challenge.creatorStreak }
+    private var myName: String { (isCreator ? challenge.creatorName : challenge.opponentName) ?? "Moi" }
+    private var theirName: String { (isCreator ? challenge.opponentName : challenge.creatorName) ?? "..." }
 
-    private var myScore: Int {
-        isCreator ? challenge.creatorScore : challenge.opponentScore
-    }
-
-    private var opponentScore: Int {
-        isCreator ? challenge.opponentScore : challenge.creatorScore
-    }
-
-    private var myStreak: Int {
-        isCreator ? challenge.creatorStreak : challenge.opponentStreak
-    }
-
-    private var myName: String {
-        (isCreator ? challenge.creatorName : challenge.opponentName) ?? "Moi"
-    }
-
-    private var opponentName: String {
-        (isCreator ? challenge.opponentName : challenge.creatorName) ?? "En attente"
-    }
-
-    private var typeColor: Color {
+    private var gradient: LinearGradient {
         switch challenge.type {
-        case .wakeup: return .orange
-        case .gym: return .red
-        case .meditation: return .purple
-        case .reading: return .blue
-        case .custom: return .green
+        case .wakeup: return LinearGradient(colors: [Color(hex: "#FF9500"), Color(hex: "#FF6B00")], startPoint: .topLeading, endPoint: .bottomTrailing)
+        case .gym: return LinearGradient(colors: [Color(hex: "#FF3B30"), Color(hex: "#FF2D55")], startPoint: .topLeading, endPoint: .bottomTrailing)
+        case .meditation: return LinearGradient(colors: [Color(hex: "#AF52DE"), Color(hex: "#5856D6")], startPoint: .topLeading, endPoint: .bottomTrailing)
+        case .reading: return LinearGradient(colors: [Color(hex: "#007AFF"), Color(hex: "#5AC8FA")], startPoint: .topLeading, endPoint: .bottomTrailing)
+        case .custom: return LinearGradient(colors: [Color(hex: "#34C759"), Color(hex: "#30D158")], startPoint: .topLeading, endPoint: .bottomTrailing)
         }
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
+            // Top — gradient header
             HStack {
-                Image(systemName: challenge.type.icon)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(typeColor)
-
-                Text(challenge.displayTitle)
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(.white)
-
+                HStack(spacing: 8) {
+                    Image(systemName: challenge.type.icon)
+                        .font(.satoshi(14, weight: .bold))
+                    Text(challenge.displayTitle)
+                        .font(.satoshi(15, weight: .bold))
+                }
                 Spacer()
-
-                // Day counter
-                Text("Jour \(challenge.dayNumber)/\(challenge.durationDays)")
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundColor(.white.opacity(0.5))
+                Text("J\(challenge.dayNumber)/\(challenge.durationDays)")
+                    .font(.satoshi(13, weight: .bold))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(.ultraThinMaterial)
+                    .clipShape(Capsule())
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 14)
-            .padding(.bottom, 10)
+            .foregroundColor(.white)
+            .padding(16)
+            .background(gradient)
 
-            // Progress bar
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(Color.white.opacity(0.1))
-                        .frame(height: 6)
-
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(typeColor)
-                        .frame(width: geo.size.width * CGFloat(challenge.dayNumber) / CGFloat(max(1, challenge.durationDays)), height: 6)
-                }
-            }
-            .frame(height: 6)
-            .padding(.horizontal, 16)
-            .padding(.bottom, 12)
-
-            // Scores — side by side
+            // Scores
             HStack(spacing: 0) {
-                // My score
-                VStack(spacing: 4) {
-                    Text(myName)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.white.opacity(0.6))
-                    Text("\(myScore)")
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
-                        .foregroundColor(typeColor)
-                    HStack(spacing: 2) {
-                        Image(systemName: "flame.fill")
-                            .font(.system(size: 10))
-                        Text("\(myStreak)j")
-                            .font(.system(size: 11, weight: .medium))
-                    }
-                    .foregroundColor(.orange.opacity(0.7))
-                }
-                .frame(maxWidth: .infinity)
+                // My side
+                playerColumn(name: myName, score: myScore, streak: myStreak, isMe: true, isLeading: myScore >= theirScore)
 
-                // VS
-                Text("VS")
-                    .font(.system(size: 13, weight: .black, design: .rounded))
-                    .foregroundColor(.white.opacity(0.25))
-
-                // Opponent score
+                // Center divider
                 VStack(spacing: 4) {
-                    Text(opponentName)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.white.opacity(0.6))
-                    Text("\(opponentScore)")
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
-                        .foregroundColor(.white.opacity(0.7))
-                    HStack(spacing: 2) {
-                        Image(systemName: "flame.fill")
-                            .font(.system(size: 10))
-                        let oppStreak = isCreator ? challenge.opponentStreak : challenge.creatorStreak
-                        Text("\(oppStreak)j")
-                            .font(.system(size: 11, weight: .medium))
-                    }
-                    .foregroundColor(.orange.opacity(0.5))
+                    Text("VS")
+                        .font(.satoshi(11, weight: .black))
+                        .foregroundColor(ColorTokens.textMuted)
+                    // Progress dots
+                    progressDots
                 }
-                .frame(maxWidth: .infinity)
+                .frame(width: 50)
+
+                // Their side
+                playerColumn(name: theirName, score: theirScore, streak: theirStreak, isMe: false, isLeading: theirScore > myScore)
             }
-            .padding(.vertical, 8)
+            .padding(.vertical, 16)
+            .background(ColorTokens.surfaceElevated)
 
-            // Validate button
+            // Validate CTA
             if challenge.isActive {
                 Button(action: onValidate) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "video.fill")
-                            .font(.system(size: 13))
-                        Text("Valider en live")
-                            .font(.system(size: 14, weight: .semibold))
+                    HStack(spacing: 8) {
+                        Image(systemName: "camera.fill")
+                            .font(.system(size: 14))
+                        Text("Valider aujourd'hui")
+                            .font(.satoshi(15, weight: .bold))
                     }
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(typeColor)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .padding(.vertical, 14)
+                    .background(gradient)
                 }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 14)
-            }
-
-            // Alarm time if wake-up
-            if challenge.type == .wakeup, let time = challenge.alarmTime {
-                HStack {
-                    Image(systemName: "alarm")
-                        .font(.system(size: 11))
-                    Text("Réveil à \(time)")
-                        .font(.system(size: 12, weight: .medium))
-                }
-                .foregroundColor(.white.opacity(0.35))
-                .padding(.bottom, 10)
             }
         }
-        .background(Color.white.opacity(0.06))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .clipShape(RoundedRectangle(cornerRadius: RadiusTokens.lg))
+        .shadow(color: .black.opacity(0.3), radius: 12, y: 4)
+    }
+
+    // MARK: - Player Column
+
+    private func playerColumn(name: String, score: Int, streak: Int, isMe: Bool, isLeading: Bool) -> some View {
+        VStack(spacing: 6) {
+            // Avatar circle
+            ZStack {
+                Circle()
+                    .fill(isMe ? ColorTokens.primarySoft : ColorTokens.border)
+                    .frame(width: 40, height: 40)
+                Text(String(name.prefix(1)).uppercased())
+                    .font(.satoshi(16, weight: .bold))
+                    .foregroundColor(isMe ? ColorTokens.primaryStart : ColorTokens.textSecondary)
+            }
+
+            Text(name)
+                .font(.satoshi(12, weight: .medium))
+                .foregroundColor(ColorTokens.textSecondary)
+                .lineLimit(1)
+
+            Text("\(score)")
+                .font(.satoshi(32, weight: .black))
+                .foregroundColor(isLeading ? ColorTokens.textPrimary : ColorTokens.textSecondary)
+
+            if streak > 0 {
+                HStack(spacing: 3) {
+                    Image(systemName: "flame.fill")
+                        .font(.system(size: 10))
+                    Text("\(streak)")
+                        .font(.satoshi(11, weight: .bold))
+                }
+                .foregroundColor(ColorTokens.warning)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    // MARK: - Progress Dots
+
+    private var progressDots: some View {
+        let total = min(challenge.durationDays, 30)
+        let completed = challenge.dayNumber - 1
+        let cols = 5
+        let rows = min(6, (total + cols - 1) / cols)
+
+        return VStack(spacing: 2) {
+            ForEach(0..<rows, id: \.self) { row in
+                HStack(spacing: 2) {
+                    ForEach(0..<cols, id: \.self) { col in
+                        let day = row * cols + col + 1
+                        if day <= total {
+                            Circle()
+                                .fill(day <= completed ? ColorTokens.primaryStart : ColorTokens.border)
+                                .frame(width: 4, height: 4)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
