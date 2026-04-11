@@ -27,6 +27,9 @@ struct PlanningView: View {
     @State private var questToDelete: QuestResponse?
     @State private var objectivesExpanded = false
     @State private var showCompleted = true
+    @State private var aiSuggestions: [AISuggestion] = []
+    @State private var isLoadingSuggestions = false
+    @State private var showSuggestions = false
 
     // Background color matching chat screen avatar background
     private let bgColor = Color(red: 0.10, green: 0.12, blue: 0.20)
@@ -247,6 +250,26 @@ struct PlanningView: View {
 
             Spacer()
 
+            // AI suggestions button
+            Button {
+                fetchAISuggestions()
+            } label: {
+                if isLoadingSuggestions {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .frame(width: 36, height: 36)
+                } else {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(showSuggestions ? Color(red: 1.0, green: 0.8, blue: 0.2) : .white.opacity(0.8))
+                        .frame(width: 36, height: 36)
+                        .background(
+                            Circle()
+                                .fill(.ultraThinMaterial)
+                        )
+                }
+            }
+
             // Voice planning button (pro only)
             Button {
                 if SubscriptionManager.shared.isProUser {
@@ -452,6 +475,71 @@ struct PlanningView: View {
         return Group {
             if hasContent {
                 VStack(spacing: 12) {
+                    // AI Suggestions section
+                    if showSuggestions && !aiSuggestions.isEmpty {
+                        VStack(spacing: 0) {
+                            HStack {
+                                Image(systemName: "sparkles")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(Color(red: 1.0, green: 0.8, blue: 0.2))
+                                Text("Suggestions IA")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundColor(Color(red: 1.0, green: 0.8, blue: 0.2))
+                                    .textCase(.uppercase)
+                                    .kerning(1)
+                                Spacer()
+                                Button {
+                                    withAnimation { showSuggestions = false; aiSuggestions = [] }
+                                } label: {
+                                    Image(systemName: "xmark")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundColor(.white.opacity(0.4))
+                                        .frame(width: 24, height: 24)
+                                        .background(Circle().fill(Color.white.opacity(0.1)))
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 8)
+
+                            VStack(spacing: 1) {
+                                ForEach(aiSuggestions) { suggestion in
+                                    HStack(spacing: 12) {
+                                        VStack(alignment: .leading, spacing: 3) {
+                                            Text(suggestion.title)
+                                                .font(.system(size: 15, weight: .medium))
+                                                .foregroundColor(.white.opacity(0.9))
+                                            HStack(spacing: 6) {
+                                                timeBlockIndicator(for: suggestion.timeBlock)
+                                                if !suggestion.reason.isEmpty {
+                                                    Text(suggestion.reason)
+                                                        .font(.system(size: 12))
+                                                        .foregroundColor(.white.opacity(0.35))
+                                                        .lineLimit(1)
+                                                }
+                                            }
+                                        }
+                                        Spacer()
+                                        // Accept button
+                                        Button {
+                                            acceptSuggestion(suggestion)
+                                        } label: {
+                                            Image(systemName: "plus.circle.fill")
+                                                .font(.system(size: 24))
+                                                .foregroundColor(Color(red: 0.3, green: 0.8, blue: 0.4))
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 12)
+                                    .background(Color.white.opacity(0.04))
+                                }
+                            }
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                        }
+                        .padding(.bottom, 4)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+
                     // Active items
                     if hasPending {
                         VStack(spacing: 0) {
@@ -695,6 +783,60 @@ struct PlanningView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
+    }
+
+    // MARK: - AI Suggestions
+
+    private func fetchAISuggestions() {
+        guard !isLoadingSuggestions else { return }
+        isLoadingSuggestions = true
+
+        Task {
+            do {
+                let dateStr = Self.isoFormatter.string(from: selectedDate)
+                let prompt = "Suggère 3-4 tâches pour \(dateStr). Contexte: tâches existantes: \(tasks.map { $0.title }.joined(separator: ", ")). Rituels: \(rituals.map { $0.title }.joined(separator: ", ")). Réponds UNIQUEMENT en JSON: [{\"title\": \"...\", \"time_block\": \"morning|afternoon|evening\", \"reason\": \"...\"}]"
+
+                let (reply, _) = try await ChatV2Service.shared.sendMessage(prompt)
+
+                // Parse JSON from AI response
+                if let jsonStart = reply.firstIndex(of: "["),
+                   let jsonEnd = reply.lastIndex(of: "]") {
+                    let jsonStr = String(reply[jsonStart...jsonEnd])
+                    if let data = jsonStr.data(using: .utf8),
+                       let parsed = try? JSONDecoder().decode([AISuggestionResponse].self, from: data) {
+                        await MainActor.run {
+                            aiSuggestions = parsed.map { AISuggestion(title: $0.title, timeBlock: $0.time_block ?? "morning", reason: $0.reason ?? "") }
+                            showSuggestions = true
+                        }
+                    }
+                }
+            } catch {
+                print("AI suggestions error: \(error)")
+            }
+            await MainActor.run { isLoadingSuggestions = false }
+        }
+    }
+
+    private func acceptSuggestion(_ suggestion: AISuggestion) {
+        let dateStr = Self.isoFormatter.string(from: selectedDate)
+        Task {
+            do {
+                let _: CalendarTask? = try await APIClient.shared.request(
+                    endpoint: .createCalendarTask,
+                    method: .post,
+                    body: CreateTaskBody(title: suggestion.title, date: dateStr, timeBlock: suggestion.timeBlock, priority: "medium")
+                )
+                // Remove from suggestions
+                await MainActor.run {
+                    aiSuggestions.removeAll { $0.id == suggestion.id }
+                    if aiSuggestions.isEmpty { showSuggestions = false }
+                }
+                // Refresh tasks
+                await loadData()
+            } catch {
+                print("Accept suggestion error: \(error)")
+            }
+        }
     }
 
     private func toggleBlockApps(_ task: CalendarTask) {
@@ -1988,5 +2130,32 @@ struct AddQuestSheet: View {
         .padding(.horizontal, 20)
         .background(bgColor.ignoresSafeArea())
         .onAppear { isFocused = true }
+    }
+}
+
+// MARK: - AI Suggestion Models
+
+struct AISuggestion: Identifiable {
+    let id = UUID()
+    let title: String
+    let timeBlock: String
+    let reason: String
+}
+
+private struct AISuggestionResponse: Codable {
+    let title: String
+    let time_block: String?
+    let reason: String?
+}
+
+private struct CreateTaskBody: Codable {
+    let title: String
+    let date: String
+    let timeBlock: String
+    let priority: String
+
+    enum CodingKeys: String, CodingKey {
+        case title, date, priority
+        case timeBlock = "time_block"
     }
 }
