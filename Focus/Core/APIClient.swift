@@ -295,6 +295,9 @@ enum APIConfiguration {
         case livekitToken    // POST /voice/livekit-token — get LiveKit room token
         case chatTts         // POST /chat/tts — Gradium TTS preview
 
+        // Challenges
+        case custom(String)  // Arbitrary path for new endpoints
+
         // Chat V2 (Backboard via backend)
         case chatV2Message   // POST /chat/v2/message
         case chatV2History   // GET /chat/v2/history
@@ -523,6 +526,8 @@ enum APIConfiguration {
                 return "/voice/livekit-token"
             case .chatTts:
                 return "/chat/tts"
+            case .custom(let path):
+                return path
             case .chatV2Message:
                 return "/chat/v2/message"
             case .chatV2History:

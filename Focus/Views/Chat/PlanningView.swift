@@ -30,6 +30,9 @@ struct PlanningView: View {
     @State private var aiSuggestions: [AISuggestion] = []
     @State private var isLoadingSuggestions = false
     @State private var showSuggestions = false
+    @State private var challenges: [Challenge] = []
+    @State private var showCreateChallenge = false
+    @State private var showVerification: Challenge?
 
     // Background color matching chat screen avatar background
     private let bgColor = Color(red: 0.10, green: 0.12, blue: 0.20)
@@ -84,6 +87,12 @@ struct PlanningView: View {
                     VStack(spacing: 16) {
                         progressHeader
                         dateStrip
+
+                        // Active challenges
+                        if !challenges.isEmpty {
+                            challengesSection
+                        }
+
                         unifiedList
 
                         if !quests.isEmpty || objectivesExpanded {
@@ -190,6 +199,22 @@ struct PlanningView: View {
             }
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showCreateChallenge) {
+            CreateChallengeView { type, alarmTime, duration, customTitle in
+                createChallenge(type: type, alarmTime: alarmTime, duration: duration, customTitle: customTitle)
+                showCreateChallenge = false
+            }
+        }
+        .fullScreenCover(item: $showVerification) { challenge in
+            ChallengeVerificationView(
+                challenge: challenge,
+                onVerified: { photoUrl in
+                    checkInChallenge(challenge, photoUrl: photoUrl)
+                    showVerification = nil
+                },
+                onDismiss: { showVerification = nil }
+            )
         }
         .sheet(isPresented: $showVoicePlanningSheet) {
             VoicePlanningScopeSheet(bgColor: bgColor) { scope in
@@ -797,6 +822,103 @@ struct PlanningView: View {
         .padding(.vertical, 14)
     }
 
+    // MARK: - Challenges Section
+
+    private var challengesSection: some View {
+        VStack(spacing: 8) {
+            HStack {
+                Image(systemName: "trophy.fill")
+                    .font(.system(size: 12))
+                    .foregroundColor(.yellow)
+                Text("Challenges")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(.white.opacity(0.5))
+                    .textCase(.uppercase)
+                    .kerning(1)
+                Spacer()
+                Button {
+                    showCreateChallenge = true
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.white.opacity(0.5))
+                        .frame(width: 24, height: 24)
+                        .background(Circle().fill(Color.white.opacity(0.1)))
+                }
+            }
+            .padding(.horizontal, 20)
+
+            ForEach(challenges.filter { $0.isActive }) { challenge in
+                ChallengeCardView(
+                    challenge: challenge,
+                    currentUserId: store.user?.id ?? "",
+                    onValidate: { showVerification = challenge }
+                )
+                .padding(.horizontal, 16)
+            }
+        }
+    }
+
+    private func loadChallenges() {
+        Task {
+            do {
+                let result: [Challenge] = try await APIClient.shared.request(
+                    endpoint: .custom("/challenges/wakeup"),
+                    method: .get
+                )
+                await MainActor.run { challenges = result }
+            } catch {
+                print("Load challenges error: \(error)")
+            }
+        }
+    }
+
+    private func createChallenge(type: ChallengeType, alarmTime: String, duration: Int, customTitle: String?) {
+        Task {
+            do {
+                var body: [String: Any] = [
+                    "challenge_type": type.rawValue,
+                    "alarm_time": alarmTime,
+                    "duration_days": duration,
+                ]
+                if let title = customTitle {
+                    body["custom_title"] = title
+                }
+                let _: [String: Any]? = try await APIClient.shared.request(
+                    endpoint: .custom("/challenges/wakeup"),
+                    method: .post,
+                    body: body
+                )
+                loadChallenges()
+            } catch {
+                print("Create challenge error: \(error)")
+            }
+        }
+    }
+
+    private func checkInChallenge(_ challenge: Challenge, photoUrl: String?) {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        let timeStr = formatter.string(from: Date())
+
+        Task {
+            do {
+                var body: [String: Any] = ["wake_up_time": timeStr]
+                if let photo = photoUrl {
+                    body["photo_url"] = photo
+                }
+                let _: [String: Any]? = try await APIClient.shared.request(
+                    endpoint: .custom("/challenges/wakeup/\(challenge.id)/checkin"),
+                    method: .post,
+                    body: body
+                )
+                loadChallenges()
+            } catch {
+                print("Check-in error: \(error)")
+            }
+        }
+    }
+
     // MARK: - AI Suggestions
 
     private func fetchAISuggestions() {
@@ -1292,6 +1414,7 @@ struct PlanningView: View {
         }
 
         await store.ensureAreasExist()
+        loadChallenges()
         do {
             let calendarService = CalendarService()
             let fetched = try await calendarService.getTasks(date: dateKey)
