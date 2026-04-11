@@ -360,10 +360,30 @@ def build_system_prompt(
 
         ctx += f"""
 MODE PLANIFICATION — {scope_label}
-L'utilisateur te dit ses tâches → tu appelles create_task IMMÉDIATEMENT pour chacune. Pas de récap, pas de confirmation.
-Quand il dit une tâche, tu la crées direct et tu dis juste "OK" ou "C'est fait".
-Quand il a fini ("c'est bon", "c'est tout", "merci") → end_call.
-Ne pose PAS de questions sur le créneau ou la priorité. Choisis selon l'heure actuelle.
+
+TON RÔLE: Tu es un coach de productivité PROACTIF. Tu PROPOSES un plan, tu ne te contentes pas d'attendre.
+
+COMPORTEMENT:
+1. Après le greeting, ANALYSE le calendrier et les rituels de l'utilisateur
+2. PROPOSE 3-5 tâches concrètes adaptées à sa journée, ses objectifs, et ses habitudes
+3. Exemples de suggestions: "Je te propose de commencer par du sport ce matin, puis bosser sur ton projet l'après-midi. Ça te va?"
+4. Si l'utilisateur accepte → crée les tâches avec create_task IMMÉDIATEMENT
+5. Si l'utilisateur modifie → adapte et crée
+6. L'utilisateur peut aussi dicter ses propres tâches → crée-les direct
+7. Quand il a fini ("c'est bon", "c'est tout", "merci") → RÉCAPITULE les tâches créées en 1 phrase, puis end_call
+
+SUGGESTIONS INTELLIGENTES:
+- Regarde ses rituels → propose des tâches complémentaires (ex: rituel sport → "Session salle de sport")
+- Regarde son calendrier → propose des tâches autour des événements (ex: réunion à 14h → "Préparer la réunion" le matin)
+- Regarde ses objectifs/mémoire → propose des tâches alignées avec ses goals
+- Propose des rituels s'il n'en a pas beaucoup: sport, méditation, lecture, hydratation
+- Adapte au moment de la journée (matin = sport/deep work, après-midi = réunions/admin, soir = perso/lecture)
+
+CRÉATION DE TÂCHES:
+- Quand tu proposes et que l'utilisateur dit oui → create_task pour chacune
+- Quand l'utilisateur dicte une tâche → create_task IMMÉDIATEMENT, dis juste "Fait"
+- Ne demande JAMAIS le créneau ou la priorité. Choisis intelligemment.
+- Titres COURTS (5 mots max)
 """
         # Inject actual planning data into prompt
         if planning_context and planning_context.get("days"):
@@ -382,6 +402,14 @@ Ne pose PAS de questions sur le créneau ou la priorité. Choisis selon l'heure 
                 if not tasks and not events:
                     ctx += " Vide."
                 ctx += "\n"
+
+        # Inject rituals for smart suggestions
+        if user_context and user_context.get("rituals"):
+            rituals = user_context["rituals"]
+            if rituals:
+                ritual_names = [r.get("name") or r.get("title", "") for r in rituals[:10] if r.get("name") or r.get("title")]
+                if ritual_names:
+                    ctx += f"\nRITUELS DE L'UTILISATEUR: {', '.join(ritual_names)}\n"
 
     return base + ctx
 
@@ -479,7 +507,7 @@ def build_greeting(lang: str, name: str = "", coach_name: str = "", mode: str = 
     intro = f"Salut, c'est {coach_name}" if coach_name else "Salut"
     intro_en = f"Hey, it's {coach_name}" if coach_name else "Hey"
 
-    # Planning mode greeting
+    # Planning mode greeting — proactive, proposes plan
     if mode == "planning" and lang.startswith("fr"):
         scope_label = {
             "today": "ta journée",
@@ -488,9 +516,18 @@ def build_greeting(lang: str, name: str = "", coach_name: str = "", mode: str = 
             "week": "ta semaine",
         }.get(planning_scope, "ta journée")
 
-        greeting = f"{intro} ! Dis-moi tes tâches"
-        if name:
-            greeting = f"{intro} {name} ! Dis-moi tes tâches"
+        # Check if planning context has existing tasks/events to reference
+        has_events = False
+        if planning_context and planning_context.get("days"):
+            for day in planning_context["days"]:
+                if day.get("calendar_events") or day.get("tasks"):
+                    has_events = True
+                    break
+
+        if has_events:
+            greeting = f"{intro} {name} ! J'ai regardé ton calendrier, laisse-moi te proposer un plan pour {scope_label}." if name else f"{intro} ! J'ai regardé ton calendrier, laisse-moi te proposer un plan pour {scope_label}."
+        else:
+            greeting = f"{intro} {name} ! On planifie {scope_label} ensemble. J'ai quelques idées pour toi." if name else f"{intro} ! On planifie {scope_label} ensemble. J'ai quelques idées pour toi."
         return greeting
 
     if lang.startswith("fr"):
