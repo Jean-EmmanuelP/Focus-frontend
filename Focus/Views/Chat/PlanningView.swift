@@ -876,15 +876,13 @@ struct PlanningView: View {
     private func createChallenge(type: ChallengeType, alarmTime: String, duration: Int, customTitle: String?) {
         Task {
             do {
-                var body: [String: Any] = [
-                    "challenge_type": type.rawValue,
-                    "alarm_time": alarmTime,
-                    "duration_days": duration,
-                ]
-                if let title = customTitle {
-                    body["custom_title"] = title
-                }
-                let _: [String: Any]? = try await APIClient.shared.request(
+                let body = CreateChallengeRequest(
+                    challengeType: type.rawValue,
+                    alarmTime: alarmTime,
+                    durationDays: duration,
+                    customTitle: customTitle
+                )
+                let _: Challenge = try await APIClient.shared.request(
                     endpoint: .custom("/challenges/wakeup"),
                     method: .post,
                     body: body
@@ -903,11 +901,11 @@ struct PlanningView: View {
 
         Task {
             do {
-                var body: [String: Any] = ["wake_up_time": timeStr]
-                if let photo = photoUrl {
-                    body["photo_url"] = photo
-                }
-                let _: [String: Any]? = try await APIClient.shared.request(
+                let body = ChallengeCheckInRequest(
+                    wakeUpTime: timeStr,
+                    photoUrl: photoUrl
+                )
+                let _: ChallengeEntry = try await APIClient.shared.request(
                     endpoint: .custom("/challenges/wakeup/\(challenge.id)/checkin"),
                     method: .post,
                     body: body

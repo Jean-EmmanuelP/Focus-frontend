@@ -149,3 +149,29 @@ enum VerificationGesture: String, CaseIterable {
         allCases.randomElement() ?? .thumbsUp
     }
 }
+
+// MARK: - API Request Bodies
+
+struct CreateChallengeRequest: Encodable {
+    let challengeType: String
+    let alarmTime: String
+    let durationDays: Int
+    let customTitle: String?
+
+    enum CodingKeys: String, CodingKey {
+        case challengeType = "challenge_type"
+        case alarmTime = "alarm_time"
+        case durationDays = "duration_days"
+        case customTitle = "custom_title"
+    }
+}
+
+struct ChallengeCheckInRequest: Encodable {
+    let wakeUpTime: String
+    let photoUrl: String?
+
+    enum CodingKeys: String, CodingKey {
+        case wakeUpTime = "wake_up_time"
+        case photoUrl = "photo_url"
+    }
+}
