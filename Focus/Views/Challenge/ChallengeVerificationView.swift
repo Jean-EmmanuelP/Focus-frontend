@@ -1,19 +1,17 @@
 import SwiftUI
-import AVFoundation
+import UIKit
 
-// MARK: - Challenge Verification (Live Camera + Gesture)
+// MARK: - Challenge Verification (Selfie Camera)
 
 struct ChallengeVerificationView: View {
     let challenge: Challenge
-    var onVerified: (String?) -> Void // photo URL
+    var onVerified: (String?) -> Void
     var onDismiss: () -> Void
 
     @State private var gesture = VerificationGesture.random
-    @State private var countdown = 3
-    @State private var isCapturing = false
-    @State private var isVerified = false
     @State private var showCamera = false
     @State private var capturedImage: UIImage?
+    @State private var isUploading = false
 
     private var typeColor: Color {
         switch challenge.type {
@@ -29,18 +27,23 @@ struct ChallengeVerificationView: View {
         ZStack {
             Color.black.ignoresSafeArea()
 
-            if isVerified {
-                verifiedView
-            } else if showCamera {
-                cameraView
+            if let image = capturedImage {
+                confirmationView(image)
             } else {
                 instructionView
             }
         }
         .preferredColorScheme(.dark)
+        .fullScreenCover(isPresented: $showCamera) {
+            SelfieCamera { image in
+                capturedImage = image
+                showCamera = false
+            }
+            .ignoresSafeArea()
+        }
     }
 
-    // MARK: - Instruction
+    // MARK: - Instruction Screen
 
     private var instructionView: some View {
         VStack(spacing: 30) {
@@ -50,42 +53,41 @@ struct ChallengeVerificationView: View {
                 .font(.system(size: 50))
                 .foregroundColor(typeColor)
 
-            Text("Validation du challenge")
-                .font(.system(size: 22, weight: .bold))
+            Text("Jour \(challenge.dayNumber)")
+                .font(.system(size: 28, weight: .bold, design: .rounded))
                 .foregroundColor(.white)
 
-            Text("L'IA va te demander de faire un geste pour prouver que c'est bien toi.")
-                .font(.system(size: 15))
+            Text("Prends un selfie pour valider")
+                .font(.system(size: 17))
                 .foregroundColor(.white.opacity(0.6))
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
 
-            VStack(spacing: 12) {
-                Text("Ton geste du jour :")
-                    .font(.system(size: 14))
+            // Gesture instruction (social proof — your friend will see this)
+            VStack(spacing: 8) {
+                Text("Fais ce geste sur ta photo :")
+                    .font(.system(size: 13))
                     .foregroundColor(.white.opacity(0.4))
 
-                HStack(spacing: 12) {
+                HStack(spacing: 10) {
                     Text(gesture.emoji)
-                        .font(.system(size: 40))
+                        .font(.system(size: 36))
                     Text(gesture.instruction)
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(.white)
                 }
-                .padding(20)
+                .padding(16)
                 .background(Color.white.opacity(0.08))
-                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .clipShape(RoundedRectangle(cornerRadius: 14))
             }
 
             Spacer()
 
-            Button {
-                showCamera = true
-            } label: {
-                HStack {
+            // Camera button
+            Button { showCamera = true } label: {
+                HStack(spacing: 8) {
                     Image(systemName: "camera.fill")
-                    Text("Ouvrir la caméra")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.system(size: 18))
+                    Text("Prendre le selfie")
+                        .font(.system(size: 17, weight: .bold))
                 }
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
@@ -101,114 +103,103 @@ struct ChallengeVerificationView: View {
         }
     }
 
-    // MARK: - Camera View
+    // MARK: - Confirmation Screen (after photo taken)
 
-    private var cameraView: some View {
-        VStack(spacing: 0) {
-            // Gesture reminder at top
-            HStack(spacing: 8) {
-                Text(gesture.emoji)
-                    .font(.system(size: 20))
-                Text(gesture.instruction)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.white)
-            }
-            .padding(12)
-            .background(typeColor.opacity(0.3))
-            .clipShape(Capsule())
-            .padding(.top, 60)
-
+    private func confirmationView(_ image: UIImage) -> some View {
+        VStack(spacing: 20) {
             Spacer()
 
-            // Camera preview placeholder
-            ZStack {
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(Color.white.opacity(0.05))
-                    .frame(width: 280, height: 370)
+            // Photo preview
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(width: 250, height: 330)
+                .clipShape(RoundedRectangle(cornerRadius: 20))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(typeColor, lineWidth: 2)
+                )
 
-                if isCapturing {
-                    // Countdown
-                    Text("\(countdown)")
-                        .font(.system(size: 80, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
-                } else {
-                    VStack(spacing: 12) {
-                        Image(systemName: "camera.viewfinder")
-                            .font(.system(size: 50))
-                            .foregroundColor(.white.opacity(0.3))
-                        Text("Caméra frontale")
-                            .font(.system(size: 14))
-                            .foregroundColor(.white.opacity(0.3))
-                    }
-                }
-            }
-
-            Spacer()
-
-            // Capture button
-            if !isCapturing {
-                Button {
-                    startCapture()
-                } label: {
-                    ZStack {
-                        Circle()
-                            .stroke(Color.white, lineWidth: 4)
-                            .frame(width: 72, height: 72)
-                        Circle()
-                            .fill(typeColor)
-                            .frame(width: 60, height: 60)
-                        Image(systemName: "camera.fill")
-                            .font(.system(size: 22))
-                            .foregroundColor(.white)
-                    }
-                }
-                .padding(.bottom, 40)
-            }
-        }
-    }
-
-    // MARK: - Verified
-
-    private var verifiedView: some View {
-        VStack(spacing: 24) {
-            Spacer()
-
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 80))
-                .foregroundColor(.green)
-
-            Text("Challenge validé !")
-                .font(.system(size: 24, weight: .bold))
+            Text("C'est bon ?")
+                .font(.system(size: 20, weight: .bold))
                 .foregroundColor(.white)
 
-            Text("Jour \(challenge.dayNumber) complété")
-                .font(.system(size: 16))
-                .foregroundColor(.white.opacity(0.6))
-
             Spacer()
-        }
-        .onAppear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                onVerified(nil) // photo URL would come from camera capture
+
+            // Confirm
+            Button {
+                isUploading = true
+                // TODO: Upload to Supabase Storage, get URL, pass to onVerified
+                // For now, validate without photo URL
+                onVerified(nil)
+            } label: {
+                HStack {
+                    if isUploading {
+                        ProgressView().progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    } else {
+                        Image(systemName: "checkmark.circle.fill")
+                        Text("Valider")
+                            .font(.system(size: 17, weight: .bold))
+                    }
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(Color.green)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
             }
+            .padding(.horizontal, 30)
+
+            // Retake
+            Button {
+                capturedImage = nil
+                showCamera = true
+            } label: {
+                Text("Reprendre")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(.white.opacity(0.5))
+            }
+            .padding(.bottom, 30)
         }
     }
+}
 
-    // MARK: - Capture Logic
+// MARK: - Selfie Camera (UIImagePickerController wrapper)
 
-    private func startCapture() {
-        isCapturing = true
-        countdown = 3
+struct SelfieCamera: UIViewControllerRepresentable {
+    var onCapture: (UIImage) -> Void
 
-        // Countdown timer
-        Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { timer in
-            if countdown > 1 {
-                countdown -= 1
-            } else {
-                timer.invalidate()
-                // "Take photo" — in real implementation, capture from camera
-                isVerified = true
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.sourceType = .camera
+        picker.cameraDevice = .front
+        picker.cameraCaptureMode = .photo
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onCapture: onCapture)
+    }
+
+    class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        let onCapture: (UIImage) -> Void
+
+        init(onCapture: @escaping (UIImage) -> Void) {
+            self.onCapture = onCapture
+        }
+
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+            if let image = info[.originalImage] as? UIImage {
+                onCapture(image)
             }
+            picker.dismiss(animated: true)
+        }
+
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            picker.dismiss(animated: true)
         }
     }
 }

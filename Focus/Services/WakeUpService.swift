@@ -54,10 +54,13 @@ class WakeUpService: ObservableObject {
                 "deepLink": "focus://wakeup-confirm",
             ]
 
-            var dateComponents = DateComponents()
-            let totalMinutes = hour * 60 + minute + offset
-            dateComponents.hour = totalMinutes / 60
-            dateComponents.minute = totalMinutes % 60
+            // Use Calendar arithmetic to handle midnight overflow correctly
+            var baseComponents = DateComponents()
+            baseComponents.hour = hour
+            baseComponents.minute = minute
+            guard let baseDate = Calendar.current.date(from: baseComponents),
+                  let offsetDate = Calendar.current.date(byAdding: .minute, value: offset, to: baseDate) else { continue }
+            var dateComponents = Calendar.current.dateComponents([.hour, .minute], from: offsetDate)
 
             let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
             let request = UNNotificationRequest(
@@ -103,6 +106,7 @@ class WakeUpService: ObservableObject {
     // MARK: - Wake-Up Confirmation
 
     func confirmWakeUp() {
+        guard !challenge.confirmedToday else { return } // Prevent double confirmation
         let now = Date()
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm"

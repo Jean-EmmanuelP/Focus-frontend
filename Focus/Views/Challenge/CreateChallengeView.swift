@@ -303,6 +303,10 @@ struct CreateChallengeView: View {
                             let m = Calendar.current.component(.minute, from: customAlarmTime)
                             let timeStr = String(format: "%02d:%02d", h, m)
                             onCreate(suggestion.type, timeStr, customDuration, suggestion.type == .custom ? suggestion.title : nil)
+                            // Open share sheet after creation
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                shareInviteLink()
+                            }
                             dismiss()
                         } label: {
                             HStack {
