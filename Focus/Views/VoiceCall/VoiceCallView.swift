@@ -64,20 +64,15 @@ struct VoiceCallView: View {
             VoltaVoicePickerView(
                 currentVoiceId: selectedVoiceId,
                 coachName: FocusAppStore.shared.user?.companionName ?? "Kai",
-                onSelect: { voiceId in
+                onDismiss: { showVoicePicker = false },
+                onSave: { voiceId in
                     selectedVoiceId = voiceId
                     UserDefaults.standard.set(voiceId, forKey: SettingsPrefsKeys.voltaVoiceId)
-                    // Also save to backend
-                    Task {
-                        try? await APIClient.shared.request(
-                            endpoint: .updateMe,
-                            method: .patch,
-                            body: ["voice_id": voiceId]
-                        ) as [String: String]?
-                    }
                     showVoicePicker = false
-                },
-                onDismiss: { showVoicePicker = false }
+                    Task {
+                        try? await UserService().updateSettings(voiceId: voiceId)
+                    }
+                }
             )
             .presentationDetents([.large])
         }
@@ -210,73 +205,86 @@ struct VoiceCallView: View {
         .padding(.horizontal, 48)
     }
 
-    // MARK: - Bottom Controls with Orb
+    // MARK: - Bottom Controls with Waves
 
     private var bottomControlsWithOrb: some View {
-        HStack {
-            // Close button (X) — directly dismiss, endCall happens in onDisappear
-            Button(action: {
-                viewModel.endCall()
-                hasDismissed = true
-                dismiss()
-            }) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.7))
-                    .frame(width: 56, height: 56)
-                    .background(Circle().fill(Color.white.opacity(0.1)))
+        VStack(spacing: 0) {
+            // Audio wave visualization rising from bottom
+            audioWaveView
+                .frame(height: 120)
+
+            // Control buttons
+            HStack {
+                // Close button (X)
+                Button(action: {
+                    viewModel.endCall()
+                    hasDismissed = true
+                    dismiss()
+                }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.7))
+                        .frame(width: 56, height: 56)
+                        .background(Circle().fill(Color.white.opacity(0.1)))
+                }
+
+                Spacer()
+
+                // Mic button
+                Button(action: { viewModel.toggleMic() }) {
+                    Image(systemName: viewModel.isMicMuted ? "mic.slash.fill" : "mic.fill")
+                        .font(.system(size: 18))
+                        .foregroundColor(viewModel.isMicMuted ? .white.opacity(0.4) : .white.opacity(0.7))
+                        .frame(width: 56, height: 56)
+                        .background(Circle().fill(Color.white.opacity(0.1)))
+                }
             }
-
-            Spacer()
-
-            // Central orb — small, changes color
-            ZStack {
-                // Glow behind orb
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [orbGlowColor.opacity(0.4), orbGlowColor.opacity(0.05), .clear],
-                            center: .center,
-                            startRadius: 20,
-                            endRadius: 100
-                        )
-                    )
-                    .frame(width: 200, height: 200)
-
-                // Orb
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [orbGlowColor.opacity(0.7), orbGlowColor.opacity(0.2)],
-                            center: .center,
-                            startRadius: 10,
-                            endRadius: 45
-                        )
-                    )
-                    .frame(width: 80, height: 80)
-                    .scaleEffect(isActive ? 1.0 + orbPulse : 0.85)
-                    .animation(
-                        isActive
-                            ? .easeInOut(duration: 0.8).repeatForever(autoreverses: true)
-                            : .easeInOut(duration: 0.4),
-                        value: isActive
-                    )
-            }
-            .animation(.easeInOut(duration: 0.5), value: viewModel.isAgentSpeaking)
-            .animation(.easeInOut(duration: 0.3), value: viewModel.isUserSpeaking)
-
-            Spacer()
-
-            // Mic button
-            Button(action: { viewModel.toggleMic() }) {
-                Image(systemName: viewModel.isMicMuted ? "mic.slash.fill" : "mic.fill")
-                    .font(.system(size: 18))
-                    .foregroundColor(viewModel.isMicMuted ? .white.opacity(0.4) : .white.opacity(0.7))
-                    .frame(width: 56, height: 56)
-                    .background(Circle().fill(Color.white.opacity(0.1)))
-            }
+            .padding(.horizontal, 40)
         }
-        .padding(.horizontal, 40)
+    }
+
+    // MARK: - Audio Wave Visualization
+
+    private var audioWaveView: some View {
+        let barCount = 40
+        let waveActive = viewModel.isAgentSpeaking || viewModel.isUserSpeaking || isListening
+        let waveColor = orbGlowColor
+
+        return GeometryReader { geo in
+            HStack(spacing: 3) {
+                ForEach(0..<barCount, id: \.self) { i in
+                    let normalizedPos = Double(i) / Double(barCount)
+                    // Bell curve shape — taller in center, shorter at edges
+                    let bellFactor = exp(-pow((normalizedPos - 0.5) * 3.0, 2))
+                    // Each bar gets a unique phase for natural movement
+                    let phase = Double(i) * 0.3
+
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(
+                            LinearGradient(
+                                colors: [waveColor.opacity(0.8), waveColor.opacity(0.2)],
+                                startPoint: .bottom,
+                                endPoint: .top
+                            )
+                        )
+                        .frame(
+                            width: (geo.size.width - CGFloat(barCount - 1) * 3) / CGFloat(barCount),
+                            height: waveActive
+                                ? CGFloat(20 + bellFactor * 80 * (viewModel.isUserSpeaking ? 1.0 : 0.7))
+                                : CGFloat(4 + bellFactor * 8)
+                        )
+                        .animation(
+                            waveActive
+                                ? .easeInOut(duration: 0.3 + phase.truncatingRemainder(dividingBy: 0.4))
+                                    .repeatForever(autoreverses: true)
+                                    .delay(phase.truncatingRemainder(dividingBy: 0.3))
+                                : .easeInOut(duration: 0.5),
+                            value: waveActive
+                        )
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        }
     }
 
     // MARK: - Orb Properties
