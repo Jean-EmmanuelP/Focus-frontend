@@ -109,11 +109,9 @@ class MessageQueueService: ObservableObject {
         }
 
         // Nettoyer les messages envoyes apres un delai
-        Task {
-            try? await Task.sleep(for: .seconds(3))
-            queuedMessages.removeAll { $0.status == .sent }
-            saveQueuedMessages()
-        }
+        try? await Task.sleep(for: .seconds(3))
+        queuedMessages.removeAll { $0.status == .sent }
+        saveQueuedMessages()
 
         isProcessing = false
     }

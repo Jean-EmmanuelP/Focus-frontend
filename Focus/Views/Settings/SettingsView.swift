@@ -2103,6 +2103,7 @@ struct ReplicaChangeEmailView: View {
     @State private var newEmail: String = ""
     @State private var password: String = ""
     @State private var showPassword = false
+    @State private var resetSent = false
     @FocusState private var focusedField: Field?
 
     enum Field {
@@ -2166,11 +2167,17 @@ struct ReplicaChangeEmailView: View {
                 .padding(.top, 12)
 
                 // Forgot password link
-                Button(action: {}) {
-                    Text("Mot de passe oublié ?")
+                Button(action: {
+                    Task {
+                        try? await AuthService.shared.resetPassword(email: currentEmail)
+                        resetSent = true
+                    }
+                }) {
+                    Text(resetSent ? "Email envoyé !" : "Mot de passe oublié ?")
                         .font(.system(size: 14))
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(resetSent ? .green.opacity(0.8) : .white.opacity(0.7))
                 }
+                .disabled(resetSent)
                 .padding(.top, 12)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 24)

@@ -185,9 +185,14 @@ struct AvatarURLs {
     // Problematic model (non-standard orientation)
     static let femaleAnimated = "https://raw.githubusercontent.com/hmthanh/3d-human-model/main/TranThiNgocTham.glb"
 
-    /// Get avatar URL
+    /// Get avatar URL based on companion gender
     static func forGender(_ gender: String?) -> String {
-        return cesiumMan  // Use correctly oriented model
+        switch gender?.lowercased() {
+        case "female", "femme", "féminin":
+            return femaleAnimated
+        default:
+            return cesiumMan
+        }
     }
 }
 

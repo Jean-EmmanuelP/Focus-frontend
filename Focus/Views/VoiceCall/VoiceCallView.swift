@@ -57,7 +57,10 @@ struct VoiceCallView: View {
                 dismiss()
             }
         }
-        .alert("Erreur", isPresented: .constant(viewModel.errorMessage != nil && viewModel.callState != .offline)) {
+        .alert("Erreur", isPresented: Binding<Bool>(
+            get: { viewModel.errorMessage != nil && viewModel.callState != .offline },
+            set: { if !$0 { viewModel.errorMessage = nil } }
+        )) {
             Button("OK") {
                 viewModel.errorMessage = nil
                 dismiss()

@@ -274,6 +274,19 @@ class AuthService: NSObject, ObservableObject {
         #endif
     }
 
+    func resetPassword(email: String) async throws {
+        #if canImport(Supabase)
+        do {
+            try await supabaseClient.auth.resetPasswordForEmail(email)
+            print("✅ Password reset email sent to \(email)")
+        } catch {
+            throw AuthError.supabaseError(error.localizedDescription)
+        }
+        #else
+        throw AuthError.supabaseError("Supabase not available")
+        #endif
+    }
+
     // MARK: - Sign Out
     func signOut() async throws {
         #if canImport(Supabase)

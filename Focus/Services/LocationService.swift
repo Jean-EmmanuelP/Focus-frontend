@@ -79,25 +79,37 @@ class LocationService: NSObject, ObservableObject {
         // Request single location update
         locationManager.requestLocation()
 
-        // Wait for location with timeout
+        // Wait for location with timeout — use actor-isolated flag to prevent double resume
         return try await withCheckedThrowingContinuation { continuation in
-            var cancelled = false
+            // Thread-safe one-shot guard
+            final class OnceGuard: @unchecked Sendable {
+                private var _resumed = false
+                private let lock = NSLock()
+                func tryResume() -> Bool {
+                    lock.lock()
+                    defer { lock.unlock() }
+                    if _resumed { return false }
+                    _resumed = true
+                    return true
+                }
+            }
+            let guard_ = OnceGuard()
+            var cancellable: AnyCancellable?
 
             // Timeout after 10 seconds
             DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
-                if !cancelled {
-                    cancelled = true
+                if guard_.tryResume() {
+                    cancellable?.cancel()
                     continuation.resume(throwing: LocationError.timeout)
                 }
             }
 
             // Subscribe to location updates
-            let cancellable = $currentLocation
+            cancellable = $currentLocation
                 .compactMap { $0 }
                 .first()
                 .sink { [weak self] location in
-                    guard !cancelled else { return }
-                    cancelled = true
+                    guard guard_.tryResume() else { return }
 
                     Task { @MainActor [weak self] in
                         let data = await self?.buildLocationData(from: location)
@@ -108,9 +120,6 @@ class LocationService: NSObject, ObservableObject {
                         }
                     }
                 }
-
-            // Keep reference to avoid deallocation
-            _ = cancellable
         }
     }
 
@@ -197,13 +206,13 @@ extension LocationService: CLLocationManagerDelegate {
 
         Task { @MainActor in
             self.currentLocation = location
-            self.lastUpdateTime = Date()
 
             // Geocode in background
             _ = await self.buildLocationData(from: location)
 
-            // Auto-save to backend (throttled)
+            // Auto-save to backend (throttled) — check BEFORE updating timestamp
             if self.shouldUpdate() {
+                self.lastUpdateTime = Date()
                 try? await self.saveLocationToBackend()
             }
         }
