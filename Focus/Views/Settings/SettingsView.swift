@@ -1,6 +1,4 @@
 import SwiftUI
-import SceneKit
-import GLTFKit2
 import Combine
 import AVFoundation
 import PhotosUI
@@ -343,15 +341,10 @@ struct SettingsView: View {
             }
         }) {
             HStack(spacing: 16) {
-                // 3D Avatar preview
-                Avatar3DView(
-                    avatarURL: AvatarURLs.forGender(store.user?.companionGender),
-                    backgroundColor: .clear,
-                    enableRotation: false,
-                    autoRotate: false
-                )
-                .frame(width: 100, height: 120)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                // Companion pulse avatar
+                FocusPulseView()
+                    .frame(width: 80, height: 80)
+                    .clipShape(Circle())
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Débloquez toutes les fonctionnalités")
@@ -2346,40 +2339,19 @@ struct ReplicaDeleteAccountView: View {
     }
 }
 
-// MARK: - Avatar Debug View
+// MARK: - Avatar Test View (simplified — 3D removed)
 
 struct AvatarTestView: View {
     var onDismiss: () -> Void
-    @StateObject private var debugInfo = AvatarDebugInfo()
-    @State private var showControls = true
 
     var body: some View {
         ZStack {
-            // Full screen 3D Avatar with debug callback
-            AvatarDebugView(
-                avatarURL: AvatarURLs.cesiumMan,
-                debugInfo: debugInfo
-            )
-            .ignoresSafeArea()
+            FocusPulseView()
+                .ignoresSafeArea()
 
-            // Overlay with controls
-            VStack(spacing: 0) {
-                // Header
+            VStack {
                 HStack {
-                    Text("Debug Avatar")
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundColor(.white)
-
                     Spacer()
-
-                    Button(action: { showControls.toggle() }) {
-                        Image(systemName: showControls ? "slider.horizontal.3" : "eye")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(.white.opacity(0.8))
-                            .frame(width: 44, height: 44)
-                            .background(Circle().fill(Color.white.opacity(0.2)))
-                    }
-
                     Button(action: onDismiss) {
                         Image(systemName: "xmark")
                             .font(.system(size: 14, weight: .bold))
@@ -2390,289 +2362,8 @@ struct AvatarTestView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 60)
-
                 Spacer()
-
-                if showControls {
-                    // Control panel with sliders
-                    ScrollView(showsIndicators: false) {
-                        VStack(alignment: .leading, spacing: 12) {
-                            // Camera section
-                            Text("📷 CAMERA")
-                                .font(.system(size: 11, weight: .bold, design: .monospaced))
-                                .foregroundColor(.yellow)
-
-                            sliderRow("Cam X", value: $debugInfo.cameraX, range: -3...3)
-                            sliderRow("Cam Y", value: $debugInfo.cameraY, range: 0...2.5)
-                            sliderRow("Cam Z", value: $debugInfo.cameraZ, range: 1...8)
-                            sliderRow("FOV", value: Binding(
-                                get: { Float(debugInfo.fieldOfView) },
-                                set: { debugInfo.fieldOfView = Double($0) }
-                            ), range: 20...90)
-
-                            Divider().background(Color.white.opacity(0.3))
-
-                            // Avatar section
-                            Text("🧍 AVATAR")
-                                .font(.system(size: 11, weight: .bold, design: .monospaced))
-                                .foregroundColor(.cyan)
-
-                            sliderRow("Scale", value: $debugInfo.avatarScale, range: 0.001...0.02)
-                            sliderRow("Pos Y", value: $debugInfo.avatarY, range: -1...1)
-                            sliderRow("Rot Y", value: $debugInfo.avatarRotationY, range: 0...Float.pi * 2)
-
-                            Divider().background(Color.white.opacity(0.3))
-
-                            // Model info
-                            Text("📐 MODEL INFO")
-                                .font(.system(size: 11, weight: .bold, design: .monospaced))
-                                .foregroundColor(.purple)
-
-                            Text(debugInfo.modelInfo)
-                                .font(.system(size: 10, design: .monospaced))
-                                .foregroundColor(.white)
-
-                            Divider().background(Color.white.opacity(0.3))
-
-                            // Current values (copy-paste ready)
-                            Text("📋 VALEURS ACTUELLES")
-                                .font(.system(size: 11, weight: .bold, design: .monospaced))
-                                .foregroundColor(.orange)
-
-                            Text("cameraPosition: (\(String(format: "%.2f", debugInfo.cameraX)), \(String(format: "%.2f", debugInfo.cameraY)), \(String(format: "%.2f", debugInfo.cameraZ)))")
-                                .font(.system(size: 10, design: .monospaced))
-                                .foregroundColor(.green)
-
-                            Text("fieldOfView: \(String(format: "%.0f", debugInfo.fieldOfView))")
-                                .font(.system(size: 10, design: .monospaced))
-                                .foregroundColor(.green)
-
-                            Text("avatarScale: \(String(format: "%.4f", debugInfo.avatarScale))")
-                                .font(.system(size: 10, design: .monospaced))
-                                .foregroundColor(.green)
-
-                            Text("avatarY: \(String(format: "%.2f", debugInfo.avatarY))")
-                                .font(.system(size: 10, design: .monospaced))
-                                .foregroundColor(.green)
-
-                            Text("avatarRotY: \(String(format: "%.2f", debugInfo.avatarRotationY))")
-                                .font(.system(size: 10, design: .monospaced))
-                                .foregroundColor(.green)
-
-                            // Reset button
-                            Button(action: resetValues) {
-                                Text("Reset par défaut")
-                                    .font(.system(size: 13, weight: .medium))
-                                    .foregroundColor(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 10)
-                                    .background(Capsule().fill(Color.red.opacity(0.5)))
-                            }
-                            .padding(.top, 8)
-                        }
-                        .padding(16)
-                    }
-                    .frame(maxHeight: 400)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(Color.black.opacity(0.85))
-                    )
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 30)
-                }
             }
-        }
-    }
-
-    private func sliderRow(_ label: String, value: Binding<Float>, range: ClosedRange<Float>) -> some View {
-        HStack(spacing: 8) {
-            Text(label)
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundColor(.white.opacity(0.7))
-                .frame(width: 50, alignment: .leading)
-
-            Slider(value: value, in: range)
-                .tint(.blue)
-
-            Text(String(format: "%.3f", value.wrappedValue))
-                .font(.system(size: 10, design: .monospaced))
-                .foregroundColor(.green)
-                .frame(width: 50, alignment: .trailing)
-        }
-    }
-
-    private func resetValues() {
-        debugInfo.cameraX = 0
-        debugInfo.cameraY = 0.5
-        debugInfo.cameraZ = 2.5
-        debugInfo.fieldOfView = 50
-        debugInfo.avatarScale = 0.005
-        debugInfo.avatarY = 0
-        debugInfo.avatarRotationY = 0
-    }
-}
-
-// MARK: - Avatar Debug Info (Observable)
-
-class AvatarDebugInfo: ObservableObject {
-    @Published var cameraX: Float = 0
-    @Published var cameraY: Float = 0.5
-    @Published var cameraZ: Float = 2.5
-    @Published var rotationX: Float = 0
-    @Published var rotationY: Float = 0
-    @Published var rotationZ: Float = 0
-    @Published var fieldOfView: Double = 50
-    @Published var avatarScale: Float = 0.005
-    @Published var avatarY: Float = 0
-    @Published var avatarRotationY: Float = 0
-    @Published var modelInfo: String = "Chargement..."
-}
-
-// MARK: - Avatar Debug View (SceneKit with live updates)
-
-struct AvatarDebugView: UIViewRepresentable {
-    let avatarURL: String
-    @ObservedObject var debugInfo: AvatarDebugInfo
-
-    func makeUIView(context: Context) -> SCNView {
-        let sceneView = SCNView()
-        sceneView.backgroundColor = UIColor(red: 0.10, green: 0.12, blue: 0.20, alpha: 1.0)
-        sceneView.allowsCameraControl = true  // Allow manual rotation
-        sceneView.autoenablesDefaultLighting = true
-        sceneView.antialiasingMode = .multisampling4X
-
-        // Create scene
-        let scene = SCNScene()
-        sceneView.scene = scene
-
-        // Add camera - positioned for human-scale avatar (after 0.01 scale)
-        let cameraNode = SCNNode()
-        cameraNode.name = "debugCamera"
-        cameraNode.camera = SCNCamera()
-        cameraNode.camera?.fieldOfView = CGFloat(debugInfo.fieldOfView)
-        cameraNode.camera?.zNear = 0.01
-        cameraNode.camera?.zFar = 100
-        cameraNode.position = SCNVector3(x: debugInfo.cameraX, y: debugInfo.cameraY, z: debugInfo.cameraZ)
-        scene.rootNode.addChildNode(cameraNode)
-        sceneView.pointOfView = cameraNode
-
-        // Store reference to coordinator
-        context.coordinator.sceneView = sceneView
-        context.coordinator.cameraNode = cameraNode
-        context.coordinator.debugInfo = debugInfo
-
-        // Add ambient light
-        let ambientLight = SCNNode()
-        ambientLight.light = SCNLight()
-        ambientLight.light?.type = .ambient
-        ambientLight.light?.color = UIColor.white
-        ambientLight.light?.intensity = 400
-        scene.rootNode.addChildNode(ambientLight)
-
-        // Add directional light from front-top
-        let directionalLight = SCNNode()
-        directionalLight.light = SCNLight()
-        directionalLight.light?.type = .directional
-        directionalLight.light?.intensity = 800
-        directionalLight.light?.color = UIColor.white
-        directionalLight.eulerAngles = SCNVector3(x: -.pi / 4, y: 0, z: 0)
-        scene.rootNode.addChildNode(directionalLight)
-
-        // Load avatar
-        context.coordinator.loadAvatar(url: avatarURL, into: sceneView, debugInfo: debugInfo)
-
-        return sceneView
-    }
-
-    func updateUIView(_ uiView: SCNView, context: Context) {
-        // Update camera position from sliders
-        if let cameraNode = context.coordinator.cameraNode {
-            cameraNode.position = SCNVector3(x: debugInfo.cameraX, y: debugInfo.cameraY, z: debugInfo.cameraZ)
-            cameraNode.camera?.fieldOfView = CGFloat(debugInfo.fieldOfView)
-        }
-
-        // Update avatar from sliders
-        if let avatarNode = context.coordinator.avatarNode {
-            let scale = debugInfo.avatarScale
-            avatarNode.scale = SCNVector3(x: scale, y: scale, z: scale)
-            avatarNode.position = SCNVector3(x: 0, y: debugInfo.avatarY, z: 0)
-            avatarNode.eulerAngles = SCNVector3(x: 0, y: debugInfo.avatarRotationY, z: 0)
-        }
-    }
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator()
-    }
-
-    class Coordinator {
-        var sceneView: SCNView?
-        var cameraNode: SCNNode?
-        var avatarNode: SCNNode?
-        var debugInfo: AvatarDebugInfo?
-
-        func loadAvatar(url: String, into sceneView: SCNView, debugInfo: AvatarDebugInfo) {
-            guard let avatarURL = URL(string: url) else { return }
-
-            URLSession.shared.downloadTask(with: avatarURL) { [weak self] localURL, _, error in
-                guard let self = self, let localURL = localURL, error == nil else {
-                    print("❌ Download error: \(error?.localizedDescription ?? "unknown")")
-                    DispatchQueue.main.async {
-                        debugInfo.modelInfo = "Erreur téléchargement"
-                    }
-                    return
-                }
-
-                do {
-                    let asset = try GLTFAsset(url: localURL)
-                    let sceneSource = GLTFSCNSceneSource(asset: asset)
-                    guard let loadedScene = sceneSource.defaultScene else {
-                        print("❌ No default scene")
-                        return
-                    }
-
-                    let animations = sceneSource.animations
-
-                    DispatchQueue.main.async {
-                        let avatarNode = loadedScene.rootNode.clone()
-
-                        // Calculate bounding box
-                        let (minBound, maxBound) = avatarNode.boundingBox
-                        let width = maxBound.x - minBound.x
-                        let height = maxBound.y - minBound.y
-                        let depth = maxBound.z - minBound.z
-
-                        print("📏 Model size (original): \(width) x \(height) x \(depth)")
-                        debugInfo.modelInfo = "Original: \(Int(width))x\(Int(height))x\(Int(depth)) → Scaled: \(String(format: "%.2f", width * debugInfo.avatarScale))x\(String(format: "%.2f", height * debugInfo.avatarScale))"
-
-                        // Apply scale (model is in cm, 0.01 converts to meters)
-                        let scale = debugInfo.avatarScale
-                        avatarNode.scale = SCNVector3(x: scale, y: scale, z: scale)
-                        avatarNode.eulerAngles = SCNVector3(x: 0, y: debugInfo.avatarRotationY, z: 0)
-                        avatarNode.position = SCNVector3(x: 0, y: debugInfo.avatarY, z: 0)
-                        avatarNode.name = "avatar"
-
-                        self.avatarNode = avatarNode
-                        sceneView.scene?.rootNode.addChildNode(avatarNode)
-
-                        // Play animations
-                        if !animations.isEmpty {
-                            for (index, animation) in animations.enumerated() {
-                                animation.animationPlayer.animation.usesSceneTimeBase = false
-                                animation.animationPlayer.animation.repeatCount = .greatestFiniteMagnitude
-                                avatarNode.addAnimationPlayer(animation.animationPlayer, forKey: "anim_\(index)")
-                                animation.animationPlayer.play()
-                            }
-                        }
-
-                        print("✅ Avatar loaded! Scale=\(scale)")
-                    }
-                } catch {
-                    print("❌ GLTFKit2 error: \(error)")
-                    DispatchQueue.main.async {
-                        debugInfo.modelInfo = "Erreur chargement GLB"
-                    }
-                }
-            }.resume()
         }
     }
 }

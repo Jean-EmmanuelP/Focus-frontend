@@ -182,14 +182,9 @@ struct FocusPaywallView: View {
 
     private var backgroundView: some View {
         ZStack {
-            // Full-screen 3D Avatar as background (same pattern as personalizeAvatarStep)
-            Avatar3DView(
-                avatarURL: AvatarURLs.cesiumMan,
-                backgroundColor: UIColor(red: 0.10, green: 0.12, blue: 0.20, alpha: 1.0),
-                enableRotation: false,
-                autoRotate: false
-            )
-            .ignoresSafeArea()
+            // Animated pulse background
+            FocusPulseView()
+                .ignoresSafeArea()
 
             // Blue gradient overlay (bottom half)
             VStack {

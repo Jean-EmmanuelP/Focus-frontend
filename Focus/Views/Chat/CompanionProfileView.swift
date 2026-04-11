@@ -339,14 +339,10 @@ struct CompanionProfileView: View {
     // MARK: - Avatar Section
 
     private var avatarSection: some View {
-        // 3D Avatar from Ready Player Me
-        AvatarCardView(
-            gender: store.user?.companionGender,
-            height: 350,
-            showEditButton: false,
-            onEditTap: {}
-        )
-        .padding(.top, 20)
+        FocusPulseView()
+            .frame(height: 250)
+            .clipShape(RoundedRectangle(cornerRadius: 24))
+            .padding(.top, 20)
     }
 
     // MARK: - Name Section
