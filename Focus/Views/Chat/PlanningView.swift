@@ -89,9 +89,7 @@ struct PlanningView: View {
                         dateStrip
 
                         // Active challenges
-                        if !challenges.isEmpty {
-                            challengesSection
-                        }
+                        challengesSection
 
                         unifiedList
 
@@ -839,22 +837,53 @@ struct PlanningView: View {
                 Button {
                     showCreateChallenge = true
                 } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(.white.opacity(0.5))
-                        .frame(width: 24, height: 24)
-                        .background(Circle().fill(Color.white.opacity(0.1)))
+                    HStack(spacing: 4) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 11, weight: .bold))
+                        Text("Nouveau")
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .foregroundColor(.yellow.opacity(0.8))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(Color.yellow.opacity(0.12)))
                 }
             }
             .padding(.horizontal, 20)
 
-            ForEach(challenges.filter { $0.isActive }) { challenge in
-                ChallengeCardView(
-                    challenge: challenge,
-                    currentUserId: store.user?.id ?? "",
-                    onValidate: { showVerification = challenge }
-                )
+            if challenges.filter({ $0.isActive }).isEmpty {
+                // Empty state — invite to create
+                Button {
+                    showCreateChallenge = true
+                } label: {
+                    VStack(spacing: 10) {
+                        Image(systemName: "trophy.fill")
+                            .font(.system(size: 28))
+                            .foregroundColor(.yellow.opacity(0.4))
+                        Text("Lance un challenge avec un ami")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.white.opacity(0.5))
+                        Text("Réveil, sport, méditation... Prouve-le en live.")
+                            .font(.system(size: 12))
+                            .foregroundColor(.white.opacity(0.3))
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
+                    .background(Color.white.opacity(0.04))
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                }
+                .buttonStyle(.plain)
                 .padding(.horizontal, 16)
+            } else {
+                ForEach(challenges.filter { $0.isActive }) { challenge in
+                    ChallengeCardView(
+                        challenge: challenge,
+                        currentUserId: store.user?.id ?? "",
+                        onValidate: { showVerification = challenge }
+                    )
+                    .padding(.horizontal, 16)
+                }
             }
         }
     }
