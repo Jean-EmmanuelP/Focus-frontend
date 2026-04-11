@@ -16,7 +16,7 @@ import httpx
 from dotenv import load_dotenv
 from livekit import agents, rtc
 from livekit.agents import AgentSession, RoomInputOptions, RunContext, function_tool
-from livekit.plugins import openai, gradium, silero
+from livekit.plugins import google, gradium, silero
 
 logger = logging.getLogger("volta-agent")
 logger.setLevel(logging.DEBUG)
@@ -346,7 +346,7 @@ def build_system_prompt(
     # Add Backboard memories for personalized context
     if memories:
         ctx += "\nMÉMOIRE (informations des conversations précédentes):\n"
-        for mem in memories[:20]:
+        for mem in memories[:5]:
             ctx += f"- {mem}\n"
 
     # Planning mode additions
@@ -565,11 +565,9 @@ async def fetch_planning_context(auth_token: str, scope: str) -> dict | None:
     else:
         dates = [today.strftime("%Y-%m-%d")]
 
-    days = []
     async with httpx.AsyncClient(timeout=10.0) as client:
-        for date_str in dates:
-            tasks = []
-            events = []
+        async def fetch_day(date_str: str) -> dict:
+            tasks, events = [], []
             try:
                 r = await client.get(f"{FOCUS_API_URL}/calendar/tasks?date={date_str}", headers=headers)
                 if r.status_code == 200:
@@ -577,7 +575,6 @@ async def fetch_planning_context(auth_token: str, scope: str) -> dict | None:
                     tasks = data if isinstance(data, list) else []
             except Exception as e:
                 logger.error("Planning context - tasks for %s: %s", date_str, e)
-
             try:
                 r = await client.get(f"{FOCUS_API_URL}/calendar/events?date={date_str}", headers=headers)
                 if r.status_code == 200:
@@ -585,8 +582,9 @@ async def fetch_planning_context(auth_token: str, scope: str) -> dict | None:
                     events = data if isinstance(data, list) else []
             except Exception as e:
                 logger.error("Planning context - events for %s: %s", date_str, e)
+            return {"date": date_str, "tasks": tasks, "calendar_events": events}
 
-            days.append({"date": date_str, "tasks": tasks, "calendar_events": events})
+        days = list(await asyncio.gather(*[fetch_day(d) for d in dates]))
 
     logger.info("Planning context fetched: %d days, %d total tasks, %d total events",
                 len(days),
@@ -644,8 +642,8 @@ class VoltaAgent(agents.Agent):
         # In planning mode, refuse to end if no tasks were created
         if self._mode == "planning" and self._tasks_created == 0:
             return "ERREUR: Tu n'as cree aucune tache ! Utilise create_task pour chaque tache discutee AVANT d'appeler end_call. Rappel: create_task(title, date, time_block, priority)."
-        # Wait 3s to let TTS finish before disconnecting
-        await asyncio.sleep(3)
+        # Brief pause to let TTS flush last audio frames
+        await asyncio.sleep(0.5)
         payload = json.dumps({
             "type": "coach_action",
             "action": "end_call",
@@ -683,21 +681,23 @@ class VoltaAgent(agents.Agent):
         if priority not in ("low", "medium", "high"):
             priority = "medium"
         body: dict = {"title": title, "date": task_date, "time_block": time_block, "priority": priority}
-        try:
-            resp = await self._http.post(f"{FOCUS_API_URL}/calendar/tasks", headers=headers, json=body)
-            created = resp.status_code in (200, 201)
-            if not created:
-                logger.warning("📋 create_task FAIL: status=%d body=%s", resp.status_code, resp.text[:200])
-        except Exception as e:
-            logger.error("📋 create_task EXCEPTION: %s", e)
-            return f"Erreur reseau lors de la creation de '{title}'. Reessaie."
-        if created:
-            self._tasks_created += 1
-        logger.info("📋 create_task '%s' → %s (total: %d)", title, "OK" if created else f"FAIL({resp.status_code})", self._tasks_created)
-        if created and self._room:
-            payload = json.dumps({"type": "coach_action", "action": "task_created"}).encode()
-            await self._room.local_participant.publish_data(payload, reliable=True)
-        return f"Tache '{title}' creee." if created else f"Erreur lors de la creation de '{title}'."
+        self._tasks_created += 1
+
+        async def _do_create():
+            try:
+                resp = await self._http.post(f"{FOCUS_API_URL}/calendar/tasks", headers=headers, json=body)
+                if resp.status_code not in (200, 201):
+                    logger.warning("📋 create_task FAIL: status=%d body=%s", resp.status_code, resp.text[:200])
+                else:
+                    logger.info("📋 create_task '%s' → OK (total: %d)", title, self._tasks_created)
+                    if self._room:
+                        payload = json.dumps({"type": "coach_action", "action": "task_created"}).encode()
+                        await self._room.local_participant.publish_data(payload, reliable=True)
+            except Exception as e:
+                logger.error("📋 create_task EXCEPTION: %s", e)
+
+        asyncio.create_task(_do_create())
+        return f"Tache '{title}' creee."
 
     @function_tool(name="create_quest")
     async def tool_create_quest(
@@ -808,21 +808,21 @@ async def entrypoint(ctx: agents.JobContext):
     logger.info("LLM model: %s via Google Gemini", llm_model)
     session = AgentSession(
         stt=gradium.STT(sample_rate=24000),
-        llm=openai.LLM(
+        llm=google.LLM(
             model=llm_model,
-            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-            api_key=os.environ.get("GOOGLE_API_KEY", ""),
+            temperature=0.7,
+            thinking_config={"thinking_budget": 0},
         ),
-        tts=gradium.TTS(voice_id=voice_id, json_config={"speed": 1.25}),
+        tts=gradium.TTS(voice_id=voice_id, json_config={"speed": 1.35}),
         vad=silero.VAD.load(
             min_silence_duration=0.4,
             activation_threshold=0.45,
         ),
-        max_tool_steps=20,
+        max_tool_steps=5,
         # Fluidity tuning
         preemptive_generation=True,
-        min_endpointing_delay=0.6,
-        max_endpointing_delay=2.5,
+        min_endpointing_delay=0.5,
+        max_endpointing_delay=2.0,
         allow_interruptions=True,
         min_interruption_duration=0.5,
         min_consecutive_speech_delay=0.3,
