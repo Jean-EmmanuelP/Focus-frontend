@@ -307,17 +307,48 @@ def build_system_prompt(
         f"Tu es {coach_name}, un coach de productivité. "
         "Tu parles en français, de manière directe et chaleureuse.\n\n"
         "RÈGLES:\n"
-        "- MAXIMUM 1 phrase par réponse. Sois ultra bref.\n"
+        "- MAXIMUM 1-2 phrases par réponse. Sois ultra bref.\n"
         "- Ne demande JAMAIS le créneau ou la priorité. Choisis toi-même intelligemment.\n"
         "- Pas d'emojis, pas de listes, pas de markdown.\n"
-        "- Crée les tâches IMMÉDIATEMENT avec create_task dès que l'utilisateur les mentionne.\n"
+        "- Crée les tâches et rituels IMMÉDIATEMENT dès que l'utilisateur les mentionne.\n"
         "- Ne récapitule pas. Ne demande pas confirmation. Agis direct.\n\n"
         "OUTILS (utilise-les sans attendre):\n"
-        "- create_task(title, date, time_block, priority): Crée une tâche. IMPORTANT: le titre doit être COURT (5 mots max). Ex: 'Finir le planning', 'Sport salle', 'Bilan associé'.\n"
-        "- create_quest(title, area, term): Crée un objectif (area: career/health/relationships/learning/creativity/other, term: short/medium/long).\n"
+        "- create_task(title, date, time_block, priority): Crée une tâche (titre COURT, 5 mots max).\n"
+        "- create_routine(title, frequency, scheduled_time): Crée un rituel quotidien.\n"
+        "- complete_routine(routine_id): Marque un rituel comme fait.\n"
+        "- create_quest(title, area, term): Crée un objectif.\n"
         "- block_apps(duration_minutes): Bloque les apps.\n"
         "- unblock_apps(): Débloque les apps.\n"
-        "- end_call(): Termine l'appel quand l'utilisateur a fini.\n"
+        "- end_call(): Termine l'appel.\n\n"
+    )
+
+    # Morning/Evening routine coaching
+    if time_of_day == "matin":
+        base += (
+            "ROUTINE MATINALE:\n"
+            "C'est le matin. Après le greeting, si l'utilisateur n'a pas de sujet précis:\n"
+            "1. Rappelle ses rituels du matin (s'il en a) et demande s'il les a faits\n"
+            "2. Propose un plan rapide pour la journée (2-3 tâches prioritaires)\n"
+            "3. Si pas de rituels matinaux → propose d'en créer: méditation 5min, sport, boire de l'eau, journaling\n"
+            "4. Motive avec énergie: 'Allez, on attaque la journée!'\n\n"
+        )
+    elif time_of_day == "soirée":
+        base += (
+            "ROUTINE DU SOIR:\n"
+            "C'est le soir. Après le greeting, si l'utilisateur n'a pas de sujet précis:\n"
+            "1. Demande comment s'est passée la journée (1 question)\n"
+            "2. Rappelle ses rituels du soir (s'il en a) et demande s'il les a faits\n"
+            "3. Si des tâches n'ont pas été faites → pas de jugement, replanifie pour demain\n"
+            "4. Si pas de rituels du soir → propose: lecture 15min, méditation, préparer demain, déconnexion écrans\n"
+            "5. Finis avec un mot positif sur ce qui a été accompli\n\n"
+        )
+
+    # Auto-blocking behavior
+    base += (
+        "BLOCAGE INTELLIGENT:\n"
+        "- Quand l'utilisateur dit qu'il va bosser/se concentrer/travailler → propose de bloquer ses apps automatiquement\n"
+        "- Quand tu crées des tâches pour maintenant → propose 'Tu veux que je bloque tes apps pendant que tu bosses?'\n"
+        "- Si l'utilisateur accepte → block_apps(25) pour un pomodoro\n\n"
     )
 
     ctx = f"\nCONTEXTE ACTUEL:\n- Moment: {time_of_day}\n- Langue: {lang}\n"
@@ -333,9 +364,17 @@ def build_system_prompt(
                 ctx += f"- Tâches aujourd'hui: {', '.join(task_names)}\n"
         rituals = user_context.get("rituals", [])
         if rituals:
-            ritual_names = [r.get("name", "") for r in rituals[:5] if r.get("name")]
-            if ritual_names:
-                ctx += f"- Rituels: {', '.join(ritual_names)}\n"
+            ritual_lines = []
+            for r in rituals[:8]:
+                name = r.get("name") or r.get("title", "")
+                rid = r.get("id", "")
+                completed = r.get("is_completed") or r.get("completed_today", False)
+                status = "fait" if completed else "à faire"
+                scheduled = r.get("scheduled_time", "")
+                time_str = f" ({scheduled})" if scheduled else ""
+                ritual_lines.append(f"  - {name}{time_str} [{status}] (id: {rid})")
+            if ritual_lines:
+                ctx += "- Rituels:\n" + "\n".join(ritual_lines) + "\n"
         streak = user_context.get("streak", 0)
         if streak:
             ctx += f"- Streak: {streak} jours\n"
@@ -532,11 +571,11 @@ def build_greeting(lang: str, name: str = "", coach_name: str = "", mode: str = 
 
     if lang.startswith("fr"):
         if hour < 12:
-            return f"{intro} ! Comment tu vas ce matin {name} ?" if name else f"{intro} ! Comment tu vas ce matin ?"
+            return f"{intro} {name} ! Prêt à attaquer la journée ? Dis-moi comment tu vas." if name else f"{intro} ! Prêt à attaquer la journée ?"
         elif hour < 18:
-            return f"{intro} ! Comment se passe ta journée {name} ?" if name else f"{intro} ! Comment se passe ta journée ?"
+            return f"{intro} {name} ! Comment avance ta journée ?" if name else f"{intro} ! Comment avance ta journée ?"
         else:
-            return f"{intro} ! Comment s'est passée ta journée {name} ?" if name else f"{intro} ! Comment s'est passée ta journée ?"
+            return f"{intro} {name} ! On fait le bilan de ta journée ?" if name else f"{intro} ! On fait le bilan de ta journée ?"
     else:
         if hour < 12:
             return f"{intro_en}! How are you doing this morning {name}?" if name else f"{intro_en}! How are you doing this morning?"
@@ -698,6 +737,70 @@ class VoltaAgent(agents.Agent):
 
         asyncio.create_task(_do_create())
         return f"Tache '{title}' creee."
+
+    @function_tool(name="create_routine")
+    async def tool_create_routine(
+        self, context: RunContext,
+        title: str,
+        frequency: str = "daily",
+        scheduled_time: str = "",
+    ) -> str:
+        """Cree un rituel quotidien pour l'utilisateur.
+
+        Args:
+            title: Le titre du rituel (ex: Meditation 5min, Sport, Boire 2L d'eau)
+            frequency: La frequence: daily, weekdays, weekends
+            scheduled_time: L'heure prevue au format HH:MM (optionnel)
+        """
+        if not self._auth_token:
+            return "Erreur: pas de token d'authentification."
+        headers = {"Authorization": f"Bearer {self._auth_token}", "Content-Type": "application/json"}
+        body: dict = {"title": title, "frequency": frequency}
+        if scheduled_time:
+            body["scheduled_time"] = scheduled_time
+
+        async def _do_create():
+            try:
+                resp = await self._http.post(f"{FOCUS_API_URL}/routines", headers=headers, json=body)
+                if resp.status_code in (200, 201):
+                    logger.info("🔄 create_routine '%s' → OK", title)
+                    if self._room:
+                        payload = json.dumps({"type": "coach_action", "action": "refresh_rituals"}).encode()
+                        await self._room.local_participant.publish_data(payload, reliable=True)
+                else:
+                    logger.warning("🔄 create_routine FAIL: status=%d", resp.status_code)
+            except Exception as e:
+                logger.error("🔄 create_routine EXCEPTION: %s", e)
+
+        asyncio.create_task(_do_create())
+        return f"Rituel '{title}' cree."
+
+    @function_tool(name="complete_routine")
+    async def tool_complete_routine(self, context: RunContext, routine_id: str) -> str:
+        """Marque un rituel comme complete pour aujourd'hui.
+
+        Args:
+            routine_id: L'ID du rituel a completer
+        """
+        if not self._auth_token:
+            return "Erreur: pas de token d'authentification."
+        headers = {"Authorization": f"Bearer {self._auth_token}"}
+
+        async def _do_complete():
+            try:
+                resp = await self._http.post(f"{FOCUS_API_URL}/routines/{routine_id}/complete", headers=headers)
+                if resp.status_code == 200:
+                    logger.info("✅ complete_routine '%s' → OK", routine_id)
+                    if self._room:
+                        payload = json.dumps({"type": "coach_action", "action": "refresh_rituals"}).encode()
+                        await self._room.local_participant.publish_data(payload, reliable=True)
+                else:
+                    logger.warning("✅ complete_routine FAIL: status=%d", resp.status_code)
+            except Exception as e:
+                logger.error("✅ complete_routine EXCEPTION: %s", e)
+
+        asyncio.create_task(_do_complete())
+        return "Rituel complete."
 
     @function_tool(name="create_quest")
     async def tool_create_quest(
