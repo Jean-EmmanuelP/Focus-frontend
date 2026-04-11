@@ -771,13 +771,25 @@ struct PlanningView: View {
 
             Spacer()
 
-            // App blocking toggle
+            // App blocking toggle — clearly visible
             Button {
                 toggleBlockApps(task)
             } label: {
-                Image(systemName: task.blockApps == true ? "shield.lefthalf.filled" : "shield.slash")
-                    .font(.system(size: 16))
-                    .foregroundColor(task.blockApps == true ? Color(red: 0.3, green: 0.7, blue: 1.0) : .white.opacity(0.2))
+                HStack(spacing: 4) {
+                    Image(systemName: task.blockApps == true ? "shield.lefthalf.filled" : "shield")
+                        .font(.system(size: 14))
+                    if task.blockApps == true {
+                        Text("ON")
+                            .font(.system(size: 10, weight: .bold))
+                    }
+                }
+                .foregroundColor(task.blockApps == true ? Color(red: 0.3, green: 0.8, blue: 1.0) : .white.opacity(0.35))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(
+                    Capsule()
+                        .fill(task.blockApps == true ? Color(red: 0.3, green: 0.8, blue: 1.0).opacity(0.15) : Color.white.opacity(0.06))
+                )
             }
             .buttonStyle(.plain)
         }
