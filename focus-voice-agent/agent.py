@@ -570,6 +570,7 @@ class VoltaAgent(agents.Agent):
         self._auth_token = auth_token
         self._mode = mode
         self._tasks_created = 0
+        self._http = httpx.AsyncClient(timeout=5.0)
 
     @function_tool(name="block_apps")
     async def tool_block_apps(self, context: RunContext, duration_minutes: int = 30) -> str:
@@ -646,8 +647,7 @@ class VoltaAgent(agents.Agent):
             priority = "medium"
         body: dict = {"title": title, "date": task_date, "time_block": time_block, "priority": priority}
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.post(f"{FOCUS_API_URL}/calendar/tasks", headers=headers, json=body)
+            resp = await self._http.post(f"{FOCUS_API_URL}/calendar/tasks", headers=headers, json=body)
             created = resp.status_code in (200, 201)
             if not created:
                 logger.warning("📋 create_task FAIL: status=%d body=%s", resp.status_code, resp.text[:200])
@@ -680,8 +680,7 @@ class VoltaAgent(agents.Agent):
             return "Erreur: pas de token d'authentification."
         headers = {"Authorization": f"Bearer {self._auth_token}", "Content-Type": "application/json"}
         body = {"title": title, "area": area, "term": term}
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.post(f"{FOCUS_API_URL}/quests", headers=headers, json=body)
+        resp = await self._http.post(f"{FOCUS_API_URL}/quests", headers=headers, json=body)
         created = resp.status_code in (200, 201)
         logger.info("🎯 create_quest '%s' (term=%s) → %s", title, term, "OK" if created else f"FAIL({resp.status_code})")
         if created and self._room:
@@ -778,8 +777,20 @@ async def entrypoint(ctx: agents.JobContext):
             api_key=os.environ.get("GOOGLE_API_KEY", ""),
         ),
         tts=gradium.TTS(voice_id=voice_id, json_config={"speed": 1.25}),
-        vad=silero.VAD.load(),
+        vad=silero.VAD.load(
+            min_silence_duration=0.4,
+            activation_threshold=0.45,
+        ),
         max_tool_steps=20,
+        # Fluidity tuning
+        preemptive_generation=True,
+        min_endpointing_delay=0.6,
+        max_endpointing_delay=2.5,
+        allow_interruptions=True,
+        min_interruption_duration=0.5,
+        min_consecutive_speech_delay=0.3,
+        false_interruption_timeout=2.0,
+        resume_false_interruption=True,
     )
 
     # Track conversation for post-call Backboard sync
@@ -797,6 +808,19 @@ async def entrypoint(ctx: agents.JobContext):
         label = "USER" if role == "user" else "AGENT"
         logger.info("%s: %s", label, text[:120])
 
+    @session.on("agent_state_changed")
+    def on_agent_state_changed(event):
+        state = event.state
+        if state == "thinking":
+            payload = json.dumps({
+                "type": "agent_speaking",
+                "is_speaking": False,
+                "state": "thinking",
+            }).encode()
+            asyncio.create_task(
+                ctx.room.local_participant.publish_data(payload, reliable=True)
+            )
+
     t0 = time.time()
     await session.start(
         room=ctx.room,
@@ -804,11 +828,15 @@ async def entrypoint(ctx: agents.JobContext):
     )
     logger.info("Session started in %s", _elapsed(t0))
 
+    # In planning mode, increase patience (users pause between task items)
+    if mode == "planning":
+        session.update_options(min_endpointing_delay=1.0, max_endpointing_delay=4.0)
+
     # Send greeting with user's first name and coach name
     user_name = (user_context or {}).get("name", "")
     greeting = build_greeting(lang, user_name, coach_name=companion_name, mode=mode, planning_scope=planning_scope, planning_context=planning_context)
     logger.info("Greeting: %s", greeting)
-    session.say(greeting, add_to_chat_ctx=True)
+    session.say(greeting, add_to_chat_ctx=True, allow_interruptions=False)
     logger.info("Greeting queued (direct TTS, no LLM)")
     logger.info("=== AGENT READY === (total setup: %s)", _elapsed(t_entry))
 
