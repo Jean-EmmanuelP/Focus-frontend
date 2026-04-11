@@ -6,6 +6,7 @@ struct PlanningView: View {
     @EnvironmentObject var store: FocusAppStore
     @Environment(\.dismiss) private var dismiss
 
+    @State private var showPaywall = false
     @State private var tasks: [CalendarTask] = []
     @State private var rituals: [DailyRitual] = []
     @State private var isInitialLoading = true
@@ -24,6 +25,8 @@ struct PlanningView: View {
     @State private var quests: [QuestResponse] = []
     @State private var showAddQuest = false
     @State private var questToDelete: QuestResponse?
+    @State private var objectivesExpanded = false
+    @State private var showCompleted = true
 
     // Background color matching chat screen avatar background
     private let bgColor = Color(red: 0.10, green: 0.12, blue: 0.20)
@@ -48,7 +51,11 @@ struct PlanningView: View {
     }()
 
     private var isToday: Bool { Calendar.current.isDateInToday(selectedDate) }
-    private var isEvening: Bool { Calendar.current.component(.hour, from: Date()) >= 18 }
+    private var isMorning: Bool { Calendar.current.component(.hour, from: Date()) < 12 }
+    private var isAfternoon: Bool {
+        let h = Calendar.current.component(.hour, from: Date())
+        return h >= 12 && h < 18
+    }
 
     private var selectedDateString: String {
         Self.isoFormatter.string(from: selectedDate)
@@ -62,11 +69,6 @@ struct PlanningView: View {
         totalItems > 0 ? Double(completedItems) / Double(totalItems) : 0
     }
 
-    // Group tasks by time block
-    private var morningTasks: [CalendarTask] { tasks.filter { $0.timeBlock == "morning" } }
-    private var afternoonTasks: [CalendarTask] { tasks.filter { $0.timeBlock == "afternoon" } }
-    private var eveningTasks: [CalendarTask] { tasks.filter { $0.timeBlock == "evening" } }
-
     var body: some View {
         ZStack {
             bgColor.ignoresSafeArea()
@@ -76,55 +78,21 @@ struct PlanningView: View {
                     .tint(.white)
             } else {
                 ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 20) {
+                    VStack(spacing: 16) {
                         progressHeader
-
-                        // Objectifs en haut — vision globale
-                        objectivesSection
-
                         dateStrip
+                        unifiedList
 
-                        // Tasks by time block
-                        if !morningTasks.isEmpty {
-                            timeBlockSection(title: "Matin", icon: "sunrise.fill", color: .orange, blockTasks: morningTasks)
-                        }
-                        if !afternoonTasks.isEmpty {
-                            timeBlockSection(title: "Après-midi", icon: "sun.max.fill", color: .yellow, blockTasks: afternoonTasks)
-                        }
-                        if !eveningTasks.isEmpty {
-                            timeBlockSection(title: "Soir", icon: "moon.fill", color: .indigo, blockTasks: eveningTasks)
+                        if !quests.isEmpty || objectivesExpanded {
+                            objectivesSection
                         }
 
-                        let unscheduled = tasks.filter { !["morning", "afternoon", "evening"].contains($0.timeBlock) }
-                        if !unscheduled.isEmpty {
-                            timeBlockSection(title: "Autres", icon: "tray.fill", color: .gray, blockTasks: unscheduled)
-                        }
-
-                        addButton(title: "Ajouter une tâche") {
-                            showAddTask = true
-                        }
-
-                        if isToday {
-                            ritualsSection
-
-                            // Ritual recommendations
-                            ritualRecommendations
-
-                            addButton(title: "Ajouter un rituel") {
-                                showAddRitual = true
-                            }
-
-                            // End of day check-in
-                            if isEvening {
-                                endOfDayCheckIn
-                            }
-                        }
 
                         if tasks.isEmpty && (isToday ? rituals.isEmpty : true) && quests.isEmpty {
                             emptyState
                         }
 
-                        Spacer().frame(height: 40)
+                        Spacer().frame(height: 80)
                     }
                     .padding(.top, 8)
                 }
@@ -137,28 +105,11 @@ struct PlanningView: View {
                 Spacer()
             }
 
+            // Floating add button
+            floatingAddButton
+
             // Sync feedback toast
-            if let feedback = syncFeedback {
-                VStack {
-                    Spacer()
-                    Text(feedback)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 10)
-                        .background(
-                            Capsule()
-                                .fill(Color.white.opacity(0.2))
-                                .background(
-                                    Capsule()
-                                        .fill(.ultraThinMaterial)
-                                )
-                        )
-                        .padding(.bottom, 30)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: syncFeedback)
-            }
+            syncToast
         }
         .task {
             await loadData()
@@ -226,7 +177,11 @@ struct PlanningView: View {
         .sheet(isPresented: $showAddRitual) {
             AddRitualSheet(
                 bgColor: bgColor,
-                areas: store.areas.filter { !$0.id.hasPrefix("placeholder-") }
+                areas: store.areas.filter { !$0.id.hasPrefix("placeholder-") },
+                existingRitualTitles: Set(rituals.map { $0.title.lowercased() }),
+                onAddRecommended: { rec in
+                    addRecommendedRitual(rec)
+                }
             ) { title, icon, areaId, scheduledTime in
                 await createRitual(title: title, icon: icon, areaId: areaId, scheduledTime: scheduledTime)
             }
@@ -247,6 +202,13 @@ struct PlanningView: View {
         }
         .fullScreenCover(isPresented: $showVoiceCall) {
             VoiceCallView(mode: "planning", planningScope: voicePlanningScope)
+        }
+        .fullScreenCover(isPresented: $showPaywall) {
+            FocusPaywallView(
+                onComplete: { showPaywall = false },
+                onSkip: { showPaywall = false }
+            )
+            .environmentObject(SubscriptionManager.shared)
         }
         .onChange(of: showVoiceCall) { newValue in
             if !newValue {
@@ -285,41 +247,22 @@ struct PlanningView: View {
 
             Spacer()
 
-            HStack(spacing: 8) {
-                // Voice planning button
-                Button {
+            // Voice planning button (pro only)
+            Button {
+                if SubscriptionManager.shared.isProUser {
                     showVoicePlanningSheet = true
-                } label: {
-                    Image(systemName: "mic.fill")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.8))
-                        .frame(width: 36, height: 36)
-                        .background(
-                            Circle()
-                                .fill(.ultraThinMaterial)
-                        )
+                } else {
+                    showPaywall = true
                 }
-
-                // Sync Google Calendar button
-                Button {
-                    syncCalendar()
-                } label: {
-                    if isSyncing {
-                        ProgressView()
-                            .tint(.white.opacity(0.8))
-                            .frame(width: 36, height: 36)
-                    } else {
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.white.opacity(0.8))
-                            .frame(width: 36, height: 36)
-                            .background(
-                                Circle()
-                                    .fill(.ultraThinMaterial)
-                            )
-                    }
-                }
-                .disabled(isSyncing)
+            } label: {
+                Image(systemName: "mic.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.8))
+                    .frame(width: 36, height: 36)
+                    .background(
+                        Circle()
+                            .fill(.ultraThinMaterial)
+                    )
             }
         }
         .padding(.horizontal, 16)
@@ -332,41 +275,93 @@ struct PlanningView: View {
         )
     }
 
-    // MARK: - Progress Header
+    // MARK: - Motivational Progress Header
+
+    private var progressRingColor: Color {
+        switch progress {
+        case 0..<0.3: return .orange
+        case 0.3..<0.7: return .yellow
+        default: return .green
+        }
+    }
+
+    private var motivationalGreeting: String {
+        let name = store.user?.firstName ?? store.user?.pseudo ?? ""
+        let prefix = name.isEmpty ? "" : " \(name)"
+
+        if !isToday {
+            return selectedDateFormatted
+        }
+        if progress >= 1.0 {
+            return "Journée parfaite !"
+        }
+        if isMorning {
+            return "Bonjour\(prefix) !"
+        }
+        if isAfternoon {
+            let remaining = totalItems - completedItems
+            return remaining > 0 ? "Plus que \(remaining) !" : "Tu gères !"
+        }
+        let remaining = totalItems - completedItems
+        return remaining > 0 ? "Dernière ligne droite" : "Belle soirée !"
+    }
+
+    private var motivationalSubtitle: String {
+        if !isToday {
+            return "\(tasks.count) tâche\(tasks.count > 1 ? "s" : "") prévue\(tasks.count > 1 ? "s" : "")"
+        }
+        if totalItems == 0 {
+            return "Aucune tâche — ajoute en une !"
+        }
+        if progress >= 1.0 {
+            return "Tout est complété"
+        }
+        return "\(completedItems)/\(totalItems) terminés"
+    }
 
     private var progressHeader: some View {
-        VStack(spacing: 14) {
-            Spacer().frame(height: 52)
-
+        HStack(spacing: 14) {
+            // Progress ring with dynamic color
             ZStack {
                 Circle()
-                    .stroke(Color.white.opacity(0.1), lineWidth: 7)
+                    .stroke(Color.white.opacity(0.08), lineWidth: 5)
 
                 Circle()
                     .trim(from: 0, to: progress)
                     .stroke(
-                        Color.white.opacity(0.9),
-                        style: StrokeStyle(lineWidth: 7, lineCap: .round)
+                        progressRingColor,
+                        style: StrokeStyle(lineWidth: 5, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
                     .animation(.easeInOut(duration: 0.6), value: progress)
 
-                VStack(spacing: 2) {
-                    Text("\(completedItems)")
-                        .font(.system(size: 30, weight: .bold, design: .rounded))
+                if progress >= 1.0 {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(.green)
+                } else {
+                    Text("\(Int(progress * 100))")
+                        .font(.system(size: 17, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
-                    Text("/ \(totalItems)")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.white.opacity(0.5))
                 }
             }
-            .frame(width: 90, height: 90)
+            .frame(width: 56, height: 56)
 
-            Text(selectedDateFormatted)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(.white.opacity(0.5))
+            VStack(alignment: .leading, spacing: 3) {
+                Text(motivationalGreeting)
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(.white)
+
+                Text(motivationalSubtitle)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.white.opacity(0.45))
+            }
+
+            Spacer()
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 20)
+        .padding(.top, 60)
+        .padding(.bottom, 4)
     }
 
     // MARK: - Date Strip
@@ -409,11 +404,23 @@ struct PlanningView: View {
                                     .fill(isSelected ? Color.white : Color.white.opacity(0.06))
                             )
 
-                            // Task indicator dot
+                            // Task indicator
                             if let cached = tasksCache[dateKey], !cached.isEmpty {
-                                Circle()
-                                    .fill(cached.allSatisfy { $0.isCompleted } ? Color.green : Color.orange)
-                                    .frame(width: 5, height: 5)
+                                if cached.allSatisfy({ $0.isCompleted }) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.system(size: 8))
+                                        .foregroundColor(.green)
+                                } else if isDayToday {
+                                    // Pulsing dot for today
+                                    Circle()
+                                        .fill(Color.orange)
+                                        .frame(width: 6, height: 6)
+                                        .shadow(color: .orange.opacity(0.6), radius: 3)
+                                } else {
+                                    Circle()
+                                        .fill(Color.orange)
+                                        .frame(width: 5, height: 5)
+                                }
                             } else {
                                 Circle()
                                     .fill(Color.clear)
@@ -427,47 +434,195 @@ struct PlanningView: View {
         }
     }
 
-    // MARK: - Time Block Section
+    // MARK: - Unified Task + Ritual List
 
-    private func timeBlockSection(title: String, icon: String, color: Color, blockTasks: [CalendarTask]) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(color)
-                Text(title)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.5))
-                    .textCase(.uppercase)
-                    .tracking(0.5)
-                Spacer()
-                let done = blockTasks.filter { $0.isCompleted }.count
-                Text("\(done)/\(blockTasks.count)")
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundColor(.white.opacity(0.3))
-            }
-            .padding(.horizontal, 20)
+    private var unifiedList: some View {
+        let pendingTasks = tasks.filter { !$0.isCompleted }.sorted { t1, t2 in
+            let order = ["morning": 0, "afternoon": 1, "evening": 2]
+            return (order[t1.timeBlock] ?? 3) < (order[t2.timeBlock] ?? 3)
+        }
+        let doneTasks = tasks.filter { $0.isCompleted }
+        let pendingRituals = isToday ? rituals.filter { !$0.isCompleted } : []
+        let doneRituals = isToday ? rituals.filter { $0.isCompleted } : []
 
-            List {
-                ForEach(blockTasks) { task in
-                    taskRow(task)
-                        .listRowBackground(Color.white.opacity(0.08))
-                        .listRowInsets(EdgeInsets())
-                        .listRowSeparator(.hidden)
-                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                            Button(role: .destructive) {
-                                performDeleteTask(task)
-                            } label: {
-                                Label("Supprimer", systemImage: "trash")
+        let hasPending = !pendingTasks.isEmpty || !pendingRituals.isEmpty
+        let hasDone = !doneTasks.isEmpty || !doneRituals.isEmpty
+        let hasContent = !tasks.isEmpty || (isToday && !rituals.isEmpty)
+
+        return Group {
+            if hasContent {
+                VStack(spacing: 12) {
+                    // Active items
+                    if hasPending {
+                        VStack(spacing: 0) {
+                            // Header
+                            HStack {
+                                Text("À faire")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundColor(.white.opacity(0.5))
+                                    .textCase(.uppercase)
+                                    .kerning(1)
+                                Spacer()
+                                Text("\(pendingTasks.count + pendingRituals.count)")
+                                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                                    .foregroundColor(.white.opacity(0.4))
                             }
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 8)
+
+                            List {
+                                ForEach(pendingTasks) { task in
+                                    taskRow(task)
+                                        .listRowBackground(Color.white.opacity(0.06))
+                                        .listRowInsets(EdgeInsets())
+                                        .listRowSeparator(.hidden)
+                                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                            Button(role: .destructive) {
+                                                performDeleteTask(task)
+                                            } label: {
+                                                Label("Supprimer", systemImage: "trash")
+                                            }
+                                        }
+                                }
+
+                                if !pendingRituals.isEmpty {
+                                    // Ritual divider
+                                    HStack(spacing: 8) {
+                                        Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+                                        Text("Rituels")
+                                            .font(.system(size: 11, weight: .semibold))
+                                            .foregroundColor(.white.opacity(0.35))
+                                            .textCase(.uppercase)
+                                            .kerning(0.5)
+                                        Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+                                    }
+                                    .listRowBackground(Color.clear)
+                                    .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                                    .listRowSeparator(.hidden)
+
+                                    ForEach(pendingRituals) { ritual in
+                                        ritualRow(ritual)
+                                            .listRowBackground(Color.white.opacity(0.06))
+                                            .listRowInsets(EdgeInsets())
+                                            .listRowSeparator(.hidden)
+                                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                                Button(role: .destructive) {
+                                                    performDeleteRitual(ritual)
+                                                } label: {
+                                                    Label("Supprimer", systemImage: "trash")
+                                                }
+                                            }
+                                    }
+                                }
+                            }
+                            .listStyle(.plain)
+                            .scrollDisabled(true)
+                            .frame(minHeight: CGFloat(pendingTasks.count + pendingRituals.count + (pendingRituals.isEmpty ? 0 : 1)) * 56)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                            .padding(.horizontal, 16)
                         }
+                    }
+
+                    // Completed items (collapsable)
+                    if hasDone {
+                        VStack(spacing: 0) {
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    showCompleted.toggle()
+                                }
+                            } label: {
+                                HStack {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.green.opacity(0.5))
+                                    Text("Terminé")
+                                        .font(.system(size: 13, weight: .bold))
+                                        .foregroundColor(.white.opacity(0.3))
+                                        .textCase(.uppercase)
+                                        .kerning(1)
+                                    Text("\(doneTasks.count + doneRituals.count)")
+                                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                                        .foregroundColor(.white.opacity(0.2))
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundColor(.white.opacity(0.2))
+                                        .rotationEffect(.degrees(showCompleted ? 90 : 0))
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 8)
+
+                            if showCompleted {
+                            List {
+                                ForEach(doneTasks) { task in
+                                    taskRow(task)
+                                        .listRowBackground(Color.white.opacity(0.03))
+                                        .listRowInsets(EdgeInsets())
+                                        .listRowSeparator(.hidden)
+                                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                            Button(role: .destructive) {
+                                                performDeleteTask(task)
+                                            } label: {
+                                                Label("Supprimer", systemImage: "trash")
+                                            }
+                                        }
+                                }
+                                ForEach(doneRituals) { ritual in
+                                    ritualRow(ritual)
+                                        .listRowBackground(Color.white.opacity(0.03))
+                                        .listRowInsets(EdgeInsets())
+                                        .listRowSeparator(.hidden)
+                                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                            Button(role: .destructive) {
+                                                performDeleteRitual(ritual)
+                                            } label: {
+                                                Label("Supprimer", systemImage: "trash")
+                                            }
+                                        }
+                                }
+                            }
+                            .listStyle(.plain)
+                            .scrollDisabled(true)
+                            .frame(minHeight: CGFloat(doneTasks.count + doneRituals.count) * 56)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                            .padding(.horizontal, 16)
+                            } // end if showCompleted
+                        }
+                    }
+
+                    // Motivational message
+                    motivationalMessage
                 }
             }
-            .listStyle(.plain)
-            .scrollDisabled(true)
-            .frame(minHeight: CGFloat(blockTasks.count) * 64)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-            .padding(.horizontal, 16)
+        }
+    }
+
+    // MARK: - Motivational Message
+
+    private var motivationalMessage: some View {
+        Group {
+            if isToday && totalItems > 0 {
+                let msg: (String, String) = {
+                    switch progress {
+                    case 0: return ("rocket", "C'est parti ! Commence par une tâche simple")
+                    case 0..<0.5: return ("figure.run", "Bon début, continue !")
+                    case 0.5..<1.0: return ("star.fill", "Plus que \(totalItems - completedItems) — tu y es presque !")
+                    default: return ("party.popper.fill", "Bravo ! Journée accomplie")
+                    }
+                }()
+
+                HStack(spacing: 8) {
+                    Image(systemName: msg.0)
+                        .font(.system(size: 13))
+                        .foregroundColor(progress >= 1.0 ? .green : .white.opacity(0.4))
+                    Text(msg.1)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(progress >= 1.0 ? .green.opacity(0.8) : .white.opacity(0.35))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+            }
         }
     }
 
@@ -501,6 +656,9 @@ struct PlanningView: View {
                     .fixedSize(horizontal: false, vertical: true)
 
                 HStack(spacing: 8) {
+                    // Time block indicator
+                    timeBlockIndicator(for: task.timeBlock)
+
                     if let start = task.scheduledStart {
                         HStack(spacing: 3) {
                             Image(systemName: "clock")
@@ -524,385 +682,53 @@ struct PlanningView: View {
             }
 
             Spacer()
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 16)
-        .contextMenu {
-            Button(role: .destructive) {
-                taskToDelete = task
+
+            // App blocking toggle
+            Button {
+                toggleBlockApps(task)
             } label: {
-                Label("Supprimer", systemImage: "trash")
-            }
-        }
-    }
-
-    // MARK: - Rituals Section
-
-    // MARK: - Objectives Section
-
-    private var objectivesSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                Image(systemName: "target")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.5))
-                Text("Objectifs")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(.white.opacity(0.5))
-                    .textCase(.uppercase)
-                    .kerning(1)
-                Spacer()
-                Button(action: { showAddQuest = true }) {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 20))
-                        .foregroundColor(.white.opacity(0.4))
-                }
-            }
-            .padding(.horizontal, 20)
-
-            if quests.isEmpty {
-                Text("Aucun objectif pour l'instant")
-                    .font(.system(size: 14))
-                    .foregroundColor(.white.opacity(0.3))
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 8)
-            } else {
-                let shortTerm = quests.filter { ($0.term ?? "short") == "short" }
-                let mediumTerm = quests.filter { $0.term == "medium" }
-                let longTerm = quests.filter { $0.term == "long" }
-
-                if !shortTerm.isEmpty {
-                    objectiveTermGroup(label: "Court terme", icon: "bolt.fill", color: .orange, items: shortTerm)
-                }
-                if !mediumTerm.isEmpty {
-                    objectiveTermGroup(label: "Moyen terme", icon: "calendar", color: .blue, items: mediumTerm)
-                }
-                if !longTerm.isEmpty {
-                    objectiveTermGroup(label: "Long terme", icon: "star.fill", color: .purple, items: longTerm)
-                }
-            }
-        }
-        .padding(.horizontal, 16)
-        .sheet(isPresented: $showAddQuest) {
-            AddQuestSheet(bgColor: bgColor) { title, term, area in
-                performCreateQuest(title: title, term: term, area: area)
-            }
-            .presentationDetents([.height(480)])
-            .presentationDragIndicator(.visible)
-        }
-    }
-
-    private func objectiveTermGroup(label: String, icon: String, color: Color, items: [QuestResponse]) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                Image(systemName: icon)
-                    .font(.system(size: 11))
-                    .foregroundColor(color)
-                Text(label)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(color)
-            }
-            .padding(.horizontal, 4)
-
-            ForEach(items) { quest in
-                let isCompleted = quest.status == "completed"
-                HStack(spacing: 10) {
-                    // Checkbox — toggle complete/uncomplete
-                    Button(action: { toggleQuest(quest) }) {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 6)
-                                .stroke(isCompleted ? Color.clear : color.opacity(0.4), lineWidth: 1.5)
-                                .frame(width: 22, height: 22)
-                            if isCompleted {
-                                RoundedRectangle(cornerRadius: 6)
-                                    .fill(color)
-                                    .frame(width: 22, height: 22)
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 11, weight: .bold))
-                                    .foregroundColor(.white)
-                            }
-                        }
-                    }
-
-                    // Area icon
-                    let icon = quest.areaIcon ?? "star.fill"
-                    Image(systemName: icon.hasSuffix(".fill") ? icon : "\(icon).fill")
-                        .font(.system(size: 12))
-                        .foregroundColor(color.opacity(isCompleted ? 0.3 : 0.6))
-                        .frame(width: 20)
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(quest.title)
-                            .font(.system(size: 15, weight: isCompleted ? .regular : .medium))
-                            .foregroundColor(isCompleted ? .white.opacity(0.3) : .white.opacity(0.85))
-                            .strikethrough(isCompleted, color: .white.opacity(0.2))
-                            .lineLimit(1)
-
-                        if let areaName = quest.areaName, areaName != "Autre" {
-                            Text(areaName)
-                                .font(.system(size: 11))
-                                .foregroundColor(.white.opacity(isCompleted ? 0.2 : 0.35))
-                        }
-                    }
-
-                    Spacer()
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.white.opacity(0.06))
-                )
-                .contextMenu {
-                    Button(role: .destructive) {
-                        questToDelete = quest
-                    } label: {
-                        Label("Supprimer", systemImage: "trash")
-                    }
-                }
-            }
-        }
-    }
-
-    private func performCreateQuest(title: String, term: String, area: String = "other") {
-        Task {
-            do {
-                struct CreateQuestBody: Encodable {
-                    let title: String
-                    let area: String
-                    let term: String
-                }
-                let _: QuestResponse = try await APIClient.shared.request(
-                    endpoint: .quests,
-                    method: .post,
-                    body: CreateQuestBody(title: title, area: area, term: term)
-                )
-                await loadQuests()
-            } catch {
-                print("Failed to create quest: \(error)")
-            }
-        }
-    }
-
-    private func toggleQuest(_ quest: QuestResponse) {
-        let wasCompleted = quest.status == "completed"
-        let newStatus = wasCompleted ? "active" : "completed"
-
-        // Optimistic update
-        if let index = quests.firstIndex(where: { $0.id == quest.id }) {
-            withAnimation(.easeInOut(duration: 0.3)) {
-                quests[index] = QuestResponse(
-                    id: quest.id, areaId: quest.areaId, areaName: quest.areaName, areaIcon: quest.areaIcon,
-                    title: quest.title, status: newStatus,
-                    currentValue: wasCompleted ? 0 : quest.targetValue, targetValue: quest.targetValue,
-                    targetDate: quest.targetDate, term: quest.term
-                )
-            }
-        }
-        Task {
-            do {
-                try await APIClient.shared.request(
-                    endpoint: .completeQuest(quest.id),
-                    method: .post
-                )
-            } catch {
-                print("Failed to toggle quest: \(error)")
-                await loadQuests()
-            }
-        }
-    }
-
-    private func performDeleteQuest(_ quest: QuestResponse) {
-        Task {
-            do {
-                try await APIClient.shared.request(
-                    endpoint: .deleteQuest(quest.id),
-                    method: .delete
-                )
-                withAnimation {
-                    quests.removeAll { $0.id == quest.id }
-                }
-            } catch {
-                print("Failed to delete quest: \(error)")
-            }
-        }
-    }
-
-    // MARK: - Ritual Recommendations
-
-    private let recommendedRituals: [(title: String, icon: String, time: String?)] = [
-        ("Aller à la salle", "dumbbell.fill", "07:00"),
-        ("Douche froide", "snowflake", "07:30"),
-        ("Lire 30 minutes", "book.fill", "21:00"),
-        ("Dormir à 23h", "moon.fill", "23:00"),
-        ("Méditer 10 min", "leaf.fill", "08:00"),
-        ("Boire 2L d'eau", "drop.fill", nil),
-    ]
-
-    private var ritualRecommendations: some View {
-        let existingTitles = Set(rituals.map { $0.title.lowercased() })
-        let filtered = recommendedRituals.filter { !existingTitles.contains($0.title.lowercased()) }
-
-        return Group {
-            if !filtered.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Suggestions")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.4))
-                        .textCase(.uppercase)
-                        .tracking(0.5)
-                        .padding(.horizontal, 20)
-
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            ForEach(filtered, id: \.title) { rec in
-                                Button(action: { addRecommendedRitual(rec) }) {
-                                    HStack(spacing: 6) {
-                                        Image(systemName: rec.icon)
-                                            .font(.system(size: 12))
-                                        Text(rec.title)
-                                            .font(.system(size: 13, weight: .medium))
-                                    }
-                                    .foregroundColor(.white.opacity(0.7))
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 9)
-                                    .background(
-                                        Capsule()
-                                            .stroke(Color.white.opacity(0.15), lineWidth: 1)
-                                    )
-                                }
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                    }
-                }
-            }
-        }
-    }
-
-    private func addRecommendedRitual(_ rec: (title: String, icon: String, time: String?)) {
-        Task {
-            do {
-                struct CreateRitualBody: Encodable {
-                    let title: String
-                    let icon: String
-                    let frequency: String
-                    let scheduledTime: String?
-                }
-                let _: RoutineResponse = try await APIClient.shared.request(
-                    endpoint: .createRoutine,
-                    method: .post,
-                    body: CreateRitualBody(title: rec.title, icon: rec.icon, frequency: "daily", scheduledTime: rec.time)
-                )
-                // Reload rituals from store
-                await store.loadRituals()
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    rituals = store.rituals
-                    ritualsCache = rituals
-                }
-            } catch {
-                print("⚠️ Failed to add recommended ritual: \(error)")
-            }
-        }
-    }
-
-    // MARK: - End of Day Check-In
-
-    private var endOfDayCheckIn: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 10) {
-                Image(systemName: "sparkles")
+                Image(systemName: task.blockApps == true ? "shield.lefthalf.filled" : "shield.slash")
                     .font(.system(size: 16))
-                    .foregroundColor(.yellow)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Bilan du jour")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.9))
-                    Text("Tu as complété \(completedItems)/\(totalItems) éléments. Comment s'est passée ta journée ?")
-                        .font(.system(size: 13))
-                        .foregroundColor(.white.opacity(0.5))
-                }
-
-                Spacer()
+                    .foregroundColor(task.blockApps == true ? Color(red: 0.3, green: 0.7, blue: 1.0) : .white.opacity(0.2))
             }
-
-            HStack(spacing: 10) {
-                ForEach(["😤", "😐", "😊", "🔥"], id: \.self) { emoji in
-                    Button(action: {
-                        // TODO: Save reflection
-                        syncFeedback = "Merci pour ton retour !"
-                        Task {
-                            try? await Task.sleep(nanoseconds: 2_000_000_000)
-                            withAnimation { syncFeedback = nil }
-                        }
-                    }) {
-                        Text(emoji)
-                            .font(.system(size: 28))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
-                            .background(Color.white.opacity(0.06))
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                    }
-                }
-            }
+            .buttonStyle(.plain)
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white.opacity(0.06))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.yellow.opacity(0.15), lineWidth: 1)
-                )
-        )
         .padding(.horizontal, 16)
+        .padding(.vertical, 14)
     }
 
-    private var ritualsSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Image(systemName: "repeat")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(Color(red: 0.31, green: 0.80, blue: 0.77))
-                Text("Rituels")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.5))
-                    .textCase(.uppercase)
-                    .tracking(0.5)
-                Spacer()
-                if !rituals.isEmpty {
-                    let done = rituals.filter { $0.isCompleted }.count
-                    Text("\(done)/\(rituals.count)")
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundColor(.white.opacity(0.3))
-                }
-            }
-            .padding(.horizontal, 20)
-
-            if !rituals.isEmpty {
-                List {
-                    ForEach(rituals) { ritual in
-                        ritualRow(ritual)
-                            .listRowBackground(Color.white.opacity(0.08))
-                            .listRowInsets(EdgeInsets())
-                            .listRowSeparator(.hidden)
-                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                Button(role: .destructive) {
-                                    performDeleteRitual(ritual)
-                                } label: {
-                                    Label("Supprimer", systemImage: "trash")
-                                }
-                            }
-                    }
-                }
-                .listStyle(.plain)
-                .scrollDisabled(true)
-                .frame(minHeight: CGFloat(rituals.count) * 64)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .padding(.horizontal, 16)
+    private func toggleBlockApps(_ task: CalendarTask) {
+        let newValue = !(task.blockApps ?? false)
+        Task {
+            do {
+                let _: CalendarTask? = try await APIClient.shared.request(
+                    endpoint: .updateCalendarTask(task.id),
+                    method: .patch,
+                    body: ["block_apps": newValue]
+                )
+                await store.refreshTodaysTasks()
+                // Reschedule blocking for updated tasks
+                await ScheduledBlockingService.shared.scheduleBlockingForTasks(store.todaysTasks)
+            } catch {
+                print("Failed to toggle block_apps: \(error)")
             }
         }
+    }
+
+    // MARK: - Time Block Indicator
+
+    private func timeBlockIndicator(for block: String) -> some View {
+        let (icon, color): (String, Color) = {
+            switch block {
+            case "morning": return ("sunrise.fill", .orange)
+            case "afternoon": return ("sun.max.fill", .yellow)
+            case "evening": return ("moon.fill", .indigo)
+            default: return ("tray.fill", .gray)
+            }
+        }()
+        return Image(systemName: icon)
+            .font(.system(size: 10))
+            .foregroundColor(color.opacity(0.6))
     }
 
     // MARK: - Ritual Row
@@ -947,56 +773,289 @@ struct PlanningView: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 16)
-        .contextMenu {
-            Button(role: .destructive) {
-                ritualToDelete = ritual
+        .padding(.vertical, 14)
+    }
+
+    // MARK: - Floating Add Button
+
+    private var floatingAddButton: some View {
+        VStack {
+            Spacer()
+            HStack {
+                Spacer()
+                Menu {
+                    Button {
+                        showAddTask = true
+                    } label: {
+                        Label("Tâche", systemImage: "checklist")
+                    }
+                    if isToday {
+                        Button {
+                            showAddRitual = true
+                        } label: {
+                            Label("Rituel", systemImage: "repeat")
+                        }
+                    }
+                    Button {
+                        showAddQuest = true
+                    } label: {
+                        Label("Objectif", systemImage: "target")
+                    }
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(bgColor)
+                        .frame(width: 52, height: 52)
+                        .background(Circle().fill(Color.white))
+                        .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
+                }
+                .padding(.trailing, 20)
+                .padding(.bottom, 24)
+            }
+        }
+    }
+
+    // MARK: - Sync Toast
+
+    private var syncToast: some View {
+        Group {
+            if let feedback = syncFeedback {
+                VStack {
+                    Spacer()
+                    Text(feedback)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 10)
+                        .background(
+                            Capsule()
+                                .fill(Color.white.opacity(0.2))
+                                .background(
+                                    Capsule()
+                                        .fill(.ultraThinMaterial)
+                                )
+                        )
+                        .padding(.bottom, 90)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: syncFeedback)
+            }
+        }
+    }
+
+    // MARK: - Objectives Section (Collapsed)
+
+    private var objectivesSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    objectivesExpanded.toggle()
+                }
             } label: {
-                Label("Supprimer", systemImage: "trash")
+                HStack(spacing: 8) {
+                    Image(systemName: "target")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.5))
+                    Text("Objectifs")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(.white.opacity(0.5))
+                        .textCase(.uppercase)
+                        .kerning(1)
+
+                    if !quests.isEmpty {
+                        Text("\(quests.filter { $0.status == "completed" }.count)/\(quests.count)")
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundColor(.white.opacity(0.3))
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.3))
+                        .rotationEffect(.degrees(objectivesExpanded ? 90 : 0))
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 14)
+            }
+
+            if objectivesExpanded {
+                VStack(alignment: .leading, spacing: 12) {
+                    if quests.isEmpty {
+                        Text("Aucun objectif pour l'instant")
+                            .font(.system(size: 14))
+                            .foregroundColor(.white.opacity(0.3))
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 8)
+                    } else {
+                        let shortTerm = quests.filter { ($0.term ?? "short") == "short" }
+                        let mediumTerm = quests.filter { $0.term == "medium" }
+                        let longTerm = quests.filter { $0.term == "long" }
+
+                        if !shortTerm.isEmpty {
+                            objectiveTermGroup(label: "Court terme", icon: "bolt.fill", color: .orange, items: shortTerm)
+                        }
+                        if !mediumTerm.isEmpty {
+                            objectiveTermGroup(label: "Moyen terme", icon: "calendar", color: .blue, items: mediumTerm)
+                        }
+                        if !longTerm.isEmpty {
+                            objectiveTermGroup(label: "Long terme", icon: "star.fill", color: .purple, items: longTerm)
+                        }
+                    }
+                }
+                .padding(.bottom, 14)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-    }
-
-    // MARK: - Add Button
-
-    private func addButton(title: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                Image(systemName: "plus")
-                    .font(.system(size: 14, weight: .semibold))
-                Text(title)
-                    .font(.system(size: 14, weight: .medium))
-            }
-            .foregroundColor(.white.opacity(0.6))
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 13)
-            .background(Color.white.opacity(0.06))
-            .clipShape(RoundedRectangle(cornerRadius: 14))
-        }
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.white.opacity(0.04))
+        )
         .padding(.horizontal, 16)
+        .sheet(isPresented: $showAddQuest) {
+            AddQuestSheet(bgColor: bgColor) { title, term, area in
+                performCreateQuest(title: title, term: term, area: area)
+            }
+            .presentationDetents([.height(480)])
+            .presentationDragIndicator(.visible)
+        }
     }
+
+    private func objectiveTermGroup(label: String, icon: String, color: Color, items: [QuestResponse]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 11))
+                    .foregroundColor(color)
+                Text(label)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(color)
+            }
+            .padding(.horizontal, 24)
+
+            ForEach(items) { quest in
+                let isCompleted = quest.status == "completed"
+                HStack(spacing: 10) {
+                    Button(action: { toggleQuest(quest) }) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(isCompleted ? Color.clear : color.opacity(0.4), lineWidth: 1.5)
+                                .frame(width: 22, height: 22)
+                            if isCompleted {
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(color)
+                                    .frame(width: 22, height: 22)
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(.white)
+                            }
+                        }
+                    }
+
+                    let questIcon = quest.areaIcon ?? "star.fill"
+                    Image(systemName: questIcon.hasSuffix(".fill") ? questIcon : "\(questIcon).fill")
+                        .font(.system(size: 12))
+                        .foregroundColor(color.opacity(isCompleted ? 0.3 : 0.6))
+                        .frame(width: 20)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(quest.title)
+                            .font(.system(size: 15, weight: isCompleted ? .regular : .medium))
+                            .foregroundColor(isCompleted ? .white.opacity(0.3) : .white.opacity(0.85))
+                            .strikethrough(isCompleted, color: .white.opacity(0.2))
+                            .lineLimit(1)
+
+                        if let areaName = quest.areaName, areaName != "Autre" {
+                            Text(areaName)
+                                .font(.system(size: 11))
+                                .foregroundColor(.white.opacity(isCompleted ? 0.2 : 0.35))
+                        }
+                    }
+
+                    Spacer()
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color.white.opacity(0.06))
+                )
+                .padding(.horizontal, 16)
+                .contextMenu {
+                    Button(role: .destructive) {
+                        questToDelete = quest
+                    } label: {
+                        Label("Supprimer", systemImage: "trash")
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - End of Day Check-In
+
+
 
     // MARK: - Empty State
 
     private var emptyState: some View {
-        VStack(spacing: 12) {
-            Spacer().frame(height: 20)
+        VStack(spacing: 16) {
+            Spacer().frame(height: 30)
 
-            Image(systemName: "checklist")
-                .font(.system(size: 36))
-                .foregroundColor(.white.opacity(0.2))
+            ZStack {
+                Circle()
+                    .fill(Color.white.opacity(0.04))
+                    .frame(width: 80, height: 80)
+                Image(systemName: "sun.max.fill")
+                    .font(.system(size: 32))
+                    .foregroundColor(.white.opacity(0.15))
+            }
 
-            Text(isToday ? "Aucune tâche pour aujourd'hui" : "Aucune tâche prévue")
-                .font(.system(size: 15, weight: .medium))
-                .foregroundColor(.white.opacity(0.5))
+            Text(isToday ? "Ta journée est libre" : "Rien de prévu")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundColor(.white.opacity(0.6))
 
-            let companion = store.user?.companionName ?? "Kai"
-            Text(isToday
-                 ? "Demande à \(companion) de planifier ta journée !"
-                 : "Ajoute des tâches ou demande à \(companion) de planifier !")
-                .font(.system(size: 13))
-                .foregroundColor(.white.opacity(0.3))
-                .multilineTextAlignment(.center)
+            // CTA buttons
+            VStack(spacing: 10) {
+                Button {
+                    showAddTask = true
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("Ajouter une tâche")
+                            .font(.system(size: 15, weight: .semibold))
+                    }
+                    .foregroundColor(bgColor)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(Color.white.opacity(0.9))
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                }
+
+                if isToday {
+                    Button {
+                        if SubscriptionManager.shared.isProUser {
+                            showVoicePlanningSheet = true
+                        } else {
+                            showPaywall = true
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "mic.fill")
+                                .font(.system(size: 14))
+                            Text("Planifier par la voix")
+                                .font(.system(size: 14, weight: .medium))
+                        }
+                        .foregroundColor(.white.opacity(0.6))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color.white.opacity(0.08))
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                    }
+                }
+            }
+            .padding(.horizontal, 40)
         }
         .padding(.horizontal, 32)
     }
@@ -1006,6 +1065,44 @@ struct PlanningView: View {
     private var selectedDateFormatted: String {
         Self.displayFormatter.string(from: selectedDate).capitalized
     }
+
+    // MARK: - Ritual Recommendations (used by AddRitualSheet)
+
+    static let recommendedRituals: [(title: String, icon: String, time: String?)] = [
+        ("Aller à la salle", "dumbbell.fill", "07:00"),
+        ("Douche froide", "snowflake", "07:30"),
+        ("Lire 30 minutes", "book.fill", "21:00"),
+        ("Dormir à 23h", "moon.fill", "23:00"),
+        ("Méditer 10 min", "leaf.fill", "08:00"),
+        ("Boire 2L d'eau", "drop.fill", nil),
+    ]
+
+    private func addRecommendedRitual(_ rec: (title: String, icon: String, time: String?)) {
+        Task {
+            do {
+                struct CreateRitualBody: Encodable {
+                    let title: String
+                    let icon: String
+                    let frequency: String
+                    let scheduledTime: String?
+                }
+                let _: RoutineResponse = try await APIClient.shared.request(
+                    endpoint: .createRoutine,
+                    method: .post,
+                    body: CreateRitualBody(title: rec.title, icon: rec.icon, frequency: "daily", scheduledTime: rec.time)
+                )
+                await store.loadRituals()
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    rituals = store.rituals
+                    ritualsCache = rituals
+                }
+            } catch {
+                print("⚠️ Failed to add recommended ritual: \(error)")
+            }
+        }
+    }
+
+    // MARK: - Data Loading
 
     private func loadQuests() async {
         do {
@@ -1044,7 +1141,6 @@ struct PlanningView: View {
         do {
             let calendarService = CalendarService()
             let fetched = try await calendarService.getTasks(date: dateKey)
-            // Only update if still on the same date
             if selectedDateString == dateKey {
                 withAnimation(.easeInOut(duration: 0.15)) {
                     tasks = fetched
@@ -1066,10 +1162,8 @@ struct PlanningView: View {
         } else if selectedDateString == dateKey {
             rituals = []
         }
-        // isInitialLoading handled by defer
     }
 
-    /// Preload task counts for all 7 days to show indicator dots immediately
     private func preloadWeekDots() async {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
@@ -1078,12 +1172,12 @@ struct PlanningView: View {
         for i in 0..<7 {
             guard let day = calendar.date(byAdding: .day, value: i, to: today) else { continue }
             let dateKey = Self.isoFormatter.string(from: day)
-            if tasksCache[dateKey] != nil { continue } // already cached
+            if tasksCache[dateKey] != nil { continue }
             do {
                 let fetched = try await calendarService.getTasks(date: dateKey)
                 tasksCache[dateKey] = fetched
             } catch {
-                // Silently skip — dots just won't show for this day
+                // Silently skip
             }
         }
     }
@@ -1103,17 +1197,21 @@ struct PlanningView: View {
             }
             isSyncing = false
 
-            // Dismiss toast after 2 seconds
             try? await Task.sleep(nanoseconds: 2_000_000_000)
             withAnimation { syncFeedback = nil }
         }
     }
 
+    // MARK: - Actions
+
     private func toggleTask(_ task: CalendarTask) {
         guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
         let wasCompleted = task.isCompleted
         let previousStatus = task.status
-        tasks[index].status = wasCompleted ? "pending" : "completed"
+        HapticFeedback.light()
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+            tasks[index].status = wasCompleted ? "pending" : "completed"
+        }
 
         Task {
             do {
@@ -1130,7 +1228,10 @@ struct PlanningView: View {
 
     private func toggleRitual(_ ritual: DailyRitual) {
         guard let index = rituals.firstIndex(where: { $0.id == ritual.id }) else { return }
-        rituals[index].isCompleted = !ritual.isCompleted
+        HapticFeedback.light()
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+            rituals[index].isCompleted = !ritual.isCompleted
+        }
 
         Task {
             await store.toggleRitual(ritual)
@@ -1197,6 +1298,69 @@ struct PlanningView: View {
             }
         } catch {
             print("⚠️ Failed to create ritual: \(error)")
+        }
+    }
+
+    private func performCreateQuest(title: String, term: String, area: String = "other") {
+        Task {
+            do {
+                struct CreateQuestBody: Encodable {
+                    let title: String
+                    let area: String
+                    let term: String
+                }
+                let _: QuestResponse = try await APIClient.shared.request(
+                    endpoint: .quests,
+                    method: .post,
+                    body: CreateQuestBody(title: title, area: area, term: term)
+                )
+                await loadQuests()
+            } catch {
+                print("Failed to create quest: \(error)")
+            }
+        }
+    }
+
+    private func toggleQuest(_ quest: QuestResponse) {
+        let wasCompleted = quest.status == "completed"
+        let newStatus = wasCompleted ? "active" : "completed"
+
+        if let index = quests.firstIndex(where: { $0.id == quest.id }) {
+            withAnimation(.easeInOut(duration: 0.3)) {
+                quests[index] = QuestResponse(
+                    id: quest.id, areaId: quest.areaId, areaName: quest.areaName, areaIcon: quest.areaIcon,
+                    title: quest.title, status: newStatus,
+                    currentValue: wasCompleted ? 0 : quest.targetValue, targetValue: quest.targetValue,
+                    targetDate: quest.targetDate, term: quest.term
+                )
+            }
+        }
+        Task {
+            do {
+                try await APIClient.shared.request(
+                    endpoint: .completeQuest(quest.id),
+                    method: .post
+                )
+            } catch {
+                print("Failed to toggle quest: \(error)")
+                await loadQuests()
+            }
+        }
+    }
+
+    private func performDeleteQuest(_ quest: QuestResponse) {
+        Task {
+            do {
+                try await APIClient.shared.request(
+                    endpoint: .deleteQuest(quest.id),
+                    method: .delete
+                )
+                withAnimation {
+                    quests.removeAll { $0.id == quest.id }
+                }
+            } catch {
+                print("Failed to delete quest: \(error)")
+            }
         }
     }
 }
@@ -1384,6 +1548,8 @@ struct AddTaskSheet: View {
 struct AddRitualSheet: View {
     let bgColor: Color
     let areas: [Area]
+    var existingRitualTitles: Set<String> = []
+    var onAddRecommended: (((title: String, icon: String, time: String?)) -> Void)?
     @Environment(\.dismiss) private var dismiss
     @State private var title = ""
     @State private var selectedIcon = "star"
@@ -1407,12 +1573,52 @@ struct AddRitualSheet: View {
         ("cup", "cup.and.saucer.fill")
     ]
 
+    private var filteredSuggestions: [(title: String, icon: String, time: String?)] {
+        PlanningView.recommendedRituals.filter { !existingRitualTitles.contains($0.title.lowercased()) }
+    }
+
     var body: some View {
         ZStack {
             bgColor.ignoresSafeArea()
 
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: 20) {
+                    // Quick suggestions
+                    if !filteredSuggestions.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Suggestions rapides")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.white.opacity(0.4))
+                                .textCase(.uppercase)
+                                .tracking(0.5)
+
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 10) {
+                                    ForEach(filteredSuggestions, id: \.title) { rec in
+                                        Button(action: {
+                                            onAddRecommended?(rec)
+                                            dismiss()
+                                        }) {
+                                            HStack(spacing: 6) {
+                                                Image(systemName: rec.icon)
+                                                    .font(.system(size: 12))
+                                                Text(rec.title)
+                                                    .font(.system(size: 13, weight: .medium))
+                                            }
+                                            .foregroundColor(.white.opacity(0.7))
+                                            .padding(.horizontal, 14)
+                                            .padding(.vertical, 9)
+                                            .background(
+                                                Capsule()
+                                                    .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // Title
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Titre")
