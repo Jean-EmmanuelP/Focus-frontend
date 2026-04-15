@@ -258,6 +258,18 @@ struct FocusApp: App {
         case "paywall":
             router.navigateToPaywall()
 
+        case "challenge":
+            // Deep link: focus://challenge/{invite_code}
+            let code = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            if !code.isEmpty {
+                NotificationCenter.default.post(
+                    name: .openChallengeInvite,
+                    object: nil,
+                    userInfo: ["invite_code": code]
+                )
+            }
+            router.selectedTab = .chat
+
         default:
             break
         }

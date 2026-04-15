@@ -298,6 +298,7 @@ def build_system_prompt(
     mode: str = "voice_call",
     planning_scope: str = "",
     planning_context: dict | None = None,
+    meta: dict | None = None,
 ) -> str:
     hour = datetime.now().hour
     time_of_day = "matin" if hour < 12 else "après-midi" if hour < 18 else "soirée"
@@ -390,37 +391,47 @@ def build_system_prompt(
 
     # Morning verification mode
     if mode == "morning_verification":
-        ctx += """
-MODE MORNING CHECK — Vérification de réveil
+        # Get challenge context from metadata
+        _meta = meta or {}
+        partner_name = _meta.get("partner_name", "ton pote")
+        challenge_day = _meta.get("challenge_day", "")
+        mantra = _meta.get("mantra", "Je suis discipliné et aujourd'hui sera une excellente journée")
+        day_str = f"Jour {challenge_day}" if challenge_day else ""
 
-TON RÔLE: Tu es un coach sportif matinal ÉNERGIQUE et FUN. Tu vérifies que l'utilisateur est bien réveillé en lui faisant faire 3 exercices physiques courts.
+        ctx += f"""
+MODE MORNING CHECK — Validation matinale {day_str}
 
-FLOW:
-1. Salue-le avec énergie : "Allez debout ! On va vérifier que t'es bien réveillé !"
-2. Demande le PREMIER exercice (choisis parmi la liste)
-3. Quand l'utilisateur dit "fait" ou "c'est bon" → confirme avec validate_exercise, puis passe au suivant
-4. Après 3 exercices validés → félicite, annonce les points (+50), et appelle end_call
+TON RÔLE: Tu es un coach sportif matinal ÉNERGIQUE et FUN. Tu valides que l'utilisateur est bien réveillé. {partner_name} va recevoir la preuve.
 
-EXERCICES (choisis-en 3 différents, dans cet ordre de difficulté) :
-- "10 pompes, c'est parti !"
-- "20 squats, on y va !"
-- "Touche tes pieds 10 fois !"
-- "30 secondes de planche !"
-- "20 jumping jacks !"
-- "Cours sur place pendant 30 secondes !"
-- "10 fentes alternées !"
+FLOW (suis cet ordre EXACTEMENT):
+1. Salue avec énergie: "Allez debout ! {partner_name} attend ta preuve !"
+2. Prends la photo: appelle take_selfie() — dis "Souris ! Photo pour {partner_name} !"
+3. Fais faire 1-2 exercices rapides (choisis parmi: 10 squats, touche tes pieds 10 fois, 20 jumping jacks, 30s de planche, étirements)
+4. Après chaque exercice confirmé → appelle validate_exercise(nom)
+5. Demande le mantra: "Maintenant, dis ton mantra 3 fois: {mantra}"
+6. ÉCOUTE attentivement. Valide SEULEMENT si tu entends les mots clés du mantra répétés
+7. Quand le mantra est dit → appelle validate_mantra()
+8. Félicite: "Morning check validé ! {partner_name} va voir que t'es debout. Bonne journée champion !"
+9. Appelle end_call()
+
+LE MANTRA: "{mantra}"
+- L'utilisateur DOIT le dire 3 fois à voix haute
+- Pas besoin d'être mot pour mot parfait, mais les mots clés doivent y être
+- Si l'utilisateur le dit mal → "Allez, avec conviction ! Redis-le !"
+- Si bien dit 3 fois → validate_mantra() immédiatement
 
 STYLE:
-- Ultra énergique, comme un coach militaire mais bienveillant
+- Ultra énergique, comme un coach militaire bienveillant
 - Phrases COURTES (1-2 max)
-- Encourage entre chaque exercice : "Bien joué !", "T'es une machine !", "Encore un !"
-- Si l'utilisateur galère, adapte : "OK, fais-en 5 au lieu de 10"
-- Après les 3 exercices : "Morning check validé ! T'as gagné 50 points. Bonne journée champion !"
-- Termine avec end_call
+- Mentionne {partner_name} souvent pour la pression sociale: "{partner_name} a déjà validé !" ou "{partner_name} va voir ta preuve !"
+- Encourage entre chaque étape
+- RAPIDE — tout doit prendre max 2-3 minutes
 
 OUTILS:
-- validate_exercise(name) : valide un exercice (appelle après chaque exercice confirmé)
-- end_call() : termine après les 3 exercices
+- take_selfie(): photo de preuve (appelle en premier)
+- validate_exercise(name): valide un exercice
+- validate_mantra(): valide le mantra (APRÈS l'avoir entendu 3 fois)
+- end_call(): termine après validation complète
 """
 
     # Planning mode additions
@@ -576,14 +587,22 @@ async def fetch_all_context_parallel(auth_token: str | None) -> tuple[dict | Non
     return (ctx if ctx else None), memories
 
 
-def build_greeting(lang: str, name: str = "", coach_name: str = "", mode: str = "voice_call", planning_scope: str = "", planning_context: dict | None = None) -> str:
+def build_greeting(lang: str, name: str = "", coach_name: str = "", mode: str = "voice_call", planning_scope: str = "", planning_context: dict | None = None, meta: dict | None = None) -> str:
     hour = datetime.now().hour
     intro = f"Salut, c'est {coach_name}" if coach_name else "Salut"
     intro_en = f"Hey, it's {coach_name}" if coach_name else "Hey"
 
     # Morning verification greeting
     if mode == "morning_verification":
-        greeting = f"Debout {name} ! C'est l'heure du morning check. 3 exercices et t'es validé. On commence !" if name else "Debout ! C'est l'heure du morning check. 3 exercices et t'es validé. On commence !"
+        _meta = meta or {}
+        partner_name = _meta.get("partner_name", "")
+        challenge_day = _meta.get("challenge_day", "")
+        day_part = f", jour {challenge_day}" if challenge_day else ""
+        partner_part = f" {partner_name} attend ta preuve." if partner_name else ""
+        if name:
+            greeting = f"Debout {name} ! C'est le morning check{day_part}.{partner_part} On commence !"
+        else:
+            greeting = f"Debout ! C'est le morning check{day_part}.{partner_part} On commence !"
         return greeting
 
     # Planning mode greeting — proactive, proposes plan
@@ -730,6 +749,32 @@ class VoltaAgent(agents.Agent):
         await self._room.local_participant.publish_data(payload, reliable=True)
         logger.info("🏋️ Exercise validated: %s", exercise_name)
         return f"Exercice '{exercise_name}' valide !"
+
+    @function_tool(name="validate_mantra")
+    async def tool_validate_mantra(self, context: RunContext) -> str:
+        """Valide que l'utilisateur a bien dit son mantra 3 fois. Appelle UNIQUEMENT apres avoir entendu le mantra repete 3 fois."""
+        if not self._room:
+            return "Erreur: pas de connexion."
+        payload = json.dumps({
+            "type": "coach_action",
+            "action": "mantra_validated",
+        }).encode()
+        await self._room.local_participant.publish_data(payload, reliable=True)
+        logger.info("🗣️ Mantra validated")
+        return "Mantra valide ! Morning check complet."
+
+    @function_tool(name="take_selfie")
+    async def tool_take_selfie(self, context: RunContext) -> str:
+        """Prend une photo selfie de l'utilisateur pour prouver qu'il est bien reveille. Appelle au debut du morning check."""
+        if not self._room:
+            return "Erreur: pas de connexion."
+        payload = json.dumps({
+            "type": "coach_action",
+            "action": "take_selfie",
+        }).encode()
+        await self._room.local_participant.publish_data(payload, reliable=True)
+        logger.info("📸 Selfie requested")
+        return "Selfie pris !"
 
     @function_tool(name="end_call")
     async def tool_end_call(self, context: RunContext) -> str:
@@ -957,7 +1002,7 @@ async def entrypoint(ctx: agents.JobContext):
     if mode == "planning" and auth_token:
         planning_context = await fetch_planning_context(auth_token, planning_scope)
 
-    system_prompt = build_system_prompt(lang, user_context, memories, companion_name=companion_name, mode=mode, planning_scope=planning_scope, planning_context=planning_context)
+    system_prompt = build_system_prompt(lang, user_context, memories, companion_name=companion_name, mode=mode, planning_scope=planning_scope, planning_context=planning_context, meta=meta)
     logger.info("System prompt length: %d chars", len(system_prompt))
 
     # Choose voice: prefer metadata override, fallback to lang-based default
@@ -1020,9 +1065,10 @@ async def entrypoint(ctx: agents.JobContext):
             )
 
     t0 = time.time()
+    agent = VoltaAgent(instructions=system_prompt, lang=lang, room=ctx.room, auth_token=auth_token, mode=mode)
     await session.start(
         room=ctx.room,
-        agent=VoltaAgent(instructions=system_prompt, lang=lang, room=ctx.room, auth_token=auth_token, mode=mode),
+        agent=agent,
     )
     logger.info("Session started in %s", _elapsed(t0))
 
@@ -1032,7 +1078,7 @@ async def entrypoint(ctx: agents.JobContext):
 
     # Send greeting with user's first name and coach name
     user_name = (user_context or {}).get("name", "")
-    greeting = build_greeting(lang, user_name, coach_name=companion_name, mode=mode, planning_scope=planning_scope, planning_context=planning_context)
+    greeting = build_greeting(lang, user_name, coach_name=companion_name, mode=mode, planning_scope=planning_scope, planning_context=planning_context, meta=meta)
     logger.info("Greeting: %s", greeting)
     session.say(greeting, add_to_chat_ctx=True, allow_interruptions=False)
     logger.info("Greeting queued (direct TTS, no LLM)")
@@ -1041,6 +1087,8 @@ async def entrypoint(ctx: agents.JobContext):
     # Register shutdown callback: send transcript to Backboard (fire-and-forget, 5s timeout)
     # Tasks are created in real-time via tools, so this is just for memory/context
     async def on_shutdown():
+        # Close the agent's HTTP client to avoid resource leak
+        await agent._http.aclose()
         logger.info("=== SHUTDOWN CALLBACK === (transcript: %d messages)", len(transcript))
         if transcript and backboard_assistant_id:
             try:

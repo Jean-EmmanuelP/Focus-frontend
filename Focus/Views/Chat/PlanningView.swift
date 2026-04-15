@@ -906,10 +906,10 @@ struct PlanningView: View {
         Task {
             do {
                 let body = CreateChallengeRequest(
-                    challengeType: type.rawValue,
                     alarmTime: alarmTime,
                     durationDays: duration,
-                    customTitle: customTitle
+                    title: customTitle,
+                    mantra: nil
                 )
                 let _: Challenge = try await APIClient.shared.request(
                     endpoint: .custom("/challenges/wakeup"),
@@ -932,7 +932,9 @@ struct PlanningView: View {
             do {
                 let body = ChallengeCheckInRequest(
                     wakeUpTime: timeStr,
-                    photoUrl: photoUrl
+                    photoUrl: photoUrl,
+                    mantraValidated: nil,
+                    exercisesDone: nil
                 )
                 let _: ChallengeEntry = try await APIClient.shared.request(
                     endpoint: .custom("/challenges/wakeup/\(challenge.id)/checkin"),

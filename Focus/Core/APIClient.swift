@@ -296,6 +296,15 @@ enum APIConfiguration {
         case chatTts         // POST /chat/tts — Gradium TTS preview
 
         // Challenges
+        case challenges                          // GET /challenges/wakeup
+        case createChallenge                     // POST /challenges/wakeup
+        case getChallenge(String)                // GET /challenges/wakeup/{id}
+        case joinChallenge(String)               // POST /challenges/wakeup/{id}/join
+        case joinByCode                          // POST /challenges/wakeup/join-by-code
+        case challengeCheckIn(String)            // POST /challenges/wakeup/{id}/checkin
+        case sendTaunt(String)                   // POST /challenges/wakeup/{id}/taunt
+        case getTaunts(String)                   // GET /challenges/wakeup/{id}/taunts
+
         case custom(String)  // Arbitrary path for new endpoints
 
         // Chat V2 (Backboard via backend)
@@ -526,6 +535,20 @@ enum APIConfiguration {
                 return "/voice/livekit-token"
             case .chatTts:
                 return "/chat/tts"
+            // Challenges
+            case .challenges, .createChallenge:
+                return "/challenges/wakeup"
+            case .getChallenge(let id), .joinChallenge(let id):
+                return "/challenges/wakeup/\(id)"
+            case .joinByCode:
+                return "/challenges/wakeup/join-by-code"
+            case .challengeCheckIn(let id):
+                return "/challenges/wakeup/\(id)/checkin"
+            case .sendTaunt(let id):
+                return "/challenges/wakeup/\(id)/taunt"
+            case .getTaunts(let id):
+                return "/challenges/wakeup/\(id)/taunts"
+
             case .custom(let path):
                 return path
             case .chatV2Message:

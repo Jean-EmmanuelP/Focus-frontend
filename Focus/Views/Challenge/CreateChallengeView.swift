@@ -8,6 +8,7 @@ struct CreateChallengeView: View {
     @State private var showCustomize = false
     @State private var customAlarmTime = Date()
     @State private var customDuration = 30
+    @State private var customMantra = ""
     @State private var isCreating = false
 
     var onCreate: (ChallengeType, String, Int, String?) -> Void
@@ -235,6 +236,27 @@ struct CreateChallengeView: View {
                                 }
                             }
                         }
+                    }
+                    .padding(.horizontal, 16)
+
+                    // Mantra
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("MANTRA MATINAL")
+                            .font(.satoshi(11, weight: .bold))
+                            .foregroundColor(ColorTokens.textMuted)
+                            .kerning(1.5)
+
+                        TextField("Ex: Je suis discipliné et aujourd'hui sera une excellente journée", text: $customMantra, axis: .vertical)
+                            .font(.satoshi(14, weight: .regular))
+                            .foregroundColor(ColorTokens.textPrimary)
+                            .lineLimit(2...4)
+                            .padding(14)
+                            .background(ColorTokens.surface)
+                            .clipShape(RoundedRectangle(cornerRadius: RadiusTokens.md))
+
+                        Text("Tu devras le dire 3 fois à voix haute chaque matin")
+                            .font(.satoshi(11, weight: .regular))
+                            .foregroundColor(ColorTokens.textMuted)
                     }
                     .padding(.horizontal, 16)
 

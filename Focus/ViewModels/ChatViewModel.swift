@@ -9,6 +9,7 @@ extension Notification.Name {
     static let openAppBlockerSettings = Notification.Name("openAppBlockerSettings")
     static let forceUnblockApps = Notification.Name("forceUnblockApps")
     static let openMorningVerification = Notification.Name("openMorningVerification")
+    static let openChallengeInvite = Notification.Name("openChallengeInvite")
 }
 
 // MARK: - Message Type

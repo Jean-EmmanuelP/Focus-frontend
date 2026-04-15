@@ -58,6 +58,9 @@ struct Challenge: Codable, Identifiable {
     var opponentStreak: Int
     var startDate: String?
     var customTitle: String?
+    var inviteCode: String?
+    var mantra: String?
+    var title: String?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -75,6 +78,9 @@ struct Challenge: Codable, Identifiable {
         case opponentStreak = "opponent_streak"
         case startDate = "start_date"
         case customTitle = "custom_title"
+        case inviteCode = "invite_code"
+        case mantra
+        case title
     }
 
     var type: ChallengeType {
@@ -82,18 +88,51 @@ struct Challenge: Codable, Identifiable {
     }
 
     var displayTitle: String {
-        customTitle ?? type.title
+        title ?? customTitle ?? type.title
     }
+
+    private static let dayNumberFormatter: DateFormatter = {
+        let fmt = DateFormatter()
+        fmt.dateFormat = "yyyy-MM-dd"
+        return fmt
+    }()
 
     var dayNumber: Int {
         guard let start = startDate else { return 0 }
-        let fmt = DateFormatter()
-        fmt.dateFormat = "yyyy-MM-dd"
-        guard let startDate = fmt.date(from: start) else { return 0 }
+        guard let startDate = Self.dayNumberFormatter.date(from: start) else { return 0 }
         return max(1, Int(Date().timeIntervalSince(startDate) / 86400) + 1)
     }
 
     var isActive: Bool { status == "active" }
+    var isPending: Bool { status == "pending" }
+
+    /// Partner name from the current user's perspective
+    func partnerName(myId: String) -> String {
+        if myId == creatorId {
+            return opponentName ?? "En attente"
+        }
+        return creatorName ?? "Inconnu"
+    }
+
+    /// My score from the current user's perspective
+    func myScore(myId: String) -> Int {
+        myId == creatorId ? creatorScore : opponentScore
+    }
+
+    /// Partner's score from the current user's perspective
+    func partnerScore(myId: String) -> Int {
+        myId == creatorId ? opponentScore : creatorScore
+    }
+
+    /// My streak from the current user's perspective
+    func myStreak(myId: String) -> Int {
+        myId == creatorId ? creatorStreak : opponentStreak
+    }
+
+    /// Partner's streak
+    func partnerStreak(myId: String) -> Int {
+        myId == creatorId ? opponentStreak : creatorStreak
+    }
 }
 
 // MARK: - Challenge Entry
@@ -105,6 +144,8 @@ struct ChallengeEntry: Codable, Identifiable {
     let wakeUpTime: String?
     let photoUrl: String?
     let isOnTime: Bool
+    var mantraValidated: Bool?
+    var exercisesDone: Bool?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -113,6 +154,68 @@ struct ChallengeEntry: Codable, Identifiable {
         case wakeUpTime = "wake_up_time"
         case photoUrl = "photo_url"
         case isOnTime = "is_on_time"
+        case mantraValidated = "mantra_validated"
+        case exercisesDone = "exercises_done"
+    }
+}
+
+// MARK: - Taunt
+
+struct ChallengeTaunt: Codable, Identifiable {
+    let id: String
+    let challengeId: String
+    let senderId: String
+    let senderName: String?
+    let message: String
+    let createdAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case challengeId = "challenge_id"
+        case senderId = "sender_id"
+        case senderName = "sender_name"
+        case message
+        case createdAt = "created_at"
+    }
+}
+
+// MARK: - Challenge Detail Response
+
+struct ChallengeDetailResponse: Codable {
+    let id: String
+    let alarmTime: String
+    let status: String
+    let durationDays: Int
+    let creatorId: String
+    let opponentId: String
+    let creatorName: String
+    let opponentName: String
+    let creatorScore: Int
+    let opponentScore: Int
+    let creatorStreak: Int
+    let opponentStreak: Int
+    let startDate: String?
+    let inviteCode: String?
+    let title: String?
+    let mantra: String?
+    let entries: [ChallengeEntry]
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case alarmTime = "alarm_time"
+        case status
+        case durationDays = "duration_days"
+        case creatorId = "creator_id"
+        case opponentId = "opponent_id"
+        case creatorName = "creator_name"
+        case opponentName = "opponent_name"
+        case creatorScore = "creator_score"
+        case opponentScore = "opponent_score"
+        case creatorStreak = "creator_streak"
+        case opponentStreak = "opponent_streak"
+        case startDate = "start_date"
+        case inviteCode = "invite_code"
+        case title, mantra, entries
     }
 }
 
@@ -153,25 +256,40 @@ enum VerificationGesture: String, CaseIterable {
 // MARK: - API Request Bodies
 
 struct CreateChallengeRequest: Encodable {
-    let challengeType: String
     let alarmTime: String
     let durationDays: Int
-    let customTitle: String?
+    let title: String?
+    let mantra: String?
 
     enum CodingKeys: String, CodingKey {
-        case challengeType = "challenge_type"
         case alarmTime = "alarm_time"
         case durationDays = "duration_days"
-        case customTitle = "custom_title"
+        case title, mantra
     }
 }
 
 struct ChallengeCheckInRequest: Encodable {
     let wakeUpTime: String
     let photoUrl: String?
+    let mantraValidated: Bool?
+    let exercisesDone: Bool?
 
     enum CodingKeys: String, CodingKey {
         case wakeUpTime = "wake_up_time"
         case photoUrl = "photo_url"
+        case mantraValidated = "mantra_validated"
+        case exercisesDone = "exercises_done"
     }
+}
+
+struct JoinByCodeRequest: Encodable {
+    let inviteCode: String
+
+    enum CodingKeys: String, CodingKey {
+        case inviteCode = "invite_code"
+    }
+}
+
+struct SendTauntRequest: Encodable {
+    let message: String
 }
