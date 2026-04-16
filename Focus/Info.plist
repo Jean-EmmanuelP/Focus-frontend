@@ -53,5 +53,7 @@
 	<string>Focus utilise tes données de santé pour que ton coach puisse suivre ton activité physique.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>Focus enregistre tes sessions de focus et activités dans Apple Santé pour suivre ta progression.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>
