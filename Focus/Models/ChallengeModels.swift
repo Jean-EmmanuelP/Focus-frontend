@@ -108,6 +108,10 @@ struct Challenge: Codable, Identifiable {
     var isActive: Bool { effectiveStatus == "active" }
     var isPending: Bool { effectiveStatus == "pending" }
 
+    var isSolo: Bool {
+        opponentId == nil || opponentId?.isEmpty == true
+    }
+
     /// Partner name from the current user's perspective
     func partnerName(myId: String) -> String {
         if myId == creatorId {

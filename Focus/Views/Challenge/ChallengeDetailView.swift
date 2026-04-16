@@ -229,15 +229,11 @@ struct ChallengeDetailView: View {
 
     private func participantCards(_ challenge: Challenge) -> some View {
         let myName = isCreator ? (challenge.creatorName ?? "Moi") : (challenge.opponentName ?? "Moi")
-        let theirName = isCreator ? (challenge.opponentName ?? "...") : (challenge.creatorName ?? "...")
         let myScore = challenge.myScore(myId: currentUserId)
-        let theirScore = challenge.partnerScore(myId: currentUserId)
         let myStreak = challenge.myStreak(myId: currentUserId)
-        let theirStreak = challenge.partnerStreak(myId: currentUserId)
-
         let myEntry = latestEntry(for: currentUserId, challenge: challenge)
-        let theirId = isCreator ? (challenge.opponentId ?? "") : (challenge.creatorId ?? "")
-        let theirEntry = latestEntry(for: theirId, challenge: challenge)
+
+        let hasOpponent = challenge.opponentId != nil && !challenge.opponentId!.isEmpty
 
         return HStack(spacing: 12) {
             participantCard(
@@ -246,18 +242,100 @@ struct ChallengeDetailView: View {
                 streak: myStreak,
                 entry: myEntry,
                 isMe: true,
+                isShadow: false,
                 dayNumber: challenge.dayNumber
             )
 
-            participantCard(
-                name: theirName,
-                score: theirScore,
-                streak: theirStreak,
-                entry: theirEntry,
-                isMe: false,
-                dayNumber: challenge.dayNumber
-            )
+            if hasOpponent {
+                let theirName = isCreator ? (challenge.opponentName ?? "...") : (challenge.creatorName ?? "...")
+                let theirScore = challenge.partnerScore(myId: currentUserId)
+                let theirStreak = challenge.partnerStreak(myId: currentUserId)
+                let theirId = isCreator ? (challenge.opponentId ?? "") : (challenge.creatorId ?? "")
+                let theirEntry = latestEntry(for: theirId, challenge: challenge)
+
+                participantCard(
+                    name: theirName,
+                    score: theirScore,
+                    streak: theirStreak,
+                    entry: theirEntry,
+                    isMe: false,
+                    isShadow: false,
+                    dayNumber: challenge.dayNumber
+                )
+            } else {
+                // Solo mode: shadow card with 75% target score
+                let shadowScore = Int(round(Double(challenge.dayNumber) * 0.75))
+                shadowCard(
+                    name: "Shadow",
+                    shadowScore: shadowScore,
+                    dayNumber: challenge.dayNumber
+                )
+            }
         }
+    }
+
+    // MARK: - Shadow Card (Solo Mode)
+
+    private func shadowCard(name: String, shadowScore: Int, dayNumber: Int) -> some View {
+        let shadowGradient = LinearGradient(
+            colors: [Color(hex: "#6B5B95"), Color(hex: "#3D3552")],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+
+        return VStack(spacing: 10) {
+            // Shadow avatar
+            ZStack {
+                Circle()
+                    .fill(shadowGradient)
+                    .frame(width: 52, height: 52)
+
+                Circle()
+                    .stroke(Color(hex: "#6B5B95").opacity(0.4), lineWidth: 2)
+                    .frame(width: 56, height: 56)
+
+                Image(systemName: "figure.stand")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(.white.opacity(0.7))
+            }
+
+            // Name
+            Text(name.uppercased())
+                .font(.satoshi(11, weight: .bold))
+                .foregroundColor(Color(hex: "#6B5B95"))
+                .kerning(1)
+                .lineLimit(1)
+
+            // Shadow target score
+            Text("\(shadowScore)")
+                .font(.satoshi(20, weight: .black))
+                .foregroundColor(ColorTokens.textPrimary)
+
+            // Label
+            HStack(spacing: 4) {
+                Image(systemName: "target")
+                    .font(.system(size: 12))
+                Text("75% objectif")
+                    .font(.satoshi(11, weight: .medium))
+            }
+            .foregroundColor(Color(hex: "#6B5B95"))
+
+            // Score
+            Text("Score: \(shadowScore)")
+                .font(.satoshi(13, weight: .bold))
+                .foregroundColor(ColorTokens.textPrimary)
+        }
+        .padding(.vertical, 16)
+        .padding(.horizontal, 8)
+        .frame(maxWidth: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: RadiusTokens.lg)
+                .fill(ColorTokens.surface)
+                .overlay(
+                    RoundedRectangle(cornerRadius: RadiusTokens.lg)
+                        .stroke(Color(hex: "#6B5B95").opacity(0.3), lineWidth: 1)
+                )
+        )
     }
 
     private func participantCard(
@@ -266,6 +344,7 @@ struct ChallengeDetailView: View {
         streak: Int,
         entry: ChallengeEntry?,
         isMe: Bool,
+        isShadow: Bool,
         dayNumber: Int
     ) -> some View {
         VStack(spacing: 10) {
@@ -357,6 +436,7 @@ struct ChallengeDetailView: View {
     private func historyGrid(_ challenge: Challenge) -> some View {
         let daysToShow = min(challenge.dayNumber, 14)
         let myId = currentUserId
+        let hasOpponent = challenge.opponentId != nil && !challenge.opponentId!.isEmpty
         let theirId = isCreator ? (challenge.opponentId ?? "") : (challenge.creatorId ?? "")
 
         return VStack(alignment: .leading, spacing: 12) {
@@ -369,7 +449,6 @@ struct ChallengeDetailView: View {
                 ForEach((0..<daysToShow).reversed(), id: \.self) { offset in
                     let day = challenge.dayNumber - offset
                     let myEntry = entries.first { $0.userId == myId && $0.dayNumber == day }
-                    let theirEntry = entries.first { $0.userId == theirId && $0.dayNumber == day }
 
                     HStack(spacing: 6) {
                         Text("J\(day)")
@@ -381,9 +460,17 @@ struct ChallengeDetailView: View {
                             .fill(historyDotColor(entry: myEntry, day: day, currentDay: challenge.dayNumber))
                             .frame(width: 10, height: 10)
 
-                        Circle()
-                            .fill(historyDotColor(entry: theirEntry, day: day, currentDay: challenge.dayNumber))
-                            .frame(width: 10, height: 10)
+                        if hasOpponent {
+                            let theirEntry = entries.first { $0.userId == theirId && $0.dayNumber == day }
+                            Circle()
+                                .fill(historyDotColor(entry: theirEntry, day: day, currentDay: challenge.dayNumber))
+                                .frame(width: 10, height: 10)
+                        } else {
+                            // Solo mode: shadow dot — 75% chance of "success" color for past days
+                            Circle()
+                                .fill(shadowDotColor(day: day, currentDay: challenge.dayNumber))
+                                .frame(width: 10, height: 10)
+                        }
                     }
                     .padding(.vertical, 4)
                     .padding(.horizontal, 8)
@@ -395,6 +482,14 @@ struct ChallengeDetailView: View {
         .padding(16)
         .background(ColorTokens.surface.opacity(0.5))
         .clipShape(RoundedRectangle(cornerRadius: RadiusTokens.lg))
+    }
+
+    private func shadowDotColor(day: Int, currentDay: Int) -> Color {
+        if day >= currentDay {
+            return ColorTokens.textMuted.opacity(0.3)
+        }
+        // Deterministic 75% success: every 4th day is a "miss"
+        return day % 4 == 0 ? ColorTokens.error : ColorTokens.success
     }
 
     private func historyDotColor(entry: ChallengeEntry?, day: Int, currentDay: Int) -> Color {
@@ -496,7 +591,10 @@ struct ChallengeDetailView: View {
             // Validate morning button
             if !viewModel.hasValidatedToday(entries: entries, userId: currentUserId) {
                 Button {
-                    print("Open voice call")
+                    dismiss()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        NotificationCenter.default.post(name: .openMorningVerification, object: nil)
+                    }
                 } label: {
                     HStack(spacing: 10) {
                         Text("\u{1F305}")

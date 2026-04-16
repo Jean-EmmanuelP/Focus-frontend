@@ -28,6 +28,8 @@ struct ChatView: View {
     @State private var showPlanning = false
     @State private var showMorningVerification = false
     @State private var showCopiedToast = false
+    @StateObject private var challengeVM = ChallengeViewModel()
+    @State private var showChallengeDetail = false
 
     @EnvironmentObject var subscriptionManager: SubscriptionManager
 
@@ -82,6 +84,41 @@ struct ChatView: View {
 
                     // Content area — tap to dismiss action buttons
                     if isHomeMode {
+                        // Challenge banner — show when user has an active or pending challenge
+                        if let challenge = challengeVM.activeChallenge ?? challengeVM.challenges.first {
+                            Button {
+                                showChallengeDetail = true
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Text("🔥")
+                                        .font(.system(size: 24))
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(challenge.displayTitle)
+                                            .font(.satoshi(15, weight: .bold))
+                                            .foregroundColor(.white)
+                                        Text(challenge.isActive ? "Jour \(challenge.dayNumber)/\(challenge.durationDays ?? 30)" : "En attente d'un pote")
+                                            .font(.satoshi(12, weight: .medium))
+                                            .foregroundColor(ColorTokens.textSecondary)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundColor(ColorTokens.textMuted)
+                                }
+                                .padding(14)
+                                .background(
+                                    LinearGradient(colors: [Color(hex: "#FF9500").opacity(0.15), Color(hex: "#FF6B00").opacity(0.1)], startPoint: .leading, endPoint: .trailing)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: RadiusTokens.lg)
+                                        .stroke(Color(hex: "#FF9500").opacity(0.3), lineWidth: 1)
+                                )
+                                .clipShape(RoundedRectangle(cornerRadius: RadiusTokens.lg))
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.horizontal, 16)
+                        }
+
                         // Home mode: just spacer, avatar is background
                         Spacer()
                             .contentShape(Rectangle())
@@ -114,6 +151,7 @@ struct ChatView: View {
         .onAppear {
             viewModel.setStore(store)
             viewModel.loadHistory()
+            Task { await challengeVM.loadChallenges() }
         }
         .onDisappear {
             // Clean up timer to prevent memory leak
@@ -254,6 +292,23 @@ struct ChatView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .openMorningVerification)) { _ in
             showMorningVerification = true
+        }
+        .sheet(isPresented: $showChallengeDetail) {
+            if let challenge = challengeVM.activeChallenge ?? challengeVM.challenges.first {
+                NavigationView {
+                    ChallengeDetailView(challengeId: challenge.id)
+                }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openChallengeInvite)) { notification in
+            if let code = notification.userInfo?["invite_code"] as? String {
+                Task {
+                    let success = await challengeVM.joinByCode(code)
+                    if success {
+                        showChallengeDetail = true
+                    }
+                }
+            }
         }
         .fullScreenCover(isPresented: $showPlanning) {
             PlanningView()
