@@ -182,22 +182,22 @@ struct ChallengeTaunt: Codable, Identifiable {
 
 struct ChallengeDetailResponse: Codable {
     let id: String
-    let alarmTime: String
-    let status: String
-    let durationDays: Int
-    let creatorId: String
-    let opponentId: String
-    let creatorName: String
-    let opponentName: String
-    let creatorScore: Int
-    let opponentScore: Int
-    let creatorStreak: Int
-    let opponentStreak: Int
+    let alarmTime: String?
+    let status: String?
+    let durationDays: Int?
+    let creatorId: String?
+    let opponentId: String?
+    let creatorName: String?
+    let opponentName: String?
+    let creatorScore: Int?
+    let opponentScore: Int?
+    let creatorStreak: Int?
+    let opponentStreak: Int?
     let startDate: String?
     let inviteCode: String?
     let title: String?
     let mantra: String?
-    let entries: [ChallengeEntry]
+    let entries: [ChallengeEntry]?
 
     enum CodingKeys: String, CodingKey {
         case id
