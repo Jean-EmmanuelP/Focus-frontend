@@ -33,6 +33,7 @@ struct PlanningView: View {
     @State private var challenges: [Challenge] = []
     @State private var showCreateChallenge = false
     @State private var showVerification: Challenge?
+    @State private var createdChallengeId: String?
 
     // Background color matching chat screen avatar background
     private let bgColor = Color(red: 0.10, green: 0.12, blue: 0.20)
@@ -202,6 +203,16 @@ struct PlanningView: View {
             CreateChallengeView { type, alarmTime, duration, customTitle, mantra in
                 createChallenge(type: type, alarmTime: alarmTime, duration: duration, customTitle: customTitle, mantra: mantra)
                 showCreateChallenge = false
+            }
+        }
+        .sheet(isPresented: Binding(
+            get: { createdChallengeId != nil },
+            set: { if !$0 { createdChallengeId = nil } }
+        )) {
+            if let id = createdChallengeId {
+                NavigationView {
+                    ChallengeDetailView(challengeId: id)
+                }
             }
         }
         .fullScreenCover(item: $showVerification) { challenge in
@@ -911,12 +922,13 @@ struct PlanningView: View {
                     title: customTitle ?? type.title,
                     mantra: mantra
                 )
-                let _: Challenge = try await APIClient.shared.request(
+                let created: Challenge = try await APIClient.shared.request(
                     endpoint: .createChallenge,
                     method: .post,
                     body: body
                 )
                 loadChallenges()
+                createdChallengeId = created.id
             } catch {
                 print("Create challenge error: \(error)")
             }
