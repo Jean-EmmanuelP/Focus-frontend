@@ -199,8 +199,8 @@ struct PlanningView: View {
             .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showCreateChallenge) {
-            CreateChallengeView { type, alarmTime, duration, customTitle in
-                createChallenge(type: type, alarmTime: alarmTime, duration: duration, customTitle: customTitle)
+            CreateChallengeView { type, alarmTime, duration, customTitle, mantra in
+                createChallenge(type: type, alarmTime: alarmTime, duration: duration, customTitle: customTitle, mantra: mantra)
                 showCreateChallenge = false
             }
         }
@@ -892,7 +892,7 @@ struct PlanningView: View {
         Task {
             do {
                 let result: [Challenge] = try await APIClient.shared.request(
-                    endpoint: .custom("/challenges/wakeup"),
+                    endpoint: .challenges,
                     method: .get
                 )
                 await MainActor.run { challenges = result }
@@ -902,17 +902,17 @@ struct PlanningView: View {
         }
     }
 
-    private func createChallenge(type: ChallengeType, alarmTime: String, duration: Int, customTitle: String?) {
+    private func createChallenge(type: ChallengeType, alarmTime: String, duration: Int, customTitle: String?, mantra: String? = nil) {
         Task {
             do {
                 let body = CreateChallengeRequest(
                     alarmTime: alarmTime,
                     durationDays: duration,
-                    title: customTitle,
-                    mantra: nil
+                    title: customTitle ?? type.title,
+                    mantra: mantra
                 )
                 let _: Challenge = try await APIClient.shared.request(
-                    endpoint: .custom("/challenges/wakeup"),
+                    endpoint: .createChallenge,
                     method: .post,
                     body: body
                 )
@@ -937,7 +937,7 @@ struct PlanningView: View {
                     exercisesDone: nil
                 )
                 let _: ChallengeEntry = try await APIClient.shared.request(
-                    endpoint: .custom("/challenges/wakeup/\(challenge.id)/checkin"),
+                    endpoint: .challengeCheckIn(challenge.id),
                     method: .post,
                     body: body
                 )

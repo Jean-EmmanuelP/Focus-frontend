@@ -11,7 +11,7 @@ struct CreateChallengeView: View {
     @State private var customMantra = ""
     @State private var isCreating = false
 
-    var onCreate: (ChallengeType, String, Int, String?) -> Void
+    var onCreate: (ChallengeType, String, Int, String?, String?) -> Void
 
     private let suggestions: [SuggestedChallenge] = [
         SuggestedChallenge(type: .wakeup, title: "Réveil 7h", subtitle: "Devenir matinal", emoji: "🌅", duration: 30, defaultTime: "07:00",
@@ -267,7 +267,8 @@ struct CreateChallengeView: View {
                         Button {
                             let h = Calendar.current.component(.hour, from: customAlarmTime)
                             let m = Calendar.current.component(.minute, from: customAlarmTime)
-                            onCreate(s.type, String(format: "%02d:%02d", h, m), customDuration, s.type == .custom ? s.title : nil)
+                            let mantra = customMantra.trimmingCharacters(in: .whitespaces).isEmpty ? nil : customMantra.trimmingCharacters(in: .whitespaces)
+                            onCreate(s.type, String(format: "%02d:%02d", h, m), customDuration, s.type == .custom ? s.title : nil, mantra)
                             dismiss()
                         } label: {
                             HStack(spacing: 8) {
@@ -285,7 +286,8 @@ struct CreateChallengeView: View {
                         Button {
                             let h = Calendar.current.component(.hour, from: customAlarmTime)
                             let m = Calendar.current.component(.minute, from: customAlarmTime)
-                            onCreate(s.type, String(format: "%02d:%02d", h, m), customDuration, nil)
+                            let mantra = customMantra.trimmingCharacters(in: .whitespaces).isEmpty ? nil : customMantra.trimmingCharacters(in: .whitespaces)
+                            onCreate(s.type, String(format: "%02d:%02d", h, m), customDuration, nil, mantra)
                             dismiss()
                         } label: {
                             Text("Commencer seul")
