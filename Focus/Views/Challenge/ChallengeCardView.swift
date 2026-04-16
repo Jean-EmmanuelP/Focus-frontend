@@ -8,10 +8,10 @@ struct ChallengeCardView: View {
     var onValidate: () -> Void = {}
 
     private var isCreator: Bool { currentUserId == challenge.creatorId }
-    private var myScore: Int { isCreator ? challenge.creatorScore : challenge.opponentScore }
-    private var theirScore: Int { isCreator ? challenge.opponentScore : challenge.creatorScore }
-    private var myStreak: Int { isCreator ? challenge.creatorStreak : challenge.opponentStreak }
-    private var theirStreak: Int { isCreator ? challenge.opponentStreak : challenge.creatorStreak }
+    private var myScore: Int { (isCreator ? challenge.creatorScore : challenge.opponentScore) ?? 0 }
+    private var theirScore: Int { (isCreator ? challenge.opponentScore : challenge.creatorScore) ?? 0 }
+    private var myStreak: Int { (isCreator ? challenge.creatorStreak : challenge.opponentStreak) ?? 0 }
+    private var theirStreak: Int { (isCreator ? challenge.opponentStreak : challenge.creatorStreak) ?? 0 }
     private var myName: String { (isCreator ? challenge.creatorName : challenge.opponentName) ?? "Moi" }
     private var theirName: String { (isCreator ? challenge.opponentName : challenge.creatorName) ?? "..." }
 
@@ -127,7 +127,7 @@ struct ChallengeCardView: View {
     // MARK: - Progress Dots
 
     private var progressDots: some View {
-        let total = min(challenge.durationDays, 30)
+        let total = min(challenge.durationDays ?? 30, 30)
         let completed = challenge.dayNumber - 1
         let cols = 5
         let rows = min(6, (total + cols - 1) / cols)

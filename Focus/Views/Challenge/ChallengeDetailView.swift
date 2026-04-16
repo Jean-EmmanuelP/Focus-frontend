@@ -236,7 +236,7 @@ struct ChallengeDetailView: View {
         let theirStreak = challenge.partnerStreak(myId: currentUserId)
 
         let myEntry = latestEntry(for: currentUserId, challenge: challenge)
-        let theirId = isCreator ? (challenge.opponentId ?? "") : challenge.creatorId
+        let theirId = isCreator ? (challenge.opponentId ?? "") : (challenge.creatorId ?? "")
         let theirEntry = latestEntry(for: theirId, challenge: challenge)
 
         return HStack(spacing: 12) {
@@ -357,7 +357,7 @@ struct ChallengeDetailView: View {
     private func historyGrid(_ challenge: Challenge) -> some View {
         let daysToShow = min(challenge.dayNumber, 14)
         let myId = currentUserId
-        let theirId = isCreator ? (challenge.opponentId ?? "") : challenge.creatorId
+        let theirId = isCreator ? (challenge.opponentId ?? "") : (challenge.creatorId ?? "")
 
         return VStack(alignment: .leading, spacing: 12) {
             Text("HISTORIQUE")

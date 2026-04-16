@@ -44,18 +44,18 @@ enum ChallengeType: String, Codable, CaseIterable {
 
 struct Challenge: Codable, Identifiable {
     let id: String
-    var challengeType: String
+    var challengeType: String?
     var alarmTime: String?
-    var durationDays: Int
-    var status: String              // pending, active, completed, cancelled
-    var creatorId: String
+    var durationDays: Int?
+    var status: String?
+    var creatorId: String?
     var opponentId: String?
     var creatorName: String?
     var opponentName: String?
-    var creatorScore: Int
-    var opponentScore: Int
-    var creatorStreak: Int
-    var opponentStreak: Int
+    var creatorScore: Int?
+    var opponentScore: Int?
+    var creatorStreak: Int?
+    var opponentStreak: Int?
     var startDate: String?
     var customTitle: String?
     var inviteCode: String?
@@ -84,12 +84,14 @@ struct Challenge: Codable, Identifiable {
     }
 
     var type: ChallengeType {
-        ChallengeType(rawValue: challengeType) ?? .custom
+        ChallengeType(rawValue: challengeType ?? "wakeup") ?? .custom
     }
 
     var displayTitle: String {
         title ?? customTitle ?? type.title
     }
+
+    var effectiveStatus: String { status ?? "pending" }
 
     private static let dayNumberFormatter: DateFormatter = {
         let fmt = DateFormatter()
@@ -103,8 +105,8 @@ struct Challenge: Codable, Identifiable {
         return max(1, Int(Date().timeIntervalSince(startDate) / 86400) + 1)
     }
 
-    var isActive: Bool { status == "active" }
-    var isPending: Bool { status == "pending" }
+    var isActive: Bool { effectiveStatus == "active" }
+    var isPending: Bool { effectiveStatus == "pending" }
 
     /// Partner name from the current user's perspective
     func partnerName(myId: String) -> String {
@@ -116,22 +118,19 @@ struct Challenge: Codable, Identifiable {
 
     /// My score from the current user's perspective
     func myScore(myId: String) -> Int {
-        myId == creatorId ? creatorScore : opponentScore
+        (myId == creatorId ? creatorScore : opponentScore) ?? 0
     }
 
-    /// Partner's score from the current user's perspective
     func partnerScore(myId: String) -> Int {
-        myId == creatorId ? opponentScore : creatorScore
+        (myId == creatorId ? opponentScore : creatorScore) ?? 0
     }
 
-    /// My streak from the current user's perspective
     func myStreak(myId: String) -> Int {
-        myId == creatorId ? creatorStreak : opponentStreak
+        (myId == creatorId ? creatorStreak : opponentStreak) ?? 0
     }
 
-    /// Partner's streak
     func partnerStreak(myId: String) -> Int {
-        myId == creatorId ? opponentStreak : creatorStreak
+        (myId == creatorId ? opponentStreak : creatorStreak) ?? 0
     }
 }
 
