@@ -15,58 +15,44 @@ struct ChallengeCardView: View {
     private var myName: String { (isCreator ? challenge.creatorName : challenge.opponentName) ?? "Moi" }
     private var theirName: String { (isCreator ? challenge.opponentName : challenge.creatorName) ?? "..." }
 
-    private var gradient: LinearGradient {
-        switch challenge.type {
-        case .wakeup: return LinearGradient(colors: [Color(hex: "#FF9500"), Color(hex: "#FF6B00")], startPoint: .topLeading, endPoint: .bottomTrailing)
-        case .gym: return LinearGradient(colors: [Color(hex: "#FF3B30"), Color(hex: "#FF2D55")], startPoint: .topLeading, endPoint: .bottomTrailing)
-        case .meditation: return LinearGradient(colors: [Color(hex: "#AF52DE"), Color(hex: "#5856D6")], startPoint: .topLeading, endPoint: .bottomTrailing)
-        case .reading: return LinearGradient(colors: [Color(hex: "#007AFF"), Color(hex: "#5AC8FA")], startPoint: .topLeading, endPoint: .bottomTrailing)
-        case .custom: return LinearGradient(colors: [Color(hex: "#34C759"), Color(hex: "#30D158")], startPoint: .topLeading, endPoint: .bottomTrailing)
-        }
-    }
-
     var body: some View {
         VStack(spacing: 0) {
-            // Top — gradient header
+            // Top header
             HStack {
                 HStack(spacing: 8) {
                     Image(systemName: challenge.type.icon)
                         .font(.satoshi(14, weight: .bold))
+                        .foregroundColor(ColorTokens.primaryStart)
                     Text(challenge.displayTitle)
                         .font(.satoshi(15, weight: .bold))
+                        .foregroundColor(ColorTokens.textPrimary)
                 }
                 Spacer()
-                Text("J\(challenge.dayNumber)/\(challenge.durationDays)")
-                    .font(.satoshi(13, weight: .bold))
+                Text("J\(challenge.dayNumber)/\(challenge.durationDays ?? 30)")
+                    .font(.satoshi(12, weight: .bold))
+                    .foregroundColor(ColorTokens.textSecondary)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
-                    .background(.ultraThinMaterial)
+                    .background(ColorTokens.surfaceElevated)
                     .clipShape(Capsule())
             }
-            .foregroundColor(.white)
             .padding(16)
-            .background(gradient)
 
             // Scores
             HStack(spacing: 0) {
-                // My side
                 playerColumn(name: myName, score: myScore, streak: myStreak, isMe: true, isLeading: myScore >= theirScore)
 
-                // Center divider
                 VStack(spacing: 4) {
                     Text("VS")
                         .font(.satoshi(11, weight: .black))
                         .foregroundColor(ColorTokens.textMuted)
-                    // Progress dots
                     progressDots
                 }
                 .frame(width: 50)
 
-                // Their side
                 playerColumn(name: theirName, score: theirScore, streak: theirStreak, isMe: false, isLeading: theirScore > myScore)
             }
             .padding(.vertical, 16)
-            .background(ColorTokens.surfaceElevated)
 
             // Validate CTA
             if challenge.isActive {
@@ -80,22 +66,25 @@ struct ChallengeCardView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(gradient)
+                    .background(ColorTokens.primaryGradient)
                 }
             }
         }
+        .background(ColorTokens.surface)
         .clipShape(RoundedRectangle(cornerRadius: RadiusTokens.lg))
-        .shadow(color: .black.opacity(0.3), radius: 12, y: 4)
+        .overlay(
+            RoundedRectangle(cornerRadius: RadiusTokens.lg)
+                .stroke(ColorTokens.border, lineWidth: 1)
+        )
     }
 
     // MARK: - Player Column
 
     private func playerColumn(name: String, score: Int, streak: Int, isMe: Bool, isLeading: Bool) -> some View {
         VStack(spacing: 6) {
-            // Avatar circle
             ZStack {
                 Circle()
-                    .fill(isMe ? ColorTokens.primarySoft : ColorTokens.border)
+                    .fill(isMe ? ColorTokens.primarySoft : ColorTokens.surfaceElevated)
                     .frame(width: 40, height: 40)
                 Text(String(name.prefix(1)).uppercased())
                     .font(.satoshi(16, weight: .bold))

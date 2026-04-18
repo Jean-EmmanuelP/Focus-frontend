@@ -106,12 +106,10 @@ struct ChatView: View {
                                         .foregroundColor(ColorTokens.textMuted)
                                 }
                                 .padding(14)
-                                .background(
-                                    LinearGradient(colors: [Color(hex: "#FF9500").opacity(0.15), Color(hex: "#FF6B00").opacity(0.1)], startPoint: .leading, endPoint: .trailing)
-                                )
+                                .background(ColorTokens.primarySoft)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: RadiusTokens.lg)
-                                        .stroke(Color(hex: "#FF9500").opacity(0.3), lineWidth: 1)
+                                        .stroke(ColorTokens.primaryStart.opacity(0.3), lineWidth: 1)
                                 )
                                 .clipShape(RoundedRectangle(cornerRadius: RadiusTokens.lg))
                             }

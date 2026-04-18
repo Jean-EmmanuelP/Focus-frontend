@@ -20,12 +20,6 @@ struct ChallengeDetailView: View {
         viewModel.challengeDetail?.entries ?? []
     }
 
-    private let orangeGradient = LinearGradient(
-        colors: [Color(hex: "#FF9500"), Color(hex: "#FF6B00")],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-    )
-
     var body: some View {
         ZStack {
             ColorTokens.background.ignoresSafeArea()
@@ -92,12 +86,12 @@ struct ChallengeDetailView: View {
             Button {
                 Task { await viewModel.loadChallengeDetail(id: challengeId) }
             } label: {
-                Text("Recessayer")
+                Text("Reessayer")
                     .font(.satoshi(15, weight: .bold))
                     .foregroundColor(.white)
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
-                    .background(orangeGradient)
+                    .background(ColorTokens.primaryGradient)
                     .clipShape(Capsule())
             }
         }
@@ -107,28 +101,27 @@ struct ChallengeDetailView: View {
 
     private func pendingState(_ challenge: Challenge) -> some View {
         ScrollView(showsIndicators: false) {
-            VStack(spacing: 28) {
-                Spacer().frame(height: 20)
+            VStack(spacing: 32) {
+                Spacer().frame(height: 40)
 
-                // Waiting illustration
-                VStack(spacing: 16) {
-                    Text("--")
-                        .font(.system(size: 56))
+                // Waiting icon
+                Image(systemName: "person.2.fill")
+                    .font(.system(size: 44, weight: .light))
+                    .foregroundColor(ColorTokens.textMuted)
 
+                VStack(spacing: 10) {
                     Text("En attente de ton pote...")
                         .font(.satoshi(22, weight: .bold))
                         .foregroundColor(ColorTokens.textPrimary)
 
-                    Text("Partage le code ci-dessous pour que ton ami rejoigne le challenge")
+                    Text("Partage ce code a ton pote")
                         .font(.satoshi(14, weight: .regular))
                         .foregroundColor(ColorTokens.textSecondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 32)
                 }
 
                 // Invite code card
                 if let code = challenge.inviteCode {
-                    VStack(spacing: 12) {
+                    VStack(spacing: 16) {
                         Text("CODE D'INVITATION")
                             .font(.satoshi(11, weight: .bold))
                             .foregroundColor(ColorTokens.textMuted)
@@ -139,16 +132,24 @@ struct ChallengeDetailView: View {
                             .foregroundColor(ColorTokens.textPrimary)
                             .kerning(4)
 
-                        Button {
-                            UIPasteboard.general.string = code
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "doc.on.doc")
-                                    .font(.system(size: 12))
-                                Text("Copier le code")
-                                    .font(.satoshi(13, weight: .medium))
+                        HStack(spacing: 12) {
+                            Button {
+                                UIPasteboard.general.string = code
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "doc.on.doc")
+                                        .font(.system(size: 12))
+                                    Text("Copier")
+                                        .font(.satoshi(13, weight: .bold))
+                                }
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 10)
+                                .background(ColorTokens.primaryGradient)
+                                .clipShape(Capsule())
                             }
-                            .foregroundColor(ColorTokens.primaryStart)
+
+                            shareButton(challenge)
                         }
                     }
                     .padding(24)
@@ -156,9 +157,6 @@ struct ChallengeDetailView: View {
                     .background(ColorTokens.surface)
                     .clipShape(RoundedRectangle(cornerRadius: RadiusTokens.lg))
                 }
-
-                // Share button
-                shareButton(challenge)
 
                 Spacer()
             }
@@ -174,17 +172,23 @@ struct ChallengeDetailView: View {
                 // Header
                 headerSection(challenge)
 
-                // Participant cards
-                participantCards(challenge)
+                // Validate button (hero)
+                validateSection(challenge)
 
-                // History grid
-                historyGrid(challenge)
+                // Score section
+                scoreSection(challenge)
+
+                // Progress bar
+                progressSection(challenge)
+
+                // History week
+                historySection(challenge)
 
                 // Taunts section
                 tauntsSection(challenge)
 
-                // Action buttons
-                actionButtons(challenge)
+                // Share link
+                shareButton(challenge)
 
                 Spacer().frame(height: 30)
             }
@@ -195,249 +199,197 @@ struct ChallengeDetailView: View {
     // MARK: - Header
 
     private func headerSection(_ challenge: Challenge) -> some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(challenge.displayTitle)
-                    .font(.satoshi(24, weight: .bold))
-                    .foregroundColor(ColorTokens.textPrimary)
+        VStack(alignment: .leading, spacing: 6) {
+            Text(challenge.displayTitle)
+                .font(.satoshi(28, weight: .bold))
+                .foregroundColor(ColorTokens.textPrimary)
 
-                if let alarm = challenge.alarmTime {
-                    HStack(spacing: 6) {
-                        Image(systemName: "alarm.fill")
-                            .font(.system(size: 11))
-                        Text(alarm)
-                            .font(.satoshi(13, weight: .medium))
-                    }
-                    .foregroundColor(Color(hex: "#FF9500"))
-                }
-            }
-
-            Spacer()
-
-            Text("Jour \(challenge.dayNumber)/\(challenge.durationDays)")
-                .font(.satoshi(13, weight: .bold))
-                .foregroundColor(.white)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(orangeGradient)
-                .clipShape(Capsule())
+            Text("Jour \(challenge.dayNumber) sur \(challenge.durationDays ?? 30)")
+                .font(.satoshi(14, weight: .regular))
+                .foregroundColor(ColorTokens.textSecondary)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.top, 8)
     }
 
-    // MARK: - Participant Cards
+    // MARK: - Validate Section (Hero)
 
-    private func participantCards(_ challenge: Challenge) -> some View {
-        let myName = isCreator ? (challenge.creatorName ?? "Moi") : (challenge.opponentName ?? "Moi")
+    private func validateSection(_ challenge: Challenge) -> some View {
+        Group {
+            if viewModel.hasValidatedToday(entries: entries, userId: currentUserId) {
+                // Already validated
+                let todayEntry = latestEntryToday(for: currentUserId, challenge: challenge)
+                HStack(spacing: 10) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 22))
+                        .foregroundColor(ColorTokens.success)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Valide")
+                            .font(.satoshi(18, weight: .bold))
+                            .foregroundColor(ColorTokens.success)
+
+                        if let time = todayEntry?.wakeUpTime {
+                            Text("a \(formatWakeUpTime(time))")
+                                .font(.satoshi(13, weight: .medium))
+                                .foregroundColor(ColorTokens.textSecondary)
+                        }
+                    }
+
+                    Spacer()
+                }
+                .padding(18)
+                .background(ColorTokens.success.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: RadiusTokens.lg))
+            } else {
+                // Not yet validated — big CTA
+                Button {
+                    dismiss()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        NotificationCenter.default.post(name: .openMorningVerification, object: nil)
+                    }
+                } label: {
+                    Text("VALIDER MON MATIN")
+                        .font(.satoshi(18, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 18)
+                        .background(ColorTokens.primaryGradient)
+                        .clipShape(RoundedRectangle(cornerRadius: RadiusTokens.lg))
+                }
+            }
+        }
+    }
+
+    // MARK: - Score Section
+
+    private func scoreSection(_ challenge: Challenge) -> some View {
         let myScore = challenge.myScore(myId: currentUserId)
         let myStreak = challenge.myStreak(myId: currentUserId)
-        let myEntry = latestEntry(for: currentUserId, challenge: challenge)
+        let isSolo = challenge.isSolo
 
-        let hasOpponent = challenge.opponentId != nil && !challenge.opponentId!.isEmpty
+        let theirName = isSolo ? "Best Me" : (isCreator ? (challenge.opponentName ?? "...") : (challenge.creatorName ?? "..."))
+        let theirScore = isSolo ? Int(round(Double(challenge.dayNumber) * 0.75)) : challenge.partnerScore(myId: currentUserId)
+        let theirStreak = isSolo ? 0 : challenge.partnerStreak(myId: currentUserId)
 
-        return HStack(spacing: 12) {
-            participantCard(
-                name: myName,
-                score: myScore,
-                streak: myStreak,
-                entry: myEntry,
-                isMe: true,
-                isShadow: false,
-                dayNumber: challenge.dayNumber
-            )
+        return HStack(spacing: 0) {
+            // My side
+            VStack(spacing: 6) {
+                Text("Toi")
+                    .font(.satoshi(13, weight: .medium))
+                    .foregroundColor(ColorTokens.textSecondary)
 
-            if hasOpponent {
-                let theirName = isCreator ? (challenge.opponentName ?? "...") : (challenge.creatorName ?? "...")
-                let theirScore = challenge.partnerScore(myId: currentUserId)
-                let theirStreak = challenge.partnerStreak(myId: currentUserId)
-                let theirId = isCreator ? (challenge.opponentId ?? "") : (challenge.creatorId ?? "")
-                let theirEntry = latestEntry(for: theirId, challenge: challenge)
-
-                participantCard(
-                    name: theirName,
-                    score: theirScore,
-                    streak: theirStreak,
-                    entry: theirEntry,
-                    isMe: false,
-                    isShadow: false,
-                    dayNumber: challenge.dayNumber
-                )
-            } else {
-                // Solo mode: shadow card with 75% target score
-                let shadowScore = Int(round(Double(challenge.dayNumber) * 0.75))
-                shadowCard(
-                    name: "Shadow",
-                    shadowScore: shadowScore,
-                    dayNumber: challenge.dayNumber
-                )
-            }
-        }
-    }
-
-    // MARK: - Shadow Card (Solo Mode)
-
-    private func shadowCard(name: String, shadowScore: Int, dayNumber: Int) -> some View {
-        let shadowGradient = LinearGradient(
-            colors: [Color(hex: "#6B5B95"), Color(hex: "#3D3552")],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-
-        return VStack(spacing: 10) {
-            // Shadow avatar
-            ZStack {
-                Circle()
-                    .fill(shadowGradient)
-                    .frame(width: 52, height: 52)
-
-                Circle()
-                    .stroke(Color(hex: "#6B5B95").opacity(0.4), lineWidth: 2)
-                    .frame(width: 56, height: 56)
-
-                Image(systemName: "figure.stand")
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundColor(.white.opacity(0.7))
-            }
-
-            // Name
-            Text(name.uppercased())
-                .font(.satoshi(11, weight: .bold))
-                .foregroundColor(Color(hex: "#6B5B95"))
-                .kerning(1)
-                .lineLimit(1)
-
-            // Shadow target score
-            Text("\(shadowScore)")
-                .font(.satoshi(20, weight: .black))
-                .foregroundColor(ColorTokens.textPrimary)
-
-            // Label
-            HStack(spacing: 4) {
-                Image(systemName: "target")
-                    .font(.system(size: 12))
-                Text("75% objectif")
-                    .font(.satoshi(11, weight: .medium))
-            }
-            .foregroundColor(Color(hex: "#6B5B95"))
-
-            // Score
-            Text("Score: \(shadowScore)")
-                .font(.satoshi(13, weight: .bold))
-                .foregroundColor(ColorTokens.textPrimary)
-        }
-        .padding(.vertical, 16)
-        .padding(.horizontal, 8)
-        .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: RadiusTokens.lg)
-                .fill(ColorTokens.surface)
-                .overlay(
-                    RoundedRectangle(cornerRadius: RadiusTokens.lg)
-                        .stroke(Color(hex: "#6B5B95").opacity(0.3), lineWidth: 1)
-                )
-        )
-    }
-
-    private func participantCard(
-        name: String,
-        score: Int,
-        streak: Int,
-        entry: ChallengeEntry?,
-        isMe: Bool,
-        isShadow: Bool,
-        dayNumber: Int
-    ) -> some View {
-        VStack(spacing: 10) {
-            // Avatar
-            ZStack {
-                Circle()
-                    .fill(isMe ? orangeGradient : LinearGradient(colors: [ColorTokens.surfaceElevated, ColorTokens.surfaceElevated], startPoint: .top, endPoint: .bottom))
-                    .frame(width: 52, height: 52)
-
-                if isMe {
-                    Circle()
-                        .stroke(Color(hex: "#FF9500").opacity(0.4), lineWidth: 2)
-                        .frame(width: 56, height: 56)
-                }
-
-                Text(String(name.prefix(1)).uppercased())
-                    .font(.satoshi(22, weight: .bold))
-                    .foregroundColor(isMe ? .white : ColorTokens.textSecondary)
-            }
-
-            // Name
-            Text(isMe ? "MOI" : name.uppercased())
-                .font(.satoshi(11, weight: .bold))
-                .foregroundColor(isMe ? Color(hex: "#FF9500") : ColorTokens.textSecondary)
-                .kerning(1)
-                .lineLimit(1)
-
-            // Wake-up time
-            if let time = entry?.wakeUpTime {
-                Text(formatWakeUpTime(time))
-                    .font(.satoshi(20, weight: .black))
+                Text("\(myScore)")
+                    .font(.satoshi(32, weight: .black))
                     .foregroundColor(ColorTokens.textPrimary)
-            } else {
-                Text("--:--")
-                    .font(.satoshi(20, weight: .black))
-                    .foregroundColor(ColorTokens.textMuted)
-            }
 
-            // Validation status
-            if let entry = entry, entry.dayNumber == dayNumber {
-                HStack(spacing: 4) {
-                    Image(systemName: entry.isOnTime ? "checkmark.circle.fill" : "xmark.circle.fill")
-                        .font(.system(size: 12))
-                    Text(entry.isOnTime ? "Valide" : "En retard")
-                        .font(.satoshi(11, weight: .medium))
+                if myStreak > 0 {
+                    HStack(spacing: 3) {
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: 11))
+                        Text("\(myStreak)j")
+                            .font(.satoshi(12, weight: .bold))
+                    }
+                    .foregroundColor(ColorTokens.warning)
+                } else {
+                    Text("0j")
+                        .font(.satoshi(12, weight: .medium))
+                        .foregroundColor(ColorTokens.textMuted)
                 }
-                .foregroundColor(entry.isOnTime ? ColorTokens.success : ColorTokens.error)
-            } else {
-                HStack(spacing: 4) {
-                    Image(systemName: "clock")
-                        .font(.system(size: 12))
-                    Text("En attente")
-                        .font(.satoshi(11, weight: .medium))
-                }
+            }
+            .frame(maxWidth: .infinity)
+
+            // Center divider
+            Text("vs")
+                .font(.satoshi(13, weight: .medium))
                 .foregroundColor(ColorTokens.textMuted)
-            }
 
-            // Streak
-            if streak > 0 {
-                HStack(spacing: 3) {
-                    Text("\u{1F525}")
-                        .font(.system(size: 11))
-                    Text("\(streak) jour\(streak > 1 ? "s" : "")")
-                        .font(.satoshi(11, weight: .bold))
+            // Their side
+            VStack(spacing: 6) {
+                HStack(spacing: 5) {
+                    if isSolo {
+                        Image(systemName: "target")
+                            .font(.system(size: 12))
+                            .foregroundColor(ColorTokens.primaryStart)
+                    }
+                    Text(theirName)
+                        .font(.satoshi(13, weight: .medium))
+                        .foregroundColor(ColorTokens.textSecondary)
                 }
-                .foregroundColor(ColorTokens.warning)
-            }
 
-            // Score
-            Text("Score: \(score)")
-                .font(.satoshi(13, weight: .bold))
-                .foregroundColor(ColorTokens.textPrimary)
+                Text("\(theirScore)")
+                    .font(.satoshi(32, weight: .black))
+                    .foregroundColor(ColorTokens.textPrimary)
+
+                if isSolo {
+                    Text("75% obj.")
+                        .font(.satoshi(12, weight: .medium))
+                        .foregroundColor(ColorTokens.textMuted)
+                } else if theirStreak > 0 {
+                    HStack(spacing: 3) {
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: 11))
+                        Text("\(theirStreak)j")
+                            .font(.satoshi(12, weight: .bold))
+                    }
+                    .foregroundColor(ColorTokens.warning)
+                } else {
+                    Text("0j")
+                        .font(.satoshi(12, weight: .medium))
+                        .foregroundColor(ColorTokens.textMuted)
+                }
+            }
+            .frame(maxWidth: .infinity)
         }
-        .padding(.vertical, 16)
-        .padding(.horizontal, 8)
-        .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: RadiusTokens.lg)
-                .fill(ColorTokens.surface)
-                .overlay(
-                    RoundedRectangle(cornerRadius: RadiusTokens.lg)
-                        .stroke(isMe ? Color(hex: "#FF9500").opacity(0.3) : ColorTokens.border, lineWidth: 1)
-                )
-        )
+        .padding(20)
+        .background(ColorTokens.surface)
+        .clipShape(RoundedRectangle(cornerRadius: RadiusTokens.lg))
     }
 
-    // MARK: - History Grid
+    // MARK: - Progress Section
 
-    private func historyGrid(_ challenge: Challenge) -> some View {
-        let daysToShow = min(challenge.dayNumber, 14)
+    private func progressSection(_ challenge: Challenge) -> some View {
+        let total = challenge.durationDays ?? 30
+        let completed = max(0, challenge.dayNumber - 1)
+        let ratio = total > 0 ? CGFloat(completed) / CGFloat(total) : 0
+
+        return VStack(alignment: .leading, spacing: 10) {
+            Text("PROGRESSION")
+                .font(.satoshi(11, weight: .bold))
+                .foregroundColor(ColorTokens.textMuted)
+                .kerning(1.5)
+
+            HStack(spacing: 10) {
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(ColorTokens.surface)
+                            .frame(height: 8)
+
+                        Capsule()
+                            .fill(ColorTokens.primaryGradient)
+                            .frame(width: max(0, geo.size.width * ratio), height: 8)
+                    }
+                }
+                .frame(height: 8)
+
+                Text("\(completed)/\(total)")
+                    .font(.satoshi(13, weight: .bold))
+                    .foregroundColor(ColorTokens.textSecondary)
+                    .fixedSize()
+            }
+        }
+    }
+
+    // MARK: - History Section (week view)
+
+    private func historySection(_ challenge: Challenge) -> some View {
+        let dayLabels = ["L", "M", "M", "J", "V", "S", "D"]
         let myId = currentUserId
-        let hasOpponent = challenge.opponentId != nil && !challenge.opponentId!.isEmpty
-        let theirId = isCreator ? (challenge.opponentId ?? "") : (challenge.creatorId ?? "")
+
+        // Build the last 7 days of history
+        let today = challenge.dayNumber
+        let daysToShow = min(today, 7)
 
         return VStack(alignment: .leading, spacing: 12) {
             Text("HISTORIQUE")
@@ -445,60 +397,38 @@ struct ChallengeDetailView: View {
                 .foregroundColor(ColorTokens.textMuted)
                 .kerning(1.5)
 
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 10) {
-                ForEach((0..<daysToShow).reversed(), id: \.self) { offset in
-                    let day = challenge.dayNumber - offset
-                    let myEntry = entries.first { $0.userId == myId && $0.dayNumber == day }
+            HStack(spacing: 0) {
+                ForEach(0..<7, id: \.self) { index in
+                    let dayOffset = 7 - index
+                    let dayNum = today - dayOffset + 1
+                    let entry = dayNum > 0 ? entries.first(where: { $0.userId == myId && $0.dayNumber == dayNum }) : nil
+                    let isFuture = dayNum > today || dayNum <= 0
 
-                    HStack(spacing: 6) {
-                        Text("J\(day)")
-                            .font(.satoshi(11, weight: .bold))
+                    VStack(spacing: 6) {
+                        Text(dayLabels[index % 7])
+                            .font(.satoshi(11, weight: .medium))
                             .foregroundColor(ColorTokens.textMuted)
-                            .frame(width: 24, alignment: .leading)
 
                         Circle()
-                            .fill(historyDotColor(entry: myEntry, day: day, currentDay: challenge.dayNumber))
-                            .frame(width: 10, height: 10)
-
-                        if hasOpponent {
-                            let theirEntry = entries.first { $0.userId == theirId && $0.dayNumber == day }
-                            Circle()
-                                .fill(historyDotColor(entry: theirEntry, day: day, currentDay: challenge.dayNumber))
-                                .frame(width: 10, height: 10)
-                        } else {
-                            // Solo mode: shadow dot — 75% chance of "success" color for past days
-                            Circle()
-                                .fill(shadowDotColor(day: day, currentDay: challenge.dayNumber))
-                                .frame(width: 10, height: 10)
-                        }
+                            .fill(historyDotColor(entry: entry, isFuture: isFuture, isToday: dayNum == today))
+                            .frame(width: 12, height: 12)
                     }
-                    .padding(.vertical, 4)
-                    .padding(.horizontal, 8)
-                    .background(ColorTokens.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: RadiusTokens.sm))
+                    .frame(maxWidth: .infinity)
                 }
             }
         }
         .padding(16)
-        .background(ColorTokens.surface.opacity(0.5))
+        .background(ColorTokens.surface)
         .clipShape(RoundedRectangle(cornerRadius: RadiusTokens.lg))
     }
 
-    private func shadowDotColor(day: Int, currentDay: Int) -> Color {
-        if day >= currentDay {
-            return ColorTokens.textMuted.opacity(0.3)
-        }
-        // Deterministic 75% success: every 4th day is a "miss"
-        return day % 4 == 0 ? ColorTokens.error : ColorTokens.success
-    }
-
-    private func historyDotColor(entry: ChallengeEntry?, day: Int, currentDay: Int) -> Color {
-        if day > currentDay {
-            return ColorTokens.textMuted.opacity(0.3)
+    private func historyDotColor(entry: ChallengeEntry?, isFuture: Bool, isToday: Bool) -> Color {
+        if isFuture {
+            return ColorTokens.textMuted.opacity(0.2)
         }
         guard let entry = entry else {
-            if day == currentDay { return ColorTokens.textMuted.opacity(0.3) }
-            return ColorTokens.error
+            if isToday { return ColorTokens.textMuted.opacity(0.3) }
+            return ColorTokens.textMuted.opacity(0.2)
         }
         return entry.isOnTime ? ColorTokens.success : ColorTokens.error
     }
@@ -515,13 +445,9 @@ struct ChallengeDetailView: View {
             if viewModel.taunts.isEmpty {
                 HStack {
                     Spacer()
-                    VStack(spacing: 8) {
-                        Text("\u{1F4AC}")
-                            .font(.system(size: 28))
-                        Text("Aucun message pour l'instant")
-                            .font(.satoshi(13, weight: .medium))
-                            .foregroundColor(ColorTokens.textMuted)
-                    }
+                    Text("Aucun message pour l'instant")
+                        .font(.satoshi(13, weight: .medium))
+                        .foregroundColor(ColorTokens.textMuted)
                     Spacer()
                 }
                 .padding(.vertical, 20)
@@ -550,14 +476,14 @@ struct ChallengeDetailView: View {
                         .font(.system(size: 14))
                         .foregroundColor(.white)
                         .frame(width: 40, height: 40)
-                        .background(tauntText.trimmingCharacters(in: .whitespaces).isEmpty ? ColorTokens.textMuted : Color(hex: "#FF9500"))
+                        .background(tauntText.trimmingCharacters(in: .whitespaces).isEmpty ? ColorTokens.textMuted : ColorTokens.primaryStart)
                         .clipShape(Circle())
                 }
                 .disabled(tauntText.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
         .padding(16)
-        .background(ColorTokens.surface.opacity(0.5))
+        .background(ColorTokens.surface)
         .clipShape(RoundedRectangle(cornerRadius: RadiusTokens.lg))
     }
 
@@ -569,71 +495,18 @@ struct ChallengeDetailView: View {
             VStack(alignment: isFromMe ? .trailing : .leading, spacing: 4) {
                 Text(isFromMe ? "Toi" : (taunt.senderName ?? "Adversaire"))
                     .font(.satoshi(11, weight: .bold))
-                    .foregroundColor(isFromMe ? Color(hex: "#FF9500") : ColorTokens.textSecondary)
+                    .foregroundColor(isFromMe ? ColorTokens.primaryStart : ColorTokens.textSecondary)
 
                 Text(taunt.message)
                     .font(.satoshi(14, weight: .regular))
                     .foregroundColor(ColorTokens.textPrimary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
-                    .background(isFromMe ? Color(hex: "#FF9500").opacity(0.15) : ColorTokens.surfaceElevated)
+                    .background(isFromMe ? ColorTokens.primaryStart.opacity(0.15) : ColorTokens.surfaceElevated)
                     .clipShape(RoundedRectangle(cornerRadius: RadiusTokens.md))
             }
 
             if !isFromMe { Spacer(minLength: 40) }
-        }
-    }
-
-    // MARK: - Action Buttons
-
-    private func actionButtons(_ challenge: Challenge) -> some View {
-        VStack(spacing: 12) {
-            // Validate morning button
-            if !viewModel.hasValidatedToday(entries: entries, userId: currentUserId) {
-                Button {
-                    dismiss()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        NotificationCenter.default.post(name: .openMorningVerification, object: nil)
-                    }
-                } label: {
-                    HStack(spacing: 10) {
-                        Text("\u{1F305}")
-                            .font(.system(size: 20))
-                        Text("Valider mon matin")
-                            .font(.satoshi(17, weight: .bold))
-                    }
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(orangeGradient)
-                    .clipShape(RoundedRectangle(cornerRadius: RadiusTokens.lg))
-                    .shadow(color: Color(hex: "#FF9500").opacity(0.4), radius: 12, y: 4)
-                }
-            }
-
-            // Send taunt shortcut (scrolls to taunt input)
-            Button {
-                // No-op: taunt input is always visible in the taunts section
-            } label: {
-                HStack(spacing: 10) {
-                    Text("\u{1F608}")
-                        .font(.system(size: 18))
-                    Text("Envoyer un taunt")
-                        .font(.satoshi(15, weight: .bold))
-                }
-                .foregroundColor(ColorTokens.textPrimary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(ColorTokens.surface)
-                .clipShape(RoundedRectangle(cornerRadius: RadiusTokens.lg))
-                .overlay(
-                    RoundedRectangle(cornerRadius: RadiusTokens.lg)
-                        .stroke(ColorTokens.border, lineWidth: 1)
-                )
-            }
-
-            // Share link
-            shareButton(challenge)
         }
     }
 
@@ -642,7 +515,7 @@ struct ChallengeDetailView: View {
     private func shareButton(_ challenge: Challenge) -> some View {
         Button {
             let code = challenge.inviteCode ?? ""
-            let text = "Rejoins mon challenge \"\(challenge.displayTitle)\" sur Focali ! Code: \(code) \u{1F4AA}\u{1F525}"
+            let text = "Rejoins mon challenge \"\(challenge.displayTitle)\" sur Focali ! Code: \(code)"
             let url = URL(string: "https://apps.apple.com/app/focali/id6742245252")!
             let ac = UIActivityViewController(activityItems: [text, url], applicationActivities: nil)
             if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
@@ -671,8 +544,13 @@ struct ChallengeDetailView: View {
             .first
     }
 
+    private func latestEntryToday(for userId: String, challenge: Challenge) -> ChallengeEntry? {
+        entries
+            .filter { $0.userId == userId && $0.dayNumber == challenge.dayNumber }
+            .first
+    }
+
     private func formatWakeUpTime(_ time: String) -> String {
-        // Handle ISO format or HH:mm format
         if time.count >= 16 {
             let start = time.index(time.startIndex, offsetBy: 11)
             let end = time.index(start, offsetBy: 5)
