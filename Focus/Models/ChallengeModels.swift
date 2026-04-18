@@ -61,6 +61,8 @@ struct Challenge: Codable, Identifiable {
     var inviteCode: String?
     var mantra: String?
     var title: String?
+    var creatorAvatarUrl: String?
+    var opponentAvatarUrl: String?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -81,6 +83,8 @@ struct Challenge: Codable, Identifiable {
         case inviteCode = "invite_code"
         case mantra
         case title
+        case creatorAvatarUrl = "creator_avatar_url"
+        case opponentAvatarUrl = "opponent_avatar_url"
     }
 
     var type: ChallengeType {
@@ -202,6 +206,8 @@ struct ChallengeDetailResponse: Codable {
     let title: String?
     let mantra: String?
     let entries: [ChallengeEntry]?
+    let creatorAvatarUrl: String?
+    let opponentAvatarUrl: String?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -219,6 +225,8 @@ struct ChallengeDetailResponse: Codable {
         case startDate = "start_date"
         case inviteCode = "invite_code"
         case title, mantra, entries
+        case creatorAvatarUrl = "creator_avatar_url"
+        case opponentAvatarUrl = "opponent_avatar_url"
     }
 }
 

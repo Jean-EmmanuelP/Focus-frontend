@@ -25,7 +25,7 @@ class ChallengeViewModel: ObservableObject {
     /// Derives a `Challenge` from `challengeDetail` so views can use a single model.
     var challenge: Challenge? {
         guard let d = challengeDetail else { return nil }
-        return Challenge(id: d.id, challengeType: "wakeup", alarmTime: d.alarmTime, durationDays: d.durationDays, status: d.status, creatorId: d.creatorId, opponentId: d.opponentId, creatorName: d.creatorName, opponentName: d.opponentName, creatorScore: d.creatorScore, opponentScore: d.opponentScore, creatorStreak: d.creatorStreak, opponentStreak: d.opponentStreak, startDate: d.startDate, customTitle: nil, inviteCode: d.inviteCode, mantra: d.mantra, title: d.title)
+        return Challenge(id: d.id, challengeType: "wakeup", alarmTime: d.alarmTime, durationDays: d.durationDays, status: d.status, creatorId: d.creatorId, opponentId: d.opponentId, creatorName: d.creatorName, opponentName: d.opponentName, creatorScore: d.creatorScore, opponentScore: d.opponentScore, creatorStreak: d.creatorStreak, opponentStreak: d.opponentStreak, startDate: d.startDate, customTitle: nil, inviteCode: d.inviteCode, mantra: d.mantra, title: d.title, creatorAvatarUrl: d.creatorAvatarUrl, opponentAvatarUrl: d.opponentAvatarUrl)
     }
 
     // MARK: - Load Challenges

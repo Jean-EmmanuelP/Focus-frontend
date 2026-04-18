@@ -6,6 +6,7 @@ struct ChallengeDetailView: View {
     let challengeId: String
     @StateObject private var viewModel = ChallengeViewModel()
     @State private var tauntText = ""
+    @State private var isPulsing = false
     @Environment(\.dismiss) private var dismiss
 
     private var currentUserId: String {
@@ -18,6 +19,15 @@ struct ChallengeDetailView: View {
 
     private var entries: [ChallengeEntry] {
         viewModel.challengeDetail?.entries ?? []
+    }
+
+    private var myAvatarUrl: String? {
+        FocusAppStore.shared.user?.avatarURL
+    }
+
+    private var theirAvatarUrl: String? {
+        guard let challenge = viewModel.challenge, !challenge.isSolo else { return nil }
+        return isCreator ? challenge.opponentAvatarUrl : challenge.creatorAvatarUrl
     }
 
     var body: some View {
@@ -217,46 +227,52 @@ struct ChallengeDetailView: View {
     private func validateSection(_ challenge: Challenge) -> some View {
         Group {
             if viewModel.hasValidatedToday(entries: entries, userId: currentUserId) {
-                // Already validated
+                // Already validated — rewarding state
                 let todayEntry = latestEntryToday(for: currentUserId, challenge: challenge)
-                HStack(spacing: 10) {
+                VStack(spacing: 8) {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 22))
+                        .font(.system(size: 40))
                         .foregroundColor(ColorTokens.success)
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Valide")
-                            .font(.satoshi(18, weight: .bold))
+                    if let time = todayEntry?.wakeUpTime {
+                        Text("Valide a \(formatWakeUpTime(time))")
+                            .font(.satoshi(15, weight: .medium))
                             .foregroundColor(ColorTokens.success)
-
-                        if let time = todayEntry?.wakeUpTime {
-                            Text("a \(formatWakeUpTime(time))")
-                                .font(.satoshi(13, weight: .medium))
-                                .foregroundColor(ColorTokens.textSecondary)
-                        }
+                    } else {
+                        Text("Valide")
+                            .font(.satoshi(15, weight: .medium))
+                            .foregroundColor(ColorTokens.success)
                     }
-
-                    Spacer()
                 }
-                .padding(18)
-                .background(ColorTokens.success.opacity(0.1))
+                .frame(maxWidth: .infinity)
+                .padding(24)
+                .background(ColorTokens.success.opacity(0.08))
                 .clipShape(RoundedRectangle(cornerRadius: RadiusTokens.lg))
             } else {
-                // Not yet validated — big CTA
+                // Not yet validated — big CTA with pulse
                 Button {
                     dismiss()
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                         NotificationCenter.default.post(name: .openMorningVerification, object: nil)
                     }
                 } label: {
-                    Text("VALIDER MON MATIN")
-                        .font(.satoshi(18, weight: .bold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 18)
-                        .background(ColorTokens.primaryGradient)
-                        .clipShape(RoundedRectangle(cornerRadius: RadiusTokens.lg))
+                    HStack(spacing: 10) {
+                        Image(systemName: "camera.fill")
+                            .font(.system(size: 16, weight: .semibold))
+                        Text("VALIDER MON MATIN")
+                            .font(.satoshi(18, weight: .bold))
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
+                    .background(ColorTokens.primaryGradient)
+                    .clipShape(RoundedRectangle(cornerRadius: RadiusTokens.lg))
+                    .scaleEffect(isPulsing ? 1.02 : 1.0)
+                    .animation(
+                        Animation.easeInOut(duration: 1.5).repeatForever(autoreverses: true),
+                        value: isPulsing
+                    )
                 }
+                .onAppear { isPulsing = true }
             }
         }
     }
@@ -274,76 +290,116 @@ struct ChallengeDetailView: View {
 
         return HStack(spacing: 0) {
             // My side
-            VStack(spacing: 6) {
+            VStack(spacing: 8) {
+                avatarView(url: myAvatarUrl, initial: "T", size: 48)
+                    .overlay(
+                        Circle()
+                            .stroke(Color(hex: "#5AC8FA").opacity(0.5), lineWidth: 2)
+                            .frame(width: 52, height: 52)
+                    )
+
                 Text("Toi")
                     .font(.satoshi(13, weight: .medium))
                     .foregroundColor(ColorTokens.textSecondary)
 
                 Text("\(myScore)")
-                    .font(.satoshi(32, weight: .black))
+                    .font(.satoshi(34, weight: .black))
                     .foregroundColor(ColorTokens.textPrimary)
 
-                if myStreak > 0 {
-                    HStack(spacing: 3) {
-                        Image(systemName: "flame.fill")
-                            .font(.system(size: 11))
-                        Text("\(myStreak)j")
-                            .font(.satoshi(12, weight: .bold))
-                    }
-                    .foregroundColor(ColorTokens.warning)
-                } else {
-                    Text("0j")
-                        .font(.satoshi(12, weight: .medium))
-                        .foregroundColor(ColorTokens.textMuted)
-                }
+                streakBadge(streak: myStreak, isSoloTarget: false)
             }
             .frame(maxWidth: .infinity)
 
             // Center divider
             Text("vs")
-                .font(.satoshi(13, weight: .medium))
+                .font(.satoshi(14, weight: .bold))
                 .foregroundColor(ColorTokens.textMuted)
+                .padding(.top, 24)
 
             // Their side
-            VStack(spacing: 6) {
-                HStack(spacing: 5) {
-                    if isSolo {
+            VStack(spacing: 8) {
+                if isSolo {
+                    ZStack {
+                        Circle().fill(ColorTokens.primarySoft)
                         Image(systemName: "target")
-                            .font(.system(size: 12))
+                            .font(.system(size: 20, weight: .medium))
                             .foregroundColor(ColorTokens.primaryStart)
                     }
-                    Text(theirName)
-                        .font(.satoshi(13, weight: .medium))
-                        .foregroundColor(ColorTokens.textSecondary)
+                    .frame(width: 48, height: 48)
+                } else {
+                    avatarView(url: theirAvatarUrl, initial: String(theirName.prefix(1)).uppercased(), size: 48)
                 }
 
+                Text(theirName)
+                    .font(.satoshi(13, weight: .medium))
+                    .foregroundColor(ColorTokens.textSecondary)
+
                 Text("\(theirScore)")
-                    .font(.satoshi(32, weight: .black))
+                    .font(.satoshi(34, weight: .black))
                     .foregroundColor(ColorTokens.textPrimary)
 
                 if isSolo {
                     Text("75% obj.")
                         .font(.satoshi(12, weight: .medium))
                         .foregroundColor(ColorTokens.textMuted)
-                } else if theirStreak > 0 {
-                    HStack(spacing: 3) {
-                        Image(systemName: "flame.fill")
-                            .font(.system(size: 11))
-                        Text("\(theirStreak)j")
-                            .font(.satoshi(12, weight: .bold))
-                    }
-                    .foregroundColor(ColorTokens.warning)
                 } else {
-                    Text("0j")
-                        .font(.satoshi(12, weight: .medium))
-                        .foregroundColor(ColorTokens.textMuted)
+                    streakBadge(streak: theirStreak, isSoloTarget: false)
                 }
             }
             .frame(maxWidth: .infinity)
         }
-        .padding(20)
+        .padding(.vertical, 24)
+        .padding(.horizontal, 20)
         .background(ColorTokens.surface)
         .clipShape(RoundedRectangle(cornerRadius: RadiusTokens.lg))
+    }
+
+    // MARK: - Avatar View
+
+    private func avatarView(url: String?, initial: String, size: CGFloat) -> some View {
+        Group {
+            if let urlString = url, !urlString.isEmpty, let imageURL = URL(string: urlString) {
+                AsyncImage(url: imageURL) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image.resizable().scaledToFill()
+                    default:
+                        initialCircle(initial: initial, size: size)
+                    }
+                }
+            } else {
+                initialCircle(initial: initial, size: size)
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(Circle())
+    }
+
+    private func initialCircle(initial: String, size: CGFloat) -> some View {
+        ZStack {
+            Circle().fill(ColorTokens.surfaceElevated)
+            Text(initial)
+                .font(.satoshi(size * 0.38, weight: .bold))
+                .foregroundColor(ColorTokens.textSecondary)
+        }
+    }
+
+    private func streakBadge(streak: Int, isSoloTarget: Bool) -> some View {
+        Group {
+            if streak > 0 {
+                HStack(spacing: 3) {
+                    Text("\u{1F525}")
+                        .font(.system(size: 11))
+                    Text("\(streak)j")
+                        .font(.satoshi(12, weight: .bold))
+                }
+                .foregroundColor(ColorTokens.warning)
+            } else {
+                Text("0j")
+                    .font(.satoshi(12, weight: .medium))
+                    .foregroundColor(ColorTokens.textMuted)
+            }
+        }
     }
 
     // MARK: - Progress Section
