@@ -21,15 +21,28 @@ enum ColorTokens {
     static let accent = Color(hex: "#E0E0E0")
     static let accentSoft = Color.white.opacity(0.08)
 
+    // MARK: - Brand (warm orange/amber accent — matches the flame icon)
+    static let brand = Color(hex: "#FF8A3D")
+    static let brandSoft = Color(hex: "#FF8A3D").opacity(0.15)
+    static let brandGradient = LinearGradient(
+        colors: [Color(hex: "#FFA94D"), Color(hex: "#FF6B1A")],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+
     // MARK: - Text
     static let textPrimary = Color.white
     static let textSecondary = Color(hex: "#888888")
     static let textMuted = Color(hex: "#666666")
 
-    // MARK: - States (Monochrome)
-    static let success = Color.white
-    static let warning = Color(hex: "#CCCCCC")
-    static let error = Color.white
+    // MARK: - States (semantic — distinct hues, used as accents not dominant fills)
+    static let success = Color(hex: "#4ADE80")  // green
+    static let warning = Color(hex: "#FFB547")  // amber
+    static let error   = Color(hex: "#F87171")  // red
+    static let info    = Color(hex: "#60A5FA")  // blue
+    static let successSoft = Color(hex: "#4ADE80").opacity(0.15)
+    static let warningSoft = Color(hex: "#FFB547").opacity(0.15)
+    static let errorSoft   = Color(hex: "#F87171").opacity(0.15)
 
     // MARK: - Borders
     static let border = Color.white.opacity(0.10)

@@ -22,7 +22,7 @@
     "_billingGracePeriodEnabled" : false,
     "_billingIssuesEnabled" : false,
     "_developerTeamID" : "62NW6K29QN",
-    "_disableDialogs" : false,
+    "_disableDialogs" : true,
     "_failTransactionsEnabled" : false,
     "_lastSynchronizedDate" : 787748841.74806404,
     "_locale" : "fr_FR",

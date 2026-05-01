@@ -207,6 +207,11 @@ final class SubscriptionManager: ObservableObject {
         }
     }
 
+    /// Test-only: forces a sync to the backend with the given values
+    func debugForceSync(plan: String?, expiresAt: Date?) async {
+        await syncSubscriptionToBackend(plan: plan, expiresAt: expiresAt)
+    }
+
     private func syncSubscriptionToBackend(plan: String?, expiresAt: Date?) async {
         var payload: [String: Any] = [
             "is_pro": plan != nil
@@ -226,9 +231,9 @@ final class SubscriptionManager: ObservableObject {
                 method: .patch,
                 body: RawJSON(data: try JSONSerialization.data(withJSONObject: payload))
             )
-            print("✅ Subscription synced to backend: \(payload)")
+            NSLog("✅ [SubscriptionSync] backend updated: %@", String(describing: payload))
         } catch {
-            print("⚠️ Failed to sync subscription to backend: \(error)")
+            NSLog("⚠️ [SubscriptionSync] backend update failed: %@", String(describing: error))
         }
     }
 

@@ -761,11 +761,11 @@ struct PlanningView: View {
                         .frame(width: 22, height: 22)
                     if task.isCompleted {
                         RoundedRectangle(cornerRadius: 6)
-                            .fill(Color.white)
+                            .fill(ColorTokens.success)
                             .frame(width: 22, height: 22)
                         Image(systemName: "checkmark")
                             .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(bgColor)
+                            .foregroundColor(.white)
                     }
                 }
             }
@@ -838,7 +838,7 @@ struct PlanningView: View {
             HStack {
                 Image(systemName: "trophy.fill")
                     .font(.system(size: 12))
-                    .foregroundColor(Color(white: 0.6))
+                    .foregroundColor(ColorTokens.brand)
                 Text("Challenges")
                     .font(.system(size: 13, weight: .bold))
                     .foregroundColor(.white.opacity(0.5))

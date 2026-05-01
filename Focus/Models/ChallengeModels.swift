@@ -42,7 +42,7 @@ enum ChallengeType: String, Codable, CaseIterable {
 
 // MARK: - Challenge
 
-struct Challenge: Codable, Identifiable {
+struct Challenge: Codable, Identifiable, Equatable {
     let id: String
     var challengeType: String?
     var alarmTime: String?

@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import StoreKit
 import GoogleSignIn
 import UserNotifications
 import FirebaseCore
@@ -140,6 +141,28 @@ struct FocusApp: App {
                 if ProcessInfo.processInfo.arguments.contains("-showPaywall") {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
                         router.showPaywall = true
+                    }
+                }
+                if ProcessInfo.processInfo.arguments.contains("-debugSync") {
+                    Task {
+                        try? await Task.sleep(nanoseconds: 4_000_000_000)
+                        NSLog("🧪 [debugSync] forcing backend sync with com.volta.yearly + +1y")
+                        let exp = Calendar.current.date(byAdding: .year, value: 1, to: Date())
+                        await SubscriptionManager.shared.debugForceSync(plan: "com.volta.yearly", expiresAt: exp)
+                        NSLog("🧪 [debugSync] done")
+                    }
+                }
+                if ProcessInfo.processInfo.arguments.contains("-debugPurchase") {
+                    Task {
+                        try? await Task.sleep(nanoseconds: 3_000_000_000)
+                        await SubscriptionManager.shared.fetchOfferings()
+                        guard let product = SubscriptionManager.shared.maxPackage else {
+                            NSLog("🧪 [debugPurchase] no max product loaded — products: %d", SubscriptionManager.shared.products.count)
+                            return
+                        }
+                        NSLog("🧪 [debugPurchase] triggering purchase of %@", product.id)
+                        let ok = await SubscriptionManager.shared.purchase(package: product)
+                        NSLog("🧪 [debugPurchase] result=%@ isProUser=%@", ok ? "OK" : "FAIL", SubscriptionManager.shared.isProUser ? "true" : "false")
                     }
                 }
             }

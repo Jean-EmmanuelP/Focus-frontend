@@ -1,22 +1,39 @@
 import SwiftUI
 
-// MARK: - ChallengeType Visual Identity (unified blue)
+// MARK: - ChallengeType Visual Identity (per-type ambient hue)
 
 extension ChallengeType {
 
-    /// All types use the app's primary blue gradient
-    var gradient: LinearGradient {
-        ColorTokens.primaryGradient
-    }
-
-    /// All types use the app's primary blue
+    /// Per-type primary hue — used for icons and small accents
     var primaryColor: Color {
-        ColorTokens.primaryStart
+        switch self {
+        case .wakeup:     return Color(hex: "#FFB547")  // amber sunrise
+        case .gym:        return Color(hex: "#F87171")  // red intensity
+        case .meditation: return Color(hex: "#86EFAC")  // sage green calm
+        case .reading:    return Color(hex: "#C4B5FD")  // violet evening
+        case .custom:     return ColorTokens.brand     // brand orange
+        }
     }
 
-    /// Soft blue tint for backgrounds
+    /// Soft tint for card backgrounds (15% opacity of primary)
     var softColor: Color {
-        ColorTokens.primarySoft
+        primaryColor.opacity(0.15)
+    }
+
+    /// Per-type gradient for hero buttons or banners
+    var gradient: LinearGradient {
+        switch self {
+        case .wakeup:
+            return LinearGradient(colors: [Color(hex: "#FFD27A"), Color(hex: "#FF8A3D")], startPoint: .topLeading, endPoint: .bottomTrailing)
+        case .gym:
+            return LinearGradient(colors: [Color(hex: "#FCA5A5"), Color(hex: "#EF4444")], startPoint: .topLeading, endPoint: .bottomTrailing)
+        case .meditation:
+            return LinearGradient(colors: [Color(hex: "#A7F3D0"), Color(hex: "#34D399")], startPoint: .topLeading, endPoint: .bottomTrailing)
+        case .reading:
+            return LinearGradient(colors: [Color(hex: "#DDD6FE"), Color(hex: "#8B5CF6")], startPoint: .topLeading, endPoint: .bottomTrailing)
+        case .custom:
+            return ColorTokens.brandGradient
+        }
     }
 
     /// Large emoji for empty states

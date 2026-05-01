@@ -84,53 +84,15 @@ struct ChatView: View {
                             .transition(.move(edge: .top).combined(with: .opacity))
                     }
 
+                    // Challenge banner — daily progress (visible in BOTH modes so it never disappears)
+                    if let firstActive = challengeVM.challenges.first(where: { $0.isActive }) {
+                        challengeHeaderBanner(for: firstActive)
+                            .padding(.horizontal, 16)
+                            .padding(.top, 4)
+                    }
+
                     // Content area — tap to dismiss action buttons
                     if isHomeMode {
-                        // Challenge banner — daily progress
-                        if let firstActive = challengeVM.challenges.first(where: { $0.isActive }) {
-                            Button {
-                                showChallengeHub = true
-                            } label: {
-                                let allActive = challengeVM.challenges.filter { $0.isActive }
-                                let totalSteps = allActive.reduce(0) { $0 + $1.type.steps.count }
-                                // Approximate done steps from score
-                                let allDone = allActive.allSatisfy { $0.hasLikelyValidatedToday(myId: FocusAppStore.shared.user?.id ?? "") }
-
-                                HStack(spacing: 10) {
-                                    // Checkbox icon
-                                    Image(systemName: allDone ? "checkmark.circle.fill" : "circle")
-                                        .font(.system(size: 18))
-                                        .foregroundColor(allDone ? ColorTokens.success : firstActive.type.primaryColor)
-
-                                    if allDone {
-                                        Text("Tout valide !")
-                                            .font(.satoshi(15, weight: .bold))
-                                            .foregroundColor(ColorTokens.success)
-                                    } else {
-                                        Text("\(firstActive.displayTitle) · Jour \(max(firstActive.dayNumber, 1))")
-                                            .font(.satoshi(14, weight: .medium))
-                                            .foregroundColor(.white)
-                                    }
-
-                                    Spacer()
-
-                                    Text("Ouvrir")
-                                        .font(.satoshi(12, weight: .bold))
-                                        .foregroundColor(firstActive.type.primaryColor)
-                                }
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 12)
-                                .background(ColorTokens.surface)
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(ColorTokens.border, lineWidth: 1)
-                                )
-                            }
-                            .buttonStyle(.plain)
-                            .padding(.horizontal, 16)
-                        }
-
                         // Home mode: just spacer, avatar is background
                         Spacer()
                             .contentShape(Rectangle())
@@ -163,7 +125,18 @@ struct ChatView: View {
         .onAppear {
             viewModel.setStore(store)
             viewModel.loadHistory()
-            Task { await challengeVM.loadChallenges() }
+            Task {
+                await challengeVM.loadChallenges()
+                injectChallengeCardIfNeeded()
+            }
+        }
+        .onChange(of: challengeVM.challenges) { _, _ in
+            injectChallengeCardIfNeeded()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("openChallengeValidation"))) { _ in showChallengeHub = true }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("openChallengeHub"))) { _ in showChallengeHub = true }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("challengeValidated"))) { note in
+            handleChallengeValidated(note)
         }
         .onDisappear {
             // Clean up timer to prevent memory leak
@@ -474,6 +447,138 @@ struct ChatView: View {
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
+    }
+
+    // MARK: - Validation success handler
+
+    private func handleChallengeValidated(_ note: Notification) {
+        let cid = (note.userInfo?["challengeId"] as? String) ?? ""
+        let photo = (note.userInfo?["photoUrl"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+        viewModel.updateChallengeCard(challengeId: cid) { data in
+            data.state = .done
+            data.photoURL = photo
+            data.myScore = max(data.myScore, data.day)
+        }
+        Task { await challengeVM.loadChallenges() }
+        let coach = store.user?.companionName ?? "Kai"
+        let firstName = store.user?.firstName ?? store.user?.name ?? ""
+        let prefix = firstName.isEmpty ? "Bien joué !" : "Bien joué \(firstName) !"
+        viewModel.messages.append(
+            SimpleChatMessage(content: "\(prefix) Une journée de plus dans le sac. \(coach) est fier.", isFromUser: false)
+        )
+    }
+
+    // MARK: - Auto-inject challenge card in chat conversation
+
+    private func injectChallengeCardIfNeeded() {
+        guard let active = challengeVM.challenges.first(where: { $0.isActive }) else { return }
+        let myId = FocusAppStore.shared.user?.id ?? ""
+        let isDone = active.hasLikelyValidatedToday(myId: myId)
+        let inWindow = active.isInValidationWindow()
+        // Only auto-inject if user has something actionable today (not done, in window).
+        // Closed-window challenges still show in the header banner; no chat noise.
+        guard !isDone && inWindow else { return }
+
+        let urgent = (active.minutesRemainingInWindow ?? 999) < 30
+        let state: ChatCardData.ChallengeCardData.State = urgent ? .urgent : .open
+
+        let data = ChatCardData.ChallengeCardData(
+            challengeId: active.id,
+            challengeType: active.type.rawValue,
+            title: active.displayTitle,
+            day: max(active.dayNumber, 1),
+            totalDays: active.durationDays ?? 30,
+            mantra: active.mantra,
+            opponentName: active.opponentName,
+            myScore: active.myScore(myId: myId),
+            opponentScore: active.partnerScore(myId: myId),
+            state: state,
+            validationWindowText: active.validationWindowText,
+            photoURL: nil
+        )
+        let coachName = store.user?.companionName ?? "Kai"
+        let firstName = store.user?.firstName ?? store.user?.name ?? ""
+        let hello = firstName.isEmpty ? "Hey ! " : "Hey \(firstName), "
+        let prompt = urgent
+            ? "\(hello)plus que quelques minutes pour valider \(active.displayTitle.lowercased()). On y va ?"
+            : "\(hello)c'est le moment pour \(active.displayTitle.lowercased()) — \(coachName) te suit."
+        viewModel.postChallengeCard(text: prompt, data: data)
+    }
+
+    // MARK: - Challenge Header Banner (4 states)
+
+    private enum BannerState { case done, urgent, open, closed }
+
+    private func bannerState(for challenge: Challenge) -> BannerState {
+        let myId = FocusAppStore.shared.user?.id ?? ""
+        if challenge.hasLikelyValidatedToday(myId: myId) { return .done }
+        if !challenge.isInValidationWindow() { return .closed }
+        if (challenge.minutesRemainingInWindow ?? 999) < 30 { return .urgent }
+        return .open
+    }
+
+    private func challengeHeaderBanner(for challenge: Challenge) -> some View {
+        let state = bannerState(for: challenge)
+        let primary = challenge.type.primaryColor
+        return Button {
+            if state == .done || state == .closed {
+                showChallengeHub = true
+            } else {
+                NotificationCenter.default.post(name: Notification.Name("openChallengeValidation"), object: nil, userInfo: ["challengeId": challenge.id])
+            }
+        } label: {
+            challengeBannerLabel(challenge: challenge, state: state, primary: primary)
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func challengeBannerLabel(challenge: Challenge, state: BannerState, primary: Color) -> some View {
+        let totalDays = challenge.durationDays ?? 30
+        HStack(spacing: 10) {
+            switch state {
+            case .done:
+                Image(systemName: "checkmark.circle.fill").font(.system(size: 18, weight: .semibold)).foregroundColor(ColorTokens.success)
+                Text("\(challenge.displayTitle) validé · J\(max(challenge.dayNumber, 1))/\(totalDays)").font(.satoshi(14, weight: .bold)).foregroundColor(ColorTokens.success)
+                Spacer()
+            case .urgent:
+                Image(systemName: "exclamationmark.circle.fill").font(.system(size: 18, weight: .semibold)).foregroundColor(ColorTokens.warning)
+                Text("\(challenge.displayTitle) — \(challenge.minutesRemainingInWindow ?? 0) min").font(.satoshi(14, weight: .bold)).foregroundColor(.white)
+                Spacer()
+                Text("Valider").font(.satoshi(12, weight: .bold)).foregroundColor(ColorTokens.warning)
+            case .open:
+                Image(systemName: "camera.fill").font(.system(size: 16, weight: .semibold)).foregroundColor(primary)
+                Text("\(challenge.displayTitle) — Valider").font(.satoshi(14, weight: .bold)).foregroundColor(.white)
+                Spacer()
+                Text("Maintenant").font(.satoshi(12, weight: .bold)).foregroundColor(primary)
+            case .closed:
+                Image(systemName: "moon.zzz.fill").font(.system(size: 16, weight: .semibold)).foregroundColor(.white.opacity(0.5))
+                Text("\(challenge.displayTitle) · \(challenge.nextWindowText ?? "fenêtre fermée")").font(.satoshi(13, weight: .medium)).foregroundColor(.white.opacity(0.7)).lineLimit(1)
+                Spacer()
+                Text("Voir").font(.satoshi(12, weight: .bold)).foregroundColor(.white.opacity(0.5))
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(RoundedRectangle(cornerRadius: 14).fill(bannerBackground(state: state)))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(bannerBorder(state: state, primary: primary), lineWidth: 1))
+    }
+
+    private func bannerBackground(state: BannerState) -> Color {
+        switch state {
+        case .done: return ColorTokens.successSoft
+        case .urgent: return ColorTokens.warningSoft
+        case .open, .closed: return ColorTokens.surface
+        }
+    }
+
+    private func bannerBorder(state: BannerState, primary: Color) -> Color {
+        switch state {
+        case .done: return ColorTokens.success.opacity(0.4)
+        case .urgent: return ColorTokens.warning.opacity(0.5)
+        case .open: return primary.opacity(0.5)
+        case .closed: return ColorTokens.border
+        }
     }
 
     private func handleBlockButtonTap() {
@@ -1396,6 +1501,23 @@ struct ReplikaMessageBubble: View {
             }
         case .productivityDiagnostic(let data):
             ProductivityDiagnosticCard(data: data, viewModel: viewModel)
+        case .dailyChallenge(let data):
+            InlineChallengeCard(
+                data: data,
+                onValidate: {
+                    NotificationCenter.default.post(
+                        name: Notification.Name("openChallengeValidation"),
+                        object: nil,
+                        userInfo: ["challengeId": data.challengeId]
+                    )
+                },
+                onOpenHub: {
+                    NotificationCenter.default.post(
+                        name: Notification.Name("openChallengeHub"),
+                        object: nil
+                    )
+                }
+            )
         }
     }
 

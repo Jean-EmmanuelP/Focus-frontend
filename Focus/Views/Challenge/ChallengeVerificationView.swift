@@ -451,6 +451,16 @@ struct ChallengeVerificationView: View {
 
                 await MainActor.run {
                     isUploading = false
+                    // Notify chat that this challenge was just validated so Kai can
+                    // post a "well done" message + update the inline card.
+                    NotificationCenter.default.post(
+                        name: Notification.Name("challengeValidated"),
+                        object: nil,
+                        userInfo: [
+                            "challengeId": challenge.id,
+                            "photoUrl": photoURL ?? ""
+                        ]
+                    )
                     onVerified(photoURL)
                 }
             } catch {

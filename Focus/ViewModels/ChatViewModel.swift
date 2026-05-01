@@ -27,6 +27,31 @@ enum ChatCardData: Codable {
     case videoCard(VideoCard)
     case videoSuggestions(VideoSuggestionsData)
     case productivityDiagnostic(ProductivityDiagnosticData)
+    case dailyChallenge(ChallengeCardData)
+
+    // MARK: - Daily Challenge Card
+
+    struct ChallengeCardData: Codable {
+        let challengeId: String
+        let challengeType: String       // "wakeup" | "gym" | "meditation" | "reading" | "custom"
+        let title: String
+        let day: Int
+        let totalDays: Int
+        let mantra: String?
+        let opponentName: String?
+        var myScore: Int
+        var opponentScore: Int
+        var state: State                // open | done | closed | urgent
+        let validationWindowText: String?  // "Valide de 7h a 8h" or "Demain a 7h"
+        var photoURL: String?           // set after successful validation
+
+        enum State: String, Codable {
+            case open       // window is open, user can validate
+            case urgent     // window open, < 30 min left
+            case done       // already validated today
+            case closed     // window closed (too early or too late)
+        }
+    }
 
     // MARK: - Productivity Diagnostic
 
@@ -101,7 +126,7 @@ enum ChatCardData: Codable {
     // MARK: - Backward-compatible Codable
 
     private enum CodingKeys: String, CodingKey {
-        case taskList, routineList, planning, actionButton, videoCard, videoSuggestions, productivityDiagnostic
+        case taskList, routineList, planning, actionButton, videoCard, videoSuggestions, productivityDiagnostic, dailyChallenge
     }
 
     private struct PlanningPayload: Codable {
@@ -137,6 +162,8 @@ enum ChatCardData: Codable {
             self = .videoSuggestions(data)
         } else if let data = try? container.decode(ProductivityDiagnosticData.self, forKey: .productivityDiagnostic) {
             self = .productivityDiagnostic(data)
+        } else if let data = try? container.decode(ChallengeCardData.self, forKey: .dailyChallenge) {
+            self = .dailyChallenge(data)
         } else {
             // Old focusTimer or unknown — fallback to empty task list
             self = .taskList([])
@@ -160,6 +187,8 @@ enum ChatCardData: Codable {
             try container.encode(data, forKey: .videoSuggestions)
         case .productivityDiagnostic(let data):
             try container.encode(data, forKey: .productivityDiagnostic)
+        case .dailyChallenge(let data):
+            try container.encode(data, forKey: .dailyChallenge)
         }
     }
 }
@@ -361,6 +390,38 @@ class ChatViewModel: ObservableObject {
     func setStore(_ store: FocusAppStore) {
         self.store = store
         self.freeVoiceMessagesUsed = store.user?.freeVoiceMessagesUsed ?? 0
+    }
+
+    // MARK: - Challenge Card Injection
+
+    /// Posts a Kai message with a daily challenge card attached.
+    /// Idempotent: returns early if a card for the same challenge+day already exists today.
+    func postChallengeCard(text: String, data: ChatCardData.ChallengeCardData) {
+        let alreadyPosted = messages.contains { msg in
+            guard !msg.isFromUser, let card = msg.cardData else { return false }
+            if case .dailyChallenge(let existing) = card,
+               existing.challengeId == data.challengeId,
+               existing.day == data.day,
+               Calendar.current.isDateInToday(msg.timestamp) {
+                return true
+            }
+            return false
+        }
+        if alreadyPosted { return }
+        var msg = SimpleChatMessage(content: text, isFromUser: false)
+        msg.cardData = .dailyChallenge(data)
+        messages.append(msg)
+    }
+
+    /// Updates an existing challenge card message in place (e.g., open → done after validation).
+    func updateChallengeCard(challengeId: String, mutate: (inout ChatCardData.ChallengeCardData) -> Void) {
+        for i in messages.indices {
+            guard let card = messages[i].cardData,
+                  case .dailyChallenge(var data) = card,
+                  data.challengeId == challengeId else { continue }
+            mutate(&data)
+            messages[i].cardData = .dailyChallenge(data)
+        }
     }
 
     // MARK: - Load History

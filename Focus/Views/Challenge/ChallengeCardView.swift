@@ -22,7 +22,7 @@ struct ChallengeCardView: View {
                 HStack(spacing: 8) {
                     Image(systemName: challenge.type.icon)
                         .font(.satoshi(14, weight: .bold))
-                        .foregroundColor(ColorTokens.primaryStart)
+                        .foregroundColor(challenge.type.primaryColor)
                     Text(challenge.displayTitle)
                         .font(.satoshi(15, weight: .bold))
                         .foregroundColor(ColorTokens.textPrimary)
@@ -54,7 +54,7 @@ struct ChallengeCardView: View {
             }
             .padding(.vertical, 16)
 
-            // Validate CTA
+            // Validate CTA — uses per-type gradient so action #1 of the day pops with the right hue
             if challenge.isActive {
                 Button(action: onValidate) {
                     HStack(spacing: 8) {
@@ -66,7 +66,7 @@ struct ChallengeCardView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(ColorTokens.primaryGradient)
+                    .background(challenge.type.gradient)
                 }
             }
         }
@@ -84,11 +84,11 @@ struct ChallengeCardView: View {
         VStack(spacing: 6) {
             ZStack {
                 Circle()
-                    .fill(isMe ? ColorTokens.primarySoft : ColorTokens.surfaceElevated)
+                    .fill(isMe ? challenge.type.softColor : ColorTokens.surfaceElevated)
                     .frame(width: 40, height: 40)
                 Text(String(name.prefix(1)).uppercased())
                     .font(.satoshi(16, weight: .bold))
-                    .foregroundColor(isMe ? ColorTokens.primaryStart : ColorTokens.textSecondary)
+                    .foregroundColor(isMe ? challenge.type.primaryColor : ColorTokens.textSecondary)
             }
 
             Text(name)
@@ -128,7 +128,7 @@ struct ChallengeCardView: View {
                         let day = row * cols + col + 1
                         if day <= total {
                             Circle()
-                                .fill(day <= completed ? ColorTokens.primaryStart : ColorTokens.border)
+                                .fill(day <= completed ? challenge.type.primaryColor : ColorTokens.border)
                                 .frame(width: 4, height: 4)
                         }
                     }
