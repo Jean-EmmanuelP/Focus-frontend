@@ -9,19 +9,20 @@ struct CreateChallengeView: View {
     @State private var customAlarmTime = Date()
     @State private var customDuration = 30
     @State private var customMantra = ""
+    @State private var customTitle = ""
     @State private var isCreating = false
 
-    var onCreate: (ChallengeType, String, Int, String?, String?) -> Void
+    var onCreate: (ChallengeType, String, Int, String?, String?, Bool) -> Void
 
     private let suggestions: [SuggestedChallenge] = [
         SuggestedChallenge(type: .wakeup, title: "Réveil 7h", subtitle: "Devenir matinal", emoji: "🌅", duration: 30, defaultTime: "07:00",
-                          gradient: LinearGradient(colors: [Color(hex: "#FF9500"), Color(hex: "#FF6B00")], startPoint: .topLeading, endPoint: .bottomTrailing)),
+                          gradient: LinearGradient(colors: [Color.white.opacity(0.9), Color.white.opacity(0.5)], startPoint: .topLeading, endPoint: .bottomTrailing)),
         SuggestedChallenge(type: .gym, title: "Sport quotidien", subtitle: "Forge ton corps", emoji: "💪", duration: 21, defaultTime: nil,
-                          gradient: LinearGradient(colors: [Color(hex: "#FF3B30"), Color(hex: "#FF2D55")], startPoint: .topLeading, endPoint: .bottomTrailing)),
+                          gradient: LinearGradient(colors: [Color.white.opacity(0.8), Color.white.opacity(0.4)], startPoint: .topLeading, endPoint: .bottomTrailing)),
         SuggestedChallenge(type: .meditation, title: "Méditation", subtitle: "Calme intérieur", emoji: "🧘", duration: 14, defaultTime: "06:30",
-                          gradient: LinearGradient(colors: [Color(hex: "#AF52DE"), Color(hex: "#5856D6")], startPoint: .topLeading, endPoint: .bottomTrailing)),
+                          gradient: LinearGradient(colors: [Color.white.opacity(0.7), Color.white.opacity(0.35)], startPoint: .topLeading, endPoint: .bottomTrailing)),
         SuggestedChallenge(type: .reading, title: "Lecture 30 min", subtitle: "Un livre par mois", emoji: "📖", duration: 30, defaultTime: "21:00",
-                          gradient: LinearGradient(colors: [Color(hex: "#007AFF"), Color(hex: "#5AC8FA")], startPoint: .topLeading, endPoint: .bottomTrailing)),
+                          gradient: LinearGradient(colors: [Color.white.opacity(0.6), Color.white.opacity(0.3)], startPoint: .topLeading, endPoint: .bottomTrailing)),
     ]
 
     var body: some View {
@@ -53,7 +54,7 @@ struct CreateChallengeView: View {
                         // Custom
                         Button {
                             selectedChallenge = SuggestedChallenge(type: .custom, title: "Personnalisé", subtitle: "Ton propre défi", emoji: "⭐", duration: 30, defaultTime: nil,
-                                gradient: LinearGradient(colors: [Color(hex: "#34C759"), Color(hex: "#30D158")], startPoint: .topLeading, endPoint: .bottomTrailing))
+                                gradient: LinearGradient(colors: [Color.white.opacity(0.5), Color.white.opacity(0.25)], startPoint: .topLeading, endPoint: .bottomTrailing))
                             showCustomize = true
                         } label: {
                             HStack(spacing: 10) {
@@ -193,14 +194,39 @@ struct CreateChallengeView: View {
                     VStack(spacing: 6) {
                         Text(s.emoji)
                             .font(.system(size: 48))
-                        Text(s.title)
-                            .font(.satoshi(22, weight: .bold))
-                            .foregroundColor(.white)
+                        if s.type == .custom {
+                            // Editable name for custom challenges
+                            TextField("Nom du challenge", text: $customTitle)
+                                .font(.satoshi(22, weight: .bold))
+                                .foregroundColor(.white)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 40)
+                        } else {
+                            Text(s.title)
+                                .font(.satoshi(22, weight: .bold))
+                                .foregroundColor(.white)
+                        }
                         Text(s.subtitle)
                             .font(.satoshi(14, weight: .regular))
                             .foregroundColor(ColorTokens.textSecondary)
                     }
                     .padding(.top, 16)
+
+                    // Rule explanation
+                    HStack(spacing: 8) {
+                        Image(systemName: "info.circle")
+                            .font(.system(size: 12))
+                            .foregroundColor(ColorTokens.primaryStart)
+                        Text(ruleExplanation(for: s.type))
+                            .font(.satoshi(13, weight: .medium))
+                            .foregroundColor(ColorTokens.textSecondary)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(ColorTokens.primarySoft)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .padding(.horizontal, 16)
 
                     // Time (if applicable)
                     if s.type == .wakeup || s.type == .meditation {
@@ -268,12 +294,13 @@ struct CreateChallengeView: View {
                             let h = Calendar.current.component(.hour, from: customAlarmTime)
                             let m = Calendar.current.component(.minute, from: customAlarmTime)
                             let mantra = customMantra.trimmingCharacters(in: .whitespaces).isEmpty ? nil : customMantra.trimmingCharacters(in: .whitespaces)
-                            onCreate(s.type, String(format: "%02d:%02d", h, m), customDuration, s.type == .custom ? s.title : nil, mantra)
+                            let title = s.type == .custom ? (customTitle.isEmpty ? "Challenge" : customTitle) : nil
+                            onCreate(s.type, String(format: "%02d:%02d", h, m), customDuration, title, mantra, true)
                             dismiss()
                         } label: {
                             HStack(spacing: 8) {
                                 Image(systemName: "person.badge.plus")
-                                Text("Créer et inviter")
+                                Text("Creer et inviter")
                                     .font(.satoshi(16, weight: .bold))
                             }
                             .foregroundColor(.white)
@@ -287,7 +314,8 @@ struct CreateChallengeView: View {
                             let h = Calendar.current.component(.hour, from: customAlarmTime)
                             let m = Calendar.current.component(.minute, from: customAlarmTime)
                             let mantra = customMantra.trimmingCharacters(in: .whitespaces).isEmpty ? nil : customMantra.trimmingCharacters(in: .whitespaces)
-                            onCreate(s.type, String(format: "%02d:%02d", h, m), customDuration, nil, mantra)
+                            let title = s.type == .custom ? (customTitle.isEmpty ? "Challenge" : customTitle) : nil
+                            onCreate(s.type, String(format: "%02d:%02d", h, m), customDuration, title, mantra, false)
                             dismiss()
                         } label: {
                             Text("Commencer seul")
@@ -318,6 +346,16 @@ struct CreateChallengeView: View {
                     if let d = Calendar.current.date(from: c) { customAlarmTime = d }
                 }
             }
+        }
+    }
+
+    private func ruleExplanation(for type: ChallengeType) -> String {
+        switch type {
+        case .wakeup: return "Prends une photo chaque matin dans l'heure qui suit ton reveil. Si tu rates, c'est un jour perdu."
+        case .gym: return "Prends une photo a la salle chaque jour. Tu vois ton evolution au fil du temps."
+        case .meditation: return "Prends une photo de ta meditation le matin entre 5h et 10h."
+        case .reading: return "Prends une photo de ta lecture le soir entre 18h et minuit."
+        case .custom: return "Definis ton propre challenge. Une photo par jour pour prouver que tu tiens."
         }
     }
 

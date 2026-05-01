@@ -27,10 +27,10 @@ struct VoiceCallView: View {
 
     // Dynamic background color — clearly different for AI vs user
     private var bgGradientColor: Color {
-        if viewModel.isAgentSpeaking { return Color(red: 0.04, green: 0.08, blue: 0.18) } // deep blue = AI
-        if viewModel.isUserSpeaking { return Color(red: 0.18, green: 0.10, blue: 0.03) } // warm amber = user
-        if isListening { return Color(red: 0.12, green: 0.08, blue: 0.02) } // subtle amber = your turn
-        return Color(red: 0.03, green: 0.03, blue: 0.05) // neutral dark
+        if viewModel.isAgentSpeaking { return Color(white: 0.08) } // dark = AI
+        if viewModel.isUserSpeaking { return Color(white: 0.12) } // slightly lighter = user
+        if isListening { return Color(white: 0.10) } // subtle = your turn
+        return Color(white: 0.03) // neutral dark
     }
 
     var body: some View {
@@ -41,6 +41,12 @@ struct VoiceCallView: View {
                 .animation(.easeInOut(duration: 0.6), value: viewModel.isAgentSpeaking)
                 .animation(.easeInOut(duration: 0.6), value: isListening)
                 .animation(.easeInOut(duration: 0.4), value: viewModel.isUserSpeaking)
+
+            // 3D talking head — lips move when the agent is speaking
+            TalkingHeadView(isSpeaking: viewModel.isAgentSpeaking, mood: "neutral")
+                .ignoresSafeArea()
+                .opacity(0.55)
+                .allowsHitTesting(false)
 
             if viewModel.callState == .offline {
                 offlineView
@@ -113,7 +119,7 @@ struct VoiceCallView: View {
                 if !isMorningVerification && isListening && !viewModel.isAgentSpeaking && viewModel.transcribedText.isEmpty {
                     Text("Dites quelque chose...")
                         .font(.satoshi(16, weight: .medium))
-                        .foregroundColor(Color.orange.opacity(0.7))
+                        .foregroundColor(Color(white: 0.6).opacity(0.7))
                         .padding(.bottom, 16)
                         .transition(.opacity)
                         .animation(.easeInOut(duration: 0.3), value: isListening)
@@ -168,10 +174,10 @@ struct VoiceCallView: View {
 
             if !viewModel.isOnline {
                 HStack(spacing: 4) {
-                    Circle().fill(Color.orange).frame(width: 6, height: 6)
+                    Circle().fill(Color(white: 0.6)).frame(width: 6, height: 6)
                     Text("Hors ligne")
                         .font(.system(size: 12))
-                        .foregroundColor(.orange.opacity(0.8))
+                        .foregroundColor(Color(white: 0.6).opacity(0.8))
                 }
             }
 
@@ -315,7 +321,7 @@ struct VoiceCallView: View {
                 ForEach(0..<3, id: \.self) { i in
                     ZStack {
                         Circle()
-                            .fill(i < exercisesCompleted ? Color.green : Color.white.opacity(0.15))
+                            .fill(i < exercisesCompleted ? Color.white : Color.white.opacity(0.15))
                             .frame(width: 36, height: 36)
                         if i < exercisesCompleted {
                             Image(systemName: "checkmark")
@@ -339,10 +345,10 @@ struct VoiceCallView: View {
             if exercisesCompleted >= 3 {
                 HStack(spacing: 6) {
                     Image(systemName: "star.fill")
-                        .foregroundColor(.yellow)
+                        .foregroundColor(.white)
                     Text("+50 points")
                         .font(.satoshi(16, weight: .bold))
-                        .foregroundColor(.yellow)
+                        .foregroundColor(.white)
                 }
                 .transition(.scale.combined(with: .opacity))
             }
@@ -369,13 +375,13 @@ struct VoiceCallView: View {
             .padding(.vertical, 18)
             .background(
                 LinearGradient(
-                    colors: [Color.green, Color(red: 0.2, green: 0.8, blue: 0.4)],
+                    colors: [Color.white, Color(white: 0.85)],
                     startPoint: .leading,
                     endPoint: .trailing
                 )
             )
             .clipShape(RoundedRectangle(cornerRadius: 16))
-            .shadow(color: .green.opacity(0.3), radius: 12, y: 4)
+            .shadow(color: .white.opacity(0.3), radius: 12, y: 4)
         }
         .padding(.horizontal, 30)
         .disabled(exercisesCompleted >= 3)
@@ -384,10 +390,10 @@ struct VoiceCallView: View {
 
     // Orb color: distinct blue when AI speaks, warm orange when user speaks
     private var orbGlowColor: Color {
-        if viewModel.isAgentSpeaking { return Color(red: 0.25, green: 0.55, blue: 1.0) } // vivid blue = AI
-        if viewModel.isUserSpeaking { return Color(red: 1.0, green: 0.55, blue: 0.15) } // vivid orange = user
-        if isListening { return Color(red: 0.9, green: 0.5, blue: 0.2) } // orange waiting for user
-        return Color(red: 0.3, green: 0.4, blue: 0.5) // neutral gray-blue
+        if viewModel.isAgentSpeaking { return .white } // white = AI
+        if viewModel.isUserSpeaking { return Color(white: 0.75) } // light gray = user
+        if isListening { return Color(white: 0.6) } // medium gray waiting for user
+        return Color(white: 0.4) // neutral gray
     }
 
     private var orbPulse: CGFloat {
@@ -409,8 +415,8 @@ struct VoiceCallView: View {
     }
 
     private var speakingStatusColor: Color {
-        if viewModel.isAgentSpeaking { return Color(red: 0.4, green: 0.7, blue: 1.0) }
-        if viewModel.isUserSpeaking { return Color(red: 1.0, green: 0.65, blue: 0.3) }
+        if viewModel.isAgentSpeaking { return .white }
+        if viewModel.isUserSpeaking { return Color(white: 0.75) }
         return .white.opacity(0.4)
     }
 
@@ -594,7 +600,7 @@ struct VoiceCallView: View {
         case .pending:
             Image(systemName: "clock")
                 .font(.system(size: 12))
-                .foregroundColor(.orange)
+                .foregroundColor(Color(white: 0.6))
         case .sending:
             ProgressView()
                 .scaleEffect(0.7)
@@ -602,11 +608,11 @@ struct VoiceCallView: View {
         case .sent:
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 12))
-                .foregroundColor(.green)
+                .foregroundColor(.white)
         case .failed:
             Image(systemName: "exclamationmark.circle.fill")
                 .font(.system(size: 12))
-                .foregroundColor(.red)
+                .foregroundColor(.white)
         }
     }
 
@@ -680,7 +686,7 @@ struct MessageBubble: View {
                 if isCopied {
                     Text("Copie !")
                         .font(.system(size: 11))
-                        .foregroundColor(.green.opacity(0.8))
+                        .foregroundColor(.white.opacity(0.8))
                         .transition(.opacity)
                 }
             }

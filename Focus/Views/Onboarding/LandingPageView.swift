@@ -75,9 +75,9 @@ struct LandingPageView: View {
                 .foregroundStyle(
                     LinearGradient(
                         colors: [
-                            Color(red: 0.43, green: 0.66, blue: 1.0),
-                            Color(red: 0.65, green: 0.55, blue: 0.98),
-                            Color(red: 0.38, green: 0.84, blue: 0.77)
+                            Color.white,
+                            Color(white: 0.75),
+                            Color(white: 0.85)
                         ],
                         startPoint: .leading,
                         endPoint: .trailing
@@ -115,7 +115,7 @@ struct LandingPageView: View {
                     Text("Continuer avec Google")
                         .font(.system(size: 19, weight: .semibold))
                 }
-                .foregroundColor(Color(red: 0.10, green: 0.10, blue: 0.18))
+                .foregroundColor(Color.black)
                 .frame(maxWidth: .infinity)
                 .frame(height: 56)
                 .background(Color.white.opacity(0.95))
@@ -244,7 +244,7 @@ private struct GoogleLogoView: View {
             blue.addCurve(to: CGPoint(x: 22.56 * scale, y: 12.25 * scale),
                           control1: CGPoint(x: 21.36 * scale, y: 18.43 * scale),
                           control2: CGPoint(x: 22.56 * scale, y: 15.49 * scale))
-            context.fill(blue, with: .color(Color(red: 0.26, green: 0.52, blue: 0.96)))
+            context.fill(blue, with: .color(Color(hex: "#4285F4")))
 
             // Green
             var green = Path()
@@ -263,7 +263,7 @@ private struct GoogleLogoView: View {
             green.addCurve(to: CGPoint(x: 12 * scale, y: 23 * scale),
                            control1: CGPoint(x: 3.99 * scale, y: 20.53 * scale),
                            control2: CGPoint(x: 7.7 * scale, y: 23 * scale))
-            context.fill(green, with: .color(Color(red: 0.20, green: 0.66, blue: 0.33)))
+            context.fill(green, with: .color(Color(hex: "#34A853")))
 
             // Yellow
             var yellow = Path()
@@ -276,7 +276,7 @@ private struct GoogleLogoView: View {
                             control1: CGPoint(x: 1.43 * scale, y: 8.55 * scale),
                             control2: CGPoint(x: 1 * scale, y: 10.22 * scale))
             yellow.addLine(to: CGPoint(x: 5.84 * scale, y: 14.09 * scale))
-            context.fill(yellow, with: .color(Color(red: 0.98, green: 0.74, blue: 0.02)))
+            context.fill(yellow, with: .color(Color(hex: "#FBBC04")))
 
             // Red
             var red = Path()
@@ -295,7 +295,7 @@ private struct GoogleLogoView: View {
             red.addCurve(to: CGPoint(x: 12 * scale, y: 5.38 * scale),
                          control1: CGPoint(x: 6.71 * scale, y: 7.31 * scale),
                          control2: CGPoint(x: 9.14 * scale, y: 5.38 * scale))
-            context.fill(red, with: .color(Color(red: 0.92, green: 0.26, blue: 0.21)))
+            context.fill(red, with: .color(Color(hex: "#EA4335")))
         }
     }
 }

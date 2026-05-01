@@ -31,8 +31,8 @@ struct FocusPulseDot: View {
         if !user.isInFocusSession {
             return .white.opacity(0.15)
         }
-        // Orange/amber for focusing users
-        return .orange
+        // White for focusing users
+        return .white
     }
 
     /// Whether this dot should render as an active/visible dot (not a ghost)
@@ -67,8 +67,8 @@ struct FocusPulseDot: View {
                     .fill(
                         RadialGradient(
                             colors: [
-                                isCurrentUser ? ColorTokens.primaryStart : Color.orange.opacity(user.isInFocusSession ? 0.95 : 0.5),
-                                isCurrentUser ? ColorTokens.primaryStart.opacity(0.6) : Color(red: 0.9, green: 0.4, blue: 0.1).opacity(user.isInFocusSession ? 0.7 : 0.3)
+                                isCurrentUser ? ColorTokens.primaryStart : Color.white.opacity(user.isInFocusSession ? 0.95 : 0.5),
+                                isCurrentUser ? ColorTokens.primaryStart.opacity(0.6) : Color.white.opacity(user.isInFocusSession ? 0.7 : 0.3)
                             ],
                             center: .center,
                             startRadius: 0,
@@ -87,7 +87,7 @@ struct FocusPulseDot: View {
                     HStack(spacing: 1) {
                         Image(systemName: "flame.fill")
                             .font(.system(size: 7))
-                            .foregroundColor(.orange)
+                            .foregroundColor(.white)
                         Text("\(streak)")
                             .font(.system(size: 8, weight: .bold))
                             .foregroundColor(.white)

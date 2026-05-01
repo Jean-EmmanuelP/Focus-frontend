@@ -4,46 +4,46 @@
 import SwiftUI
 import UIKit
 
-/// All color tokens for the app - Opal-inspired calm design
+/// All color tokens for the app - Monochrome black & white design
 enum ColorTokens {
-    // MARK: - Backgrounds (Deep black for sacred space feel)
-    static let background = Color(hex: "#050508")
-    static let surface = Color(hex: "#0F1014")
-    static let surfaceElevated = Color(hex: "#1A1B21")
+    // MARK: - Backgrounds (Pure black)
+    static let background = Color(hex: "#000000")
+    static let surface = Color(hex: "#0A0A0A")
+    static let surfaceElevated = Color(hex: "#141414")
 
-    // MARK: - Primary (Sky blue - calm, serene)
-    static let primaryStart = Color(hex: "#5AC8FA")  // iOS Sky Blue
-    static let primaryEnd = Color(hex: "#64D2FF")    // Lighter sky blue
-    static let primarySoft = Color(hex: "#5AC8FA").opacity(0.12)
-    static let primaryGlow = Color(hex: "#5AC8FA").opacity(0.3)
+    // MARK: - Primary (White)
+    static let primaryStart = Color.white
+    static let primaryEnd = Color(hex: "#F0F0F0")
+    static let primarySoft = Color.white.opacity(0.08)
+    static let primaryGlow = Color.white.opacity(0.15)
 
-    // MARK: - Accent (Subtle teal for variety)
-    static let accent = Color(hex: "#4ECDC4")
-    static let accentSoft = Color(hex: "#4ECDC4").opacity(0.12)
+    // MARK: - Accent (Gray)
+    static let accent = Color(hex: "#E0E0E0")
+    static let accentSoft = Color.white.opacity(0.08)
 
     // MARK: - Text
     static let textPrimary = Color.white
-    static let textSecondary = Color(hex: "#A0A0A8")
-    static let textMuted = Color(hex: "#5A5A64")
+    static let textSecondary = Color(hex: "#888888")
+    static let textMuted = Color(hex: "#666666")
 
-    // MARK: - States
-    static let success = Color(hex: "#34C759")  // iOS Green
-    static let warning = Color(hex: "#FFD60A")  // iOS Yellow
-    static let error = Color(hex: "#FF453A")    // iOS Red
+    // MARK: - States (Monochrome)
+    static let success = Color.white
+    static let warning = Color(hex: "#CCCCCC")
+    static let error = Color.white
 
     // MARK: - Borders
-    static let border = Color.white.opacity(0.08)
-    static let borderActive = Color(hex: "#5AC8FA").opacity(0.4)
+    static let border = Color.white.opacity(0.10)
+    static let borderActive = Color.white.opacity(0.30)
 
-    // MARK: - Gradients (Serene blue gradients)
+    // MARK: - Gradients (White to gray)
     static let primaryGradient = LinearGradient(
-        colors: [primaryStart, primaryEnd],
+        colors: [Color.white, Color(hex: "#F0F0F0")],
         startPoint: .leading,
         endPoint: .trailing
     )
 
     static let primaryGradientVertical = LinearGradient(
-        colors: [primaryStart, primaryEnd],
+        colors: [Color.white, Color(hex: "#F0F0F0")],
         startPoint: .top,
         endPoint: .bottom
     )
@@ -66,16 +66,16 @@ enum ColorTokens {
         endPoint: .trailing
     )
 
-    // Success gradient (green)
+    // Success gradient
     static let successGradient = LinearGradient(
-        colors: [success, Color(hex: "#30D158")],
+        colors: [Color.white, Color(hex: "#F0F0F0")],
         startPoint: .leading,
         endPoint: .trailing
     )
 
-    // Accent gradient (teal)
+    // Accent gradient (gray)
     static let accentGradient = LinearGradient(
-        colors: [accent, Color(hex: "#5FE3D9")],
+        colors: [Color(hex: "#E0E0E0"), Color(hex: "#C0C0C0")],
         startPoint: .leading,
         endPoint: .trailing
     )

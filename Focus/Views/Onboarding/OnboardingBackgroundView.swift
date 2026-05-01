@@ -29,7 +29,7 @@ struct OnboardingBackgroundView: View {
                 .offset(y: -20)
         }
         .ignoresSafeArea()
-        .background(Color(red: 0.04, green: 0.055, blue: 0.1))
+        .background(Color.black)
     }
 }
 
@@ -39,19 +39,19 @@ private struct BackgroundGradient: View {
         ZStack {
             LinearGradient(
                 colors: [
-                    Color(red: 0.024, green: 0.04, blue: 0.08),
-                    Color(red: 0.047, green: 0.07, blue: 0.145),
-                    Color(red: 0.06, green: 0.1, blue: 0.18),
-                    Color(red: 0.024, green: 0.04, blue: 0.08)
+                    Color(white: 0.02),
+                    Color(white: 0.05),
+                    Color(white: 0.07),
+                    Color(white: 0.02)
                 ],
                 startPoint: .top,
                 endPoint: .bottom
             )
 
-            // Radial bleu
+            // Radial light
             RadialGradient(
                 colors: [
-                    Color(red: 0.08, green: 0.235, blue: 0.353).opacity(0.7),
+                    Color.white.opacity(0.12),
                     Color.clear
                 ],
                 center: .center,
@@ -59,10 +59,10 @@ private struct BackgroundGradient: View {
                 endRadius: 300
             )
 
-            // Radial violet
+            // Radial secondary
             RadialGradient(
                 colors: [
-                    Color(red: 0.157, green: 0.08, blue: 0.314).opacity(0.5),
+                    Color.white.opacity(0.08),
                     Color.clear
                 ],
                 center: UnitPoint(x: 0.3, y: 0.45),
@@ -80,21 +80,21 @@ private struct FloatingOrbs: View {
     var body: some View {
         ZStack {
             Circle()
-                .fill(Color(red: 0.39, green: 0.55, blue: 1.0).opacity(0.15))
+                .fill(Color.white.opacity(0.15))
                 .frame(width: 200, height: 200)
                 .blur(radius: 60)
                 .offset(x: -80, y: animate ? -40 : 0)
                 .opacity(animate ? 1 : 0)
 
             Circle()
-                .fill(Color(red: 0.7, green: 0.39, blue: 1.0).opacity(0.1))
+                .fill(Color.white.opacity(0.1))
                 .frame(width: 160, height: 160)
                 .blur(radius: 60)
                 .offset(x: 80, y: animate ? -60 : -20)
                 .opacity(animate ? 1 : 0)
 
             Circle()
-                .fill(Color(red: 0.235, green: 0.78, blue: 0.7).opacity(0.08))
+                .fill(Color.white.opacity(0.08))
                 .frame(width: 120, height: 120)
                 .blur(radius: 60)
                 .offset(x: -20, y: animate ? 80 : 120)
@@ -208,7 +208,7 @@ private struct SceneGlow: View {
             .fill(
                 RadialGradient(
                     colors: [
-                        Color(red: 1.0, green: 0.7, blue: 0.39).opacity(0.12),
+                        Color.white.opacity(0.12),
                         Color.clear
                     ],
                     center: .center,
@@ -269,8 +269,8 @@ private struct SceneView: View {
                 Path(ellipseIn: portalRect),
                 with: .radialGradient(
                     Gradient(colors: [
-                        Color(red: 1, green: 0.82, blue: 0.55).opacity(0.4),
-                        Color(red: 0.78, green: 0.63, blue: 1).opacity(0.15),
+                        Color.white.opacity(0.4),
+                        Color(white: 0.7).opacity(0.15),
                         Color.clear
                     ]),
                     center: CGPoint(x: w * 0.5, y: h * 0.44),
@@ -291,7 +291,7 @@ private struct SceneView: View {
                 Path(ellipseIn: bigLight),
                 with: .radialGradient(
                     Gradient(colors: [
-                        Color(red: 1, green: 0.88, blue: 0.63).opacity(0.25),
+                        Color.white.opacity(0.25),
                         Color.clear
                     ]),
                     center: lightCenter,
@@ -307,7 +307,7 @@ private struct SceneView: View {
             )
             context.fill(
                 Path(ellipseIn: coreLight),
-                with: .color(Color(red: 1, green: 0.98, blue: 0.9).opacity(0.5))
+                with: .color(Color.white.opacity(0.5))
             )
 
             // -- Chemin lumineux au sol --
@@ -326,8 +326,8 @@ private struct SceneView: View {
                 lightPath,
                 with: .linearGradient(
                     Gradient(colors: [
-                        Color(red: 1, green: 0.82, blue: 0.55).opacity(0.35),
-                        Color(red: 1, green: 0.78, blue: 0.47).opacity(0)
+                        Color.white.opacity(0.35),
+                        Color.white.opacity(0)
                     ]),
                     startPoint: CGPoint(x: w * 0.5, y: h * 0.5),
                     endPoint: CGPoint(x: w * 0.5, y: h * 0.91)
@@ -335,7 +335,7 @@ private struct SceneView: View {
             )
 
             // -- Figure humaine (gauche) --
-            let fig1Color = Color(red: 0.11, green: 0.11, blue: 0.24)
+            let fig1Color = Color(white: 0.15)
             let f1x: CGFloat = w * 0.375
             let f1y: CGFloat = h * 0.34
 
@@ -380,14 +380,14 @@ private struct SceneView: View {
             )
 
             // -- Figure IA (droite) --
-            let fig2Color = Color(red: 0.125, green: 0.125, blue: 0.28)
+            let fig2Color = Color(white: 0.18)
             let f2x: CGFloat = w * 0.54
             let f2y: CGFloat = h * 0.31
 
             // Aura subtile
             context.fill(
                 Path(ellipseIn: CGRect(x: f2x - 14, y: f2y + 10, width: 60, height: 120)),
-                with: .color(Color(red: 0.47, green: 0.67, blue: 1).opacity(0.04))
+                with: .color(Color.white.opacity(0.04))
             )
 
             // Tête
@@ -434,7 +434,7 @@ private struct SceneView: View {
                 Path(ellipseIn: connectRect.insetBy(dx: -6, dy: -6)),
                 with: .radialGradient(
                     Gradient(colors: [
-                        Color(red: 1, green: 0.82, blue: 0.55).opacity(0.3),
+                        Color.white.opacity(0.3),
                         Color.clear
                     ]),
                     center: connectPt,
@@ -444,7 +444,7 @@ private struct SceneView: View {
             )
             context.fill(
                 Path(ellipseIn: connectRect),
-                with: .color(Color(red: 1, green: 0.94, blue: 0.78).opacity(0.4))
+                with: .color(Color.white.opacity(0.4))
             )
         }
     }

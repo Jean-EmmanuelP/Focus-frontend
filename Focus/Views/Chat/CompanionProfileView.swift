@@ -180,13 +180,13 @@ struct CompanionProfileView: View {
 
     private var animatedBackground: some View {
         ZStack {
-            // Base: Vibrant saturated blue (exact Replika color)
-            Color(red: 0.22, green: 0.50, blue: 1.0)
+            // Base: Dark monochrome
+            Color(white: 0.10)
 
-            // Top gradient overlay (lighter blue at top)
+            // Top gradient overlay (lighter gray at top)
             LinearGradient(
                 colors: [
-                    Color(red: 0.35, green: 0.60, blue: 1.0).opacity(0.7),
+                    Color(white: 0.20).opacity(0.7),
                     Color.clear
                 ],
                 startPoint: .top,
@@ -206,11 +206,11 @@ struct CompanionProfileView: View {
             )
             .offset(y: animateGradient ? -40 : 40)
 
-            // Bottom gradient (slightly darker blue)
+            // Bottom gradient (slightly darker)
             LinearGradient(
                 colors: [
                     Color.clear,
-                    Color(red: 0.18, green: 0.40, blue: 0.85).opacity(0.4)
+                    Color(white: 0.08).opacity(0.4)
                 ],
                 startPoint: .center,
                 endPoint: .bottom
@@ -339,7 +339,7 @@ struct CompanionProfileView: View {
     // MARK: - Avatar Section
 
     private var avatarSection: some View {
-        FocusPulseView()
+        TalkingHeadView(isSpeaking: false, mood: "neutral")
             .frame(height: 250)
             .clipShape(RoundedRectangle(cornerRadius: 24))
             .padding(.top, 20)
@@ -458,7 +458,7 @@ struct CompanionProfileView: View {
                 .frame(maxWidth: .infinity)
                 .background(
                     RoundedRectangle(cornerRadius: 16)
-                        .fill(Color(red: 0.15, green: 0.25, blue: 0.45).opacity(0.6))
+                        .fill(Color(white: 0.20).opacity(0.6))
                 )
             } else {
                 // Memories list
@@ -716,7 +716,7 @@ struct AddMemorySheet: View {
                         .padding(.vertical, 14)
                         .background(
                             RoundedRectangle(cornerRadius: 12)
-                                .fill(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.gray : Color.blue)
+                                .fill(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.gray : Color.white)
                         )
                 }
                 .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)

@@ -26,10 +26,12 @@ struct ChatView: View {
     @State private var showDiscoverMap = false
     @State private var showActionButtons = false
     @State private var showPlanning = false
+    @State private var showChallengeHub = false
     @State private var showMorningVerification = false
     @State private var showCopiedToast = false
     @StateObject private var challengeVM = ChallengeViewModel()
     @State private var showChallengeDetail = false
+    @State private var showUnblockConfirm = false
 
     @EnvironmentObject var subscriptionManager: SubscriptionManager
 
@@ -77,41 +79,53 @@ struct ChatView: View {
 
                     // App blocking banner
                     if ScreenTimeAppBlockerService.shared.isBlocking {
-                        AppBlockingBanner()
+                        AppBlockingBanner(onTap: { showUnblockConfirm = true })
                             .padding(.top, 6)
                             .transition(.move(edge: .top).combined(with: .opacity))
                     }
 
                     // Content area — tap to dismiss action buttons
                     if isHomeMode {
-                        // Challenge banner — show when user has an active or pending challenge
-                        if let challenge = challengeVM.activeChallenge ?? challengeVM.challenges.first {
+                        // Challenge banner — daily progress
+                        if let firstActive = challengeVM.challenges.first(where: { $0.isActive }) {
                             Button {
-                                showChallengeDetail = true
+                                showChallengeHub = true
                             } label: {
-                                HStack(spacing: 12) {
-                                    Text("🔥")
-                                        .font(.system(size: 24))
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(challenge.displayTitle)
+                                let allActive = challengeVM.challenges.filter { $0.isActive }
+                                let totalSteps = allActive.reduce(0) { $0 + $1.type.steps.count }
+                                // Approximate done steps from score
+                                let allDone = allActive.allSatisfy { $0.hasLikelyValidatedToday(myId: FocusAppStore.shared.user?.id ?? "") }
+
+                                HStack(spacing: 10) {
+                                    // Checkbox icon
+                                    Image(systemName: allDone ? "checkmark.circle.fill" : "circle")
+                                        .font(.system(size: 18))
+                                        .foregroundColor(allDone ? ColorTokens.success : firstActive.type.primaryColor)
+
+                                    if allDone {
+                                        Text("Tout valide !")
                                             .font(.satoshi(15, weight: .bold))
+                                            .foregroundColor(ColorTokens.success)
+                                    } else {
+                                        Text("\(firstActive.displayTitle) · Jour \(max(firstActive.dayNumber, 1))")
+                                            .font(.satoshi(14, weight: .medium))
                                             .foregroundColor(.white)
-                                        Text(challenge.isActive ? "Jour \(challenge.dayNumber)/\(challenge.durationDays ?? 30)" : "En attente d'un pote")
-                                            .font(.satoshi(12, weight: .medium))
-                                            .foregroundColor(ColorTokens.textSecondary)
                                     }
+
                                     Spacer()
-                                    Image(systemName: "chevron.right")
-                                        .font(.system(size: 12, weight: .semibold))
-                                        .foregroundColor(ColorTokens.textMuted)
+
+                                    Text("Ouvrir")
+                                        .font(.satoshi(12, weight: .bold))
+                                        .foregroundColor(firstActive.type.primaryColor)
                                 }
-                                .padding(14)
-                                .background(ColorTokens.primarySoft)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
+                                .background(ColorTokens.surface)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
                                 .overlay(
-                                    RoundedRectangle(cornerRadius: RadiusTokens.lg)
-                                        .stroke(ColorTokens.primaryStart.opacity(0.3), lineWidth: 1)
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(ColorTokens.border, lineWidth: 1)
                                 )
-                                .clipShape(RoundedRectangle(cornerRadius: RadiusTokens.lg))
                             }
                             .buttonStyle(.plain)
                             .padding(.horizontal, 16)
@@ -240,6 +254,14 @@ struct ChatView: View {
             }
         }
         .animation(.easeInOut(duration: 0.3), value: showDiscoverMap)
+        .alert("Débloquer les apps ?", isPresented: $showUnblockConfirm) {
+            Button("Débloquer", role: .destructive) {
+                ScreenTimeAppBlockerService.shared.stopBlocking()
+            }
+            Button("Annuler", role: .cancel) {}
+        } message: {
+            Text("Tes apps seront de nouveau accessibles.")
+        }
         .overlay(alignment: .top) {
             if showCopiedToast {
                 HStack(spacing: 6) {
@@ -285,11 +307,9 @@ struct ChatView: View {
         .fullScreenCover(isPresented: $showVoiceCall) {
             VoiceCallView()
         }
-        .fullScreenCover(isPresented: $showMorningVerification) {
-            VoiceCallView(mode: "morning_verification")
-        }
         .onReceive(NotificationCenter.default.publisher(for: .openMorningVerification)) { _ in
-            showMorningVerification = true
+            // Morning verification now goes to challenge hub instead of voice call
+            showChallengeHub = true
         }
         .sheet(isPresented: $showChallengeDetail) {
             if let challenge = challengeVM.activeChallenge ?? challengeVM.challenges.first {
@@ -311,6 +331,9 @@ struct ChatView: View {
         .fullScreenCover(isPresented: $showPlanning) {
             PlanningView()
                 .environmentObject(store)
+        }
+        .fullScreenCover(isPresented: $showChallengeHub) {
+            ChallengeHubView()
         }
         .onChange(of: isInputFocused) { _, focused in
             if focused {
@@ -334,7 +357,7 @@ struct ChatView: View {
     // MARK: - Background (Focus Pulse)
 
     private var replikaBackground: some View {
-        FocusPulseView()
+        TalkingHeadView(isSpeaking: false, mood: "neutral")
             .ignoresSafeArea()
     }
 
@@ -381,7 +404,7 @@ struct ChatView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "flame.fill")
                         .font(.system(size: 14))
-                        .foregroundColor(.orange)
+                        .foregroundColor(.white)
                     Text(companionName)
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(.white)
@@ -389,7 +412,7 @@ struct ChatView: View {
                         .foregroundColor(.white.opacity(0.3))
                     Text("\(store.currentStreak)j")
                         .font(.system(size: 13, weight: .bold, design: .rounded))
-                        .foregroundColor(.orange.opacity(0.8))
+                        .foregroundColor(.white.opacity(0.8))
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
@@ -401,25 +424,83 @@ struct ChatView: View {
 
             Spacer()
 
-            // Right: Settings gear
-            Button(action: {
-                isInputFocused = false
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    showSettings = true
+            // Right: Lock + Planning + Settings
+            HStack(spacing: 8) {
+                Button(action: {
+                    isInputFocused = false
+                    handleBlockButtonTap()
+                }) {
+                    let blocker = ScreenTimeAppBlockerService.shared
+                    Image(systemName: blocker.isBlocking ? "lock.fill" : "lock.open.fill")
+                        .font(.system(size: 15))
+                        .foregroundColor(blocker.isBlocking ? ColorTokens.success : ColorTokens.primaryStart)
+                        .frame(width: 40, height: 40)
+                        .background(
+                            Circle()
+                                .fill(blocker.isBlocking ? AnyShapeStyle(ColorTokens.success.opacity(0.2)) : AnyShapeStyle(.ultraThinMaterial))
+                        )
                 }
-            }) {
-                Image(systemName: "gearshape.fill")
-                    .font(.system(size: 16))
-                    .foregroundColor(.white.opacity(0.8))
-                    .frame(width: 44, height: 44)
-                    .background(
-                        Circle()
-                            .fill(.ultraThinMaterial)
-                    )
+
+                Button(action: {
+                    isInputFocused = false
+                    showPlanning = true
+                }) {
+                    Image(systemName: "checklist")
+                        .font(.system(size: 15))
+                        .foregroundColor(.white.opacity(0.8))
+                        .frame(width: 40, height: 40)
+                        .background(
+                            Circle()
+                                .fill(.ultraThinMaterial)
+                        )
+                }
+
+                Button(action: {
+                    isInputFocused = false
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showSettings = true
+                    }
+                }) {
+                    Image(systemName: "gearshape.fill")
+                        .font(.system(size: 15))
+                        .foregroundColor(.white.opacity(0.8))
+                        .frame(width: 40, height: 40)
+                        .background(
+                            Circle()
+                                .fill(.ultraThinMaterial)
+                        )
+                }
             }
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
+    }
+
+    private func handleBlockButtonTap() {
+        let blocker = ScreenTimeAppBlockerService.shared
+
+        if blocker.isBlocking {
+            showUnblockConfirm = true
+            return
+        }
+
+        if blocker.isBlockingEnabled {
+            let result = blocker.startBlocking()
+            if result == .started {
+                let msg = SimpleChatMessage(content: "Apps bloquées ! Bonne concentration 🔒", isFromUser: false)
+                viewModel.messages.append(msg)
+                viewModel.saveMessages()
+            }
+        } else if blocker.authorizationStatus != .approved {
+            Task {
+                let granted = await blocker.requestAuthorization()
+                if granted {
+                    withAnimation(.easeInOut(duration: 0.3)) { showAppBlocker = true }
+                }
+            }
+        } else {
+            withAnimation(.easeInOut(duration: 0.3)) { showAppBlocker = true }
+        }
     }
 
     private var profilePlaceholder: some View {
@@ -461,7 +542,7 @@ struct ChatView: View {
                     HStack(spacing: 6) {
                         Image(systemName: "flame.fill")
                             .font(.system(size: 12))
-                            .foregroundColor(.orange)
+                            .foregroundColor(.white)
                         Text(companionName)
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.white)
@@ -469,7 +550,7 @@ struct ChatView: View {
                             .foregroundColor(.white.opacity(0.3))
                         Text("\(store.currentStreak)j")
                             .font(.system(size: 13, weight: .bold, design: .rounded))
-                            .foregroundColor(.orange.opacity(0.7))
+                            .foregroundColor(.white.opacity(0.7))
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 7)
@@ -657,34 +738,28 @@ struct ChatView: View {
 
     private var normalInputBar: some View {
         HStack(spacing: 8) {
-            // Left: Expandable action buttons
-            ZStack(alignment: .bottom) {
-                // Planning button (deploys highest)
+            // Left: Action buttons
+            HStack(spacing: 6) {
+                // Challenge hub button (primary)
                 Button(action: {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-                        showActionButtons = false
-                    }
-                    showPlanning = true
+                    showChallengeHub = true
                 }) {
-                    Image(systemName: "checklist")
+                    Image(systemName: "trophy.fill")
                         .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(.white.opacity(0.8))
-                        .frame(width: 44, height: 44)
+                        .foregroundColor(ColorTokens.primaryStart)
+                        .frame(width: 52, height: 52)
                         .background(
                             Circle()
-                                .fill(.ultraThinMaterial)
+                                .fill(ColorTokens.primarySoft)
+                                .overlay(
+                                    Circle()
+                                        .stroke(ColorTokens.primaryStart.opacity(0.2), lineWidth: 1)
+                                )
                         )
                 }
-                .offset(y: showActionButtons ? -116 : 0)
-                .opacity(showActionButtons ? 1 : 0)
-                .scaleEffect(showActionButtons ? 1 : 0.4)
-                .allowsHitTesting(showActionButtons)
 
-                // Phone call button (deploys upward)
+                // Phone call button
                 Button(action: {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-                        showActionButtons = false
-                    }
                     #if DEBUG
                     showVoiceCall = true
                     #else
@@ -696,30 +771,9 @@ struct ChatView: View {
                     #endif
                 }) {
                     Image(systemName: "phone.fill")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(.white.opacity(0.8))
-                        .frame(width: 44, height: 44)
-                        .background(
-                            Circle()
-                                .fill(.ultraThinMaterial)
-                        )
-                }
-                .offset(y: showActionButtons ? -60 : 0)
-                .opacity(showActionButtons ? 1 : 0)
-                .scaleEffect(showActionButtons ? 1 : 0.4)
-                .allowsHitTesting(showActionButtons)
-
-                // Main toggle button
-                Button(action: {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-                        showActionButtons.toggle()
-                    }
-                }) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 22, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.8))
-                        .rotationEffect(.degrees(showActionButtons ? 45 : 0))
-                        .frame(width: 52, height: 52)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.white.opacity(0.6))
+                        .frame(width: 40, height: 40)
                         .background(
                             Circle()
                                 .fill(.ultraThinMaterial)
@@ -771,7 +825,7 @@ struct ChatView: View {
             .padding(.vertical, 14)
             .background(
                 Capsule()
-                    .fill(Color(red: 0.25, green: 0.28, blue: 0.35).opacity(0.85))
+                    .fill(Color(white: 0.25).opacity(0.85))
             )
             .contentShape(Capsule())
         }
@@ -793,7 +847,7 @@ struct ChatView: View {
             // Timer + waveform
             HStack(spacing: 10) {
                 Circle()
-                    .fill(Color.red)
+                    .fill(Color.white)
                     .frame(width: 8, height: 8)
                     .opacity(recordingDotOpacity)
 
@@ -820,14 +874,14 @@ struct ChatView: View {
             } label: {
                 Image(systemName: "arrow.up.circle.fill")
                     .font(.system(size: 32))
-                    .foregroundColor(Color(red: 0.20, green: 0.45, blue: 1.0))
+                    .foregroundColor(.white)
             }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
         .background(
             Capsule()
-                .fill(Color(red: 0.25, green: 0.28, blue: 0.35).opacity(0.85))
+                .fill(Color(white: 0.25).opacity(0.85))
         )
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
@@ -906,11 +960,11 @@ struct SatisfactionGaugeView: View {
 
     private var gaugeColor: Color {
         switch score {
-        case ..<30: return Color(red: 0.9, green: 0.25, blue: 0.2)
-        case 30..<50: return Color(red: 0.95, green: 0.55, blue: 0.2)
-        case 50..<70: return Color(red: 0.95, green: 0.8, blue: 0.2)
-        case 70..<86: return Color(red: 0.45, green: 0.85, blue: 0.4)
-        default: return Color(red: 0.2, green: 0.85, blue: 0.35)
+        case ..<30: return Color(white: 0.4)
+        case 30..<50: return Color(white: 0.5)
+        case 50..<70: return Color(white: 0.6)
+        case 70..<86: return Color(white: 0.75)
+        default: return .white
         }
     }
 
@@ -1022,7 +1076,7 @@ struct ScoreDetailSheet: View {
             VStack(spacing: 8) {
                 progressRow(
                     icon: "checkmark.circle.fill",
-                    color: .green,
+                    color: .white,
                     label: "Tâches",
                     progress: tasksPct,
                     status: tasksTotal == 0 ? "Crée des tâches" : "\(tasksCompleted)/\(tasksTotal)",
@@ -1032,7 +1086,7 @@ struct ScoreDetailSheet: View {
 
                 progressRow(
                     icon: "sparkles",
-                    color: .teal,
+                    color: Color(white: 0.67),
                     label: "Rituels",
                     progress: ritualsPct,
                     status: ritualsTotal == 0 ? "Crée des rituels" : "\(ritualsCompleted)/\(ritualsTotal)",
@@ -1042,7 +1096,7 @@ struct ScoreDetailSheet: View {
 
                 progressRow(
                     icon: "timer",
-                    color: .orange,
+                    color: Color(white: 0.6),
                     label: "Focus",
                     progress: focusPct,
                     status: "\(focusMinutes)/25 min",
@@ -1056,7 +1110,7 @@ struct ScoreDetailSheet: View {
             HStack(spacing: 10) {
                 Image(systemName: "flame.fill")
                     .font(.system(size: 16))
-                    .foregroundColor(.orange)
+                    .foregroundColor(.white)
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Streak")
@@ -1071,16 +1125,16 @@ struct ScoreDetailSheet: View {
 
                 Text("\(streak)")
                     .font(.system(size: 22, weight: .black, design: .rounded))
-                    .foregroundColor(streak > 0 ? .orange : .white.opacity(0.3))
+                    .foregroundColor(streak > 0 ? .white : .white.opacity(0.3))
             }
             .padding(.vertical, 12)
             .padding(.horizontal, 16)
             .background(
                 RoundedRectangle(cornerRadius: 14)
-                    .fill(Color.orange.opacity(streak > 0 ? 0.08 : 0.03))
+                    .fill(Color.white.opacity(streak > 0 ? 0.08 : 0.03))
                     .overlay(
                         RoundedRectangle(cornerRadius: 14)
-                            .stroke(Color.orange.opacity(streak > 0 ? 0.15 : 0), lineWidth: 0.5)
+                            .stroke(Color.white.opacity(streak > 0 ? 0.15 : 0), lineWidth: 0.5)
                     )
             )
             .padding(.horizontal, 16)
@@ -1088,7 +1142,7 @@ struct ScoreDetailSheet: View {
 
             Spacer()
         }
-        .background(Color(red: 0.10, green: 0.12, blue: 0.20).ignoresSafeArea())
+        .background(Color(white: 0.10).ignoresSafeArea())
     }
 
     private func progressRow(icon: String, color: Color, label: String, progress: Double, status: String, done: Bool, action: String?) -> some View {
@@ -1096,9 +1150,9 @@ struct ScoreDetailSheet: View {
             HStack(spacing: 10) {
                 Image(systemName: done ? "checkmark.circle.fill" : icon)
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(done ? .green : color)
+                    .foregroundColor(done ? .white : color)
                     .frame(width: 26, height: 26)
-                    .background((done ? Color.green : color).opacity(0.15))
+                    .background((done ? Color.white : color).opacity(0.15))
                     .cornerRadius(7)
 
                 Text(label)
@@ -1109,7 +1163,7 @@ struct ScoreDetailSheet: View {
 
                 Text(status)
                     .font(.system(size: 13, weight: .bold, design: .rounded))
-                    .foregroundColor(done ? .green : .white.opacity(0.6))
+                    .foregroundColor(done ? .white : .white.opacity(0.6))
             }
 
             // Progress bar
@@ -1118,7 +1172,7 @@ struct ScoreDetailSheet: View {
                     RoundedRectangle(cornerRadius: 3)
                         .fill(Color.white.opacity(0.08))
                     RoundedRectangle(cornerRadius: 3)
-                        .fill(done ? Color.green : color)
+                        .fill(done ? Color.white : color)
                         .frame(width: max(0, geo.size.width * progress))
                         .animation(.spring(response: 0.5, dampingFraction: 0.8), value: progress)
                 }
@@ -1206,7 +1260,7 @@ struct ReplikaMessageBubble: View {
     @State private var downloadedLocalURL: URL?
 
     // Colors
-    private let userBubbleColor = Color(red: 0.22, green: 0.28, blue: 0.42) // Dark navy blue
+    private let userBubbleColor = Color(white: 0.30) // Dark gray
     private let aiBubbleColor = Color.white.opacity(0.95) // White/cream
 
     var body: some View {
@@ -1219,7 +1273,7 @@ struct ReplikaMessageBubble: View {
                     ChatAvatar(
                         url: nil,
                         initial: companionInitial,
-                        color: Color(red: 0.25, green: 0.50, blue: 1.0)
+                        color: Color(white: 0.82)
                     )
                 }
 
@@ -1251,7 +1305,7 @@ struct ReplikaMessageBubble: View {
                     ChatAvatar(
                         url: userAvatarURL,
                         initial: userInitial,
-                        color: Color(red: 0.22, green: 0.28, blue: 0.42)
+                        color: Color(white: 0.30)
                     )
                 } else {
                     Spacer().frame(width: 4)
@@ -1704,7 +1758,7 @@ struct InlinePlanningCard: View {
         HStack(spacing: 8) {
             Image(systemName: focusState != nil ? "flame.fill" : "checklist")
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(focusState != nil ? .orange : .black.opacity(0.5))
+                .foregroundColor(focusState != nil ? .white : .black.opacity(0.5))
             Text(focusState != nil ? "Session Focus" : "Planning")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(.black.opacity(0.5))
@@ -1768,7 +1822,7 @@ struct InlinePlanningCard: View {
                             } label: {
                                 Image(systemName: focusState?.activeTaskId == task.id ? "flame.fill" : "flame")
                                     .font(.system(size: 16))
-                                    .foregroundColor(focusState?.activeTaskId == task.id ? .orange : .black.opacity(0.2))
+                                    .foregroundColor(focusState?.activeTaskId == task.id ? .white : .black.opacity(0.2))
                                     .frame(width: 36, height: 36)
                             }
                         }
@@ -1976,7 +2030,7 @@ struct InlinePlanningCard: View {
             HStack(spacing: 8) {
                 Image(systemName: "flame.fill")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.orange)
+                    .foregroundColor(Color(white: 0.6))
                 Text(isPaused ? "En pause" : "Focus en cours")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.black.opacity(0.5))
@@ -2001,7 +2055,7 @@ struct InlinePlanningCard: View {
                 Circle()
                     .trim(from: 0, to: timerProgress(focus: focus))
                     .stroke(
-                        isPaused ? Color.orange : Color.black,
+                        isPaused ? Color(white: 0.6) : Color.black,
                         style: StrokeStyle(lineWidth: 6, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
@@ -2015,7 +2069,7 @@ struct InlinePlanningCard: View {
                     if isPaused {
                         Text("pause")
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(.orange)
+                            .foregroundColor(Color(white: 0.6))
                     }
                 }
             }
@@ -2030,7 +2084,7 @@ struct InlinePlanningCard: View {
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundColor(.white)
                         .frame(width: 50, height: 50)
-                        .background(Color.red.opacity(0.85))
+                        .background(Color.white.opacity(0.85))
                         .clipShape(Circle())
                 }
 
@@ -2155,7 +2209,7 @@ struct InlinePlanningCard: View {
 struct InlineConfettiView: View {
     @State private var particles: [(id: Int, x: CGFloat, y: CGFloat, color: Color, rotation: Double)] = []
 
-    private let colors: [Color] = [.orange, .yellow, .red, .green, .blue, .purple]
+    private let colors: [Color] = [.white, Color(white: 0.8), Color(white: 0.6), Color(white: 0.4), Color(white: 0.7), Color(white: 0.5)]
 
     var body: some View {
         GeometryReader { geo in
@@ -2328,7 +2382,7 @@ struct InlineVideoCard: View {
             HStack(spacing: 8) {
                 Image(systemName: "play.circle.fill")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.red)
+                    .foregroundColor(.white)
                 Text(video.title)
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.black.opacity(0.85))
@@ -2341,7 +2395,7 @@ struct InlineVideoCard: View {
                         Text("Terminé")
                             .font(.system(size: 12, weight: .medium))
                     }
-                    .foregroundColor(.green)
+                    .foregroundColor(.white)
                 }
             }
             .padding(.horizontal, 16)
@@ -2497,7 +2551,7 @@ struct ProductivityDiagnosticCard: View {
     @State private var isSubmitted: Bool = false
 
     private let maxTotalSelections = 5
-    private let accentBlue = Color(red: 0.20, green: 0.45, blue: 1.0)
+    private let accentBlue = Color.white
 
     private var isRecapStep: Bool { data.categoryIndex >= 5 }
 
@@ -2684,7 +2738,7 @@ struct ProductivityDiagnosticCard: View {
                 if tooManySelected {
                     Text("Tu as sélectionné \(recapSelectedIds.count) défis — garde les 5 qui te parlent le plus.")
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.orange)
+                        .foregroundColor(Color(white: 0.6))
                         .padding(.horizontal, 16)
                         .padding(.bottom, 8)
                 }
@@ -2815,38 +2869,52 @@ struct ProductivityDiagnosticCard: View {
 // MARK: - App Blocking Banner
 
 struct AppBlockingBanner: View {
-    @State private var elapsedSeconds: Int = 0
+    @ObservedObject private var blocker = ScreenTimeAppBlockerService.shared
+    @State private var now = Date()
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    var onTap: (() -> Void)?
+
+    private var elapsedSeconds: Int {
+        guard let start = blocker.blockingStartDate else { return 0 }
+        return max(0, Int(now.timeIntervalSince(start)))
+    }
 
     var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "lock.fill")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(.white.opacity(0.7))
+        Button(action: { onTap?() }) {
+            HStack(spacing: 8) {
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(ColorTokens.success)
 
-            Text("Apps bloquées")
-                .font(.satoshi(13, weight: .medium))
-                .foregroundColor(.white.opacity(0.8))
+                Text("Apps bloquées")
+                    .font(.satoshi(13, weight: .medium))
+                    .foregroundColor(.white.opacity(0.8))
 
-            Text("·")
-                .foregroundColor(.white.opacity(0.4))
+                Text("·")
+                    .foregroundColor(.white.opacity(0.4))
 
-            Text(formatElapsed(elapsedSeconds))
-                .font(.system(size: 13, weight: .medium, design: .monospaced))
-                .foregroundColor(.white.opacity(0.6))
+                Text(formatElapsed(elapsedSeconds))
+                    .font(.system(size: 13, weight: .medium, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.6))
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(Color(hex: "#1A1B21"))
+            .cornerRadius(20)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .background(Color(hex: "#1A1B21"))
-        .cornerRadius(20)
+        .buttonStyle(.plain)
         .onReceive(timer) { _ in
-            elapsedSeconds += 1
+            now = Date()
         }
     }
 
     private func formatElapsed(_ seconds: Int) -> String {
-        let m = seconds / 60
+        let h = seconds / 3600
+        let m = (seconds % 3600) / 60
         let s = seconds % 60
+        if h > 0 {
+            return String(format: "%d:%02d:%02d", h, m, s)
+        }
         return String(format: "%02d:%02d", m, s)
     }
 }

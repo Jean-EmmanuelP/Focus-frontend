@@ -15,9 +15,9 @@ struct LeaderboardView: View {
             // Gradient background
             LinearGradient(
                 colors: [
-                    Color(hex: "#050508"),
-                    Color(hex: "#0A0A12"),
-                    Color(hex: "#050508")
+                    Color(hex: "#000000"),
+                    Color(hex: "#0A0A0A"),
+                    Color(hex: "#000000")
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -29,7 +29,7 @@ struct LeaderboardView: View {
                 Circle()
                     .fill(
                         RadialGradient(
-                            colors: [Color(hex: "#FFD700").opacity(0.08), .clear],
+                            colors: [Color.white.opacity(0.08), .clear],
                             center: .center,
                             startRadius: 0,
                             endRadius: 200
@@ -114,7 +114,7 @@ struct LeaderboardView: View {
                 Image(systemName: "trophy.fill")
                     .font(.system(size: 14))
                     .foregroundStyle(
-                        LinearGradient(colors: [Color(hex: "#FFD700"), Color(hex: "#FFA500")], startPoint: .top, endPoint: .bottom)
+                        LinearGradient(colors: [Color.white, Color.white.opacity(0.7)], startPoint: .top, endPoint: .bottom)
                     )
                 Text("Classement")
                     .font(.satoshi(18, weight: .bold))
@@ -191,9 +191,9 @@ struct LeaderboardView: View {
 
     private func podiumColor(_ place: Int) -> Color {
         switch place {
-        case 1: return Color(hex: "#FFD700")
-        case 2: return Color(hex: "#C0C0C0")
-        case 3: return Color(hex: "#CD7F32")
+        case 1: return Color.white
+        case 2: return Color.white.opacity(0.7)
+        case 3: return Color.white.opacity(0.5)
         default: return ColorTokens.textSecondary
         }
     }
@@ -217,9 +217,9 @@ struct LeaderboardView: View {
                 Image(systemName: "crown.fill")
                     .font(.system(size: 18))
                     .foregroundStyle(
-                        LinearGradient(colors: [Color(hex: "#FFD700"), Color(hex: "#FFA500")], startPoint: .top, endPoint: .bottom)
+                        LinearGradient(colors: [Color.white, Color.white.opacity(0.7)], startPoint: .top, endPoint: .bottom)
                     )
-                    .shadow(color: Color(hex: "#FFD700").opacity(0.4), radius: 8)
+                    .shadow(color: Color.white.opacity(0.4), radius: 8)
                     .padding(.bottom, 4)
             }
 
@@ -261,7 +261,7 @@ struct LeaderboardView: View {
                 HStack(spacing: 2) {
                     Image(systemName: "flame.fill")
                         .font(.system(size: 8))
-                        .foregroundColor(.orange)
+                        .foregroundColor(.white)
                     Text("\(entry.currentStreak)")
                         .font(.satoshi(9, weight: .bold))
                         .foregroundColor(.white.opacity(0.7))
@@ -371,14 +371,14 @@ struct LeaderboardView: View {
                 HStack(spacing: 3) {
                     Image(systemName: "flame.fill")
                         .font(.system(size: 10))
-                        .foregroundColor(.orange)
+                        .foregroundColor(.white)
                     Text("\(entry.currentStreak)")
                         .font(.satoshi(11, weight: .bold))
                         .foregroundColor(.white.opacity(0.6))
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(Capsule().fill(Color.orange.opacity(0.1)))
+                .background(Capsule().fill(Color.white.opacity(0.1)))
             }
 
             // Score

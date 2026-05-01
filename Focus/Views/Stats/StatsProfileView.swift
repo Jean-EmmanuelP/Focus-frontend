@@ -14,7 +14,7 @@ struct StatsProfileView: View {
     @State private var streakScale: CGFloat = 0.5
     @State private var showAllLevels = false
 
-    private let bgColor = Color(red: 0.10, green: 0.12, blue: 0.20)
+    private let bgColor = Color.black
     private let streakService = StreakService()
     private let completionsService = CompletionsService()
 
@@ -87,10 +87,10 @@ struct StatsProfileView: View {
     private var streakFlameColor: Color {
         switch currentStreak {
         case 0: return .gray
-        case 1...3: return .orange
-        case 4...7: return Color(red: 1.0, green: 0.55, blue: 0.0) // orange vif
-        case 8...14: return Color(red: 1.0, green: 0.3, blue: 0.1) // rouge-orange
-        default: return Color(red: 1.0, green: 0.15, blue: 0.05) // rouge intense
+        case 1...3: return .white.opacity(0.6)
+        case 4...7: return .white.opacity(0.75)
+        case 8...14: return .white.opacity(0.9)
+        default: return .white
         }
     }
     private var streakGlowRadius: CGFloat {
@@ -232,7 +232,7 @@ struct StatsProfileView: View {
                 Circle()
                     .fill(
                         RadialGradient(
-                            colors: [Color.orange.opacity(0.15), Color.clear],
+                            colors: [Color.white.opacity(0.08), Color.clear],
                             center: .center,
                             startRadius: 40,
                             endRadius: 80
@@ -250,7 +250,7 @@ struct StatsProfileView: View {
                     .trim(from: 0, to: ringProgress)
                     .stroke(
                         AngularGradient(
-                            colors: [.orange, .yellow, .green, .green],
+                            colors: [.white.opacity(0.5), .white.opacity(0.7), .white, .white],
                             center: .center
                         ),
                         style: StrokeStyle(lineWidth: 5, lineCap: .round)
@@ -300,16 +300,16 @@ struct StatsProfileView: View {
             HStack(spacing: 6) {
                 Image(systemName: currentFlameIcon)
                     .font(.system(size: 13))
-                    .foregroundColor(.orange)
+                    .foregroundColor(.white)
                 Text(currentFlameName)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.orange)
+                    .foregroundColor(.white)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 6)
             .background(
                 Capsule()
-                    .fill(Color.orange.opacity(0.15))
+                    .fill(Color.white.opacity(0.1))
             )
         }
     }
@@ -352,7 +352,7 @@ struct StatsProfileView: View {
                     if currentStreak == 0 {
                         Text("Recommence aujourd'hui !")
                             .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(.orange.opacity(0.7))
+                            .foregroundColor(.white.opacity(0.5))
                     } else {
                         Text("jours de suite")
                             .font(.system(size: 13, weight: .medium))
@@ -372,14 +372,14 @@ struct StatsProfileView: View {
                             Text("RECORD !")
                                 .font(.system(size: 11, weight: .black))
                         }
-                        .foregroundColor(.yellow)
+                        .foregroundColor(.white)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
                         .background(
                             Capsule()
-                                .fill(Color.yellow.opacity(0.15))
+                                .fill(Color.white.opacity(0.12))
                         )
-                        .shadow(color: .yellow.opacity(0.3), radius: 8)
+                        .shadow(color: .white.opacity(0.2), radius: 8)
                     } else {
                         Text("Record")
                             .font(.system(size: 11, weight: .semibold))
@@ -389,7 +389,7 @@ struct StatsProfileView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "trophy.fill")
                                 .font(.system(size: 14))
-                                .foregroundColor(.yellow.opacity(0.7))
+                                .foregroundColor(.white.opacity(0.5))
                             Text("\(longestStreak) j")
                                 .font(.system(size: 20, weight: .bold, design: .rounded))
                                 .foregroundColor(.white.opacity(0.7))
@@ -408,7 +408,7 @@ struct StatsProfileView: View {
                         Spacer()
                         Text("\(currentStreak)/\(next.daysRequired) j")
                             .font(.system(size: 12, weight: .bold, design: .rounded))
-                            .foregroundColor(.orange.opacity(0.7))
+                            .foregroundColor(.white.opacity(0.5))
                     }
 
                     GeometryReader { geo in
@@ -419,7 +419,7 @@ struct StatsProfileView: View {
                             RoundedRectangle(cornerRadius: 4)
                                 .fill(
                                     LinearGradient(
-                                        colors: [.orange, .yellow],
+                                        colors: [.white.opacity(0.6), .white],
                                         startPoint: .leading,
                                         endPoint: .trailing
                                     )
@@ -438,7 +438,7 @@ struct StatsProfileView: View {
                 .fill(Color.white.opacity(0.06))
                 .overlay(
                     RoundedRectangle(cornerRadius: 20)
-                        .stroke(isStreakRecord ? Color.yellow.opacity(0.2) : Color.orange.opacity(0.1), lineWidth: 1)
+                        .stroke(isStreakRecord ? Color.white.opacity(0.15) : Color.white.opacity(0.08), lineWidth: 1)
                 )
         )
         .padding(.horizontal, 16)
@@ -471,12 +471,12 @@ struct StatsProfileView: View {
                         Text("\(abs(weekTrend))%")
                             .font(.system(size: 13, weight: .bold, design: .rounded))
                     }
-                    .foregroundColor(isUp ? .green : .orange)
+                    .foregroundColor(.white)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
                     .background(
                         Capsule()
-                            .fill((isUp ? Color.green : Color.orange).opacity(0.12))
+                            .fill(Color.white.opacity(0.1))
                     )
                 }
             }
@@ -505,7 +505,7 @@ struct StatsProfileView: View {
                             Circle()
                                 .trim(from: 0, to: appeared ? fillPct : 0)
                                 .stroke(
-                                    Color.green,
+                                    Color.white,
                                     style: StrokeStyle(lineWidth: 3, lineCap: .round)
                                 )
                                 .rotationEffect(.degrees(-90))
@@ -565,12 +565,12 @@ struct StatsProfileView: View {
                     Text("\(abs(weekTrend))%")
                         .font(.system(size: 14, weight: .bold, design: .rounded))
                 }
-                .foregroundColor(isUp ? .green : .orange)
+                .foregroundColor(.white)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
                 .background(
                     Capsule()
-                        .fill((isUp ? Color.green : Color.orange).opacity(0.12))
+                        .fill(Color.white.opacity(0.1))
                 )
             }
         }
@@ -590,7 +590,7 @@ struct StatsProfileView: View {
                 title: "Tâches",
                 value: "\(tasksCompleted)/\(tasksTotal)",
                 progress: tasksPct,
-                color: .green,
+                color: .white,
                 icon: "checkmark.circle.fill",
                 delay: 0.4
             )
@@ -598,7 +598,7 @@ struct StatsProfileView: View {
                 title: "Rituels",
                 value: "\(ritualsCompleted)/\(ritualsTotal)",
                 progress: ritualsPct,
-                color: Color(red: 0.31, green: 0.80, blue: 0.77),
+                color: Color(hex: "#AAAAAA"),
                 icon: "repeat",
                 delay: 0.5
             )
@@ -606,7 +606,7 @@ struct StatsProfileView: View {
                 title: "Focus",
                 value: "\(focusMinutes) min",
                 progress: focusPct,
-                color: .orange,
+                color: Color(hex: "#999999"),
                 icon: "timer",
                 delay: 0.6
             )
@@ -662,15 +662,15 @@ struct StatsProfileView: View {
                     HStack(spacing: 14) {
                         ZStack {
                             Circle()
-                                .fill(Color.orange.opacity(0.2))
+                                .fill(Color.white.opacity(0.1))
                                 .frame(width: 50, height: 50)
                             Circle()
-                                .stroke(Color.orange, lineWidth: 2)
+                                .stroke(Color.white, lineWidth: 2)
                                 .frame(width: 50, height: 50)
-                                .shadow(color: .orange.opacity(0.4), radius: 8)
+                                .shadow(color: .white.opacity(0.2), radius: 8)
                             Image(systemName: current.icon)
                                 .font(.system(size: 22))
-                                .foregroundColor(.orange)
+                                .foregroundColor(.white)
                         }
 
                         VStack(alignment: .leading, spacing: 3) {
@@ -680,10 +680,10 @@ struct StatsProfileView: View {
                                     .foregroundColor(.white)
                                 Text("Niv. \(current.level)")
                                     .font(.system(size: 11, weight: .bold))
-                                    .foregroundColor(.orange.opacity(0.7))
+                                    .foregroundColor(.white.opacity(0.7))
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 3)
-                                    .background(Capsule().fill(Color.orange.opacity(0.15)))
+                                    .background(Capsule().fill(Color.white.opacity(0.1)))
                             }
                             Text("Ton niveau actuel")
                                 .font(.system(size: 12, weight: .medium))
@@ -750,11 +750,11 @@ struct StatsProfileView: View {
                             HStack(spacing: 12) {
                                 ZStack {
                                     Circle()
-                                        .fill(level.isUnlocked ? Color.orange.opacity(0.15) : Color.white.opacity(0.04))
+                                        .fill(level.isUnlocked ? Color.white.opacity(0.1) : Color.white.opacity(0.04))
                                         .frame(width: 32, height: 32)
                                     Image(systemName: level.icon)
                                         .font(.system(size: 13))
-                                        .foregroundColor(level.isUnlocked ? .orange : .white.opacity(0.15))
+                                        .foregroundColor(level.isUnlocked ? .white : .white.opacity(0.15))
                                 }
 
                                 Text(level.name)
@@ -770,7 +770,7 @@ struct StatsProfileView: View {
                                 if level.isUnlocked {
                                     Image(systemName: "checkmark")
                                         .font(.system(size: 11, weight: .bold))
-                                        .foregroundColor(.green.opacity(0.5))
+                                        .foregroundColor(.white.opacity(0.5))
                                 }
                             }
                             .padding(.vertical, 8)

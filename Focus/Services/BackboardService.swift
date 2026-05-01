@@ -44,6 +44,13 @@ class BackboardService {
         self.encoder.keyEncodingStrategy = .convertToSnakeCase
     }
 
+    private func makeURL(_ path: String) throws -> URL {
+        guard let url = URL(string: "\(baseURL)\(path)") else {
+            throw URLError(.badURL)
+        }
+        return url
+    }
+
     /// Track whether we've already synced the assistant's date this session
     private var hasUpdatedDateThisSession = false
 
@@ -62,7 +69,7 @@ class BackboardService {
 
         let harshMode = FocusAppStore.shared.user?.coachHarshMode ?? false
         let assistantConfig = Self.assistantTemplate(coachHarshMode: harshMode)
-        let url = URL(string: "\(baseURL)/assistants")!
+        let url = try makeURL("/assistants")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
@@ -110,7 +117,10 @@ class BackboardService {
             config["description"] = prompt
         }
 
-        let url = URL(string: "\(baseURL)/assistants/\(assistantId)")!
+        guard let url = try? makeURL("/assistants/\(assistantId)") else {
+            print("⚠️ Failed to update assistant date: invalid URL")
+            return
+        }
         var request = URLRequest(url: url)
         request.httpMethod = "PATCH"
         request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
@@ -203,7 +213,7 @@ class BackboardService {
     /// Fetch threads for the current user's assistant and return the oldest thread ID, or nil if none exist.
     private func fetchOldestThread() async throws -> String? {
         guard !assistantId.isEmpty else { return nil }
-        let url = URL(string: "\(baseURL)/assistants/\(assistantId)/threads")!
+        let url = try makeURL("/assistants/\(assistantId)/threads")
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
@@ -222,7 +232,7 @@ class BackboardService {
     /// Create a new thread and persist the ID to both UserDefaults and user profile (DB)
     @discardableResult
     func createNewThread() async throws -> String {
-        let url = URL(string: "\(baseURL)/assistants/\(assistantId)/threads")!
+        let url = try makeURL("/assistants/\(assistantId)/threads")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
@@ -258,7 +268,7 @@ class BackboardService {
 
     /// Fetch all visible messages (user + assistant with content) for a thread
     func listMessages(threadId: String) async throws -> [BackboardThreadMessage] {
-        let url = URL(string: "\(baseURL)/threads/\(threadId)")!
+        let url = try makeURL("/threads/\(threadId)")
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
@@ -278,7 +288,12 @@ class BackboardService {
     func deleteThread() async {
         guard let threadId = UserDefaults.standard.string(forKey: threadIdKey) else { return }
 
-        let url = URL(string: "\(baseURL)/threads/\(threadId)")!
+        guard let url = try? makeURL("/threads/\(threadId)") else {
+            print("⚠️ Failed to delete thread: invalid URL")
+            UserDefaults.standard.removeObject(forKey: threadIdKey)
+            FocusAppStore.shared.user?.backboardThreadId = nil
+            return
+        }
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
         request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
@@ -348,7 +363,7 @@ class BackboardService {
 
     /// Add a message to a thread
     private func addMessage(threadId: String, content: String) async throws -> BackboardMessageResponse {
-        let url = URL(string: "\(baseURL)/threads/\(threadId)/messages")!
+        let url = try makeURL("/threads/\(threadId)/messages")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
@@ -369,7 +384,7 @@ class BackboardService {
 
     /// Submit tool outputs for a run
     private func submitToolOutputs(threadId: String, runId: String, outputs: [BackboardToolOutput]) async throws -> BackboardMessageResponse {
-        let url = URL(string: "\(baseURL)/threads/\(threadId)/runs/\(runId)/submit-tool-outputs")!
+        let url = try makeURL("/threads/\(threadId)/runs/\(runId)/submit-tool-outputs")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
@@ -1152,7 +1167,7 @@ class BackboardService {
 
     /// List all memories for the current assistant
     func listMemories() async throws -> [BackboardMemory] {
-        let url = URL(string: "\(baseURL)/assistants/\(assistantId)/memories")!
+        let url = try makeURL("/assistants/\(assistantId)/memories")
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
@@ -1166,7 +1181,7 @@ class BackboardService {
 
     /// Add a memory manually
     func addMemory(content: String) async throws {
-        let url = URL(string: "\(baseURL)/assistants/\(assistantId)/memories")!
+        let url = try makeURL("/assistants/\(assistantId)/memories")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
@@ -1182,7 +1197,7 @@ class BackboardService {
 
     /// Delete a memory by ID
     func deleteMemory(id: String) async throws {
-        let url = URL(string: "\(baseURL)/assistants/\(assistantId)/memories/\(id)")!
+        let url = try makeURL("/assistants/\(assistantId)/memories/\(id)")
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
         request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")

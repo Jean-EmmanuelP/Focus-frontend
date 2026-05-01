@@ -13,9 +13,9 @@ struct CalendarProvidersSettingsView: View {
 
     private let background = LinearGradient(
         colors: [
-            Color(red: 0.15, green: 0.18, blue: 0.45),
-            Color(red: 0.18, green: 0.22, blue: 0.52),
-            Color(red: 0.20, green: 0.25, blue: 0.58)
+            Color.black,
+            Color(hex: "#0A0A0A"),
+            Color(hex: "#111111")
         ],
         startPoint: .top,
         endPoint: .bottom
@@ -88,7 +88,7 @@ struct CalendarProvidersSettingsView: View {
                     HStack(spacing: 12) {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.system(size: 24))
-                            .foregroundColor(.green)
+                            .foregroundColor(.white)
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Connecté")
@@ -137,10 +137,10 @@ struct CalendarProvidersSettingsView: View {
                     }) {
                         HStack {
                             Image(systemName: "xmark.circle")
-                                .foregroundColor(.red.opacity(0.8))
+                                .foregroundColor(.white.opacity(0.7))
                             Text("Déconnecter")
                                 .font(.system(size: 15))
-                                .foregroundColor(.red.opacity(0.8))
+                                .foregroundColor(.white.opacity(0.7))
                             Spacer()
                         }
                         .padding(.vertical, 12)
@@ -175,7 +175,7 @@ struct CalendarProvidersSettingsView: View {
                                     .scaleEffect(0.8)
                             } else {
                                 Image(systemName: "link.badge.plus")
-                                    .foregroundColor(.blue)
+                                    .foregroundColor(.white)
                             }
                             Text("Connecter Google Calendar")
                                 .font(.system(size: 15, weight: .medium))
@@ -265,7 +265,7 @@ struct CalendarProvidersSettingsView: View {
                 if event.eventType == "focusTime" {
                     Text("Focus Time")
                         .font(.system(size: 12))
-                        .foregroundColor(.blue.opacity(0.8))
+                        .foregroundColor(.white.opacity(0.7))
                 }
             }
 
@@ -286,7 +286,7 @@ struct CalendarProvidersSettingsView: View {
                 }) {
                     Image(systemName: event.blockApps ? "lock.fill" : "lock.open")
                         .font(.system(size: 14))
-                        .foregroundColor(event.blockApps ? .orange : .white.opacity(0.3))
+                        .foregroundColor(event.blockApps ? .white : .white.opacity(0.3))
                 }
             }
         }

@@ -12,10 +12,10 @@ struct AppBlockerSettingsView: View {
     @State private var showClearConfirmation = false
     @State private var showUnblockConfirmation = false
 
-    private let darkNavy = Color(red: 0.102, green: 0.102, blue: 0.306)
+    private let darkNavy = Color.black
     private let chevronColor = Color.white.opacity(0.4)
     private let dividerColor = Color.white.opacity(0.08)
-    private let toggleBlue = Color(red: 0.25, green: 0.45, blue: 1.0)
+    private let toggleBlue = Color.white
 
     var body: some View {
         ZStack {
@@ -62,11 +62,11 @@ struct AppBlockerSettingsView: View {
                             if viewModel.isAuthorized {
                                 HStack(spacing: 6) {
                                     Circle()
-                                        .fill(Color.green)
+                                        .fill(Color.white)
                                         .frame(width: 8, height: 8)
                                     Text("Active")
                                         .font(.system(size: 14))
-                                        .foregroundColor(.green)
+                                        .foregroundColor(.white)
                                 }
                             } else {
                                 Button(action: {
@@ -127,11 +127,11 @@ struct AppBlockerSettingsView: View {
                                     HStack {
                                         Text("Effacer la selection")
                                             .font(.system(size: 16))
-                                            .foregroundColor(.red.opacity(0.8))
+                                            .foregroundColor(.white.opacity(0.7))
                                         Spacer()
                                         Image(systemName: "trash")
                                             .font(.system(size: 14))
-                                            .foregroundColor(.red.opacity(0.6))
+                                            .foregroundColor(.white.opacity(0.5))
                                     }
                                     .padding(.vertical, 14)
                                     .padding(.horizontal, 16)
@@ -197,14 +197,14 @@ struct AppBlockerSettingsView: View {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(distractionService.debugInfo)
                                         .font(.system(size: 11))
-                                        .foregroundColor(.orange.opacity(0.7))
+                                        .foregroundColor(.white.opacity(0.5))
 
                                     Button(action: {
                                         distractionService.refreshDebugInfo()
                                     }) {
                                         Text("Rafraichir diagnostic")
                                             .font(.system(size: 12, weight: .medium))
-                                            .foregroundColor(.orange)
+                                            .foregroundColor(.white)
                                     }
                                 }
                                 .padding(.horizontal, 16)
@@ -269,7 +269,7 @@ struct AppBlockerSettingsView: View {
                                     HStack(spacing: 10) {
                                         Image(systemName: "lock.shield.fill")
                                             .font(.system(size: 16))
-                                            .foregroundColor(.green)
+                                            .foregroundColor(.white)
                                         Text("\(viewModel.selectedAppsCount) app(s) bloquee(s)")
                                             .font(.system(size: 14))
                                             .foregroundColor(.white.opacity(0.6))
@@ -289,10 +289,10 @@ struct AppBlockerSettingsView: View {
                                         .frame(maxWidth: .infinity)
                                         .frame(height: 50)
                                         .background(
-                                            Capsule().fill(Color.red.opacity(0.25))
+                                            Capsule().fill(Color.white.opacity(0.12))
                                         )
                                         .overlay(
-                                            Capsule().stroke(Color.red.opacity(0.4), lineWidth: 1)
+                                            Capsule().stroke(Color.white.opacity(0.2), lineWidth: 1)
                                         )
                                     }
                                     .padding(.horizontal, 16)

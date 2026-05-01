@@ -19,7 +19,7 @@ struct FocusRoomView: View {
     var body: some View {
         ZStack {
             // Background
-            Color(hex: "050508")
+            Color.black
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {

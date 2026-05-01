@@ -13,7 +13,7 @@ struct FriendsView: View {
         ZStack {
             // Background
             LinearGradient(
-                colors: [Color(hex: "#050508"), Color(hex: "#080810"), Color(hex: "#050508")],
+                colors: [Color(hex: "#000000"), Color(hex: "#0A0A0A"), Color(hex: "#000000")],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -349,7 +349,7 @@ struct FriendsView: View {
                     HStack(spacing: 3) {
                         Image(systemName: "flame.fill")
                             .font(.system(size: 8))
-                            .foregroundColor(.orange)
+                            .foregroundColor(.white)
                         Text("\(streak)j de streak")
                             .font(.satoshi(11, weight: .medium))
                             .foregroundColor(ColorTokens.textSecondary)
@@ -437,7 +437,7 @@ struct FriendsView: View {
                     HStack(spacing: 2) {
                         Image(systemName: "flame.fill")
                             .font(.system(size: 8))
-                            .foregroundColor(.orange)
+                            .foregroundColor(.white)
                         Text("\(streak)j")
                             .font(.satoshi(10, weight: .medium))
                             .foregroundColor(ColorTokens.textSecondary)
@@ -517,7 +517,7 @@ struct FriendsView: View {
                     .padding(.vertical, 3)
                     .background(
                         Capsule().fill(
-                            LinearGradient(colors: [.orange, .orange.opacity(0.7)], startPoint: .leading, endPoint: .trailing)
+                            LinearGradient(colors: [.white, .white.opacity(0.7)], startPoint: .leading, endPoint: .trailing)
                         )
                     )
             }
@@ -535,11 +535,11 @@ struct FriendsView: View {
     private func requestRow(request: FriendRequest) -> some View {
         HStack(spacing: 12) {
             // Avatar with orange ring
-            avatarView(url: request.fromAvatarUrl, initial: request.initial, size: 42, accentColor: .orange)
+            avatarView(url: request.fromAvatarUrl, initial: request.initial, size: 42, accentColor: .white)
                 .overlay(
                     Circle()
                         .stroke(
-                            LinearGradient(colors: [.orange, .orange.opacity(0.4)], startPoint: .top, endPoint: .bottom),
+                            LinearGradient(colors: [.white, .white.opacity(0.4)], startPoint: .top, endPoint: .bottom),
                             lineWidth: 1.5
                         )
                         .frame(width: 44, height: 44)
@@ -587,10 +587,10 @@ struct FriendsView: View {
         .padding(.horizontal, 14)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.orange.opacity(0.03))
+                .fill(Color.white.opacity(0.03))
                 .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(Color.orange.opacity(0.1), lineWidth: 0.5)
+                        .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
                 )
         )
     }
@@ -630,7 +630,7 @@ struct FriendsView: View {
                         HStack(spacing: 3) {
                             Image(systemName: "flame.fill")
                                 .font(.system(size: 9))
-                                .foregroundColor(.orange)
+                                .foregroundColor(.white)
                             Text("\(streak)j")
                                 .font(.satoshi(11, weight: .medium))
                                 .foregroundColor(ColorTokens.textSecondary)

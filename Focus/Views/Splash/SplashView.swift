@@ -6,8 +6,8 @@ struct SplashView: View {
 
     let onComplete: () -> Void
 
-    private let bgColor = Color(red: 0.10, green: 0.12, blue: 0.20)
-    private let accentBlue = Color(red: 0.20, green: 0.45, blue: 1.0)
+    private let bgColor = Color.black
+    private let accentBlue = Color.white
 
     var body: some View {
         ZStack {

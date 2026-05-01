@@ -177,6 +177,9 @@ final class SubscriptionManager: ObservableObject {
     // MARK: - Update Status
 
     func updateStatus() async {
+        let previouslySubscribed = self.isSubscribed
+        let previousPlan = self.activePlanID
+
         var foundPlan: String? = nil
         var expDate: Date? = nil
 
@@ -196,6 +199,36 @@ final class SubscriptionManager: ObservableObject {
             print("✅ Active subscription: \(plan) (expires: \(String(describing: expDate)))")
         } else {
             print("ℹ️ No active subscription")
+        }
+
+        // Sync to backend when state changes so server-side gating reflects pro status
+        if previouslySubscribed != self.isSubscribed || previousPlan != foundPlan {
+            await syncSubscriptionToBackend(plan: foundPlan, expiresAt: expDate)
+        }
+    }
+
+    private func syncSubscriptionToBackend(plan: String?, expiresAt: Date?) async {
+        var payload: [String: Any] = [
+            "is_pro": plan != nil
+        ]
+        payload["subscription_plan"] = plan ?? NSNull()
+        if let exp = expiresAt {
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime]
+            payload["subscription_expires_at"] = formatter.string(from: exp)
+        } else {
+            payload["subscription_expires_at"] = NSNull()
+        }
+
+        do {
+            try await APIClient.shared.request(
+                endpoint: .me,
+                method: .patch,
+                body: RawJSON(data: try JSONSerialization.data(withJSONObject: payload))
+            )
+            print("✅ Subscription synced to backend: \(payload)")
+        } catch {
+            print("⚠️ Failed to sync subscription to backend: \(error)")
         }
     }
 

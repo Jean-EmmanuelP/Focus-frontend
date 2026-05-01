@@ -41,6 +41,6 @@ struct FocusMapStatPill: View {
         sfSymbol: "flame.fill",
         value: 47,
         label: "en focus",
-        color: .orange
+        color: .white
     )
 }

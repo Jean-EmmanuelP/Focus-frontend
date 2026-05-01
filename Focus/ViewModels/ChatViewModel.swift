@@ -1117,9 +1117,11 @@ class ChatViewModel: ObservableObject {
 
             case .blockApps(let duration):
                 let blocker = ScreenTimeAppBlockerService.shared
-                if blocker.isBlockingEnabled {
-                    blocker.startBlocking(durationMinutes: duration)
-                } else if blocker.authorizationStatus != .approved {
+                let result = blocker.startBlocking(durationMinutes: duration)
+                switch result {
+                case .started, .alreadyBlocking:
+                    break // blocking active, AI message confirms it
+                case .notAuthorized:
                     let granted = await blocker.requestAuthorization()
                     if granted {
                         if blocker.hasSelectedApps {
@@ -1130,7 +1132,7 @@ class ChatViewModel: ObservableObject {
                     } else {
                         appendAppBlockerPrompt("J'ai besoin de l'autorisation Screen Time pour bloquer tes apps. Clique ci-dessous pour configurer.")
                     }
-                } else {
+                case .noAppsSelected:
                     appendAppBlockerPrompt("Tu n'as pas encore choisi d'apps à bloquer. Sélectionne-les ici :")
                 }
 

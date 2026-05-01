@@ -18,8 +18,8 @@ struct FocusPulseUserCard: View {
                     .fill(
                         LinearGradient(
                             colors: [
-                                user.isInFocusSession ? .orange.opacity(0.6) : ColorTokens.accent.opacity(0.4),
-                                Color(red: 0.08, green: 0.08, blue: 0.12)
+                                user.isInFocusSession ? .white.opacity(0.6) : ColorTokens.accent.opacity(0.4),
+                                Color(hex: "#0A0A0A")
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -43,11 +43,11 @@ struct FocusPulseUserCard: View {
                         if user.isInFocusSession {
                             HStack(spacing: 4) {
                                 Circle()
-                                    .fill(.orange)
+                                    .fill(.white)
                                     .frame(width: 6, height: 6)
                                 Text("En focus \(user.focusMinutesElapsed) min")
                                     .font(.satoshi(12, weight: .semibold))
-                                    .foregroundColor(.orange)
+                                    .foregroundColor(.white)
                             }
                         }
 
@@ -68,7 +68,7 @@ struct FocusPulseUserCard: View {
                                 Text("\(streak)j")
                                     .font(.satoshi(12, weight: .semibold))
                             }
-                            .foregroundColor(.orange)
+                            .foregroundColor(.white)
                         }
                     }
                 }
@@ -123,7 +123,7 @@ struct FocusPulseUserCard: View {
             .frame(height: 50)
             .background(
                 Capsule()
-                    .fill(.orange)
+                    .fill(.white)
             )
         }
         .buttonStyle(.plain)
@@ -136,7 +136,7 @@ struct FocusPulseUserCard: View {
         VStack(spacing: 12) {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 40))
-                .foregroundColor(.green)
+                .foregroundColor(.white)
 
             Text("Deja encourage")
                 .font(.satoshi(15, weight: .bold))

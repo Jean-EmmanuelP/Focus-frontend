@@ -21,7 +21,7 @@ struct AnimatedMeshBackground: View {
 
     var body: some View {
         // Color as base ensures stable layout - blobs in overlay don't affect sizing
-        Color(red: 0.10, green: 0.33, blue: 0.92)
+        Color.black
             .overlay(
                 ZStack {
                     // Blob 1 - Orbits top-right to bottom-left
@@ -31,7 +31,7 @@ struct AnimatedMeshBackground: View {
                                 colors: [
                                     Color.white.opacity(0.75),
                                     Color.white.opacity(0.40),
-                                    Color(red: 0.55, green: 0.75, blue: 1.0).opacity(0.12),
+                                    Color(white: 0.7).opacity(0.12),
                                     Color.clear
                                 ],
                                 center: .center,
@@ -54,7 +54,7 @@ struct AnimatedMeshBackground: View {
                                 colors: [
                                     Color.white.opacity(0.60),
                                     Color.white.opacity(0.28),
-                                    Color(red: 0.50, green: 0.70, blue: 1.0).opacity(0.08),
+                                    Color(white: 0.65).opacity(0.08),
                                     Color.clear
                                 ],
                                 center: .center,
@@ -76,7 +76,7 @@ struct AnimatedMeshBackground: View {
                             RadialGradient(
                                 colors: [
                                     Color.white.opacity(0.45),
-                                    Color(red: 0.55, green: 0.75, blue: 1.0).opacity(0.18),
+                                    Color(white: 0.7).opacity(0.18),
                                     Color.clear
                                 ],
                                 center: .center,

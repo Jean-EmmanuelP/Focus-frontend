@@ -182,20 +182,20 @@ struct FocusPaywallView: View {
 
     private var backgroundView: some View {
         ZStack {
-            // Animated pulse background
-            FocusPulseView()
+            // Animated avatar background
+            TalkingHeadView(isSpeaking: false, mood: "neutral")
                 .ignoresSafeArea()
 
-            // Blue gradient overlay (bottom half)
+            // Gradient overlay (bottom half)
             VStack {
                 Spacer()
                 LinearGradient(
                     colors: [
                         Color.clear,
-                        Color(red: 0.25, green: 0.50, blue: 0.95).opacity(0.3),
-                        Color(red: 0.25, green: 0.50, blue: 0.95).opacity(0.7),
-                        Color(red: 0.30, green: 0.55, blue: 0.95).opacity(0.9),
-                        Color(red: 0.35, green: 0.60, blue: 0.95)
+                        Color.black.opacity(0.3),
+                        Color.black.opacity(0.7),
+                        Color.black.opacity(0.9),
+                        Color.black
                     ],
                     startPoint: .top,
                     endPoint: .bottom
@@ -258,7 +258,7 @@ struct FocusPaywallView: View {
                 }) {
                     Text(plan.rawValue)
                         .font(.system(size: 16, weight: selectedPlan == plan ? .semibold : .medium))
-                        .foregroundColor(selectedPlan == plan ? Color(red: 0.08, green: 0.08, blue: 0.20) : .white.opacity(0.6))
+                        .foregroundColor(selectedPlan == plan ? Color.black : .white.opacity(0.6))
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
                         .background(
@@ -418,6 +418,22 @@ struct FocusPaywallView: View {
 
     // MARK: - CTA Section
 
+    private var renewalDisclosure: String {
+        guard let package = selectedPackage,
+              let sub = package.subscription else {
+            return ""
+        }
+        let unit: String
+        switch sub.subscriptionPeriod.unit {
+        case .day: unit = sub.subscriptionPeriod.value > 1 ? "\(sub.subscriptionPeriod.value) jours" : "jour"
+        case .week: unit = sub.subscriptionPeriod.value > 1 ? "\(sub.subscriptionPeriod.value) semaines" : "semaine"
+        case .month: unit = sub.subscriptionPeriod.value > 1 ? "\(sub.subscriptionPeriod.value) mois" : "mois"
+        case .year: unit = sub.subscriptionPeriod.value > 1 ? "\(sub.subscriptionPeriod.value) ans" : "an"
+        @unknown default: unit = "période"
+        }
+        return "Renouvellement automatique chaque \(unit) à \(package.displayPrice). Résiliable à tout moment dans les Réglages > Apple ID > Abonnements, au moins 24 h avant la fin de la période."
+    }
+
     private func ctaSection(geometry: GeometryProxy) -> some View {
         VStack(spacing: 12) {
             // Main CTA button
@@ -425,19 +441,19 @@ struct FocusPaywallView: View {
                 VStack(spacing: 2) {
                     if subscriptionManager.isLoading {
                         ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: Color(red: 0.08, green: 0.08, blue: 0.20)))
+                            .progressViewStyle(CircularProgressViewStyle(tint: Color.black))
                     } else if let price = priceText {
                         Text("Obtenir \(selectedPlan.rawValue)")
                             .font(.system(size: 17, weight: .semibold))
-                            .foregroundColor(Color(red: 0.08, green: 0.08, blue: 0.20))
+                            .foregroundColor(Color.black)
 
                         Text(price)
                             .font(.system(size: 14))
-                            .foregroundColor(Color(red: 0.08, green: 0.08, blue: 0.20).opacity(0.6))
+                            .foregroundColor(Color.black.opacity(0.6))
                     } else {
                         Text("Chargement...")
                             .font(.system(size: 17, weight: .semibold))
-                            .foregroundColor(Color(red: 0.08, green: 0.08, blue: 0.20).opacity(0.5))
+                            .foregroundColor(Color.black.opacity(0.5))
                     }
                 }
                 .frame(maxWidth: .infinity)
@@ -449,10 +465,23 @@ struct FocusPaywallView: View {
             .opacity(isPackageAvailable ? 1.0 : 0.7)
             .padding(.horizontal, 50)
 
+            // Apple-required auto-renewal disclosure
+            if !renewalDisclosure.isEmpty {
+                Text(renewalDisclosure)
+                    .font(.system(size: 11))
+                    .foregroundColor(.white.opacity(0.5))
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(2)
+                    .padding(.horizontal, 32)
+                    .padding(.bottom, 4)
+            }
+
             // Footer links
             HStack(spacing: 24) {
                 Button("Conditions") {
-                    // Open terms
+                    if let url = URL(string: AppConfiguration.Legal.termsURL) {
+                        UIApplication.shared.open(url)
+                    }
                 }
                 .font(.system(size: 13))
                 .foregroundColor(.white.opacity(0.6))
@@ -464,7 +493,9 @@ struct FocusPaywallView: View {
                 .foregroundColor(.white.opacity(0.6))
 
                 Button("Confidentialité") {
-                    // Open privacy
+                    if let url = URL(string: AppConfiguration.Legal.privacyURL) {
+                        UIApplication.shared.open(url)
+                    }
                 }
                 .font(.system(size: 13))
                 .foregroundColor(.white.opacity(0.6))
@@ -475,8 +506,8 @@ struct FocusPaywallView: View {
         .background(
             LinearGradient(
                 colors: [
-                    Color(red: 0.35, green: 0.60, blue: 0.95).opacity(0),
-                    Color(red: 0.35, green: 0.60, blue: 0.95)
+                    Color.black.opacity(0),
+                    Color.black
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -502,7 +533,7 @@ struct FocusPaywallView: View {
             .padding(32)
             .background(
                 RoundedRectangle(cornerRadius: 20)
-                    .fill(Color(red: 0.15, green: 0.15, blue: 0.25))
+                    .fill(Color(hex: "#111111"))
             )
         }
     }

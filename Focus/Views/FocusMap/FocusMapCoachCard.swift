@@ -59,7 +59,7 @@ struct FocusMapCoachCard: View {
 
 #Preview {
     ZStack {
-        Color(hex: "#050508")
+        Color.black
             .ignoresSafeArea()
 
         FocusMapCoachCard(

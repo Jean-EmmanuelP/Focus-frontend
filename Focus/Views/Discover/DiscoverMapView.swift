@@ -139,12 +139,12 @@ struct DiscoverMapView: View {
             // LIVE pill
             HStack(spacing: 6) {
                 Circle()
-                    .fill(Color.green)
+                    .fill(Color.white)
                     .frame(width: 6, height: 6)
 
                 Text("LIVE")
                     .font(.system(size: 10, weight: .heavy))
-                    .foregroundColor(.green)
+                    .foregroundColor(.white)
 
                 if viewModel.localActiveCount > 0 {
                     Text("·")
@@ -213,7 +213,7 @@ struct DiscoverMapView: View {
 
                         Text(isMe ? "Toi" : entry.displayName)
                             .font(.system(size: 11, weight: isMe ? .bold : .semibold))
-                            .foregroundColor(isMe ? Color(red: 0.20, green: 0.45, blue: 1.0) : .white)
+                            .foregroundColor(isMe ? Color.white : .white)
                             .lineLimit(1)
 
                         Text("\(entry.formattedScore)")
@@ -236,7 +236,7 @@ struct DiscoverMapView: View {
     private func miniInitial(_ initial: String) -> some View {
         ZStack {
             Circle()
-                .fill(Color(red: 0.20, green: 0.45, blue: 1.0).opacity(0.3))
+                .fill(Color.white.opacity(0.3))
             Text(initial)
                 .font(.system(size: 9, weight: .bold))
                 .foregroundColor(.white)
@@ -271,12 +271,12 @@ struct DiscoverMapView: View {
                 Capsule()
                     .fill(
                         LinearGradient(
-                            colors: [Color(red: 0.20, green: 0.45, blue: 1.0), Color(red: 0.30, green: 0.55, blue: 1.0)],
+                            colors: [Color.white, Color(hex: "#C0C0C0")],
                             startPoint: .leading,
                             endPoint: .trailing
                         )
                     )
-                    .shadow(color: Color(red: 0.20, green: 0.45, blue: 1.0).opacity(0.4), radius: 16, y: 4)
+                    .shadow(color: Color.white.opacity(0.4), radius: 16, y: 4)
             )
         }
     }
@@ -331,7 +331,7 @@ struct DiscoverMapView: View {
         VStack(spacing: 16) {
             Image(systemName: "sparkles")
                 .font(.system(size: 36))
-                .foregroundColor(.orange.opacity(0.5))
+                .foregroundColor(.white.opacity(0.5))
 
             VStack(spacing: 6) {
                 Text("Personne en focus près de toi")

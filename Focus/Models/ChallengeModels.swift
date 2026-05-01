@@ -88,7 +88,7 @@ struct Challenge: Codable, Identifiable {
     }
 
     var type: ChallengeType {
-        ChallengeType(rawValue: challengeType ?? "wakeup") ?? .custom
+        ChallengeType(rawValue: challengeType ?? "wakeup") ?? .wakeup
     }
 
     var displayTitle: String {
@@ -100,6 +100,7 @@ struct Challenge: Codable, Identifiable {
     private static let dayNumberFormatter: DateFormatter = {
         let fmt = DateFormatter()
         fmt.dateFormat = "yyyy-MM-dd"
+        fmt.timeZone = TimeZone.current
         return fmt
     }()
 
@@ -139,6 +140,208 @@ struct Challenge: Codable, Identifiable {
 
     func partnerStreak(myId: String) -> Int {
         (myId == creatorId ? opponentStreak : creatorStreak) ?? 0
+    }
+
+    // MARK: - Validation Window
+
+    /// Whether the current time is within the allowed validation window for this challenge type
+    func isInValidationWindow() -> Bool {
+        let cal = Calendar.current
+        let hour = cal.component(.hour, from: Date())
+        let minute = cal.component(.minute, from: Date())
+        let nowMinutes = hour * 60 + minute
+
+        switch type {
+        case .wakeup:
+            guard let alarmStr = alarmTime, !alarmStr.isEmpty else { return false }
+            let parts = alarmStr.split(separator: ":").compactMap { Int($0) }
+            guard parts.count == 2 else { return false }
+            let alarmMinutes = parts[0] * 60 + parts[1]
+            let windowEnd = alarmMinutes + 60
+            if windowEnd > 1440 {
+                // Midnight wraparound (e.g. 23:30 → 00:30)
+                return nowMinutes >= alarmMinutes || nowMinutes <= (windowEnd - 1440)
+            }
+            return nowMinutes >= alarmMinutes && nowMinutes <= windowEnd
+        case .meditation:
+            return hour >= 5 && hour < 10
+        case .gym:
+            return hour >= 5 && hour < 23
+        case .reading:
+            return hour >= 18 || hour < 1
+        case .custom:
+            return true
+        }
+    }
+
+    /// Human-readable description of the validation window
+    var validationWindowText: String {
+        switch type {
+        case .wakeup:
+            guard let alarmStr = alarmTime else { return "Valide maintenant" }
+            let parts = alarmStr.split(separator: ":").compactMap { Int($0) }
+            guard parts.count == 2 else { return "Valide maintenant" }
+            let endHour = parts[0] + 1
+            let endMinute = parts[1]
+            return "Valide de \(alarmStr) a \(String(format: "%02d:%02d", endHour % 24, endMinute))"
+        case .meditation:
+            return "Valide de 5h a 10h"
+        case .gym:
+            return "Valide de 5h a 23h"
+        case .reading:
+            return "Valide de 18h a 1h"
+        case .custom:
+            return "Valide a tout moment"
+        }
+    }
+
+    /// Quick check: has the user likely validated today (approximation based on score vs dayNumber)
+    func hasLikelyValidatedToday(myId: String) -> Bool {
+        let score = myScore(myId: myId)
+        let day = dayNumber
+        guard day > 0 && score > 0 else { return false }
+        return score >= day
+    }
+
+    /// Minutes remaining in the validation window (nil if no window or outside)
+    var minutesRemainingInWindow: Int? {
+        let cal = Calendar.current
+        let hour = cal.component(.hour, from: Date())
+        let minute = cal.component(.minute, from: Date())
+        let nowMinutes = hour * 60 + minute
+
+        switch type {
+        case .wakeup:
+            guard let alarmStr = alarmTime else { return nil }
+            let parts = alarmStr.split(separator: ":").compactMap { Int($0) }
+            guard parts.count == 2 else { return nil }
+            let windowEnd = parts[0] * 60 + parts[1] + 60
+            let remaining = windowEnd - nowMinutes
+            return remaining > 0 && remaining <= 60 ? remaining : nil
+        case .meditation:
+            let end = 10 * 60 // 10:00
+            let remaining = end - nowMinutes
+            return remaining > 0 && remaining <= 120 ? remaining : nil
+        case .gym:
+            let end = 23 * 60
+            let remaining = end - nowMinutes
+            return remaining > 0 && remaining <= 120 ? remaining : nil
+        default:
+            return nil
+        }
+    }
+
+    /// Urgency text for display (e.g. "Plus que 45min!")
+    var urgencyText: String? {
+        guard let mins = minutesRemainingInWindow, mins <= 60 else { return nil }
+        if mins <= 5 { return "Derniere chance !" }
+        if mins <= 15 { return "Plus que \(mins)min !" }
+        if mins <= 30 { return "Plus que \(mins)min" }
+        return nil
+    }
+
+    /// Whether today's validation window has already passed (= failed day)
+    func hasWindowPassedToday() -> Bool {
+        let cal = Calendar.current
+        let hour = cal.component(.hour, from: Date())
+        let minute = cal.component(.minute, from: Date())
+        let nowMinutes = hour * 60 + minute
+
+        switch type {
+        case .wakeup:
+            guard let alarmStr = alarmTime else { return false }
+            let parts = alarmStr.split(separator: ":").compactMap { Int($0) }
+            guard parts.count == 2 else { return false }
+            let windowEnd = parts[0] * 60 + parts[1] + 60
+            if windowEnd > 1440 {
+                // Midnight wraparound: window passed only after the wrap portion
+                let wrappedEnd = windowEnd - 1440
+                return nowMinutes > wrappedEnd && nowMinutes < parts[0] * 60 + parts[1]
+            }
+            return nowMinutes > windowEnd
+        case .meditation:
+            return hour >= 10
+        case .gym:
+            return hour >= 23
+        case .reading:
+            return hour >= 1 && hour < 18
+        case .custom:
+            return false
+        }
+    }
+
+    /// When the next validation window opens (e.g. "Demain a 07:00", "Dans 3h")
+    var nextWindowText: String? {
+        let cal = Calendar.current
+        let hour = cal.component(.hour, from: Date())
+        let minute = cal.component(.minute, from: Date())
+        let nowMinutes = hour * 60 + minute
+
+        switch type {
+        case .wakeup:
+            guard let alarmStr = alarmTime else { return nil }
+            let parts = alarmStr.split(separator: ":").compactMap { Int($0) }
+            guard parts.count == 2 else { return nil }
+            let alarmMinutes = parts[0] * 60 + parts[1]
+
+            if nowMinutes > alarmMinutes + 60 {
+                // Window passed today → next is tomorrow
+                let hoursUntil = (1440 - nowMinutes + alarmMinutes) / 60
+                if hoursUntil <= 1 {
+                    return "Dans \(1440 - nowMinutes + alarmMinutes)min"
+                }
+                return "Demain a \(alarmStr)"
+            } else if nowMinutes < alarmMinutes {
+                // Before window today
+                let minsUntil = alarmMinutes - nowMinutes
+                if minsUntil <= 60 {
+                    return "Dans \(minsUntil)min"
+                }
+                return "Aujourd'hui a \(alarmStr)"
+            }
+            return nil
+        case .meditation:
+            if hour >= 10 {
+                return "Demain des 5h"
+            } else if hour < 5 {
+                let minsUntil = 5 * 60 - nowMinutes
+                return minsUntil <= 60 ? "Dans \(minsUntil)min" : "A 5h"
+            }
+            return nil
+        case .gym:
+            if hour >= 23 {
+                return "Demain des 5h"
+            }
+            return nil
+        case .reading:
+            if hour >= 1 && hour < 18 {
+                let hoursUntil = 18 - hour
+                return hoursUntil <= 2 ? "Dans \(hoursUntil)h" : "Ce soir a 18h"
+            }
+            return nil
+        case .custom:
+            return nil
+        }
+    }
+
+    /// Clear description of what this challenge validates
+    var ruleDescription: String {
+        switch type {
+        case .wakeup:
+            guard let alarm = alarmTime else { return "Photo entre ton heure de reveil et +1h" }
+            let parts = alarm.split(separator: ":").compactMap { Int($0) }
+            guard parts.count == 2 else { return "Photo le matin" }
+            let end = String(format: "%02d:%02d", (parts[0] + 1) % 24, parts[1])
+            return "Photo entre \(alarm) et \(end)"
+        case .gym:
+            return "Photo a la salle chaque jour"
+        case .meditation:
+            return "Photo de meditation entre 5h et 10h"
+        case .reading:
+            return "Photo de lecture le soir"
+        case .custom:
+            return "Photo quotidienne"
+        }
     }
 }
 
@@ -190,6 +393,7 @@ struct ChallengeTaunt: Codable, Identifiable {
 
 struct ChallengeDetailResponse: Codable {
     let id: String
+    let challengeType: String?
     let alarmTime: String?
     let status: String?
     let durationDays: Int?
@@ -211,6 +415,7 @@ struct ChallengeDetailResponse: Codable {
 
     enum CodingKeys: String, CodingKey {
         case id
+        case challengeType = "challenge_type"
         case alarmTime = "alarm_time"
         case status
         case durationDays = "duration_days"
@@ -264,6 +469,43 @@ enum VerificationGesture: String, CaseIterable {
     }
 }
 
+// MARK: - Challenge Steps (daily checklist)
+
+enum StepInputType {
+    case camera
+    case toggle
+}
+
+struct ChallengeStep: Identifiable {
+    let id: String
+    let label: String
+    let points: Int
+    let inputType: StepInputType
+}
+
+/// Tracks today's in-progress checklist state (local, not persisted until submit)
+struct TodayProgress {
+    let challengeId: String
+    let challengeType: ChallengeType
+    var selfieUrl: String?
+    var photoUrl: String?
+    var mantraValidated: Bool = false
+    var exercisesDone: Bool = false
+
+    var completedStepIds: Set<String> {
+        var ids = Set<String>()
+        if selfieUrl != nil { ids.insert("selfie") }
+        if photoUrl != nil { ids.insert("photo") }
+        if mantraValidated { ids.insert("mantra") }
+        if exercisesDone { ids.insert("exercises") }
+        return ids
+    }
+
+    var completedCount: Int { completedStepIds.count }
+    var totalCount: Int { challengeType.steps.count }
+    var isComplete: Bool { completedCount >= totalCount }
+}
+
 // MARK: - API Request Bodies
 
 struct CreateChallengeRequest: Encodable {
@@ -271,11 +513,13 @@ struct CreateChallengeRequest: Encodable {
     let durationDays: Int
     let title: String?
     let mantra: String?
+    let challengeType: String?
 
     enum CodingKeys: String, CodingKey {
         case alarmTime = "alarm_time"
         case durationDays = "duration_days"
         case title, mantra
+        case challengeType = "challenge_type"
     }
 }
 

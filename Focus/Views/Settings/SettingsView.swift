@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import StoreKit
 import AVFoundation
 import PhotosUI
 
@@ -19,18 +20,18 @@ enum SettingsPrefsKeys {
 private enum ReplicaColors {
     static let background = LinearGradient(
         colors: [
-            Color(red: 0.15, green: 0.18, blue: 0.45),  // Dark blue top
-            Color(red: 0.18, green: 0.22, blue: 0.52),  // Mid blue
-            Color(red: 0.20, green: 0.25, blue: 0.58)   // Lighter blue bottom
+            Color.black,
+            Color(hex: "#0A0A0A"),
+            Color(hex: "#111111")
         ],
         startPoint: .top,
         endPoint: .bottom
     )
-    static let backgroundSolid = Color(red: 0.16, green: 0.19, blue: 0.48)
+    static let backgroundSolid = Color.black
     static let rowDivider = Color.white.opacity(0.08)
     static let sectionHeader = Color.white.opacity(0.5)
     static let chevron = Color.white.opacity(0.4)
-    static let toggleBlue = Color(red: 0.25, green: 0.50, blue: 1.0)
+    static let toggleBlue = Color.white
     static let closeButton = Color.white.opacity(0.15)
 }
 
@@ -71,6 +72,7 @@ struct SettingsView: View {
     @State private var isDeletingAccount = false
     @State private var deleteError: String?
     @State private var showSubscription = false
+    @State private var showManageSubscriptions = false
     @State private var showOnboarding = false
     @State private var showAvatarTest = false
     @State private var showAppBlocker = false
@@ -128,6 +130,7 @@ struct SettingsView: View {
                     .presentationDragIndicator(.visible)
                     .presentationBackground(.ultraThinMaterial)
             }
+            .manageSubscriptionsSheet(isPresented: $showManageSubscriptions)
     }
 
     // MARK: - Settings Content
@@ -336,23 +339,28 @@ struct SettingsView: View {
 
     private var promoBanner: some View {
         Button(action: {
-            withAnimation(.easeInOut(duration: 0.3)) {
-                showSubscription = true
+            if subscriptionManager.isProUser {
+                showManageSubscriptions = true
+            } else {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showSubscription = true
+                }
             }
         }) {
             HStack(spacing: 16) {
-                // Companion pulse avatar
-                FocusPulseView()
+                TalkingHeadView(isSpeaking: false, mood: "neutral")
                     .frame(width: 80, height: 80)
                     .clipShape(Circle())
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Débloquez toutes les fonctionnalités")
+                    Text(subscriptionManager.isProUser ? "Gérer mon abonnement" : "Débloquez toutes les fonctionnalités")
                         .font(.system(size: 18, weight: .bold))
                         .foregroundColor(.white)
                         .multilineTextAlignment(.leading)
 
-                    Text("Messages vocaux illimités, génération d'images, activités, et plus encore.")
+                    Text(subscriptionManager.isProUser
+                         ? "Tu es abonné Focus. Modifie ou annule ton abonnement depuis l'App Store."
+                         : "Messages vocaux illimités, génération d'images, activités, et plus encore.")
                         .font(.system(size: 13))
                         .foregroundColor(.white.opacity(0.7))
                         .multilineTextAlignment(.leading)
@@ -369,9 +377,9 @@ struct SettingsView: View {
                     .fill(
                         LinearGradient(
                             colors: [
-                                Color(red: 0.15, green: 0.25, blue: 0.65),
-                                Color(red: 0.20, green: 0.35, blue: 0.75),
-                                Color(red: 0.15, green: 0.30, blue: 0.70)
+                                Color(hex: "#111111"),
+                                Color(hex: "#1A1A1A"),
+                                Color(hex: "#141414")
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -405,7 +413,7 @@ struct SettingsView: View {
             HStack {
                 Image(systemName: "alarm.fill")
                     .font(.system(size: 16))
-                    .foregroundColor(WakeUpService.shared.challenge.isEnabled ? .orange : .white.opacity(0.5))
+                    .foregroundColor(WakeUpService.shared.challenge.isEnabled ? .white : .white.opacity(0.5))
                 Text("Réveil Challenge")
                     .font(.system(size: 16, weight: .medium))
                     .foregroundColor(.white)
@@ -422,7 +430,7 @@ struct SettingsView: View {
                     }
                 ))
                 .labelsHidden()
-                .tint(.orange)
+                .tint(.white)
             }
             .padding(.vertical, 10)
 
@@ -462,7 +470,7 @@ struct SettingsView: View {
                         HStack(spacing: 4) {
                             Text("\(WakeUpService.shared.challenge.wakeUpStreak)")
                                 .font(.system(size: 24, weight: .bold, design: .rounded))
-                                .foregroundColor(.orange)
+                                .foregroundColor(.white)
                             Text("jours")
                                 .font(.system(size: 14))
                                 .foregroundColor(.white.opacity(0.5))
@@ -489,10 +497,10 @@ struct SettingsView: View {
                 if WakeUpService.shared.challenge.confirmedToday {
                     HStack {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
+                            .foregroundColor(.white)
                         Text("Réveillé à \(WakeUpService.shared.challenge.lastWakeUpTime ?? "--")")
                             .font(.system(size: 13))
-                            .foregroundColor(.green.opacity(0.8))
+                            .foregroundColor(.white.opacity(0.8))
                     }
                     .padding(.vertical, 4)
                 }
@@ -559,7 +567,7 @@ struct SettingsView: View {
                     if CalendarProviderManager.shared.hasCalendarConnected {
                         Text("Connecté")
                             .font(.system(size: 14))
-                            .foregroundColor(.green.opacity(0.7))
+                            .foregroundColor(.white.opacity(0.7))
                     }
                     Image(systemName: "chevron.right")
                         .font(.system(size: 13, weight: .semibold))
@@ -723,7 +731,7 @@ struct SettingsView: View {
                         .font(.system(size: 16))
                     Spacer()
                 }
-                .foregroundColor(.orange)
+                .foregroundColor(.white)
                 .padding(.vertical, 14)
             }
 
@@ -1149,7 +1157,7 @@ struct ReplicaAccountView: View {
                                     .font(.system(size: 12, weight: .semibold))
                                     .foregroundColor(.white)
                                     .frame(width: 28, height: 28)
-                                    .background(Circle().fill(Color(red: 0.25, green: 0.50, blue: 1.0)))
+                                    .background(Circle().fill(Color.white))
                                     .overlay(Circle().stroke(.white, lineWidth: 2))
                             }
                         }
@@ -1230,7 +1238,7 @@ struct ReplicaAccountView: View {
                 Button(action: onShowDeleteAccount) {
                     Text("Supprimer le compte")
                         .font(.system(size: 16))
-                        .foregroundColor(.red)
+                        .foregroundColor(.white)
                 }
                 .padding(.horizontal, 16)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -1246,7 +1254,7 @@ struct ReplicaAccountView: View {
                         Text("Reset onboarding")
                             .font(.system(size: 14))
                     }
-                    .foregroundColor(.orange)
+                    .foregroundColor(.white)
                 }
                 .padding(.horizontal, 16)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -1306,7 +1314,7 @@ struct ReplicaAccountView: View {
 
     private var profileInitialView: some View {
         ZStack {
-            Circle().fill(Color(red: 0.25, green: 0.50, blue: 1.0))
+            Circle().fill(Color.white.opacity(0.15))
             Text(profileInitialText)
                 .font(.system(size: 32, weight: .bold, design: .rounded))
                 .foregroundColor(.white)
@@ -1393,7 +1401,7 @@ struct EditPseudoView: View {
                                 .scaleEffect(0.7)
                         } else if let available = isAvailable {
                             Image(systemName: available ? "checkmark.circle.fill" : "xmark.circle.fill")
-                                .foregroundColor(available ? .green : .red)
+                                .foregroundColor(available ? .white : .white.opacity(0.4))
                                 .font(.system(size: 18))
                         }
                     }
@@ -1408,15 +1416,15 @@ struct EditPseudoView: View {
                         if !cleanPseudo.isEmpty && !isValid {
                             Text("3-20 caractères, lettres, chiffres et _ uniquement")
                                 .font(.system(size: 12))
-                                .foregroundColor(.orange)
+                                .foregroundColor(.white)
                         } else if isAvailable == false {
                             Text("Ce pseudo est déjà pris")
                                 .font(.system(size: 12))
-                                .foregroundColor(.red)
+                                .foregroundColor(.white.opacity(0.5))
                         } else if isAvailable == true {
                             Text("Pseudo disponible !")
                                 .font(.system(size: 12))
-                                .foregroundColor(.green)
+                                .foregroundColor(.white)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -1611,7 +1619,7 @@ struct ReplicaChangePasswordView: View {
                 if !newPassword.isEmpty && newPassword.count < 6 {
                     Text("Le mot de passe doit contenir au moins 6 caractères")
                         .font(.system(size: 13))
-                        .foregroundColor(.orange)
+                        .foregroundColor(.white.opacity(0.6))
                         .padding(.top, 8)
                         .padding(.horizontal, 24)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1620,7 +1628,7 @@ struct ReplicaChangePasswordView: View {
                 if !confirmPassword.isEmpty && newPassword != confirmPassword {
                     Text("Les mots de passe ne correspondent pas")
                         .font(.system(size: 13))
-                        .foregroundColor(.orange)
+                        .foregroundColor(.white.opacity(0.6))
                         .padding(.top, 4)
                         .padding(.horizontal, 24)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1629,7 +1637,7 @@ struct ReplicaChangePasswordView: View {
                 if let error = errorMessage {
                     Text(error)
                         .font(.system(size: 13))
-                        .foregroundColor(.red)
+                        .foregroundColor(.white)
                         .padding(.top, 8)
                         .padding(.horizontal, 24)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1638,7 +1646,7 @@ struct ReplicaChangePasswordView: View {
                 if showSuccess {
                     Text("Mot de passe mis à jour avec succès")
                         .font(.system(size: 13))
-                        .foregroundColor(.green)
+                        .foregroundColor(.white)
                         .padding(.top, 8)
                         .padding(.horizontal, 24)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -2016,7 +2024,7 @@ struct VoltaVoicePickerView: View {
                 if let error = previewPlayer.errorMessage {
                     Text(error)
                         .font(.system(size: 13))
-                        .foregroundColor(.red.opacity(0.9))
+                        .foregroundColor(.white.opacity(0.7))
                         .padding(.horizontal, 24)
                         .padding(.top, 8)
                         .transition(.opacity)
@@ -2276,7 +2284,7 @@ struct ReplicaChangeEmailView: View {
                 }) {
                     Text(resetSent ? "Email envoyé !" : "Mot de passe oublié ?")
                         .font(.system(size: 14))
-                        .foregroundColor(resetSent ? .green.opacity(0.8) : .white.opacity(0.7))
+                        .foregroundColor(resetSent ? .white : .white.opacity(0.7))
                 }
                 .disabled(resetSent)
                 .padding(.top, 12)
@@ -2349,7 +2357,7 @@ struct ReplicaDeleteAccountView: View {
                 Circle()
                     .fill(
                         LinearGradient(
-                            colors: [Color.blue.opacity(0.3), Color.purple.opacity(0.2)],
+                            colors: [Color.white.opacity(0.15), Color.white.opacity(0.08)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
@@ -2399,7 +2407,7 @@ struct ReplicaDeleteAccountView: View {
                 if let errorMessage {
                     Text(errorMessage)
                         .font(.system(size: 14))
-                        .foregroundColor(.red)
+                        .foregroundColor(.white)
                         .padding(.horizontal, 16)
                         .padding(.top, 12)
                 }
@@ -2434,7 +2442,7 @@ struct ReplicaDeleteAccountView: View {
                         .frame(height: 50)
                         .background(
                             Capsule()
-                                .fill(isDeleting ? Color.white.opacity(0.5) : Color.red.opacity(0.9))
+                                .fill(isDeleting ? Color.white.opacity(0.5) : Color.white.opacity(0.9))
                         )
                     }
                     .disabled(isDeleting)
@@ -2454,7 +2462,7 @@ struct AvatarTestView: View {
 
     var body: some View {
         ZStack {
-            FocusPulseView()
+            TalkingHeadView(isSpeaking: false, mood: "neutral")
                 .ignoresSafeArea()
 
             VStack {
@@ -2482,7 +2490,7 @@ struct AvatarTestView: View {
 struct FacebookLogoView: View {
     var body: some View {
         Circle()
-            .fill(Color(red: 0.02, green: 0.40, blue: 1.0)) // #0866ff
+            .fill(Color.white)
             .overlay(
                 Text("f")
                     .font(.system(size: 18, weight: .bold, design: .rounded))
@@ -2496,7 +2504,7 @@ struct FacebookLogoView: View {
 struct RedditLogoView: View {
     var body: some View {
         Circle()
-            .fill(Color(red: 1.0, green: 0.27, blue: 0.0)) // #ff4500
+            .fill(Color.white)
             .overlay(
                 // Simplified Snoo face
                 GeometryReader { geo in
@@ -2504,29 +2512,29 @@ struct RedditLogoView: View {
                     ZStack {
                         // Ears (two small circles on top)
                         Circle()
-                            .fill(Color.white)
+                            .fill(Color.black)
                             .frame(width: size * 0.22, height: size * 0.22)
                             .offset(x: -size * 0.22, y: -size * 0.18)
 
                         Circle()
-                            .fill(Color.white)
+                            .fill(Color.black)
                             .frame(width: size * 0.22, height: size * 0.22)
                             .offset(x: size * 0.22, y: -size * 0.18)
 
-                        // Face (white oval)
+                        // Face (black oval)
                         Ellipse()
-                            .fill(Color.white)
+                            .fill(Color.black)
                             .frame(width: size * 0.65, height: size * 0.55)
                             .offset(y: size * 0.08)
 
-                        // Eyes (two black dots)
+                        // Eyes (two white dots)
                         Circle()
-                            .fill(Color(red: 1.0, green: 0.27, blue: 0.0))
+                            .fill(Color.white)
                             .frame(width: size * 0.12, height: size * 0.12)
                             .offset(x: -size * 0.12, y: size * 0.02)
 
                         Circle()
-                            .fill(Color(red: 1.0, green: 0.27, blue: 0.0))
+                            .fill(Color.white)
                             .frame(width: size * 0.12, height: size * 0.12)
                             .offset(x: size * 0.12, y: size * 0.02)
 
@@ -2540,7 +2548,7 @@ struct RedditLogoView: View {
                                 clockwise: false
                             )
                         }
-                        .stroke(Color(red: 1.0, green: 0.27, blue: 0.0), lineWidth: 1.5)
+                        .stroke(Color.white, lineWidth: 1.5)
                     }
                 }
             )
@@ -2551,7 +2559,7 @@ struct RedditLogoView: View {
 struct DiscordLogoView: View {
     var body: some View {
         Circle()
-            .fill(Color(red: 0.345, green: 0.396, blue: 0.949)) // #5865f2
+            .fill(Color.white)
             .overlay(
                 // Simplified Discord logo (game controller face)
                 GeometryReader { geo in
@@ -2582,17 +2590,17 @@ struct DiscordLogoView: View {
                                 control: CGPoint(x: x, y: y)
                             )
                         }
-                        .fill(Color.white)
+                        .fill(Color.black)
 
                         // Left eye
                         Ellipse()
-                            .fill(Color(red: 0.345, green: 0.396, blue: 0.949))
+                            .fill(Color.white)
                             .frame(width: size * 0.15, height: size * 0.18)
                             .offset(x: -size * 0.12, y: size * 0.05)
 
                         // Right eye
                         Ellipse()
-                            .fill(Color(red: 0.345, green: 0.396, blue: 0.949))
+                            .fill(Color.white)
                             .frame(width: size * 0.15, height: size * 0.18)
                             .offset(x: size * 0.12, y: size * 0.05)
                     }
@@ -2619,5 +2627,5 @@ struct DiscordLogoView: View {
             .frame(width: 40, height: 40)
     }
     .padding()
-    .background(Color(red: 0.16, green: 0.19, blue: 0.48))
+    .background(Color.black)
 }

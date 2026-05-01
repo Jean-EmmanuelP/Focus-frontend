@@ -10,9 +10,18 @@ import DeviceActivity
 final class ScreenTimeAppBlockerService: ObservableObject {
     static let shared = ScreenTimeAppBlockerService()
 
+    // MARK: - Blocking Result
+    enum BlockingResult {
+        case started
+        case notAuthorized
+        case noAppsSelected
+        case alreadyBlocking
+    }
+
     // MARK: - Published State
     @Published private(set) var authorizationStatus: AuthorizationStatus = .notDetermined
     @Published private(set) var isBlocking: Bool = false
+    @Published private(set) var blockingStartDate: Date?
     @Published private(set) var blockingEndDate: Date?
     @Published private(set) var blockingRemainingMinutes: Int = 0
     @Published var selectedApps: FamilyActivitySelection = FamilyActivitySelection()
@@ -133,20 +142,27 @@ final class ScreenTimeAppBlockerService: ObservableObject {
     // MARK: - Blocking Control
 
     /// Start blocking selected apps indefinitely
-    func startBlocking() {
+    @discardableResult
+    func startBlocking() -> BlockingResult {
         startBlocking(durationMinutes: nil)
     }
 
     /// Start blocking selected apps for a specific duration (in minutes)
-    func startBlocking(durationMinutes: Int?) {
+    @discardableResult
+    func startBlocking(durationMinutes: Int?) -> BlockingResult {
         guard authorizationStatus == .approved else {
             print("⚠️ Cannot start blocking: not authorized")
-            return
+            return .notAuthorized
         }
 
         guard hasSelectedApps else {
             print("⚠️ Cannot start blocking: no apps selected")
-            return
+            return .noAppsSelected
+        }
+
+        if isBlocking {
+            print("ℹ️ Already blocking")
+            return .alreadyBlocking
         }
 
         // Cancel any existing timer
@@ -159,6 +175,7 @@ final class ScreenTimeAppBlockerService: ObservableObject {
         managedSettingsStore.shield.webDomains = selectedApps.webDomainTokens
 
         isBlocking = true
+        blockingStartDate = Date()
 
         if let minutes = durationMinutes, minutes > 0 {
             blockingEndDate = Date().addingTimeInterval(TimeInterval(minutes * 60))
@@ -182,6 +199,8 @@ final class ScreenTimeAppBlockerService: ObservableObject {
             blockingRemainingMinutes = 0
             print("🔒 App blocking started (indefinite) - \(selectedAppsCount) items blocked")
         }
+
+        return .started
     }
 
     private func updateRemainingTime() {
@@ -205,6 +224,7 @@ final class ScreenTimeAppBlockerService: ObservableObject {
         managedSettingsStore.shield.webDomains = nil
 
         isBlocking = false
+        blockingStartDate = nil
         blockingEndDate = nil
         blockingRemainingMinutes = 0
         print("🔓 App blocking stopped")

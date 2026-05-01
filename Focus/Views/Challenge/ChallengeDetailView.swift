@@ -7,6 +7,8 @@ struct ChallengeDetailView: View {
     @StateObject private var viewModel = ChallengeViewModel()
     @State private var tauntText = ""
     @State private var isPulsing = false
+    @State private var showVerificationSheet = false
+    @State private var showSuccessView = false
     @Environment(\.dismiss) private var dismiss
 
     private var currentUserId: String {
@@ -61,6 +63,32 @@ struct ChallengeDetailView: View {
         }
         .onAppear {
             Task { await viewModel.loadChallengeDetail(id: challengeId) }
+        }
+        .fullScreenCover(isPresented: $showVerificationSheet) {
+            if let challenge = viewModel.challenge {
+                ChallengeVerificationView(
+                    challenge: challenge,
+                    onVerified: { photoUrl in
+                        Task {
+                            await viewModel.checkIn(challengeId: challenge.id, photoUrl: photoUrl, mantraValidated: false, exercisesDone: false)
+                        }
+                        showVerificationSheet = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            showSuccessView = true
+                        }
+                    },
+                    onDismiss: { showVerificationSheet = false }
+                )
+            }
+        }
+        .fullScreenCover(isPresented: $showSuccessView) {
+            if let challenge = viewModel.challenge {
+                ChallengeSuccessView(
+                    challenge: challenge,
+                    dayNumber: challenge.dayNumber,
+                    onDismiss: { showSuccessView = false }
+                )
+            }
         }
         .preferredColorScheme(.dark)
     }
@@ -250,21 +278,18 @@ struct ChallengeDetailView: View {
             } else {
                 // Not yet validated — big CTA with pulse
                 Button {
-                    dismiss()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        NotificationCenter.default.post(name: .openMorningVerification, object: nil)
-                    }
+                    showVerificationSheet = true
                 } label: {
                     HStack(spacing: 10) {
                         Image(systemName: "camera.fill")
                             .font(.system(size: 16, weight: .semibold))
-                        Text("VALIDER MON MATIN")
+                        Text("VALIDER MAINTENANT")
                             .font(.satoshi(18, weight: .bold))
                     }
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 20)
-                    .background(ColorTokens.primaryGradient)
+                    .background(challenge.type.gradient)
                     .clipShape(RoundedRectangle(cornerRadius: RadiusTokens.lg))
                     .scaleEffect(isPulsing ? 1.02 : 1.0)
                     .animation(
@@ -294,7 +319,7 @@ struct ChallengeDetailView: View {
                 avatarView(url: myAvatarUrl, initial: "T", size: 48)
                     .overlay(
                         Circle()
-                            .stroke(Color(hex: "#5AC8FA").opacity(0.5), lineWidth: 2)
+                            .stroke(Color.white.opacity(0.5), lineWidth: 2)
                             .frame(width: 52, height: 52)
                     )
 

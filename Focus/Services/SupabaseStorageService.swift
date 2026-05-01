@@ -58,6 +58,49 @@ class SupabaseStorageService {
         }
     }
 
+    // MARK: - Upload Challenge Photo
+
+    /// Upload a challenge verification photo to Supabase Storage
+    /// - Returns: The public URL of the uploaded photo
+    func uploadChallengePhoto(imageData: Data, userId: String, challengeId: String) async throws -> String {
+        let filename = "\(UUID().uuidString).jpg"
+        let path = "\(userId)/\(challengeId)/\(filename)"
+        let bucket = "challenge-photos"
+
+        guard let token = await AuthService.shared.getAccessToken() else {
+            throw StorageError.notAuthenticated
+        }
+
+        let uploadURL = storageURL
+            .appendingPathComponent("object")
+            .appendingPathComponent(bucket)
+            .appendingPathComponent(path)
+
+        var request = URLRequest(url: uploadURL)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue(SupabaseConfig.supabaseAnonKey, forHTTPHeaderField: "apikey")
+        request.setValue("image/jpeg", forHTTPHeaderField: "Content-Type")
+        request.httpBody = imageData
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw StorageError.invalidResponse
+        }
+
+        if httpResponse.statusCode == 200 || httpResponse.statusCode == 201 {
+            // Return public URL
+            let publicURL = "\(SupabaseConfig.supabaseURL.absoluteString)/storage/v1/object/public/\(bucket)/\(path)"
+            print("Challenge photo uploaded: \(publicURL)")
+            return publicURL
+        } else {
+            let errorBody = String(data: data, encoding: .utf8) ?? "unknown"
+            print("Photo upload failed: HTTP \(httpResponse.statusCode) - \(errorBody)")
+            throw StorageError.uploadFailed(httpResponse.statusCode)
+        }
+    }
+
     // MARK: - Get Signed URL
 
     /// Get a signed URL for a private file (valid for 1 hour)

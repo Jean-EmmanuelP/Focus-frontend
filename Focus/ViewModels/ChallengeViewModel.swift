@@ -25,7 +25,7 @@ class ChallengeViewModel: ObservableObject {
     /// Derives a `Challenge` from `challengeDetail` so views can use a single model.
     var challenge: Challenge? {
         guard let d = challengeDetail else { return nil }
-        return Challenge(id: d.id, challengeType: "wakeup", alarmTime: d.alarmTime, durationDays: d.durationDays, status: d.status, creatorId: d.creatorId, opponentId: d.opponentId, creatorName: d.creatorName, opponentName: d.opponentName, creatorScore: d.creatorScore, opponentScore: d.opponentScore, creatorStreak: d.creatorStreak, opponentStreak: d.opponentStreak, startDate: d.startDate, customTitle: nil, inviteCode: d.inviteCode, mantra: d.mantra, title: d.title, creatorAvatarUrl: d.creatorAvatarUrl, opponentAvatarUrl: d.opponentAvatarUrl)
+        return Challenge(id: d.id, challengeType: d.challengeType, alarmTime: d.alarmTime, durationDays: d.durationDays, status: d.status, creatorId: d.creatorId, opponentId: d.opponentId, creatorName: d.creatorName, opponentName: d.opponentName, creatorScore: d.creatorScore, opponentScore: d.opponentScore, creatorStreak: d.creatorStreak, opponentStreak: d.opponentStreak, startDate: d.startDate, customTitle: nil, inviteCode: d.inviteCode, mantra: d.mantra, title: d.title, creatorAvatarUrl: d.creatorAvatarUrl, opponentAvatarUrl: d.opponentAvatarUrl)
     }
 
     // MARK: - Load Challenges
@@ -76,11 +76,31 @@ class ChallengeViewModel: ObservableObject {
         isLoading = false
     }
 
+    // MARK: - Cancel/Delete Challenge
+
+    /// Cancels a challenge by setting its status to cancelled. Reloads the list.
+    func cancelChallenge(id: String) async {
+        // Use Supabase direct update since there's no dedicated API endpoint
+        let url = "\(SupabaseConfig.supabaseURL.absoluteString)/rest/v1/wake_up_challenges?id=eq.\(id)"
+        guard let requestURL = URL(string: url),
+              let token = await AuthService.shared.getAccessToken() else { return }
+
+        var request = URLRequest(url: requestURL)
+        request.httpMethod = "PATCH"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue(SupabaseConfig.supabaseAnonKey, forHTTPHeaderField: "apikey")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONEncoder().encode(["status": "cancelled"])
+
+        _ = try? await URLSession.shared.data(for: request)
+        await loadChallenges()
+    }
+
     // MARK: - Create Challenge
 
     /// Creates a new wake-up challenge and returns it (with invite_code).
     /// Reloads the challenge list on success.
-    func createChallenge(title: String, alarmTime: String, durationDays: Int, mantra: String?) async -> Challenge? {
+    func createChallenge(title: String, alarmTime: String, durationDays: Int, mantra: String?, challengeType: String? = nil) async -> Challenge? {
         isLoading = true
         error = nil
 
@@ -88,7 +108,8 @@ class ChallengeViewModel: ObservableObject {
             alarmTime: alarmTime,
             durationDays: durationDays,
             title: title,
-            mantra: mantra
+            mantra: mantra,
+            challengeType: challengeType
         )
 
         do {
@@ -132,7 +153,32 @@ class ChallengeViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Check In (after voice validation)
+    // MARK: - Submit Checklist Progress
+
+    /// Submit a completed checklist for today. Maps TodayProgress to the API request.
+    func submitChecklist(_ progress: TodayProgress) async {
+        // Only send real URLs (not "captured" or "done" placeholders)
+        let photoUrl: String? = {
+            let url = progress.selfieUrl ?? progress.photoUrl
+            guard let url, url.hasPrefix("http") else { return nil }
+            return url
+        }()
+        await checkIn(
+            challengeId: progress.challengeId,
+            photoUrl: photoUrl,
+            mantraValidated: progress.mantraValidated,
+            exercisesDone: progress.exercisesDone
+        )
+    }
+
+    /// Load detail for all active challenges (for friend progress + entries)
+    func loadAllDetails() async {
+        for challenge in challenges where challenge.isActive {
+            await loadChallengeDetail(id: challenge.id)
+        }
+    }
+
+    // MARK: - Check In
 
     /// Records a check-in for today. Uses the current time as `wake_up_time`.
     func checkIn(challengeId: String, photoUrl: String?, mantraValidated: Bool, exercisesDone: Bool) async {

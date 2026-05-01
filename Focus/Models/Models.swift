@@ -240,12 +240,12 @@ enum LifeArea: String, Codable, CaseIterable {
 
     var color: String {
         switch self {
-        case .health: return "#34C759"
-        case .learning: return "#5AC8FA"
-        case .career: return "#4ECDC4"
-        case .relationships: return "#FF6B9D"
-        case .creativity: return "#BF5AF2"
-        case .other: return "#8E8E93"
+        case .health: return "#FFFFFF"
+        case .learning: return "#D0D0D0"
+        case .career: return "#BBBBBB"
+        case .relationships: return "#AAAAAA"
+        case .creativity: return "#999999"
+        case .other: return "#777777"
         }
     }
 

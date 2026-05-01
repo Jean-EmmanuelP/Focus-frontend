@@ -38,34 +38,6 @@ enum AppConfiguration {
         static let focusMapEnabled = true
     }
     
-    // MARK: - API Configuration
-    struct API {
-        static var baseURL: String {
-            switch Environment.current {
-            case .development:
-                return "https://dev-api.firelevel.app/v1"
-            case .staging:
-                return "https://staging-api.firelevel.app/v1"
-            case .production:
-                return "https://api.firelevel.app/v1"
-            }
-        }
-        
-        static let timeout: TimeInterval = 30
-        static let maxRetries = 3
-    }
-    
-    // MARK: - App Info
-    struct Info {
-        static let appName = "Volta"
-        static let version = "1.0.0"
-        static let buildNumber = "1"
-        
-        static var fullVersion: String {
-            "\(version) (\(buildNumber))"
-        }
-    }
-    
     // MARK: - Social Links
     struct Social {
         static let webBaseURL = "https://focus-web-one.vercel.app"
@@ -73,6 +45,14 @@ enum AppConfiguration {
         static let communityURL = "https://firelevel.app/community"
         static let supportEmail = "support@firelevel.app"
         static let twitterHandle = "@firelevel"
+    }
+
+    // MARK: - Legal URLs (required for App Store subscription approval)
+    struct Legal {
+        static let termsURL = "https://focus-web-one.vercel.app/terms"
+        static let privacyURL = "https://focus-web-one.vercel.app/privacy"
+        /// Apple-managed subscription settings deep link
+        static let manageSubscriptionsURL = "https://apps.apple.com/account/subscriptions"
     }
     
     // MARK: - Limits

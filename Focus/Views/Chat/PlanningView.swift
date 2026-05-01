@@ -36,7 +36,7 @@ struct PlanningView: View {
     @State private var createdChallengeId: String?
 
     // Background color matching chat screen avatar background
-    private let bgColor = Color(red: 0.10, green: 0.12, blue: 0.20)
+    private let bgColor = Color(white: 0.10)
 
     // Cached formatters (avoid re-creating on every render)
     private static let isoFormatter: DateFormatter = {
@@ -200,7 +200,7 @@ struct PlanningView: View {
             .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showCreateChallenge) {
-            CreateChallengeView { type, alarmTime, duration, customTitle, mantra in
+            CreateChallengeView { type, alarmTime, duration, customTitle, mantra, _ in
                 createChallenge(type: type, alarmTime: alarmTime, duration: duration, customTitle: customTitle, mantra: mantra)
                 showCreateChallenge = false
             }
@@ -295,7 +295,7 @@ struct PlanningView: View {
                 } else {
                     Image(systemName: "sparkles")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(showSuggestions ? Color(red: 1.0, green: 0.8, blue: 0.2) : .white.opacity(0.8))
+                        .foregroundColor(showSuggestions ? Color(white: 0.6) : .white.opacity(0.8))
                         .frame(width: 36, height: 36)
                         .background(
                             Circle()
@@ -336,9 +336,9 @@ struct PlanningView: View {
 
     private var progressRingColor: Color {
         switch progress {
-        case 0..<0.3: return .orange
-        case 0.3..<0.7: return .yellow
-        default: return .green
+        case 0..<0.3: return Color(white: 0.4)
+        case 0.3..<0.7: return Color(white: 0.6)
+        default: return .white
         }
     }
 
@@ -395,7 +395,7 @@ struct PlanningView: View {
                 if progress >= 1.0 {
                     Image(systemName: "checkmark")
                         .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(.green)
+                        .foregroundColor(.white)
                 } else {
                     Text("\(Int(progress * 100))")
                         .font(.system(size: 17, weight: .bold, design: .rounded))
@@ -466,16 +466,16 @@ struct PlanningView: View {
                                 if cached.allSatisfy({ $0.isCompleted }) {
                                     Image(systemName: "checkmark.circle.fill")
                                         .font(.system(size: 8))
-                                        .foregroundColor(.green)
+                                        .foregroundColor(.white)
                                 } else if isDayToday {
                                     // Pulsing dot for today
                                     Circle()
-                                        .fill(Color.orange)
+                                        .fill(Color.white)
                                         .frame(width: 6, height: 6)
-                                        .shadow(color: .orange.opacity(0.6), radius: 3)
+                                        .shadow(color: .white.opacity(0.6), radius: 3)
                                 } else {
                                     Circle()
-                                        .fill(Color.orange)
+                                        .fill(Color(white: 0.6))
                                         .frame(width: 5, height: 5)
                                 }
                             } else {
@@ -515,10 +515,10 @@ struct PlanningView: View {
                             HStack {
                                 Image(systemName: "sparkles")
                                     .font(.system(size: 11))
-                                    .foregroundColor(Color(red: 1.0, green: 0.8, blue: 0.2))
+                                    .foregroundColor(Color(white: 0.6))
                                 Text("Suggestions IA")
                                     .font(.system(size: 13, weight: .bold))
-                                    .foregroundColor(Color(red: 1.0, green: 0.8, blue: 0.2))
+                                    .foregroundColor(Color(white: 0.6))
                                     .textCase(.uppercase)
                                     .kerning(1)
                                 Spacer()
@@ -559,7 +559,7 @@ struct PlanningView: View {
                                         } label: {
                                             Image(systemName: "plus.circle.fill")
                                                 .font(.system(size: 24))
-                                                .foregroundColor(Color(red: 0.3, green: 0.8, blue: 0.4))
+                                                .foregroundColor(.white)
                                         }
                                         .buttonStyle(.plain)
                                     }
@@ -656,7 +656,7 @@ struct PlanningView: View {
                                 HStack {
                                     Image(systemName: "checkmark.circle.fill")
                                         .font(.system(size: 12))
-                                        .foregroundColor(.green.opacity(0.5))
+                                        .foregroundColor(.white.opacity(0.5))
                                     Text("Terminé")
                                         .font(.system(size: 13, weight: .bold))
                                         .foregroundColor(.white.opacity(0.3))
@@ -737,10 +737,10 @@ struct PlanningView: View {
                 HStack(spacing: 8) {
                     Image(systemName: msg.0)
                         .font(.system(size: 13))
-                        .foregroundColor(progress >= 1.0 ? .green : .white.opacity(0.4))
+                        .foregroundColor(progress >= 1.0 ? .white : .white.opacity(0.4))
                     Text(msg.1)
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(progress >= 1.0 ? .green.opacity(0.8) : .white.opacity(0.35))
+                        .foregroundColor(progress >= 1.0 ? .white.opacity(0.8) : .white.opacity(0.35))
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
@@ -798,7 +798,7 @@ struct PlanningView: View {
                     if task.priority == "high" {
                         Text("!")
                             .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(Color(red: 1.0, green: 0.27, blue: 0.23))
+                            .foregroundColor(.white)
                     }
                 }
             }
@@ -817,12 +817,12 @@ struct PlanningView: View {
                             .font(.system(size: 10, weight: .bold))
                     }
                 }
-                .foregroundColor(task.blockApps == true ? Color(red: 0.3, green: 0.8, blue: 1.0) : .white.opacity(0.35))
+                .foregroundColor(task.blockApps == true ? .white : .white.opacity(0.35))
                 .padding(.horizontal, 8)
                 .padding(.vertical, 5)
                 .background(
                     Capsule()
-                        .fill(task.blockApps == true ? Color(red: 0.3, green: 0.8, blue: 1.0).opacity(0.15) : Color.white.opacity(0.06))
+                        .fill(task.blockApps == true ? Color.white.opacity(0.15) : Color.white.opacity(0.06))
                 )
             }
             .buttonStyle(.plain)
@@ -838,7 +838,7 @@ struct PlanningView: View {
             HStack {
                 Image(systemName: "trophy.fill")
                     .font(.system(size: 12))
-                    .foregroundColor(.yellow)
+                    .foregroundColor(Color(white: 0.6))
                 Text("Challenges")
                     .font(.system(size: 13, weight: .bold))
                     .foregroundColor(.white.opacity(0.5))
@@ -854,10 +854,10 @@ struct PlanningView: View {
                         Text("Nouveau")
                             .font(.system(size: 12, weight: .medium))
                     }
-                    .foregroundColor(.yellow.opacity(0.8))
+                    .foregroundColor(.white.opacity(0.8))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .background(Capsule().fill(Color.yellow.opacity(0.12)))
+                    .background(Capsule().fill(Color.white.opacity(0.12)))
                 }
             }
             .padding(.horizontal, 20)
@@ -870,7 +870,7 @@ struct PlanningView: View {
                     VStack(spacing: 10) {
                         Image(systemName: "trophy.fill")
                             .font(.system(size: 28))
-                            .foregroundColor(.yellow.opacity(0.4))
+                            .foregroundColor(.white.opacity(0.4))
                         Text("Lance un challenge avec un ami")
                             .font(.system(size: 14, weight: .medium))
                             .foregroundColor(.white.opacity(0.5))
@@ -920,7 +920,8 @@ struct PlanningView: View {
                     alarmTime: alarmTime,
                     durationDays: duration,
                     title: customTitle ?? type.title,
-                    mantra: mantra
+                    mantra: mantra,
+                    challengeType: type.rawValue
                 )
                 let created: Challenge = try await APIClient.shared.request(
                     endpoint: .createChallenge,
@@ -1037,9 +1038,9 @@ struct PlanningView: View {
     private func timeBlockIndicator(for block: String) -> some View {
         let (icon, color): (String, Color) = {
             switch block {
-            case "morning": return ("sunrise.fill", .orange)
-            case "afternoon": return ("sun.max.fill", .yellow)
-            case "evening": return ("moon.fill", .indigo)
+            case "morning": return ("sunrise.fill", Color(white: 0.6))
+            case "afternoon": return ("sun.max.fill", Color(white: 0.6))
+            case "evening": return ("moon.fill", Color(white: 0.5))
             default: return ("tray.fill", .gray)
             }
         }()
@@ -1061,7 +1062,7 @@ struct PlanningView: View {
                         .frame(width: 22, height: 22)
                     if ritual.isCompleted {
                         RoundedRectangle(cornerRadius: 6)
-                            .fill(Color(red: 0.31, green: 0.80, blue: 0.77))
+                            .fill(Color(white: 0.67))
                             .frame(width: 22, height: 22)
                         Image(systemName: "checkmark")
                             .font(.system(size: 11, weight: .bold))
@@ -1072,7 +1073,7 @@ struct PlanningView: View {
 
             Image(systemName: ritual.icon.isEmpty ? "star" : ritual.icon)
                 .font(.system(size: 14))
-                .foregroundColor(ritual.isCompleted ? .white.opacity(0.3) : Color(red: 0.31, green: 0.80, blue: 0.77))
+                .foregroundColor(ritual.isCompleted ? .white.opacity(0.3) : Color(white: 0.67))
                 .frame(width: 20)
 
             Text(ritual.title)
@@ -1210,13 +1211,13 @@ struct PlanningView: View {
                         let longTerm = quests.filter { $0.term == "long" }
 
                         if !shortTerm.isEmpty {
-                            objectiveTermGroup(label: "Court terme", icon: "bolt.fill", color: .orange, items: shortTerm)
+                            objectiveTermGroup(label: "Court terme", icon: "bolt.fill", color: Color(white: 0.6), items: shortTerm)
                         }
                         if !mediumTerm.isEmpty {
-                            objectiveTermGroup(label: "Moyen terme", icon: "calendar", color: .blue, items: mediumTerm)
+                            objectiveTermGroup(label: "Moyen terme", icon: "calendar", color: Color(white: 0.7), items: mediumTerm)
                         }
                         if !longTerm.isEmpty {
-                            objectiveTermGroup(label: "Long terme", icon: "star.fill", color: .purple, items: longTerm)
+                            objectiveTermGroup(label: "Long terme", icon: "star.fill", color: Color(white: 0.5), items: longTerm)
                         }
                     }
                 }
@@ -1698,9 +1699,9 @@ struct AddTaskSheet: View {
     let onCreate: (String, String, String?, Int?) async -> Void
 
     private let timeBlocks: [(id: String, label: String, icon: String, color: Color)] = [
-        ("morning", "Matin", "sunrise.fill", .orange),
-        ("afternoon", "Après-midi", "sun.max.fill", .yellow),
-        ("evening", "Soir", "moon.fill", .indigo)
+        ("morning", "Matin", "sunrise.fill", Color(white: 0.6)),
+        ("afternoon", "Après-midi", "sun.max.fill", Color(white: 0.6)),
+        ("evening", "Soir", "moon.fill", Color(white: 0.5))
     ]
 
     var body: some View {
@@ -2185,17 +2186,17 @@ struct AddQuestSheet: View {
     @FocusState private var isFocused: Bool
 
     private let terms = [
-        ("short", "Court terme", "bolt.fill", Color.orange),
-        ("medium", "Moyen terme", "calendar", Color.blue),
-        ("long", "Long terme", "star.fill", Color.purple),
+        ("short", "Court terme", "bolt.fill", Color(white: 0.6)),
+        ("medium", "Moyen terme", "calendar", Color(white: 0.7)),
+        ("long", "Long terme", "star.fill", Color(white: 0.5)),
     ]
 
     private let areas = [
-        ("career", "Carrière", "briefcase.fill", Color.blue),
-        ("health", "Santé", "heart.fill", Color.red),
-        ("relationships", "Relations", "person.2.fill", Color.pink),
-        ("learning", "Apprentissage", "book.fill", Color.green),
-        ("creativity", "Créativité", "paintbrush.fill", Color.purple),
+        ("career", "Carrière", "briefcase.fill", Color(white: 0.7)),
+        ("health", "Santé", "heart.fill", Color(white: 0.6)),
+        ("relationships", "Relations", "person.2.fill", Color(white: 0.65)),
+        ("learning", "Apprentissage", "book.fill", Color(white: 0.7)),
+        ("creativity", "Créativité", "paintbrush.fill", Color(white: 0.5)),
         ("other", "Autre", "star.fill", Color.gray),
     ]
 

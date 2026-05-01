@@ -538,8 +538,10 @@ enum APIConfiguration {
             // Challenges
             case .challenges, .createChallenge:
                 return "/challenges/wakeup"
-            case .getChallenge(let id), .joinChallenge(let id):
+            case .getChallenge(let id):
                 return "/challenges/wakeup/\(id)"
+            case .joinChallenge(let id):
+                return "/challenges/wakeup/\(id)/join"
             case .joinByCode:
                 return "/challenges/wakeup/join-by-code"
             case .challengeCheckIn(let id):
@@ -661,7 +663,10 @@ enum APIConfiguration {
         }
 
         var url: URL {
-            URL(string: APIConfiguration.baseURL + path)!
+            guard let url = URL(string: APIConfiguration.baseURL + path) else {
+                fatalError("Invalid API URL: \(APIConfiguration.baseURL + path)")
+            }
+            return url
         }
     }
 }

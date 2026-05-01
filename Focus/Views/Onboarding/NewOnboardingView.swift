@@ -52,12 +52,12 @@ private struct OnboardingAPIResponse: Decodable {
 // MARK: - Color Constants
 
 private enum OnboardingColors {
-    static let lightBg = Color(red: 0.96, green: 0.97, blue: 0.98)
-    static let darkNavy = Color(red: 0.08, green: 0.08, blue: 0.20)
-    static let blueGradientTop = Color(red: 0.20, green: 0.45, blue: 1.0)
-    static let blueGradientBottom = Color(red: 0.35, green: 0.60, blue: 1.0)
+    static let lightBg = Color.black
+    static let darkNavy = Color.white
+    static let blueGradientTop = Color.white
+    static let blueGradientBottom = Color(hex: "#D0D0D0")
     static let cardWhite = Color.white
-    static let inputBgBlue = Color.white.opacity(0.15)
+    static let inputBgBlue = Color.white.opacity(0.08)
 }
 
 // MARK: - Main View
@@ -107,7 +107,7 @@ struct NewOnboardingView: View {
             AnimatedMeshBackground()
 
         case .personalizeAvatar, .meetCompanion:
-            Color(red: 0.10, green: 0.12, blue: 0.20)
+            Color.black
         }
     }
 
@@ -213,21 +213,21 @@ struct NewOnboardingView: View {
 
                     // Name fields
                     VStack(spacing: 12) {
-                        TextField("", text: $viewModel.firstName, prompt: Text("Prénom").foregroundColor(OnboardingColors.darkNavy.opacity(0.4)))
+                        TextField("", text: $viewModel.firstName, prompt: Text("Prénom").foregroundColor(Color.white.opacity(0.4)))
                             .font(.system(size: 17))
-                            .foregroundColor(OnboardingColors.darkNavy)
+                            .foregroundColor(.white)
                             .padding(.horizontal, 20)
                             .frame(height: 56)
-                            .background(Color.white)
+                            .background(Color.white.opacity(0.08))
                             .cornerRadius(16)
                             .focused($isFirstNameFocused)
 
-                        TextField("", text: $viewModel.lastName, prompt: Text("Nom de famille").foregroundColor(OnboardingColors.darkNavy.opacity(0.4)))
+                        TextField("", text: $viewModel.lastName, prompt: Text("Nom de famille").foregroundColor(Color.white.opacity(0.4)))
                             .font(.system(size: 17))
-                            .foregroundColor(OnboardingColors.darkNavy)
+                            .foregroundColor(.white)
                             .padding(.horizontal, 20)
                             .frame(height: 56)
-                            .background(Color.white)
+                            .background(Color.white.opacity(0.08))
                             .cornerRadius(16)
                             .focused($isLastNameFocused)
                     }
@@ -304,10 +304,10 @@ struct NewOnboardingView: View {
         }) {
             Text(text)
                 .font(.system(size: 15, weight: .medium))
-                .foregroundColor(isSelected ? .white : OnboardingColors.darkNavy)
+                .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .frame(height: 48)
-                .background(isSelected ? OnboardingColors.blueGradientTop : Color.white)
+                .background(isSelected ? Color.white.opacity(0.25) : Color.white.opacity(0.08))
                 .cornerRadius(14)
         }
     }
@@ -321,11 +321,11 @@ struct NewOnboardingView: View {
             HStack(spacing: 16) {
                 Text(symbol)
                     .font(.system(size: 20))
-                    .foregroundColor(isSelected ? .white : OnboardingColors.darkNavy)
+                    .foregroundColor(.white)
 
                 Text(text)
                     .font(.system(size: 17, weight: .medium))
-                    .foregroundColor(isSelected ? .white : OnboardingColors.darkNavy)
+                    .foregroundColor(.white)
 
                 Spacer()
 
@@ -337,7 +337,7 @@ struct NewOnboardingView: View {
             }
             .padding(.horizontal, 20)
             .frame(height: 60)
-            .background(isSelected ? OnboardingColors.blueGradientTop : Color.white)
+            .background(isSelected ? Color.white.opacity(0.25) : Color.white.opacity(0.08))
             .cornerRadius(16)
         }
     }
@@ -573,15 +573,15 @@ struct NewOnboardingView: View {
         }) {
             if isLoading {
                 ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    .progressViewStyle(CircularProgressViewStyle(tint: .black))
             } else {
                 Text("Continuer")
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(.black)
             }
         }
         .frame(width: 200, height: 56)
-        .background(OnboardingColors.blueGradientTop)
+        .background(Color.white)
         .cornerRadius(28)
         .disabled(!enabled || isLoading)
         .opacity(enabled ? 1 : 0.4)
@@ -597,11 +597,11 @@ struct NewOnboardingView: View {
         }) {
             if isLoading {
                 ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: OnboardingColors.darkNavy))
+                    .progressViewStyle(CircularProgressViewStyle(tint: .black))
             } else {
                 Text(text)
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(OnboardingColors.darkNavy)
+                    .foregroundColor(.black)
             }
         }
         .frame(width: 240, height: 56)

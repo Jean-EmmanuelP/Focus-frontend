@@ -57,7 +57,7 @@ struct FocusApp: App {
                         } else if store.isAuthenticated && store.isCheckingOnboarding {
                             // Still checking onboarding status
                             ZStack {
-                                Color(red: 0.10, green: 0.12, blue: 0.20)
+                                Color.black
                                     .ignoresSafeArea()
                                 VStack(spacing: 16) {
                                     Image(systemName: "flame.fill")
@@ -85,6 +85,7 @@ struct FocusApp: App {
             .environmentObject(router)
             .environmentObject(subscriptionManager)
             .preferredColorScheme(.dark)
+            .enableHotReload()
             .animation(.easeInOut(duration: 0.3), value: store.hasCompletedOnboarding)
             .animation(.easeInOut(duration: 0.3), value: store.isAuthenticated)
             .animation(.easeInOut(duration: 0.3), value: store.isCheckingOnboarding)
@@ -134,6 +135,11 @@ struct FocusApp: App {
                 if ProcessInfo.processInfo.arguments.contains("-showSettings") {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
                         router.showSettings = true
+                    }
+                }
+                if ProcessInfo.processInfo.arguments.contains("-showPaywall") {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                        router.showPaywall = true
                     }
                 }
             }
@@ -286,6 +292,23 @@ struct FocusApp: App {
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        // Hot reload with InjectionIII
+        #if DEBUG
+        let paths = [
+            "/Users/jperrama/Applications/InjectionIII.app/Contents/Resources/iOSInjection.bundle",
+            "/Applications/InjectionIII.app/Contents/Resources/iOSInjection.bundle"
+        ]
+        for p in paths {
+            if let bundle = Bundle(path: p) {
+                print("💉 Loading InjectionIII from \(p)")
+                bundle.load()
+                break
+            } else {
+                print("💉 Not found at \(p)")
+            }
+        }
+        #endif
+
         // Configure Firebase
         FirebaseApp.configure()
 
