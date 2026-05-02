@@ -86,11 +86,11 @@ struct StatsProfileView: View {
 
     private var streakFlameColor: Color {
         switch currentStreak {
-        case 0: return .gray
-        case 1...3: return .white.opacity(0.6)
-        case 4...7: return .white.opacity(0.75)
-        case 8...14: return .white.opacity(0.9)
-        default: return .white
+        case 0: return .white.opacity(0.3)
+        case 1...3: return ColorTokens.brand.opacity(0.6)
+        case 4...7: return ColorTokens.brand.opacity(0.75)
+        case 8...14: return ColorTokens.brand.opacity(0.9)
+        default: return ColorTokens.brand
         }
     }
     private var streakGlowRadius: CGFloat {
