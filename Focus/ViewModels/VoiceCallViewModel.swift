@@ -163,11 +163,13 @@ class VoiceCallViewModel: ObservableObject {
     private var hasStarted = false
 
     func startCall(mode: String = "voice_call", planningScope: String? = nil) {
+        NSLog("🎤 [VoiceCallVM] startCall mode=%@ hasStarted=%@ isOnline=%@", mode, hasStarted ? "Y" : "N", isOnline ? "Y" : "N")
         // Prevent double-connect (SwiftUI can fire onAppear multiple times)
         guard !hasStarted else { return }
         hasStarted = true
 
         guard isOnline else {
+            NSLog("🎤 [VoiceCallVM] ❌ offline — bailing")
             callState = .offline
             errorMessage = "Pas de connexion internet. Les messages seront envoyes quand tu seras reconnecte."
             return
@@ -181,9 +183,11 @@ class VoiceCallViewModel: ObservableObject {
 
         Task {
             do {
+                NSLog("🎤 [VoiceCallVM] calling voiceService.connect()...")
                 try await voiceService.connect(mode: mode, planningScope: planningScope)
+                NSLog("🎤 [VoiceCallVM] ✅ voiceService.connect() returned")
             } catch {
-                print("Voice call error: \(error)")
+                NSLog("🎤 [VoiceCallVM] ❌ Voice call error: %@", String(describing: error))
                 errorMessage = "Impossible de se connecter. Reessaie plus tard."
                 callState = .ended
             }

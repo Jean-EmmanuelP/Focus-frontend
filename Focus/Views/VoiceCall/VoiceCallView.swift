@@ -59,7 +59,10 @@ struct VoiceCallView: View {
                 transcriptOverlay
             }
         }
-        .onAppear { viewModel.startCall(mode: mode, planningScope: planningScope) }
+        .onAppear {
+            NSLog("🎤 [VoiceCallView] onAppear — calling startCall mode=%@", mode)
+            viewModel.startCall(mode: mode, planningScope: planningScope)
+        }
         .onDisappear {
             viewModel.endCall()
             Task { await viewModel.voiceService.disconnect() }

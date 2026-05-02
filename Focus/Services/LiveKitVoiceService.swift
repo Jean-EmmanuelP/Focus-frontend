@@ -73,6 +73,7 @@ class LiveKitVoiceService: ObservableObject {
     // MARK: - Connection
 
     func connect(mode: String = "voice_call", planningScope: String? = nil) async throws {
+        NSLog("🎤 [LiveKit] connect() called mode=%@ scope=%@", mode, planningScope ?? "nil")
         connectionState = .connecting
         agentTranscription = ""
         userTranscription = ""
@@ -83,21 +84,37 @@ class LiveKitVoiceService: ObservableObject {
         let companionName = FocusAppStore.shared.user?.companionName
 
         // Get token from backend
-        let response: LiveKitTokenResponse = try await apiClient.request(
-            endpoint: .livekitToken,
-            method: .post,
-            body: LiveKitTokenRequest(mode: mode, lang: lang, voiceId: voiceId, companionName: companionName, planningScope: planningScope)
-        )
+        NSLog("🎤 [LiveKit] requesting token from backend...")
+        let response: LiveKitTokenResponse
+        do {
+            response = try await apiClient.request(
+                endpoint: .livekitToken,
+                method: .post,
+                body: LiveKitTokenRequest(mode: mode, lang: lang, voiceId: voiceId, companionName: companionName, planningScope: planningScope)
+            )
+            NSLog("🎤 [LiveKit] token received, url=%@ token.len=%d", response.url ?? Self.livekitURL, response.token.count)
+        } catch {
+            NSLog("🎤 [LiveKit] ❌ token request failed: %@", String(describing: error))
+            connectionState = .disconnected
+            throw error
+        }
 
         let url = response.url ?? Self.livekitURL
         guard !url.isEmpty else {
+            NSLog("🎤 [LiveKit] ❌ missing URL")
             connectionState = .disconnected
             throw LiveKitVoiceError.missingURL
         }
 
         do {
+            NSLog("🎤 [LiveKit] connecting to room at %@...", url)
             try await room.connect(url: url, token: response.token)
+            NSLog("🎤 [LiveKit] ✅ room connected, sid=%@", room.sid?.stringValue ?? "nil")
+
+            NSLog("🎤 [LiveKit] enabling microphone...")
             try await room.localParticipant.setMicrophone(enabled: true)
+            NSLog("🎤 [LiveKit] ✅ microphone enabled")
+
             try await room.localParticipant.setCamera(enabled: false)
 
             // Register for native transcription streams (LiveKit SDK 2.12+)
@@ -105,8 +122,8 @@ class LiveKitVoiceService: ObservableObject {
             try await room.registerTextStreamHandler(for: "lk.transcription") { [weak self] reader, participantIdentity in
                 guard let self else { return }
                 let isAgent = participantIdentity.stringValue != self.room.localParticipant.identity?.stringValue
+                NSLog("🎤 [LiveKit] transcription stream from %@ (agent=%@)", participantIdentity.stringValue, isAgent ? "Y" : "N")
                 var accumulated = ""
-                // Stream chunks progressively for smooth animation
                 for try await chunk in reader {
                     accumulated += chunk
                     let text = accumulated
@@ -118,8 +135,8 @@ class LiveKitVoiceService: ObservableObject {
                         }
                     }
                 }
-                // Stream complete — save to messages
                 let finalText = accumulated
+                NSLog("🎤 [LiveKit] transcription complete (agent=%@): %@", isAgent ? "Y" : "N", finalText.prefix(80) as CVarArg)
                 if !finalText.isEmpty {
                     Task { @MainActor in
                         self.messages.append(VoiceMessage(
@@ -129,10 +146,13 @@ class LiveKitVoiceService: ObservableObject {
                     }
                 }
             }
+            NSLog("🎤 [LiveKit] ✅ transcription handler registered")
 
             connectionState = .connected
             isMicEnabled = true
+            NSLog("🎤 [LiveKit] ✅ fully connected, ready to talk")
         } catch {
+            NSLog("🎤 [LiveKit] ❌ connect failed: %@", String(describing: error))
             connectionState = .disconnected
             throw error
         }
@@ -164,18 +184,24 @@ extension LiveKitVoiceService: RoomDelegate {
     /// Receive data messages from LiveKit agent (transcriptions, coach actions)
     nonisolated func room(_ room: Room, participant: RemoteParticipant?, didReceiveData data: Data, forTopic topic: String, encryptionType: EncryptionType) {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let type = json["type"] as? String else { return }
+              let type = json["type"] as? String else {
+            NSLog("🎤 [LiveKit] ❓ data received topic=%@ but no JSON type", topic)
+            return
+        }
+        NSLog("🎤 [LiveKit] data type=%@", type)
 
         Task { @MainActor in
             switch type {
             case "agent_transcription":
                 if let text = json["text"] as? String {
+                    NSLog("🎤 [LiveKit] agent says: %@", text.prefix(80) as CVarArg)
                     agentTranscription = text
                     messages.append(VoiceMessage(role: .agent, text: text))
                 }
 
             case "user_transcription":
                 if let text = json["text"] as? String {
+                    NSLog("🎤 [LiveKit] user says: %@", text.prefix(80) as CVarArg)
                     userTranscription = text
                     messages.append(VoiceMessage(role: .user, text: text))
                 }
@@ -200,6 +226,8 @@ extension LiveKitVoiceService: RoomDelegate {
 
     /// Track speaking state from audio levels
     nonisolated func room(_ room: Room, participant: Participant, trackPublication: TrackPublication, didUpdateIsSpeaking isSpeaking: Bool) {
+        let isLocal = participant is LocalParticipant
+        NSLog("🎤 [LiveKit] %@ speaking=%@", isLocal ? "USER" : "AGENT", isSpeaking ? "Y" : "N")
         Task { @MainActor in
             if participant is RemoteParticipant {
                 isAgentSpeaking = isSpeaking
@@ -212,13 +240,20 @@ extension LiveKitVoiceService: RoomDelegate {
 
     /// Agent left the room
     nonisolated func room(_ room: Room, participantDidDisconnect participant: RemoteParticipant) {
+        NSLog("🎤 [LiveKit] ❌ agent disconnected from room")
         Task { @MainActor in
             isAgentSpeaking = false
         }
     }
 
+    /// Agent joined the room
+    nonisolated func room(_ room: Room, participantDidConnect participant: RemoteParticipant) {
+        NSLog("🎤 [LiveKit] ✅ remote participant joined: %@", participant.identity?.stringValue ?? "?")
+    }
+
     /// Reconnection handling
     nonisolated func room(_ room: Room, didUpdateConnectionState connectionState: ConnectionState, from oldConnectionState: ConnectionState) {
+        NSLog("🎤 [LiveKit] connection state %@ -> %@", String(describing: oldConnectionState), String(describing: connectionState))
         Task { @MainActor in
             switch connectionState {
             case .connected:

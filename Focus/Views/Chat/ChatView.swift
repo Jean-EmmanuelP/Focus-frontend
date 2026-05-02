@@ -865,6 +865,15 @@ struct ChatView: View {
 
                 // Phone call button
                 Button(action: {
+                    NSLog("🎤 [phone-button] tapped — DEBUG=%@ isPro=%@",
+                          {
+                              #if DEBUG
+                              "Y"
+                              #else
+                              "N"
+                              #endif
+                          }(),
+                          subscriptionManager.isProUser ? "Y" : "N")
                     #if DEBUG
                     showVoiceCall = true
                     #else
@@ -874,6 +883,7 @@ struct ChatView: View {
                         showPaywall = true
                     }
                     #endif
+                    NSLog("🎤 [phone-button] showVoiceCall=%@", showVoiceCall ? "Y" : "N")
                 }) {
                     Image(systemName: "phone.fill")
                         .font(.system(size: 16, weight: .medium))

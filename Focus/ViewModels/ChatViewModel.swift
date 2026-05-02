@@ -1178,15 +1178,25 @@ class ChatViewModel: ObservableObject {
 
             case .blockApps(let duration):
                 let blocker = ScreenTimeAppBlockerService.shared
+                NSLog("🔒 [block_apps] side effect received, duration=%@, currently blocking=%@, authorized=%@, hasSelected=%@",
+                      duration.map(String.init) ?? "nil",
+                      blocker.isBlocking ? "Y" : "N",
+                      blocker.authorizationStatus == .approved ? "Y" : "N",
+                      blocker.hasSelectedApps ? "Y" : "N")
                 let result = blocker.startBlocking(durationMinutes: duration)
+                NSLog("🔒 [block_apps] startBlocking() returned: %@", String(describing: result))
                 switch result {
                 case .started, .alreadyBlocking:
+                    NSLog("🔒 [block_apps] ✅ blocking active")
                     break // blocking active, AI message confirms it
                 case .notAuthorized:
+                    NSLog("🔒 [block_apps] ⚠️ not authorized — replacing AI's claim with truthful prompt")
+                    rewriteLastAssistantMessageAsBlockingFailure()
                     let granted = await blocker.requestAuthorization()
                     if granted {
                         if blocker.hasSelectedApps {
-                            blocker.startBlocking(durationMinutes: duration)
+                            let retry = blocker.startBlocking(durationMinutes: duration)
+                            NSLog("🔒 [block_apps] retry after auth granted: %@", String(describing: retry))
                         } else {
                             appendAppBlockerPrompt("J'ai bien l'autorisation ! Maintenant, choisis les apps que tu veux bloquer.")
                         }
@@ -1194,6 +1204,8 @@ class ChatViewModel: ObservableObject {
                         appendAppBlockerPrompt("J'ai besoin de l'autorisation Screen Time pour bloquer tes apps. Clique ci-dessous pour configurer.")
                     }
                 case .noAppsSelected:
+                    NSLog("🔒 [block_apps] ⚠️ no apps selected — replacing AI's claim with truthful prompt")
+                    rewriteLastAssistantMessageAsBlockingFailure()
                     appendAppBlockerPrompt("Tu n'as pas encore choisi d'apps à bloquer. Sélectionne-les ici :")
                 }
 
@@ -1359,6 +1371,27 @@ class ChatViewModel: ObservableObject {
             deepLink: "openAppBlockerSettings"
         ))
         messages.append(msg)
+        saveMessages()
+    }
+
+    /// When the AI claimed apps were blocked but the side-effect failed (no auth or no apps),
+    /// rewrite the last assistant message in place with the truth so the user isn't lied to.
+    private func rewriteLastAssistantMessageAsBlockingFailure() {
+        guard let idx = messages.lastIndex(where: { !$0.isFromUser }) else { return }
+        let original = messages[idx]
+        let rewrittenText = "Je n'ai pas pu bloquer tes apps — il manque l'autorisation Screen Time ou la sélection. Configure ça avec le bouton ci-dessous."
+        let updated = SimpleChatMessage(
+            id: original.id,
+            content: rewrittenText,
+            isFromUser: false,
+            timestamp: original.timestamp,
+            type: original.type,
+            voiceDuration: original.voiceDuration,
+            voiceURL: nil,
+            storagePath: original.voiceStoragePath,
+            status: original.status
+        )
+        messages[idx] = updated
         saveMessages()
     }
 
