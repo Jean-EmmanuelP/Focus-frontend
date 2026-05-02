@@ -143,12 +143,14 @@ struct ChallengeHubView: View {
                         .font(.satoshi(14, weight: .medium))
                         .foregroundColor(done == total && total > 0 ? ColorTokens.success : ColorTokens.textSecondary)
                 }
-                // Show mantra if any challenge has one
-                if let mantra = activeChallenges.compactMap({ $0.mantra }).first(where: { !$0.isEmpty }) {
-                    Text("\"\(mantra)\"")
-                        .font(.satoshi(13, weight: .medium))
-                        .italic()
-                        .foregroundColor(ColorTokens.primaryStart.opacity(0.7))
+                // Show mantra if any challenge has one — matches the validation view's
+                // typographic quotes + per-type primary color so the same commitment phrase
+                // is visually anchored to its challenge across the app.
+                if let challengeWithMantra = activeChallenges.first(where: { !($0.mantra ?? "").isEmpty }),
+                   let mantra = challengeWithMantra.mantra {
+                    Text("« \(mantra) »")
+                        .font(.satoshi(13, weight: .medium).italic())
+                        .foregroundColor(challengeWithMantra.type.primaryColor.opacity(0.85))
                         .padding(.top, 2)
                 }
             }
