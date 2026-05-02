@@ -7,7 +7,7 @@ struct SplashView: View {
     let onComplete: () -> Void
 
     private let bgColor = Color.black
-    private let accentBlue = Color.white
+    private let glow = ColorTokens.brand
 
     var body: some View {
         ZStack {
@@ -20,9 +20,9 @@ struct SplashView: View {
                         .fill(
                             RadialGradient(
                                 colors: [
-                                    accentBlue.opacity(0.3),
-                                    accentBlue.opacity(0.1),
-                                    accentBlue.opacity(0.0)
+                                    glow.opacity(0.45),
+                                    glow.opacity(0.15),
+                                    glow.opacity(0.0)
                                 ],
                                 center: .center,
                                 startRadius: 15,
@@ -35,9 +35,9 @@ struct SplashView: View {
                         .fill(
                             RadialGradient(
                                 colors: [
-                                    Color.white.opacity(0.9),
-                                    accentBlue.opacity(0.6),
-                                    accentBlue.opacity(0.2)
+                                    Color.white.opacity(0.95),
+                                    glow.opacity(0.7),
+                                    glow.opacity(0.25)
                                 ],
                                 center: .center,
                                 startRadius: 5,
@@ -45,7 +45,7 @@ struct SplashView: View {
                             )
                         )
                         .frame(width: breathe ? 44 : 36, height: breathe ? 44 : 36)
-                        .shadow(color: accentBlue.opacity(0.5), radius: breathe ? 20 : 12)
+                        .shadow(color: glow.opacity(0.55), radius: breathe ? 20 : 12)
 
                     Image(systemName: "flame.fill")
                         .font(.system(size: breathe ? 16 : 14, weight: .medium))
