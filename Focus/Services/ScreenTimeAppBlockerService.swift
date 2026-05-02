@@ -212,22 +212,35 @@ final class ScreenTimeAppBlockerService: ObservableObject {
         blockingRemainingMinutes = max(0, remaining)
     }
 
-    /// Stop blocking all apps
+    /// Stop blocking all apps — clears EVERY known ManagedSettingsStore so shields
+    /// applied by background extensions (morning auto-block, DeviceActivityMonitor)
+    /// don't keep apps blocked after the user explicitly asked to unblock.
     func stopBlocking() {
         // Cancel timer
         blockingTimer?.invalidate()
         blockingTimer = nil
 
-        // Remove all shields
+        // Remove default store shields (this is what startBlocking applies)
         managedSettingsStore.shield.applications = nil
         managedSettingsStore.shield.applicationCategories = nil
         managedSettingsStore.shield.webDomains = nil
+
+        // Also clear the morning auto-block named store. The DeviceActivityMonitor
+        // extension applies shields here when the morning window opens; if we don't
+        // clear it, the user remains blocked after asking to unblock.
+        let morningStore = ManagedSettingsStore(named: .init("morningAutoBlock"))
+        morningStore.shield.applications = nil
+        morningStore.shield.applicationCategories = nil
+        morningStore.shield.webDomains = nil
+        // Defensive: clear ALL settings on the morning store in case other categories
+        // (apps, web, media, etc.) were configured.
+        morningStore.clearAllSettings()
 
         isBlocking = false
         blockingStartDate = nil
         blockingEndDate = nil
         blockingRemainingMinutes = 0
-        print("🔓 App blocking stopped")
+        print("🔓 App blocking stopped — cleared default store + morningAutoBlock store")
     }
 
     // MARK: - Persistence

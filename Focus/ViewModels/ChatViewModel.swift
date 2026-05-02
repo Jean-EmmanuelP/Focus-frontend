@@ -1211,9 +1211,12 @@ class ChatViewModel: ObservableObject {
 
             case .unblockApps:
                 let blocker = ScreenTimeAppBlockerService.shared
-                if blocker.isBlocking {
-                    blocker.stopBlocking()
-                }
+                NSLog("🔒 [unblock_apps] side effect — calling stopBlocking() unconditionally (isBlocking flag was %@)", blocker.isBlocking ? "Y" : "N")
+                // ALWAYS call stopBlocking, even if isBlocking == false. The morning
+                // auto-block extension can shield apps via a named store without
+                // setting isBlocking on the main app — guarding here would leave the
+                // user permanently blocked.
+                blocker.stopBlocking()
 
             case .showForceUnblockCard:
                 appendForceUnblockCard()
