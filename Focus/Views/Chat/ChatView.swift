@@ -543,17 +543,17 @@ struct ChatView: View {
                 Spacer()
             case .urgent:
                 Image(systemName: "exclamationmark.circle.fill").font(.system(size: 18, weight: .semibold)).foregroundColor(ColorTokens.warning)
-                Text("\(challenge.displayTitle) — \(challenge.minutesRemainingInWindow ?? 0) min").font(.satoshi(14, weight: .bold)).foregroundColor(.white)
+                Text("\(challenge.displayTitle) · J\(max(challenge.dayNumber, 1))/\(totalDays) — \(challenge.minutesRemainingInWindow ?? 0) min").font(.satoshi(14, weight: .bold)).foregroundColor(.white).lineLimit(1)
                 Spacer()
                 Text("Valider").font(.satoshi(12, weight: .bold)).foregroundColor(ColorTokens.warning)
             case .open:
                 Image(systemName: "camera.fill").font(.system(size: 16, weight: .semibold)).foregroundColor(primary)
-                Text("\(challenge.displayTitle) — Valider").font(.satoshi(14, weight: .bold)).foregroundColor(.white)
+                Text("\(challenge.displayTitle) · J\(max(challenge.dayNumber, 1))/\(totalDays) — Valider").font(.satoshi(14, weight: .bold)).foregroundColor(.white).lineLimit(1)
                 Spacer()
                 Text("Maintenant").font(.satoshi(12, weight: .bold)).foregroundColor(primary)
             case .closed:
                 Image(systemName: "moon.zzz.fill").font(.system(size: 16, weight: .semibold)).foregroundColor(.white.opacity(0.5))
-                Text("\(challenge.displayTitle) · \(challenge.nextWindowText ?? "fenêtre fermée")").font(.satoshi(13, weight: .medium)).foregroundColor(.white.opacity(0.7)).lineLimit(1)
+                Text("\(challenge.displayTitle) · J\(max(challenge.dayNumber, 1))/\(totalDays) · \(challenge.nextWindowText ?? "fenêtre fermée")").font(.satoshi(13, weight: .medium)).foregroundColor(.white.opacity(0.7)).lineLimit(1)
                 Spacer()
                 Text("Voir").font(.satoshi(12, weight: .bold)).foregroundColor(.white.opacity(0.5))
             }
