@@ -102,6 +102,15 @@ struct ChallengeSuccessView: View {
                             .font(.satoshi(15, weight: .medium))
                             .foregroundColor(.white.opacity(0.5))
 
+                        if let mantra = challenge.mantra, !mantra.isEmpty {
+                            Text("« \(mantra) »")
+                                .font(.satoshi(13, weight: .medium).italic())
+                                .foregroundColor(challenge.type.primaryColor.opacity(0.85))
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 32)
+                                .padding(.top, 2)
+                        }
+
                         // Streak info
                         let streak = challenge.myStreak(myId: FocusAppStore.shared.user?.id ?? "")
                         if streak > 1 {
