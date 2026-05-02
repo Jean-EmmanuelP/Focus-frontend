@@ -377,7 +377,7 @@ struct ChatView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "flame.fill")
                         .font(.system(size: 14))
-                        .foregroundColor(.white)
+                        .foregroundColor(store.currentStreak > 0 ? ColorTokens.brand : .white.opacity(0.4))
                     Text(companionName)
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(.white)
@@ -385,7 +385,7 @@ struct ChatView: View {
                         .foregroundColor(.white.opacity(0.3))
                     Text("\(store.currentStreak)j")
                         .font(.system(size: 13, weight: .bold, design: .rounded))
-                        .foregroundColor(.white.opacity(0.8))
+                        .foregroundColor(store.currentStreak > 0 ? .white : .white.opacity(0.5))
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
@@ -647,7 +647,7 @@ struct ChatView: View {
                     HStack(spacing: 6) {
                         Image(systemName: "flame.fill")
                             .font(.system(size: 12))
-                            .foregroundColor(.white)
+                            .foregroundColor(store.currentStreak > 0 ? ColorTokens.brand : .white.opacity(0.4))
                         Text(companionName)
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.white)
@@ -655,7 +655,7 @@ struct ChatView: View {
                             .foregroundColor(.white.opacity(0.3))
                         Text("\(store.currentStreak)j")
                             .font(.system(size: 13, weight: .bold, design: .rounded))
-                            .foregroundColor(.white.opacity(0.7))
+                            .foregroundColor(store.currentStreak > 0 ? .white : .white.opacity(0.5))
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 7)
@@ -1225,7 +1225,7 @@ struct ScoreDetailSheet: View {
             HStack(spacing: 10) {
                 Image(systemName: "flame.fill")
                     .font(.system(size: 16))
-                    .foregroundColor(.white)
+                    .foregroundColor(streak > 0 ? ColorTokens.brand : .white.opacity(0.4))
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Streak")
