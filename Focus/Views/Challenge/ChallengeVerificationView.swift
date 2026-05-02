@@ -76,6 +76,8 @@ struct ChallengeVerificationView: View {
                     Text("Jour \(challenge.dayNumber) — \(challenge.type.verificationMessage)")
                         .font(.satoshi(16, weight: .medium))
                         .foregroundColor(.white.opacity(0.7))
+
+                    mantraBanner
                 }
                 .padding(.top, 70)
 
@@ -152,6 +154,8 @@ struct ChallengeVerificationView: View {
                     Text("Le calme est une force")
                         .font(.satoshi(16, weight: .medium))
                         .foregroundColor(Color.white.opacity(0.7))
+
+                    mantraBanner
                 }
                 .padding(.top, 80)
 
@@ -237,7 +241,10 @@ struct ChallengeVerificationView: View {
                 Text(challenge.type.verificationMessage)
                     .font(.satoshi(17, weight: .medium))
                     .foregroundColor(.white.opacity(0.6))
-                    .padding(.bottom, 32)
+                    .padding(.bottom, 16)
+
+                mantraBanner
+                    .padding(.bottom, 16)
 
                 gestureCard
 
@@ -265,6 +272,19 @@ struct ChallengeVerificationView: View {
                     .padding(.top, 16)
                     .padding(.bottom, 34)
             }
+        }
+    }
+
+    // MARK: - Shared: Mantra Banner
+
+    @ViewBuilder
+    private var mantraBanner: some View {
+        if let mantra = challenge.mantra, !mantra.isEmpty {
+            Text("« \(mantra) »")
+                .font(.satoshi(14, weight: .medium).italic())
+                .foregroundColor(challenge.type.primaryColor.opacity(0.85))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
         }
     }
 
@@ -314,6 +334,9 @@ struct ChallengeVerificationView: View {
                         .font(.satoshi(14, weight: .regular))
                         .foregroundColor(.white.opacity(0.4))
                         .padding(.top, 4)
+
+                    mantraBanner
+                        .padding(.top, 8)
                 }
 
                 Spacer()
